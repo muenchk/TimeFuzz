@@ -1,44 +1,14 @@
 set(ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
 include_directories("${ROOT_DIR}/include")
-
+set(TEST_SOURCE_DIR "${ROOT_DIR}/tests")
 set(SOURCE_DIR "${ROOT_DIR}/src")
 include(${ROOT_DIR}/cmake/sourcelist.cmake)
-
-source_group(TREE "${ROOT_DIR}" FILES ${SOURCE_FILES})
-
-set(VERSION_HEADER "${CMAKE_CURRENT_BINARY_DIR}/src/Plugin.h")
-configure_file(
-	"${ROOT_DIR}/cmake/Plugin.h.in"
-	"${VERSION_HEADER}"
-	@ONLY
-)
-
-source_group("src" FILES "${VERSION_HEADER}")
 
 configure_file(
 	"${ROOT_DIR}/cmake/version.rc.in"
 	"${CMAKE_CURRENT_BINARY_DIR}/version.rc"
 	@ONLY
-)
-
-#add_library(
-#	"${PROJECT_NAME}"
-#	SHARED
-#	${SOURCE_FILES}
-#	"${VERSION_HEADER}"
-#	"${CMAKE_CURRENT_BINARY_DIR}/version.rc"
-#	"${ROOT_DIR}/.clang-format"
-#	"${ROOT_DIR}/.editorconfig")
-
-add_executable(
-	"${PROJECT_NAME}"
-	"${SOURCE_DIR}/main.cpp" 
-	${SOURCE_FILES}
-	"${VERSION_HEADER}"
-	"${CMAKE_CURRENT_BINARY_DIR}/version.rc"
-	"${ROOT_DIR}/.clang-format"
-	"${ROOT_DIR}/.editorconfig"
 )
 
 target_compile_features(
@@ -109,17 +79,15 @@ target_include_directories(
 		${RAPIDCSV_INCLUDE_DIRS}
 )
 
-install(
-	FILES
-		"$<TARGET_FILE:${PROJECT_NAME}>"
-	DESTINATION "SKSE/Plugins"
-	COMPONENT "main"
+
+add_executable(
+	"TaskController_Test"
+	"${TEST_SOURCE_DIR}/TaskController_Test.cpp"
+	${SOURCE_FILES}
+	"${VERSION_HEADER}"
+	"${CMAKE_CURRENT_BINARY_DIR}/version.rc"
+	"${ROOT_DIR}/.clang-format"
+	"${ROOT_DIR}/.editorconfig"
 )
 
-install(
-	FILES
-		"$<TARGET_PDB_FILE:${PROJECT_NAME}>"
-	DESTINATION "/"
-	COMPONENT "pdbs"
-)
-
+add_test(NAME TaskController COMMAND $<TARGET_FILE:TaskController_Test>)

@@ -10,6 +10,7 @@ startenvlaptop.bat
 out/
 cloc_langdef.txt
 countlines.bat
+Testing
 
 # Prerequisites
 *.d
