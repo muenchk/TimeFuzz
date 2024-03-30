@@ -100,6 +100,9 @@ target_include_directories(
 	PRIVATE
 		"${CMAKE_CURRENT_BINARY_DIR}/src"
 		"${SOURCE_DIR}"
+		${fmt_INCLUDE_DIRS}
+		${spdlog_INCLUDE_DIRS}
+		${RAPIDCSV_INCLUDE_DIRS}
 )
 
 install(

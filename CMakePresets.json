@@ -10,7 +10,21 @@
           "name": "base",
           "hidden": true,
           "cacheVariables": {
-              "CMAKE_CXX_FLAGS": "$env{COMMONLIBSSE_COMPILER} $env{COMMONLIBSSE_PLATFORM} $env{COMMONLIBSSE_TEXT}"
+            "CMAKE_CXX_FLAGS": "$env{PROJECT_PLATFORM_FLAGS} $env{PROJECT_TEXT_FLAGS} $env{PROJECT_COMPILER_FLAGS} $penv{CXX_FLAGS}"
+          },
+          "errors": {
+            "deprecated": true
+          },
+          "warnings": {
+            "deprecated": true,
+            "dev": true
+          },
+          "vendor": {
+            "microsoft.com/VisualStudioSettings/CMake/1.0": {
+              "intelliSenseMode": "$env{PROJECT_PLATFORM}-$env{PROJECT_COMPILER}-$env{PROJECT_ARCHITECTURE}",
+              "enableMicrosoftCodeAnalysis": true,
+              "enableClangTidyCodeAnalysis": true
+            }
           }
       },
       {
@@ -28,7 +42,8 @@
           "name": "win32",
           "hidden": true,
           "environment": {
-              "COMMONLIBSSE_PLATFORM": "-DWIN32_LEAN_AND_MEAN -DNOMINMAX"
+              "PROJECT_PLATFORM_FLAGS": "-DWIN32_LEAN_AND_MEAN -DNOMINMAX",
+              "PROJECT_PLATFORM": "windows"
           }
       },
       {
@@ -36,7 +51,7 @@
           "hidden": true,
           "inherits": "win32",
           "environment": {
-              "COMMONLIBSSE_TEXT": "-DUNICODE -D_UNICODE"
+              "PROJECT_TEXT_FLAGS": "-DUNICODE -D_UNICODE"
           }
       },
       {
@@ -48,35 +63,45 @@
           }
       },
       {
+        "name": "generator-ninja",
+        "hidden": true,
+        "generator": "Ninja",
+        "cacheVariables": {
+          "CMAKE_MAKE_PROGRAM": "$env{NinjaPath}"
+        }
+      },
+      {
+        "name": "clang",
+        "hidden": true,
+        "cacheVariables": {
+          "CMAKE_C_COMPILER": "clang",
+          "CMAKE_CXX_COMPILER": "clang++"
+        },
+        "environment": {
+          "PROJECT_COMPILER": "clang",
+          "PROJECT_COMPILER_FLAGS": "-Wno-overloaded-virtual -Wno-delete-non-abstract-non-virtual-dtor -Wno-inconsistent-missing-override -Wno-reinterpret-base-class -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format"
+        }
+      },
+      {
           "name": "msvc",
           "hidden": true,
           "environment": {
-              "COMMONLIBSSE_COMPILER": "/permissive- /Zc:preprocessor /EHsc $penv{CXXFLAGS}"
-          },
-          "vendor": {
-              "microsoft.com/VisualStudioSettings/CMake/1.0": {
-                  "intelliSenseMode": "windows-msvc-x64",
-                  "enableMicrosoftCodeAnalysis": true,
-                  "enableClangTidyCodeAnalysis": true
-              }
+            "PROJECT_COMPILER_FLAGS": "/permissive- /Zc:preprocessor /EHsc /MP /W4 /WX /external:anglebrackets /external:W0 /bigobj $penv{CXXFLAGS}",
+            "PROJECT_COMPILER": "msvc"
           }
       },
       {
           "name": "clang-cl",
           "hidden": true,
+          "inherits": "clang",
           "cacheVariables": {
               "CMAKE_C_COMPILER": "clang-cl",
               "CMAKE_CXX_COMPILER": "clang-cl"
           },
           "environment": {
-              "COMMONLIBSSE_COMPILER": "/permissive- /EHsc -Wno-overloaded-virtual -Wno-delete-non-abstract-non-virtual-dtor -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format $penv{CXXFLAGS}"
-          },
-          "vendor": {
-              "microsoft.com/VisualStudioSettings/CMake/1.0": {
-                  "intelliSenseMode": "windows-clang-x64",
-                  "enableMicrosoftCodeAnalysis": true,
-                  "enableClangTidyCodeAnalysis": true
-              }
+            "CC": "clang-cl",
+            "CXX": "clang-cl",
+            "PROJECT_COMPILER_FLAGS": "/permissive- /EHsc -Wno-overloaded-virtual -Wno-delete-non-abstract-non-virtual-dtor -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format $penv{CXXFLAGS}"
           }
       },
       {
@@ -98,7 +123,8 @@
               "vcpkg",
               "win32-unicode",
               "x64",
-              "msvc"
+              "clang-cl",
+              "generator-ninja"
           ],
           "displayName": "Release",
           "description": "Optimized release build.",
