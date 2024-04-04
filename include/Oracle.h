@@ -1,7 +1,11 @@
 #pragma once
 
+#include <filesystem>
+#include <Input.h>
+
 class Oracle
 {
+public:
 	enum OracleResult
 	{
 		/// <summary>
@@ -21,4 +25,21 @@ class Oracle
 		/// </summary>
 		Prefix = 0b1000000,
 	};
+
+	enum class OracleType
+	{
+		/// <summary>
+		/// executes a python script that execute the PUT and collects information about the result and the last executed element of the input sequence
+		/// </summary>
+		PythonScript,
+		CommandlineProgramResponsive,
+		CommandlineProgramDump,
+	};
+
+	Oracle(OracleType type, std::filesystem::path oraclepath);
+	bool Validate();
+
+	OracleResult Run(std::shared_ptr<Input> input);
 };
+
+using OracleResult = std::tuple<uint64_t, std::shared_ptr<Input>>;
