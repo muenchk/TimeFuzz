@@ -82,22 +82,22 @@ public:
 
 #define loginfo(...)                          \
 	if (Logging::EnableLog) {                 \
-		static_cast<void>(warn(__VA_ARGS__)); \
+		static_cast<void>(warn(__func__, __VA_ARGS__)); \
 	}
 
 #define logwarn(...)                          \
 	if (Logging::EnableLog) {                 \
-		static_cast<void>(warn(__VA_ARGS__)); \
+		static_cast<void>(warn(__func__, __VA_ARGS__)); \
 	}
 
 #define logcritical(...)                      \
 	if (Logging::EnableLog) {                 \
-		static_cast<void>(crit(__VA_ARGS__)); \
+		static_cast<void>(crit(__func__, __VA_ARGS__)); \
 	}
 
 #define profile(...)                          \
 	if (Logging::EnableProfile) {             \
-		static_cast<void>(prof(__VA_ARGS__)); \
+		static_cast<void>(prof(__func__, __VA_ARGS__)); \
 	}
 
 
@@ -159,19 +159,20 @@ struct [[maybe_unused]] prof
 {
 	prof() = delete;
 
-	explicit prof(std::chrono::time_point<std::chrono::steady_clock> begin,
+	explicit prof(
+		std::string func,
+		std::chrono::time_point<std::chrono::steady_clock> begin,
 		fmt::format_string<Args...> a_fmt,
 		Args&&... a_args,
 		std::source_location a_loc = std::source_location::current())
 	{
-		std::string mes = fmt::format("{}{:<30}{:<40}{:<10}Time:{:<10}{}", Logging::TimePassed(), std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + ")", "[" + std::string(a_loc.function_name()) + "]", "[profiling]", Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count()), fmt::format(a_fmt, std::forward<Args>(a_args)...));
-		//std::string mes = std::string(std::filesystem::path(a_loc.file_name()).filename().string()) + "(" + std::to_string(static_cast<int>(a_loc.line())) + "): [profiling] " + fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n";
+		std::string mes = fmt::format("{:<25} {} {} {:<30} [ExecTime:{:>11}]\t{}", std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + "):", "[prof]", Logging::TimePassed(), "[" + func + "]", Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count()), fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n");
 		Profile::write(mes);
 	}
 };
 
 template <class... Args>
-prof(std::chrono::time_point<std::chrono::steady_clock>,fmt::format_string<Args...>, Args&&...) -> prof<Args...>;
+prof(std::string, std::chrono::time_point<std::chrono::steady_clock>,fmt::format_string<Args...>, Args&&...) -> prof<Args...>;
 
 
 class Log
@@ -232,19 +233,18 @@ struct [[maybe_unused]] loginf
 	loginf() = delete;
 
 	explicit loginf(
+		std::string func,
 		fmt::format_string<Args...> a_fmt,
 		Args&&... a_args,
 		std::source_location a_loc = std::source_location::current())
 	{
-		std::string mes = fmt::format("{}{:<30}{:<40}{:<10}{}", Logging::TimePassed(), std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + ")", "[" + std::string(a_loc.function_name()) + "]", "[info]", fmt::format(a_fmt, std::forward<Args>(a_args)...));
-
-		//std::string mes = std::string(std::filesystem::path(a_loc.file_name()).filename().string()) + "(" + std::to_string(static_cast<int>(a_loc.line())) + "): [info] " + fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n";
+		std::string mes = fmt::format("{:<25} {} {} {:<30}\t{}", std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + "):", "[info]    ", Logging::TimePassed(), "[" + func + "]", fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n");
 		Log::write(mes);
 	}
 };
 
 template <class... Args>
-loginf(fmt::format_string<Args...>, Args&&...) -> loginf<Args...>;
+loginf(std::string, fmt::format_string<Args...>, Args&&...) -> loginf<Args...>;
 
 template <class... Args>
 struct [[maybe_unused]] warn
@@ -252,18 +252,18 @@ struct [[maybe_unused]] warn
 	warn() = delete;
 
 	explicit warn(
+		std::string func,
 		fmt::format_string<Args...> a_fmt,
 		Args&&... a_args,
 		std::source_location a_loc = std::source_location::current())
 	{
-		std::string mes = fmt::format("{}{:<30}{:<40}{:<10}{}", Logging::TimePassed(), std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + ")", "[" + std::string(a_loc.function_name()) + "]", "[warning]", fmt::format(a_fmt, std::forward<Args>(a_args)...));
-		//std::string mes = std::string(std::filesystem::path(a_loc.file_name()).filename().string()) + "(" + std::to_string(static_cast<int>(a_loc.line())) + "): [warning] " + fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n";
+		std::string mes = fmt::format("{:<25} {} {} {:<30}\t{}", std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + "):", "[warning] ", Logging::TimePassed(), "[" + func + "]", fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n");
 		Log::write(mes);
 	}
 };
 
 template <class... Args>
-warn(fmt::format_string<Args...>, Args&&...) -> warn<Args...>;
+warn(std::string, fmt::format_string<Args...>, Args&&...) -> warn<Args...>;
 
 template <class... Args>
 struct [[maybe_unused]] crit
@@ -271,15 +271,15 @@ struct [[maybe_unused]] crit
 	crit() = delete;
 
 	explicit crit(
+		std::string func,
 		fmt::format_string<Args...> a_fmt,
 		Args&&... a_args,
 		std::source_location a_loc = std::source_location::current())
 	{
-		std::string mes = fmt::format("{}{:<30}{:<40}{:<10}{}", Logging::TimePassed(), std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + ")", "[" + std::string(a_loc.function_name()) + "]", "[critical]", fmt::format(a_fmt, std::forward<Args>(a_args)...));
-		//std::string mes = std::string(std::filesystem::path(a_loc.file_name()).filename().string()) + "(" + std::to_string(static_cast<int>(a_loc.line())) + "): [critical] " + fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n";
+		std::string mes = fmt::format("{:<25} {} {} {:<30}\t{}", std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + "):", "[critical]", Logging::TimePassed(), "[" + func + "]", fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n");
 		Log::write(mes);
 	}
 };
 
 template <class... Args>
-crit(fmt::format_string<Args...>, Args&&...) -> crit<Args...>;
+crit(std::string, fmt::format_string<Args...>, Args&&...) -> crit<Args...>;
