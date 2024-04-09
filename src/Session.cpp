@@ -14,14 +14,19 @@ Session* Session::GetSingleton()
 
 void Session::StartSession(Settings* settings)
 {
+	StartProfiling;
 	// register settings
 	_settings = settings;
 	if (settings == nullptr) {
 		logcritical("Didn't get a valid settings pointer.");
 		exit(ExitCodes::StartupError);
 	}
-
 	// populate the oracle
+	if (_settings->oracle == Oracle::OracleType::Undefined)
+	{
+		logcritical("The oracle type could not be identified");
+		exit(ExitCodes::StartupError);
+	}
 	_oracle = std::make_shared<Oracle>(_settings->oracle, _settings->oraclepath);
 	// check the oracle for validity
 	if (_oracle->Validate() == false) {
@@ -35,10 +40,15 @@ void Session::StartSession(Settings* settings)
 	// set generator
 
 	//
+
+	profile(TimeProfiling, "Time taken for session setup.");
+
+	// start iterations
 }
 
 void Session::Snap()
 {
+	StartProfiling;
 	// clear all running threads
 	if (_controller) {
 		_controller->Stop();
@@ -48,10 +58,13 @@ void Session::Snap()
 	if (_generator) {
 		_generator->Clean();
 	}
+
+	profile(TimeProfiling, "Time taken to create snap.");
 }
 
 void Session::Iterate()
 {
+	StartProfiling;
 	// update iteration variables
 	_iteration++;
 
@@ -64,4 +77,19 @@ void Session::Iterate()
 	// calculate generation exclusions
 
 	// update generation values and grammar values
+
+
+
+	profile(TimeProfiling, "Time taken for iteration {}", _iteration);
+}
+
+
+void Session::Save()
+{
+
+}
+
+void Session::Load()
+{
+
 }

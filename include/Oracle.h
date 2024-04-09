@@ -30,6 +30,7 @@ public:
 
 	enum class OracleType
 	{
+		Undefined,
 		/// <summary>
 		/// executes a python script that execute the PUT and collects information about the result and the last executed element of the input sequence
 		/// </summary>
@@ -42,6 +43,9 @@ public:
 	bool Validate();
 
 	OracleResult Run(std::shared_ptr<IInput> input);
+
+	static std::string TypeString(OracleType type);
+	static OracleType ParseType(std::string str);
 };
 
 using OracleResult = std::tuple<uint64_t, std::shared_ptr<IInput>>;

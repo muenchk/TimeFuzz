@@ -1,39 +1,105 @@
 #pragma once
 
+#include <chrono>
 #include <filesystem>
 #include <fmt/core.h>
 #include <fstream>
 #include <iostream>
 #include <semaphore>
 #include <source_location>
+#include <sstream>
+#include <string>
+#include <math.h>
 
 class Logging
 {
 public:
+	/// <summary>
+	/// whether to enable logging output
+	/// </summary>
 	static inline bool EnableLog = true;
+	/// <summary>
+	/// whether to enable profiling output
+	/// </summary>
 	static inline bool EnableProfile = true;
+	/// <summary>
+	/// the path to store log files
+	/// </summary>
 	static inline std::filesystem::path log_directory;
-};
 
-#define loginfo(...)									\
-	if (Logging::EnableLog) {							\
-		static_cast<void>(loginf(__VA_ARGS__));			\
+	/// <summary>
+	/// time the executable was started
+	/// </summary>
+	static inline std::chrono::time_point<std::chrono::system_clock> execstart = std::chrono::system_clock::now();
+
+	/// <summary>
+	/// calculates and returns the time passed since programstart
+	/// </summary>
+	/// <returns></returns>
+	static std::string TimePassed()
+	{
+		std::stringstream ss;
+		ss << std::setw(12) << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - execstart);
+		return ss.str();
 	}
 
-#define logwarn(...)                         \
-	if (Logging::EnableLog) {                \
+	/// <summary>
+	/// Formats microseconds into a proper time string
+	/// </summary>
+	/// <returns></returns>
+	static std::string FormatTime(long long microseconds)
+	{
+		std::stringstream ss;
+		long long tmp = 0;
+		if (microseconds > 60000000) {
+			tmp = (long long)trunc((long double)microseconds / 60000000);
+			ss << std::setw(6) << tmp << "m ";
+			microseconds -= tmp * 60000000;
+		} else
+			ss << "        ";
+		if (microseconds > 1000000) {
+			tmp = (long long)trunc((long double)microseconds / 1000000);
+			ss << std::setw(2) << tmp << "s ";
+			microseconds -= tmp * 1000000;
+		} else
+			ss << "    ";
+		if (microseconds > 1000) {
+			tmp = (long long)trunc((long double)microseconds / 1000);
+			ss << std::setw(3) << tmp << "ms ";
+			microseconds -= tmp * 1000;
+		} else
+			ss << "      ";
+		ss << std::setw(3) << microseconds << "μs";
+		return ss.str();
+	}
+};
+
+#define StartProfiling \
+	auto begin = std::chrono::steady_clock::now();
+
+#define TimeProfiling \
+	begin
+
+#define loginfo(...)                          \
+	if (Logging::EnableLog) {                 \
 		static_cast<void>(warn(__VA_ARGS__)); \
 	}
 
-#define logcritical(...)                         \
-	if (Logging::EnableLog) {                \
+#define logwarn(...)                          \
+	if (Logging::EnableLog) {                 \
+		static_cast<void>(warn(__VA_ARGS__)); \
+	}
+
+#define logcritical(...)                      \
+	if (Logging::EnableLog) {                 \
 		static_cast<void>(crit(__VA_ARGS__)); \
 	}
 
-#define profile(...)									\
-	if (Logging::EnableProfile) {						\
-		static_cast<void>(prof(__VA_ARGS__));			\
+#define profile(...)                          \
+	if (Logging::EnableProfile) {             \
+		static_cast<void>(prof(__VA_ARGS__)); \
 	}
+
 
 
 class Profile
@@ -93,18 +159,19 @@ struct [[maybe_unused]] prof
 {
 	prof() = delete;
 
-	explicit prof(
+	explicit prof(std::chrono::time_point<std::chrono::steady_clock> begin,
 		fmt::format_string<Args...> a_fmt,
 		Args&&... a_args,
 		std::source_location a_loc = std::source_location::current())
 	{
-		std::string mes = std::string(std::filesystem::path(a_loc.file_name()).filename().string()) + "(" + std::to_string(static_cast<int>(a_loc.line())) + "): [profiling] " + fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n";
+		std::string mes = fmt::format("{}{:<30}{:<40}{:<10}Time:{:<10}{}", Logging::TimePassed(), std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + ")", "[" + std::string(a_loc.function_name()) + "]", "[profiling]", Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count()), fmt::format(a_fmt, std::forward<Args>(a_args)...));
+		//std::string mes = std::string(std::filesystem::path(a_loc.file_name()).filename().string()) + "(" + std::to_string(static_cast<int>(a_loc.line())) + "): [profiling] " + fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n";
 		Profile::write(mes);
 	}
 };
 
 template <class... Args>
-prof(fmt::format_string<Args...>, Args&&...) -> prof<Args...>;
+prof(std::chrono::time_point<std::chrono::steady_clock>,fmt::format_string<Args...>, Args&&...) -> prof<Args...>;
 
 
 class Log
@@ -169,7 +236,9 @@ struct [[maybe_unused]] loginf
 		Args&&... a_args,
 		std::source_location a_loc = std::source_location::current())
 	{
-		std::string mes = std::string(std::filesystem::path(a_loc.file_name()).filename().string()) + "(" + std::to_string(static_cast<int>(a_loc.line())) + "): [info] " + fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n";
+		std::string mes = fmt::format("{}{:<30}{:<40}{:<10}{}", Logging::TimePassed(), std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + ")", "[" + std::string(a_loc.function_name()) + "]", "[info]", fmt::format(a_fmt), std::forward<Args>(a_args)...);
+
+		//std::string mes = std::string(std::filesystem::path(a_loc.file_name()).filename().string()) + "(" + std::to_string(static_cast<int>(a_loc.line())) + "): [info] " + fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n";
 		Log::write(mes);
 	}
 };
@@ -187,7 +256,8 @@ struct [[maybe_unused]] warn
 		Args&&... a_args,
 		std::source_location a_loc = std::source_location::current())
 	{
-		std::string mes = std::string(std::filesystem::path(a_loc.file_name()).filename().string()) + "(" + std::to_string(static_cast<int>(a_loc.line())) + "): [warning] " + fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n";
+		std::string mes = fmt::format("{}{:<30}{:<40}{:<10}{}", Logging::TimePassed(), std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + ")", "[" + std::string(a_loc.function_name()) + "]", "[warning]", fmt::format(a_fmt), std::forward<Args>(a_args)...);
+		//std::string mes = std::string(std::filesystem::path(a_loc.file_name()).filename().string()) + "(" + std::to_string(static_cast<int>(a_loc.line())) + "): [warning] " + fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n";
 		Log::write(mes);
 	}
 };
@@ -205,7 +275,8 @@ struct [[maybe_unused]] crit
 		Args&&... a_args,
 		std::source_location a_loc = std::source_location::current())
 	{
-		std::string mes = std::string(std::filesystem::path(a_loc.file_name()).filename().string()) + "(" + std::to_string(static_cast<int>(a_loc.line())) + "): [critical] " + fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n";
+		std::string mes = fmt::format("{}{:<30}{:<40}{:<10}{}", Logging::TimePassed(), std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + ")", "[" + std::string(a_loc.function_name()) + "]", "[critical]", fmt::format(a_fmt), std::forward<Args>(a_args)...);
+		//std::string mes = std::string(std::filesystem::path(a_loc.file_name()).filename().string()) + "(" + std::to_string(static_cast<int>(a_loc.line())) + "): [critical] " + fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n";
 		Log::write(mes);
 	}
 };

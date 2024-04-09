@@ -3,6 +3,7 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/Grammar.cpp"
 	"${SOURCE_DIR}/Input.cpp"
 	"${SOURCE_DIR}/Logging.cpp" 
+	"${SOURCE_DIR}/Oracle.cpp"
 	"${SOURCE_DIR}/Session.cpp"
 	"${SOURCE_DIR}/Settings.cpp"
 	"${SOURCE_DIR}/TaskController.cpp"

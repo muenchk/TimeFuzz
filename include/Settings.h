@@ -86,4 +86,14 @@ public:
 	};
 
 	Generation generation;
+
+	struct EndConditions
+	{
+		bool use_maxiterations = true;
+		int maxiterations = 10;
+		bool use_foundnegatives = true;
+		int foundnegatives = 100;
+	};
+
+	EndConditions conditions;
 };
