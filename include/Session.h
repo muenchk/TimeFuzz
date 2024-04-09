@@ -2,7 +2,7 @@
 
 #include <functional>
 
-#include "Input.h"
+#include "Generator.h"
 #include "Oracle.h"
 #include "Settings.h"
 #include "TaskController.h"

@@ -1,7 +1,9 @@
 #pragma once
 
 #include <filesystem>
-#include <Input.h>
+#include <tuple>
+
+#include "Interfaces/IInput.h"
 
 class Oracle
 {
@@ -39,7 +41,7 @@ public:
 	Oracle(OracleType type, std::filesystem::path oraclepath);
 	bool Validate();
 
-	OracleResult Run(std::shared_ptr<Input> input);
+	OracleResult Run(std::shared_ptr<IInput> input);
 };
 
-using OracleResult = std::tuple<uint64_t, std::shared_ptr<Input>>;
+using OracleResult = std::tuple<uint64_t, std::shared_ptr<IInput>>;

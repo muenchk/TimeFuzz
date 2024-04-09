@@ -4,10 +4,11 @@
 
 #include "DerivationTree.h"
 #include "Oracle.h"
+#include "Interfaces/IInput.h"
 #include "Session.h"
 #include "TaskController.h"
 
-class Input
+class Input : IInput
 {
 public:
 	Input();
@@ -19,6 +20,8 @@ public:
 private:
 	DerivationTree* derive;
 	std::string stringrep;
-	Oracle result;
+	OracleResult result;
 	std::list<std::string> sequence;
+	[[nodiscard]] std::list<std::string>::iterator begin();
+	[[nodiscard]] std::list<std::string>::iterator end();
 };

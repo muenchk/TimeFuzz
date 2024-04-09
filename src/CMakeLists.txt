@@ -47,6 +47,11 @@ target_compile_features(
 		cxx_std_23
 )
 
+target_link_libraries(
+	"${PROJECT_NAME}"
+	fmt::fmt
+)
+
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 	target_compile_options(
 		"${PROJECT_NAME}"

@@ -32,29 +32,58 @@ public:
 	/// </summary>
 	std::filesystem::path oraclepath;
 
-	/// <summary>
-	/// whether to use delta debugging
-	/// </summary>
-	bool deltadebugging = true;
+	struct General
+	{
+		/// <summary>
+		/// uses the number of available hardware threads for background computation
+		/// </summary>
+		bool usehardwarethreads = false;
+		/// <summary>
+		/// the number of backgroundthreads to use if [usehardwarethreads] is set to false
+		/// </summary>
+		int numthreads = 20;
+	};
 
-	/// <summary>
-	/// input sequences or partial input sequences, that do not result in either a bug or a successful run, may be used as starting point for generation and expanded, until the produce a clear result
-	/// [This should not be used with PUT that produce UNDEFINED oracle results]
-	/// </summary>
-	bool constructinputsitertively = true;
+	General general;
 
-	/// <summary>
-	/// maximum generated inputs per generation cycle
-	/// </summary>
-	int generationsize = 100;
+	struct Optimization
+	{
+		/// <summary>
+		/// input sequences or partial input sequences, that do not result in either a bug or a successful run, may be used as starting point for generation and expanded, until the produce a clear result
+		/// [This should not be used with PUT that produce UNDEFINED oracle results]
+		/// </summary>
+		bool constructinputsitertively = true;
+	};
 
-	/// <summary>
-	/// starting parameter for automatic generationsize scaling
-	/// </summary>
-	float generationtweakstart = 0.2;
+	Optimization optimization;
 
-	/// <summary>
-	/// max parameter for automatic generationsize scaling
-	/// </summary>
-	float generationtweakmax = 10;
+	struct Methods
+	{
+		/// <summary>
+		/// whether to use delta debugging
+		/// </summary>
+		bool deltadebugging = true;
+	};
+
+	Methods methods;
+
+	struct Generation
+	{
+		/// <summary>
+		/// maximum generated inputs per generation cycle
+		/// </summary>
+		int generationsize = 100;
+
+		/// <summary>
+		/// starting parameter for automatic generationsize scaling
+		/// </summary>
+		float generationtweakstart = 0.2;
+
+		/// <summary>
+		/// max parameter for automatic generationsize scaling
+		/// </summary>
+		float generationtweakmax = 10;
+	};
+
+	Generation generation;
 };

@@ -90,4 +90,9 @@ add_executable(
 	"${ROOT_DIR}/.editorconfig"
 )
 
+target_link_libraries(
+	"TaskController_Test"
+	fmt::fmt
+)
+
 add_test(NAME TaskController COMMAND $<TARGET_FILE:TaskController_Test>)

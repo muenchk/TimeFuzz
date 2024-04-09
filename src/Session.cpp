@@ -1,5 +1,6 @@
 #include <memory>
 #include <stdlib.h>
+#include <string>
 
 #include "ExitCodes.h"
 #include "Logging.h"
@@ -31,7 +32,6 @@ void Session::StartSession(Settings* settings)
 	_iteration = 0;
 	// set threadcontroller
 	_controller = std::make_shared<TaskController>();
-	_controller->Start()
 	// set generator
 
 	//
@@ -53,7 +53,10 @@ void Session::Snap()
 void Session::Iterate()
 {
 	// update iteration variables
-	iteration++;
+	_iteration++;
+
+	// start threadcontroller
+	_controller->Start(_settings->general.usehardwarethreads, _settings->general.numthreads);
 
 	// generate inputs, execute, sort relevance, delta debug
 

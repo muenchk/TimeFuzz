@@ -1,16 +1,23 @@
 #pragma once
 
+#include <filesystem>
+#include <fmt/core.h>
+#include <fstream>
+#include <iostream>
 #include <semaphore>
+#include <source_location>
 
 class Logging
 {
+public:
 	static inline bool EnableLog = true;
 	static inline bool EnableProfile = true;
+	static inline std::filesystem::path log_directory;
 };
 
 #define loginfo(...)									\
 	if (Logging::EnableLog) {							\
-		static_cast<void>(log(__VA_ARGS__));			\
+		static_cast<void>(loginf(__VA_ARGS__));			\
 	}
 
 #define logwarn(...)                         \
@@ -153,11 +160,11 @@ public:
 	}
 };
 template <class... Args>
-struct [[maybe_unused]] log
+struct [[maybe_unused]] loginf
 {
-	log() = delete;
+	loginf() = delete;
 
-	explicit log(
+	explicit loginf(
 		fmt::format_string<Args...> a_fmt,
 		Args&&... a_args,
 		std::source_location a_loc = std::source_location::current())
@@ -168,7 +175,7 @@ struct [[maybe_unused]] log
 };
 
 template <class... Args>
-log(fmt::format_string<Args...>, Args&&...) -> log<Args...>;
+loginf(fmt::format_string<Args...>, Args&&...) -> loginf<Args...>;
 
 template <class... Args>
 struct [[maybe_unused]] warn
