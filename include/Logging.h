@@ -236,7 +236,7 @@ struct [[maybe_unused]] loginf
 		Args&&... a_args,
 		std::source_location a_loc = std::source_location::current())
 	{
-		std::string mes = fmt::format("{}{:<30}{:<40}{:<10}{}", Logging::TimePassed(), std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + ")", "[" + std::string(a_loc.function_name()) + "]", "[info]", fmt::format(a_fmt), std::forward<Args>(a_args)...);
+		std::string mes = fmt::format("{}{:<30}{:<40}{:<10}{}", Logging::TimePassed(), std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + ")", "[" + std::string(a_loc.function_name()) + "]", "[info]", fmt::format(a_fmt, std::forward<Args>(a_args)...));
 
 		//std::string mes = std::string(std::filesystem::path(a_loc.file_name()).filename().string()) + "(" + std::to_string(static_cast<int>(a_loc.line())) + "): [info] " + fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n";
 		Log::write(mes);
@@ -256,7 +256,7 @@ struct [[maybe_unused]] warn
 		Args&&... a_args,
 		std::source_location a_loc = std::source_location::current())
 	{
-		std::string mes = fmt::format("{}{:<30}{:<40}{:<10}{}", Logging::TimePassed(), std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + ")", "[" + std::string(a_loc.function_name()) + "]", "[warning]", fmt::format(a_fmt), std::forward<Args>(a_args)...);
+		std::string mes = fmt::format("{}{:<30}{:<40}{:<10}{}", Logging::TimePassed(), std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + ")", "[" + std::string(a_loc.function_name()) + "]", "[warning]", fmt::format(a_fmt, std::forward<Args>(a_args)...));
 		//std::string mes = std::string(std::filesystem::path(a_loc.file_name()).filename().string()) + "(" + std::to_string(static_cast<int>(a_loc.line())) + "): [warning] " + fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n";
 		Log::write(mes);
 	}
@@ -275,7 +275,7 @@ struct [[maybe_unused]] crit
 		Args&&... a_args,
 		std::source_location a_loc = std::source_location::current())
 	{
-		std::string mes = fmt::format("{}{:<30}{:<40}{:<10}{}", Logging::TimePassed(), std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + ")", "[" + std::string(a_loc.function_name()) + "]", "[critical]", fmt::format(a_fmt), std::forward<Args>(a_args)...);
+		std::string mes = fmt::format("{}{:<30}{:<40}{:<10}{}", Logging::TimePassed(), std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + ")", "[" + std::string(a_loc.function_name()) + "]", "[critical]", fmt::format(a_fmt, std::forward<Args>(a_args)...));
 		//std::string mes = std::string(std::filesystem::path(a_loc.file_name()).filename().string()) + "(" + std::to_string(static_cast<int>(a_loc.line())) + "): [critical] " + fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n";
 		Log::write(mes);
 	}
