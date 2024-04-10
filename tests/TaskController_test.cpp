@@ -1,17 +1,19 @@
+#include "Logging.h"
 #include "TaskController.h"
 
 int main(int argc, char** argv)
 {
+	Logging::InitializeLog(".");
 	TaskController controller;
 	controller.Start(false, 10);
 	int arr[100];
-	for (int i = 0; i < 101; i++) {
+	for (int i = 0; i < 100; i++) {
 		controller.AddTask([&arr, i]() {
 			arr[i] = i;
 		});
 	}
 	controller.Stop();
-	for (int i = 0; i < 101; i++) {
+	for (int i = 0; i < 100; i++) {
 		if (arr[i] != i)
 			return 1;
 	}

@@ -11,6 +11,8 @@
 #include <string>
 #include <math.h>
 
+#include "Utility.h"
+
 class Logging
 {
 public:
@@ -72,6 +74,8 @@ public:
 		ss << std::setw(3) << microseconds << "μs";
 		return ss.str();
 	}
+
+	static void InitializeLog(std::filesystem::path _path);
 };
 
 #define StartProfiling \
@@ -172,7 +176,7 @@ struct [[maybe_unused]] prof
 };
 
 template <class... Args>
-prof(std::string, std::chrono::time_point<std::chrono::steady_clock>,fmt::format_string<Args...>, Args&&...) -> prof<Args...>;
+prof(std::string, std::chrono::time_point<std::chrono::steady_clock>, fmt::format_string<Args...>, Args&&...) -> prof<Args...>;
 
 
 class Log

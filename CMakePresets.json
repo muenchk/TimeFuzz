@@ -79,7 +79,7 @@
         },
         "environment": {
           "PROJECT_COMPILER": "clang",
-          "PROJECT_COMPILER_FLAGS": "-Wno-overloaded-virtual -Wno-delete-non-abstract-non-virtual-dtor -Wno-inconsistent-missing-override -Wno-reinterpret-base-class -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format"
+          "PROJECT_COMPILER_FLAGS": "-Wno-overloaded-virtual -Wno-delete-non-abstract-non-virtual-dtor -Wno-inconsistent-missing-override -Wno-reinterpret-base-class -Wno-builtin-macro-redefined -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format"
         }
       },
       {
@@ -98,11 +98,11 @@
               "CMAKE_C_COMPILER": "clang-cl",
               "CMAKE_CXX_COMPILER": "clang-cl"
           },
-          "environment": {
-            "CC": "clang-cl",
-            "CXX": "clang-cl",
-            "PROJECT_COMPILER_FLAGS": "/permissive- /EHsc -Wno-overloaded-virtual -Wno-delete-non-abstract-non-virtual-dtor -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format $penv{CXXFLAGS}"
-          }
+        "environment": {
+          "CC": "clang-cl",
+          "CXX": "clang-cl",
+          "PROJECT_COMPILER_FLAGS": "/permissive- /EHsc -Wno-overloaded-virtual -Wno-delete-non-abstract-non-virtual-dtor -Wno-builtin-macro-redefined -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format $penv{CXXFLAGS}"
+        }
       },
       {
           "name": "build-tests",
@@ -155,7 +155,7 @@
           "cacheVariables": {
               "CMAKE_BUILD_TYPE": {
                   "type": "STRING",
-                  "value": "Release"
+                  "value": "Debug"
               }
           }
       }

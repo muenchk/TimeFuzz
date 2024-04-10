@@ -3,12 +3,12 @@
 #include <filesystem>
 #include <tuple>
 
-#include "Interfaces/IInput.h"
+#include "Input.h"
 
 class Oracle
 {
 public:
-	enum OracleResult
+	enum OracleResult : EnumType
 	{
 		/// <summary>
 		/// The result is passing
@@ -42,10 +42,13 @@ public:
 	Oracle(OracleType type, std::filesystem::path oraclepath);
 	bool Validate();
 
-	OracleResult Run(std::shared_ptr<IInput> input);
+	OracleResult Run(std::shared_ptr<Input> input);
 
 	static std::string TypeString(OracleType type);
 	static OracleType ParseType(std::string str);
-};
 
-using OracleResult = std::tuple<uint64_t, std::shared_ptr<IInput>>;
+private:
+	std::filesystem::path _path;
+	OracleType _type;
+	bool valid = false;
+};

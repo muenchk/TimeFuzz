@@ -11,6 +11,7 @@ out/
 cloc_langdef.txt
 countlines.bat
 Testing
+FormatExamples/__pycache__
 
 # Prerequisites
 *.d

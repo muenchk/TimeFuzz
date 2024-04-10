@@ -3,8 +3,6 @@
 #include <memory>
 #include <vector>
 
-typedef EnumType uint64_t;
-
 class GrammarNode
 {
 	enum NodeFlags : EnumType
