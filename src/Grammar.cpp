@@ -41,6 +41,20 @@ GrammarObject::Type GrammarNode::GetObjectType()
 	return Type::GrammarNode;
 }
 
+std::string GrammarNode::Scala()
+{
+	std::string str = "\t" + identifier + " := ";
+	for (int i = 0; i < expansions.size(); i++)
+	{
+		if (i == expansions.size() - 1)
+			str += expansions[i]->Scala();
+		else
+			str += expansions[i]->Scala() + " | ";
+	}
+	str += ",";
+	return str;
+}
+
 GrammarExpansion::operator std::string()
 {
 	std::string ret;
@@ -59,11 +73,45 @@ GrammarObject::Type GrammarExpansion::GetObjectType()
 	return Type::GrammarExpansion;
 }
 
+std::string GrammarExpansion::Scala()
+{
+	std::string ret;
+	for (int i = 0; i < nodes.size(); i++) {
+		switch (nodes[i]->type) {
+		case GrammarNode::NodeType::Terminal:
+			ret += "\"" + nodes[i]->identifier + "\"";
+			break;
+		case GrammarNode::NodeType::NonTerminal:
+		case GrammarNode::NodeType::Sequence:
+			ret += nodes[i]->identifier;
+			break;
+		}
+		if (i != nodes.size() - 1)
+			ret += " ~ ";
+	}
+	return ret;
+}
 
 
 GrammarTree::GrammarTree()
 {
 
+}
+
+GrammarTree::~GrammarTree()
+{
+	valid = false;
+	Prune(true);
+	nonterminals.clear();
+	terminals.clear();
+	hashmap.clear();
+	hashmap_expansions.clear();
+	root.reset();
+}
+
+bool GrammarTree::IsValid()
+{
+	return valid;
 }
 
 void GrammarTree::SetRoot(std::string symbol, std::string derivation)
@@ -123,6 +171,7 @@ std::shared_ptr<GrammarNode> GrammarTree::FindNode(std::string identifier)
 
 void GrammarTree::Construct()
 {
+	loginfo("enter");
 	// This function actually contructs the grammar tree itself.
 	// before this is called, the root symbol and (optionally) a
 	// number of other non-terminal nodes have been added.
@@ -155,8 +204,7 @@ void GrammarTree::Construct()
 						if (newnode) {
 							expansion->nodes.push_back(newnode);
 							newnode->parents.insert(expansion);
-						}
-						else
+						} else
 							logcritical("Cannot find unknown Symbol: {}", newnode->identifier);
 					}
 					// if the rule is a terminal get the terminal and create a node
@@ -193,15 +241,16 @@ void GrammarTree::Construct()
 	// prune tree to valid expansion and nodes
 	Prune();
 
-
-
-
 	// check whether there still is a grammar that we can work with
+	if (root) {
+		valid = true;
+		loginfo("Successfully pruned the grammar");
+	} else {
+		valid = false;
+		logcritical("Grammar is not valid");
+	}
 
-
-
-
-
+	loginfo("exit");
 }
 
 
@@ -232,6 +281,7 @@ void GrammarTree::GatherFlags(std::shared_ptr<GrammarNode> node, std::set<uint64
 	// if we are starting of from a new non-recursive function call, delete prior finished ids
 	std::chrono::steady_clock::time_point begin;
 	if (reset) {
+		loginfo("enter");
 		finished_ids.clear();
 		begin = std::chrono::steady_clock::now();
 	}
@@ -262,6 +312,20 @@ void GrammarTree::GatherFlags(std::shared_ptr<GrammarNode> node, std::set<uint64
 	}
 	// collect information from expansions;
 	// the node is producing if at least one of its expansions is producing
+	node->producing = false;
+	node->flags = [&node]() {
+		switch (node->type) {
+		case GrammarNode::NodeType::NonTerminal:
+			return GrammarNode::NodeFlags::ProduceNonTerminals;
+			break;
+		case GrammarNode::NodeType::Sequence:
+			return GrammarNode::NodeFlags::ProduceSequence;
+			break;
+		case GrammarNode::NodeType::Terminal:
+			return GrammarNode::NodeFlags::ProduceTerminals;
+			break;
+		}
+	}();
 	for (int i = 0; i < node->expansions.size(); i++) {
 		if (skip.contains(node->expansions[i]))  // skip cycling expansions
 			continue;
@@ -272,6 +336,7 @@ void GrammarTree::GatherFlags(std::shared_ptr<GrammarNode> node, std::set<uint64
 
 	if (reset)
 	{
+		loginfo("exit");
 		profile(TimeProfiling, "function execution time");
 	}
 }
@@ -304,9 +369,10 @@ void GrammarTree::GatherFlags(std::shared_ptr<GrammarExpansion> expansion, std::
 	finished_ids.insert(expansion->id);
 }
 
-void GrammarTree::Prune()
+void GrammarTree::Prune(bool pruneall)
 {
 	StartProfiling;
+	loginfo("enter");
 	std::set<uint64_t> toremove;
 	// we can use these shenanigans, since all nodes and expansions are present in hashmap and hashmap_expansions, so they won't be deleted
 	std::set<uint64_t> touched;
@@ -328,7 +394,7 @@ void GrammarTree::Prune()
 		stack.pop();
 		if (ptr->GetObjectType() == GrammarObject::Type::GrammarNode) {
 			GrammarNode* node = (GrammarNode*)ptr;
-			if (node->producing == false || node->remove || node->reachable == false)
+			if (node->producing == false || node->remove || node->reachable == false || pruneall == true)
 			{
 				for (auto parent : node->parents)
 				{
@@ -394,7 +460,7 @@ void GrammarTree::Prune()
 				}
 			};
 
-			if (exp->remove || exp->producing == false) {
+			if (exp->remove || exp->producing == false || pruneall == true) {
 				toremove.insert(exp->id);
 				// we have been set to be removed
 				erasefromparent();
@@ -452,5 +518,133 @@ void GrammarTree::Prune()
 		}
 	}
 
+	loginfo("exit");
 	profile(TimeProfiling, "function execution time");
+}
+
+std::string GrammarTree::Scala()
+{
+	std::string str = "Grammar(";
+	for (auto nonterminal : nonterminals)
+	{
+		str += nonterminal->Scala() + "\n";
+	}
+	str += ")\n";
+	return str;
+}
+
+
+
+
+
+
+
+
+void Grammar::Parse(std::filesystem::path path)
+{
+	StartProfiling;
+	loginfo("enter");
+	std::ifstream _stream;
+	try {
+		_stream = std::ifstream(path, std::ios_base::in);
+	} catch (std::exception& e) {
+		logwarn("Cannot read the grammar from file: {}. The file cannot be accessed with error message: {}", path.string(), e.what());
+		return;
+	}
+	if (_stream.is_open()) {
+		logdebug("filestream is opened");
+		std::string line;
+		bool fGrammar = false;
+		std::string backup;
+		std::string grammar;
+		int bopen = 0;
+		int bclosed = 0;
+		while (std::getline(_stream, line)) {
+			// we read another line
+			// check if its empty or with a comment
+			if (line.empty())
+				continue;
+			// remove leading spaces and tabs
+			while (line.length() > 0 && (line[0] == ' ' || line[0] == '\t')) {
+				line = line.substr(1, line.length() - 1);
+			}
+			// check again
+			if (line.length() == 0)
+				continue;
+			backup = grammar;
+			if (fGrammar == false) {
+				if (auto pos = line.find("Grammar("); pos != std::string::npos) {
+					fGrammar = true;
+					line = line.substr(pos + 8, line.length() - (pos + 8));
+					grammar += line;
+					logdebug("found beginning of grammar");
+				}
+			} else {
+				grammar += line;
+			}
+			bopen += Utility::CountSymbols(line, ']', '\'', '\"');
+			bclosed += Utility::CountSymbols(line, ']', '\'', '\"');
+			if (bclosed == bopen + 1) {
+				break;
+				logdebug("found end of grammar");
+			}
+		}
+		// we have found the last occurence of the closing bracket. Remove it.
+		auto lpos = grammar.rfind(")");
+		grammar = grammar.substr(0, lpos);
+
+		// initialize the grammartree
+		tree.reset();  // destroy
+		tree = std::make_shared<GrammarTree>();
+
+		logdebug("initialized grammar tree");
+
+		// now we have the raw grammar in one string without newlines
+		// splitting them on a comma will give us the individual rules
+		auto rules = Utility::SplitString(grammar, ',', true, true, '\"');
+		// handle the individual rules
+		for (auto rule : rules) {
+			// rules are of the form	symbol := derivation
+			Utility::RemoveWhiteSpaces(rule, '\"', true);
+			auto split = Utility::SplitString(rule, ":=", true, true, '\"');
+			if (split.size() == 2) {
+				if (auto pos = split[0].find("'SEQ"); pos != std::string::npos)
+					tree->AddSequenceSymbol(split[0], split[1]);
+				else
+					tree->AddSymbol(split[0], split[1]);
+				loginfo("Found symbol: {} with derivation: {}", split[0], split[1]);
+			} else
+				logwarn("Rule cannot be read: {}", rule);
+		}
+
+		logdebug("parsed grammar");
+
+		// all symbols have been read and added to the tree
+		// now construct the tree
+		tree->Construct();
+
+		logdebug("constructed grammar");
+
+		if (tree->IsValid()) {
+			loginfo("Successfully read the grammar from file: {}", path.string());
+		} else
+			logcritical("The file {} does not contain a valid grammar", path.string());
+	}
+	loginfo("exit");
+	profile(TimeProfiling, "function execution time");
+}
+
+bool Grammar::IsValid()
+{
+	if (tree)
+		return tree->IsValid();
+	return false;
+}
+
+std::string Grammar::Scala()
+{
+	if (tree)
+		return tree->Scala();
+	else
+		return "Grammar()";
 }

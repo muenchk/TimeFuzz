@@ -125,12 +125,42 @@ public:
 	static std::vector<std::string> SplitString(std::string str, char delimiter, bool removeEmpty, bool escape = false, char escapesymbol = '\"');
 
 	/// <summary>
+	/// Splits a string at a delimiter, optionally removes empty results, and optionally respects escaped sequences
+	/// </summary>
+	/// <param name="str">input to split</param>
+	/// <param name="delimiter">delimiter at which to split</param>
+	/// <param name="removeEmpty">whether to remove empty strings</param>
+	/// <param name="escape">whether to respect escaped sequences</param>
+	/// <param name="escapesymbol">symbol that marks escaped sequences, sequences need to be surrounded by this symbol</param>
+	/// <returns></returns>
+	static std::vector<std::string> SplitString(std::string str, const char* delimiter, bool removeEmpty, bool escape = false, char escapesymbol = '\"');
+	/// <summary>
 	/// Removes whitespace from an input in-place, optionally respects escaped sequences
 	/// </summary>
 	static std::string& RemoveWhiteSpaces(std::string& str, char escape, bool removetab = false);
 
 	/// <summary>
-	/// Removes whitespace from an input in-place, optionally respects escaped sequences
+	/// Removes Symbols from an input in-place, optionally respects escaped sequences
 	/// </summary>
 	static std::string& RemoveSymbols(std::string& str, char symbol, bool enableescape = false, char escape = '\"');
+
+	/// <summary>
+	/// Counts the occurences of the given symbol, respecting escaped sequences
+	/// </summary>
+	static int CountSymbols(std::string str, char symbol, char escaped1, char escaped2)
+	{
+		int count = 0;
+		bool escape = false;
+		for (char& c : str) {
+			// escaped strings are marked by, e.g., " or ' and everything between two of them should not be counted
+			// we need to check for both since one string could be marked with ", while another one could use '
+			// this means that something thats invalid in python "usdzfgf' is counted as valid.
+			if (c == escaped1 || c == escaped2)
+				escape = !escape;
+			if (escape == false)
+				if (c == symbol)
+					count++;
+		}
+		return count;
+	}
 };

@@ -59,23 +59,6 @@ std::list<std::string>::iterator Input::end()
 	return sequence.end();
 }
 
-int CountSymbols(std::string str, char symbol, char escaped1, char escaped2)
-{
-	int count = 0;
-	bool escape = false;
-	for (char& c : str) {
-		// escaped strings are marked by, e.g., " or ' and everything between two of them should not be counted
-		// we need to check for both since one string could be marked with ", while another one could use '
-		// this means that something thats invalid in python "usdzfgf' is counted as valid.
-		if (c == escaped1 || c == escaped2)
-			escape = !escape;
-		if (escape == false)
-			if (c == symbol)
-				count++;
-	}
-	return count;
-}
-
 std::vector<std::shared_ptr<Input>> Input::ParseInputs(std::filesystem::path path)
 {
 	// check whether the path exists and whether its actually a file
@@ -129,12 +112,12 @@ std::vector<std::shared_ptr<Input>> Input::ParseInputs(std::filesystem::path pat
 			if (auto pos = line.find("inputs = ["); pos != std::string::npos && pos == 0) {
 				contents += line.substr(pos + 8, line.size() - (pos + 8));
 				// count the number of opening and closing brackets, and add lines until it matches
-				open += CountSymbols(line, '[', '\'', '\"');
-				closed += CountSymbols(line, ']', '\'', '\"');
+				open += Utility::CountSymbols(line, '[', '\'', '\"');
+				closed += Utility::CountSymbols(line, ']', '\'', '\"');
 				while (open != closed && std::getline(_stream, line)) {
 					contents += line;
-					open += CountSymbols(line, '[', '\'', '\"');
-					closed += CountSymbols(line, ']', '\'', '\"');
+					open += Utility::CountSymbols(line, '[', '\'', '\"');
+					closed += Utility::CountSymbols(line, ']', '\'', '\"');
 				}
 				if (open != closed) {
 					logwarn("Cannot read inputs from file: {}. Syntax error.", path.string());

@@ -21,6 +21,7 @@ public:
 	};
 
 	virtual Type GetObjectType() = 0;
+	virtual std::string Scala() = 0;
 };
 
 class GrammarNode : public GrammarObject
@@ -97,6 +98,9 @@ public:
 
 	virtual Type GetObjectType();
 
+	virtual std::string Scala();
+
+
 	operator std::string();
 	std::string string();
 };
@@ -136,6 +140,8 @@ public:
 
 	virtual Type GetObjectType();
 
+	virtual std::string Scala();
+
 	operator std::string();
 };
 
@@ -146,7 +152,7 @@ public:
 	/// Checks the grammar for validity
 	/// </summary>
 	/// <returns></returns>
-	bool Validate();
+	bool IsValid();
 
 	/// <summary>
 	/// Constructs the grammar from the present nodes
@@ -154,6 +160,8 @@ public:
 	void Construct();
 
 	GrammarTree();
+
+	~GrammarTree();
 
 	/// <summary>
 	/// Sets the root symbol of the grammar
@@ -181,6 +189,12 @@ public:
 	/// <returns></returns>
 	std::shared_ptr<GrammarNode> FindNode(std::string identifier);
 
+	/// <summary>
+	/// Returns a valid representation of the grammar in scala
+	/// </summary>
+	/// <returns></returns>
+	std::string Scala();
+
 private:
 	std::set<std::shared_ptr<GrammarNode>> nonterminals;
 	std::set<std::shared_ptr<GrammarNode>> terminals;
@@ -188,6 +202,8 @@ private:
 	std::unordered_map<uint64_t, std::shared_ptr<GrammarExpansion>> hashmap_expansions;
 
 	std::shared_ptr<GrammarNode> root;
+
+	bool valid = false;
 
 	int _numcycles = 0;
 	uint64_t nextid = 0;
@@ -217,7 +233,10 @@ private:
 	/// <param name="expansion"></param>
 	void GatherFlags(std::shared_ptr<GrammarExpansion> expansion, std::set<uint64_t> path);
 
-	void Prune();
+	/// <summary>
+	/// Prunes the grammar tree and removes all non-reachable and non-producing subtrees
+	/// </summary>
+	void Prune(bool pruneall = false);
 };
 
 class Grammar
@@ -228,6 +247,20 @@ public:
 	/// </summary>
 	/// <param name=""></param>
 	void Parse(std::filesystem::path path);
+
+	/// <summary>
+	/// Transforms the grammar into a valid scala representation
+	/// </summary>
+	/// <returns></returns>
+	std::string Scala();
+
+	/// <summary>
+	/// Transforms the grammar into a valid python representation
+	/// </summary>
+	/// <returns></returns>
+	std::string Python();
+
+	bool IsValid();
 
 private:
 	std::shared_ptr<GrammarTree> tree;
