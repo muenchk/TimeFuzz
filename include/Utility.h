@@ -1,5 +1,9 @@
 #pragma once
 
+#include <algorithm>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
 #include <stdio.h>
 #include <string>
 #include <Windows.h>
@@ -41,4 +45,92 @@ public:
 
 #endif
 	}
+
+	/// <summary>
+	/// Returns a string showing [val] as Hexadecimal number
+	/// </summary>
+	/// <param name="val"></param>
+	/// <returns></returns>
+	static std::string GetHex(long val)
+	{
+		std::stringstream ss;
+		ss << std::hex << val;
+		return ss.str();
+	}
+	/// <summary>
+	/// Returns a string showing [val] as Hexadecimal number
+	/// </summary>
+	/// <param name="val"></param>
+	/// <returns></returns>
+	static std::string GetHex(uint64_t val)
+	{
+		std::stringstream ss;
+		ss << std::hex << val;
+		return ss.str();
+	}
+	/// <summary>
+	/// Returns a string showing [val] as Hexadecimal number
+	/// </summary>
+	/// <param name="val"></param>
+	/// <returns></returns>
+	static std::string GetHex(uint32_t val)
+	{
+		std::stringstream ss;
+		ss << std::hex << val;
+		return ss.str();
+	}
+	/// <summary>
+	/// Returns a string showing [val] as Hexadecimal number
+	/// </summary>
+	/// <param name="val"></param>
+	/// <returns></returns>
+	static std::string GetHex(int val)
+	{
+		std::stringstream ss;
+		ss << std::hex << val;
+		return ss.str();
+	}
+	/// <summary>
+	/// Returns a string showing [val] as Hexadecimal number with padding
+	/// </summary>
+	/// <param name="val"></param>
+	/// <returns></returns>
+	static std::string GetHexFill(uint32_t val)
+	{
+		std::stringstream ss;
+		ss << std::setw(16) << std::hex << std::setfill('0') << val;
+		return ss.str();
+	}
+	/// <summary>
+	/// Returns a string showing [val] as Hexadecimal number with padding
+	/// </summary>
+	/// <param name="val"></param>
+	/// <returns></returns>
+	static std::string GetHexFill(uint64_t val)
+	{
+		std::stringstream ss;
+		ss << std::setw(16) << std::hex << std::setfill('0') << val;
+		return ss.str();
+	}
+
+	/// <summary>
+	/// Splits a string at a delimiter, optionally removes empty results, and optionally respects escaped sequences
+	/// </summary>
+	/// <param name="str">input to split</param>
+	/// <param name="delimiter">delimiter at which to split</param>
+	/// <param name="removeEmpty">whether to remove empty strings</param>
+	/// <param name="escape">whether to respect escaped sequences</param>
+	/// <param name="escapesymbol">symbol that marks escaped sequences, sequences need to be surrounded by this symbol</param>
+	/// <returns></returns>
+	static std::vector<std::string> SplitString(std::string str, char delimiter, bool removeEmpty, bool escape = false, char escapesymbol = '\"');
+
+	/// <summary>
+	/// Removes whitespace from an input in-place, optionally respects escaped sequences
+	/// </summary>
+	static std::string& RemoveWhiteSpaces(std::string& str, char escape, bool removetab = false);
+
+	/// <summary>
+	/// Removes whitespace from an input in-place, optionally respects escaped sequences
+	/// </summary>
+	static std::string& RemoveSymbols(std::string& str, char symbol, bool enableescape = false, char escape = '\"');
 };

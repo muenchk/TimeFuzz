@@ -21,6 +21,10 @@ public:
 	/// </summary>
 	static inline bool EnableLog = true;
 	/// <summary>
+	/// whether to enable advanced debug logging
+	/// </summary>
+	static inline bool EnableDebug = true;
+	/// <summary>
 	/// whether to enable profiling output
 	/// </summary>
 	static inline bool EnableProfile = true;
@@ -86,7 +90,7 @@ public:
 
 #define loginfo(...)                          \
 	if (Logging::EnableLog) {                 \
-		static_cast<void>(warn(__func__, __VA_ARGS__)); \
+		static_cast<void>(loginf(__func__, __VA_ARGS__)); \
 	}
 
 #define logwarn(...)                          \
@@ -97,6 +101,11 @@ public:
 #define logcritical(...)                      \
 	if (Logging::EnableLog) {                 \
 		static_cast<void>(crit(__func__, __VA_ARGS__)); \
+	}
+
+#define logdebug(...)                                   \
+	if (Logging::EnableDebug) {                           \
+		static_cast<void>(debug(__func__, __VA_ARGS__)); \
 	}
 
 #define profile(...)                          \
@@ -287,3 +296,22 @@ struct [[maybe_unused]] crit
 
 template <class... Args>
 crit(std::string, fmt::format_string<Args...>, Args&&...) -> crit<Args...>;
+
+template <class... Args>
+struct [[maybe_unused]] debug
+{
+	debug() = delete;
+
+	explicit debug(
+		std::string func,
+		fmt::format_string<Args...> a_fmt,
+		Args&&... a_args,
+		std::source_location a_loc = std::source_location::current())
+	{
+		std::string mes = fmt::format("{:<25} {} {} {:<30}\t{}", std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + "):", "[debug]   ", Logging::TimePassed(), "[" + func + "]", fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n");
+		Log::write(mes);
+	}
+};
+
+template <class... Args>
+debug(std::string, fmt::format_string<Args...>, Args&&...) -> debug<Args...>;
