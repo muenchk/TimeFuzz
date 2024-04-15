@@ -4,6 +4,19 @@
   "dependencies": [
     "spdlog",
     "rapidcsv",
-    "fmt"
+    "fmt",
+    "boost-stacktrace",
+    "directxtk",
+    "frozen",
+    {
+      "name": "infoware",
+      "features": [
+        "d3d"
+      ]
+    },
+    "magic-enum",
+    "rsm-binary-io",
+    "zycore",
+    "zydis"
   ]
 }

@@ -17,6 +17,19 @@ endif()
 find_package(fmt CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_path(RAPIDCSV_INCLUDE_DIRS "rapidcsv.h")
+find_package(Boost
+        MODULE
+        REQUIRED
+        COMPONENTS
+        stacktrace_windbg
+)
+find_package(directxtk CONFIG REQUIRED)
+find_package(frozen REQUIRED CONFIG)
+find_package(infoware REQUIRED CONFIG)
+find_package(magic_enum CONFIG REQUIRED)
+find_package(zycore CONFIG REQUIRED)
+find_package(zydis CONFIG REQUIRED)
+
 
 macro(set_from_environment VARIABLE)
 	if(NOT DEFINED ${VARIABLE} AND DEFINED ENV{${VARIABLE}})

@@ -101,10 +101,25 @@ GrammarTree::GrammarTree()
 GrammarTree::~GrammarTree()
 {
 	valid = false;
-	Prune(true);
 	nonterminals.clear();
 	terminals.clear();
+	for (auto [key, node] : hashmap)
+	{
+		if (node)
+		{
+			node->parents.clear();
+			node->expansions.clear();
+		}
+	}
 	hashmap.clear();
+	for (auto [key, expansion] : hashmap_expansions)
+	{
+		if (expansion)
+		{
+			expansion->parent.reset();
+			expansion->nodes.clear();
+		}
+	}
 	hashmap_expansions.clear();
 	root.reset();
 }
@@ -129,7 +144,15 @@ void GrammarTree::SetRoot(std::string symbol, std::string derivation)
 	root->derivation = derivation;
 	root->identifier = symbol;
 	root->type = GrammarNode::NodeType::Terminal;
+	root->id = GetNextID();
 	nonterminals.insert(root);
+	ruleorder.push_back(root->id);
+}
+
+void GrammarTree::SetRoot(std::shared_ptr<GrammarNode> node)
+{
+	root.reset();
+	root = node;
 }
 
 void GrammarTree::AddSymbol(std::string symbol, std::string derivation)
@@ -143,7 +166,9 @@ void GrammarTree::AddSymbol(std::string symbol, std::string derivation)
 	node->derivation = derivation;
 	node->identifier = symbol;
 	node->type = GrammarNode::NodeType::NonTerminal;
+	node->id = GetNextID();
 	nonterminals.insert(node);
+	ruleorder.push_back(node->id);
 }
 
 void GrammarTree::AddSequenceSymbol(std::string symbol, std::string derivation)
@@ -157,7 +182,9 @@ void GrammarTree::AddSequenceSymbol(std::string symbol, std::string derivation)
 	node->derivation = derivation;
 	node->identifier = symbol;
 	node->type = GrammarNode::NodeType::Sequence;
+	node->id = GetNextID();
 	nonterminals.insert(node);
+	ruleorder.push_back(node->id);
 }
 
 std::shared_ptr<GrammarNode> GrammarTree::FindNode(std::string identifier)
@@ -185,13 +212,12 @@ void GrammarTree::Construct()
 	// iterate over all non-terminals and initialize them
 	for (auto node : nonterminals) {
 		if (node->IsValid() == false) {
-			node->id = GetNextID();
 			hashmap.insert({ node->id, node });
 			// extract the alternative derivations
 			std::vector<std::string> alternatives = Utility::SplitString(node->derivation, '|', true, true, '\"');
 			for (std::string alter : alternatives) {
 				// go over the derivations and get all concated productions
-				std::vector<std::string> productions = Utility::SplitString(alter, '~', true, true, '\"');
+				std::vector<std::string> productions = Utility::SplitString(alter, '~', true, true, '\"', true);
 				std::shared_ptr<GrammarExpansion> expansion = std::make_shared<GrammarExpansion>();
 				float weight = 0.0f;
 				for (int i = 0; i < productions.size(); i++) {
@@ -205,12 +231,12 @@ void GrammarTree::Construct()
 							expansion->nodes.push_back(newnode);
 							newnode->parents.insert(expansion);
 						} else
-							logcritical("Cannot find unknown Symbol: {}", newnode->identifier);
+							logcritical("Cannot find unknown Symbol: {}", productions[i]);
 					}
 					// if the rule is a terminal get the terminal and create a node
 					else {
 						std::string iden = productions[i];
-						Utility::RemoveSymbols(iden, '\"');
+						Utility::RemoveSymbols(iden, '\"', '\\');
 						auto tnode = std::make_shared<GrammarNode>();
 						tnode->derivation = "";
 						tnode->identifier = iden;
@@ -230,6 +256,7 @@ void GrammarTree::Construct()
 				node->expansions.push_back(expansion);
 				hashmap_expansions.insert({ expansion->id, expansion });
 			}
+			node->derivation = "";
 			if (node->IsValid() == false)
 				logcritical("Cannot fully initialize grammar node: {}. Expansions: {}, Flags: {}, Type: {}", node->identifier, node->expansions.size(), Utility::GetHex(node->flags), Utility::GetHex((EnumType)node->type));
 		}
@@ -524,10 +551,13 @@ void GrammarTree::Prune(bool pruneall)
 
 std::string GrammarTree::Scala()
 {
-	std::string str = "Grammar(";
-	for (auto nonterminal : nonterminals)
+	std::string str = "Grammar(\n";
+	for (auto id : ruleorder)
 	{
-		str += nonterminal->Scala() + "\n";
+		if (auto itr = hashmap.find(id); itr != hashmap.end())
+		{
+			str += itr->second->Scala() + "\n";
+		}
 	}
 	str += ")\n";
 	return str;
@@ -540,10 +570,15 @@ std::string GrammarTree::Scala()
 
 
 
-void Grammar::Parse(std::filesystem::path path)
+void Grammar::ParseScala(std::filesystem::path path)
 {
 	StartProfiling;
 	loginfo("enter");
+	// check whether the path exists and whether its actually a file
+	if (!std::filesystem::exists(path) || std::filesystem::is_directory(path)) {
+		logwarn("Cannot read the grammar from file: {}. Either the path does not exist or refers to a directory.", path.string());
+		return;
+	}
 	std::ifstream _stream;
 	try {
 		_stream = std::ifstream(path, std::ios_base::in);
@@ -551,6 +586,7 @@ void Grammar::Parse(std::filesystem::path path)
 		logwarn("Cannot read the grammar from file: {}. The file cannot be accessed with error message: {}", path.string(), e.what());
 		return;
 	}
+	logdebug("filestream");
 	if (_stream.is_open()) {
 		logdebug("filestream is opened");
 		std::string line;
@@ -582,8 +618,8 @@ void Grammar::Parse(std::filesystem::path path)
 			} else {
 				grammar += line;
 			}
-			bopen += Utility::CountSymbols(line, ']', '\'', '\"');
-			bclosed += Utility::CountSymbols(line, ']', '\'', '\"');
+			bopen += Utility::CountSymbols(line, '(', '\'', '\"');
+			bclosed += Utility::CountSymbols(line, ')', '\'', '\"');
 			if (bclosed == bopen + 1) {
 				break;
 				logdebug("found end of grammar");
@@ -605,7 +641,7 @@ void Grammar::Parse(std::filesystem::path path)
 		// handle the individual rules
 		for (auto rule : rules) {
 			// rules are of the form	symbol := derivation
-			Utility::RemoveWhiteSpaces(rule, '\"', true);
+			Utility::RemoveWhiteSpaces(rule, '\"', true, true);
 			auto split = Utility::SplitString(rule, ":=", true, true, '\"');
 			if (split.size() == 2) {
 				if (auto pos = split[0].find("'SEQ"); pos != std::string::npos)
@@ -614,10 +650,21 @@ void Grammar::Parse(std::filesystem::path path)
 					tree->AddSymbol(split[0], split[1]);
 				loginfo("Found symbol: {} with derivation: {}", split[0], split[1]);
 			} else
-				logwarn("Rule cannot be read: {}", rule);
+				logwarn("Rule cannot be read: {}, splitsize: {}", rule, split.size());
 		}
 
 		logdebug("parsed grammar");
+
+		// find 'start symbol and add it to root
+		auto node = tree->FindNode("'start");
+		if (node) {
+			tree->SetRoot(node);
+			loginfo("Set root node for grammar");
+		}
+		else {
+			logcritical("The grammar does not include the symbol 'start: {}", path.string());
+			return;
+		}
 
 		// all symbols have been read and added to the tree
 		// now construct the tree

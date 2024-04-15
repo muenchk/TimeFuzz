@@ -1,9 +1,11 @@
 #include "Logging.h"
 #include "TaskController.h"
+#include "CrashHandler/CrashHandler.h"
 
 int main(int argc, char** argv)
 {
 	Logging::InitializeLog(".");
+	Crash::Install(".");
 	TaskController controller;
 	controller.Start(false, 10);
 	int arr[100];

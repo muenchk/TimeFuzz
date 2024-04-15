@@ -89,29 +89,19 @@ public:
 	begin
 
 #define loginfo(...)                          \
-	if (Logging::EnableLog) {                 \
-		static_cast<void>(loginf(__func__, __VA_ARGS__)); \
-	}
+	if (Logging::EnableLog) { static_cast<void>(loginf(__func__, __VA_ARGS__)); }
 
 #define logwarn(...)                          \
-	if (Logging::EnableLog) {                 \
-		static_cast<void>(warn(__func__, __VA_ARGS__)); \
-	}
+	if (Logging::EnableLog) { static_cast<void>(warn(__func__, __VA_ARGS__)); }
 
 #define logcritical(...)                      \
-	if (Logging::EnableLog) {                 \
-		static_cast<void>(crit(__func__, __VA_ARGS__)); \
-	}
+	if (Logging::EnableLog) { static_cast<void>(crit(__func__, __VA_ARGS__)); }
 
 #define logdebug(...)                                   \
-	if (Logging::EnableDebug) {                           \
-		static_cast<void>(debug(__func__, __VA_ARGS__)); \
-	}
+	if (Logging::EnableDebug) { static_cast<void>(debug(__func__, __VA_ARGS__)); }
 
 #define profile(...)                          \
-	if (Logging::EnableProfile) {             \
-		static_cast<void>(prof(__func__, __VA_ARGS__)); \
-	}
+	if (Logging::EnableProfile) { static_cast<void>(prof(__func__, __VA_ARGS__)); }
 
 
 

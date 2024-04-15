@@ -169,6 +169,7 @@ public:
 	/// <param name="symbol"></param>
 	/// <param name="derivation"></param>
 	void SetRoot(std::string symbol, std::string derivation);
+	void SetRoot(std::shared_ptr<GrammarNode> node);
 	/// <summary>
 	/// Adds a new non-terminal to the grammar
 	/// </summary>
@@ -200,6 +201,7 @@ private:
 	std::set<std::shared_ptr<GrammarNode>> terminals;
 	std::unordered_map<uint64_t, std::shared_ptr<GrammarNode>> hashmap;
 	std::unordered_map<uint64_t, std::shared_ptr<GrammarExpansion>> hashmap_expansions;
+	std::vector<uint64_t> ruleorder;
 
 	std::shared_ptr<GrammarNode> root;
 
@@ -246,7 +248,7 @@ public:
 	/// Parses the grammar from the given file
 	/// </summary>
 	/// <param name=""></param>
-	void Parse(std::filesystem::path path);
+	void ParseScala(std::filesystem::path path);
 
 	/// <summary>
 	/// Transforms the grammar into a valid scala representation

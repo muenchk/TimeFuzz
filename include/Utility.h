@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string>
 #include <Windows.h>
+#include <filesystem>
 
 typedef uint64_t EnumType;
 
@@ -122,7 +123,7 @@ public:
 	/// <param name="escape">whether to respect escaped sequences</param>
 	/// <param name="escapesymbol">symbol that marks escaped sequences, sequences need to be surrounded by this symbol</param>
 	/// <returns></returns>
-	static std::vector<std::string> SplitString(std::string str, char delimiter, bool removeEmpty, bool escape = false, char escapesymbol = '\"');
+	static std::vector<std::string> SplitString(std::string str, char delimiter, bool removeEmpty, bool escape = false, char escapesymbol = '\"', bool allowdisableescape = false, char disblechar = '\\');
 
 	/// <summary>
 	/// Splits a string at a delimiter, optionally removes empty results, and optionally respects escaped sequences
@@ -133,16 +134,21 @@ public:
 	/// <param name="escape">whether to respect escaped sequences</param>
 	/// <param name="escapesymbol">symbol that marks escaped sequences, sequences need to be surrounded by this symbol</param>
 	/// <returns></returns>
-	static std::vector<std::string> SplitString(std::string str, const char* delimiter, bool removeEmpty, bool escape = false, char escapesymbol = '\"');
+	static std::vector<std::string> SplitString(std::string str, std::string delimiter, bool removeEmpty, bool escape = false, char escapesymbol = '\"');
 	/// <summary>
 	/// Removes whitespace from an input in-place, optionally respects escaped sequences
 	/// </summary>
-	static std::string& RemoveWhiteSpaces(std::string& str, char escape, bool removetab = false);
+	static std::string& RemoveWhiteSpaces(std::string& str, char escape, bool removetab = false, bool allowdisableescape = false, char disablechar = '\\');
 
 	/// <summary>
 	/// Removes Symbols from an input in-place, optionally respects escaped sequences
 	/// </summary>
 	static std::string& RemoveSymbols(std::string& str, char symbol, bool enableescape = false, char escape = '\"');
+
+	/// <summary>
+	/// Removes Symbols from an input in-place, optionally doesn't remove escaped characters
+	/// </summary>
+	static std::string& RemoveSymbols(std::string& str, char symbol, char disablechar);
 
 	/// <summary>
 	/// Counts the occurences of the given symbol, respecting escaped sequences
@@ -163,4 +169,6 @@ public:
 		}
 		return count;
 	}
+
+	static std::string ReadFile(std::filesystem::path path);
 };
