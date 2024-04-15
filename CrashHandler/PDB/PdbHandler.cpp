@@ -2,7 +2,7 @@
 // Code from StackOverflow
 
 #pragma once
-#include "CrashHandler/PDB/PdbHandler.h"
+#include "PDB/PdbHandler.h"
 #include <comdef.h>
 #include <atlcomcli.h>
 #include <fmt/format.h>
@@ -10,8 +10,8 @@
 #include <memory>
 #include <mutex>
 #include <spdlog/logger.h>
-#include "CrashHandler/PCH.h"
-#include <CrashHandler/CrashHandler.h>
+#include "PCH.h"
+#include <CrashHandler.h>
 #include <diacreate.h>
 
 namespace Crash

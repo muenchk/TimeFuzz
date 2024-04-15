@@ -1,6 +1,6 @@
 #include "Settings.h"
 #include "Logging.h"
-#include "CrashHandler/CrashHandler.h"
+#include "CrashHandler.h"
 
 int main(int argc, char** argv)
 {

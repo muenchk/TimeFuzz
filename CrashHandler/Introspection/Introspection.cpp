@@ -1,13 +1,13 @@
-#include "CrashHandler/Introspection/Introspection.h"
+#include "Introspection/Introspection.h"
 
-#include "CrashHandler/Modules/ModuleHandler.h"
-#include "CrashHandler/PDB/PdbHandler.h"
+#include "Modules/ModuleHandler.h"
+#include "PDB/PdbHandler.h"
 #define MAGIC_ENUM_RANGE_MAX 256
 #include <magic_enum.hpp>
 #include <DbgHelp.h>
 #include <fmt/format.h>
 #include <fmt/core.h>
-#include "CrashHandler/PCH.h"
+#include "PCH.h"
 
 #include <variant>
 #include <algorithm>

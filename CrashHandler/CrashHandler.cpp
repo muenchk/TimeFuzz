@@ -1,8 +1,8 @@
-#include "CrashHandler/CrashHandler.h"
+#include "CrashHandler.h"
 
-#include "CrashHandler/Introspection/Introspection.h"
-#include "CrashHandler/Modules/ModuleHandler.h"
-#include "CrashHandler/PDB/PdbHandler.h"
+#include "Introspection/Introspection.h"
+#include "Modules/ModuleHandler.h"
+#include "PDB/PdbHandler.h"
 #include "dxgi1_4.h"
 #include <span>
 #include <boost/stacktrace.hpp>
@@ -11,7 +11,7 @@
 #include <spdlog/logger.h>
 #include <spdlog/sinks/basic_file_sink.h>
 
-#include "CrashHandler/PCH.h"
+#include "PCH.h"
 #include <set>
 #include <infoware/cpu.hpp>
 #include <infoware/system.hpp>

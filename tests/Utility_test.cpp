@@ -1,6 +1,6 @@
 #include "Logging.h"
 #include "Utility.h"
-#include "CrashHandler/CrashHandler.h"
+#include "CrashHandler.h"
 
 bool TestSplitString(std::string input, std::vector<std::string> output, bool removeempty, bool disableescape = false)
 {

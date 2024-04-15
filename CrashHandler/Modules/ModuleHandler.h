@@ -7,7 +7,7 @@
 #include <vector>
 #include <boost/stacktrace.hpp>
 #include <string_view>
-#include "CrashHandler/PCH.h"
+#include "PCH.h"
 
 namespace Crash
 {

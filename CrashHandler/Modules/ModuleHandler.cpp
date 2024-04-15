@@ -1,4 +1,4 @@
-#include "CrashHandler/Modules/ModuleHandler.h"
+#include "Modules/ModuleHandler.h"
 
 //#define WIN32_LEAN_AND_MEAN
 
@@ -42,10 +42,10 @@
 #define NODEFERWINDOWPOS
 #define NOMCX
 
-#include "CrashHandler/PDB/PdbHandler.h"
+#include "PDB/PdbHandler.h"
 #include <Psapi.h>
 #include <Zydis/Zydis.h>
-#include "CrashHandler/PCH.h"
+#include "PCH.h"
 #include <algorithm>
 #include <execution>
 #include <Zydis/Disassembler.h>

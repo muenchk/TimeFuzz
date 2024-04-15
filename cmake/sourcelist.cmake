@@ -9,9 +9,4 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/TaskController.cpp"
 	"${SOURCE_DIR}/ThreadSafe.cpp"
 	"${SOURCE_DIR}/Utility.cpp"
-	"${SOURCE_DIR}/CrashHandler/CrashHandler.cpp"
-	"${SOURCE_DIR}/CrashHandler/Introspection/Introspection.cpp"
-	"${SOURCE_DIR}/CrashHandler/Modules/ModuleHandler.cpp"
-	"${SOURCE_DIR}/CrashHandler/PDB/PdbHandler.cpp"
-	"${SOURCE_DIR}/CrashHandler/PCH.cpp"
 )

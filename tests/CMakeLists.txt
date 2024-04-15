@@ -1,6 +1,8 @@
 set(ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
 include_directories("${ROOT_DIR}/include")
+include_directories("${ROOT_DIR}/CrashHandler")
+
 set(TEST_SOURCE_DIR "${ROOT_DIR}/tests")
 set(SOURCE_DIR "${ROOT_DIR}/src")
 include(${ROOT_DIR}/cmake/sourcelist.cmake)
@@ -90,12 +92,13 @@ target_link_libraries(
 	"TaskController_Test"
 	PRIVATE
 	fmt::fmt
-    Boost::stacktrace_windbg
-    Dbghelp.lib
-    frozen::frozen
-    infoware
-    magic_enum::magic_enum
-    Zydis::Zydis
+	CrashHandler
+    #Boost::stacktrace_windbg
+    #Dbghelp.lib
+    #frozen::frozen
+    #infoware
+    #magic_enum::magic_enum
+    #Zydis::Zydis
 )
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
@@ -190,12 +193,7 @@ target_link_libraries(
 	"Inputs_Test"
 	PRIVATE
 	fmt::fmt
-    Boost::stacktrace_windbg
-    Dbghelp.lib
-    frozen::frozen
-    infoware
-    magic_enum::magic_enum
-    Zydis::Zydis
+	CrashHandler
 )
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
@@ -292,12 +290,7 @@ target_link_libraries(
 	"Utility_Test"
 	PRIVATE
 	fmt::fmt
-    Boost::stacktrace_windbg
-    Dbghelp.lib
-    frozen::frozen
-    infoware
-    magic_enum::magic_enum
-    Zydis::Zydis
+	CrashHandler
 )
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
@@ -392,12 +385,7 @@ target_link_libraries(
 	"Grammar_Test"
 	PRIVATE
 	fmt::fmt
-    Boost::stacktrace_windbg
-    Dbghelp.lib
-    frozen::frozen
-    infoware
-    magic_enum::magic_enum
-    Zydis::Zydis
+	CrashHandler
 )
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
