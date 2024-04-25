@@ -1,5 +1,6 @@
 
 #include <filesystem>
+#include <boost/container_hash/hash.hpp>
 
 #include "Input.h"
 #include "Logging.h"
@@ -57,6 +58,11 @@ std::list<std::string>::iterator Input::begin()
 std::list<std::string>::iterator Input::end()
 {
 	return sequence.end();
+}
+
+std::size_t Input::Hash()
+{
+	return boost::hash_range(sequence.begin(), sequence.end());
 }
 
 std::vector<std::shared_ptr<Input>> Input::ParseInputs(std::filesystem::path path)

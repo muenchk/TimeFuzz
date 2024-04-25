@@ -1,6 +1,7 @@
 #include <memory>
 #include <stdlib.h>
 #include <string>
+#include <mutex>
 
 #include "ExitCodes.h"
 #include "Logging.h"
@@ -12,26 +13,40 @@ Session* Session::GetSingleton()
 	return std::addressof(session);
 }
 
-void Session::StartSession(Settings* settings)
+std::vector<std::shared_ptr<Input>> Session::GenerateNegatives(int negatives, bool& error, int maxiterations, int timeout, bool returnpositives)
 {
-	StartProfiling;
+
+}
+
+void Session::StartSession(std::shared_ptr<Settings> settings, bool &error)
+{
 	// register settings
 	_settings = settings;
-	if (settings == nullptr) {
+	if (settings.get() == nullptr) {
 		logcritical("Didn't get a valid settings pointer.");
-		exit(ExitCodes::StartupError);
+		LastError = ExitCodes::StartupError;
+		error = true;
+		return;
 	}
+}
+
+void Session::StartSession(bool &error)
+{
+	StartProfiling;
 	// populate the oracle
-	if (_settings->oracle == Oracle::OracleType::Undefined)
-	{
+	if (_settings->oracle == Oracle::OracleType::Undefined) {
 		logcritical("The oracle type could not be identified");
-		exit(ExitCodes::StartupError);
+		LastError = ExitCodes::StartupError;
+		error = true;
+		return;
 	}
 	_oracle = std::make_shared<Oracle>(_settings->oracle, _settings->oraclepath);
 	// check the oracle for validity
 	if (_oracle->Validate() == false) {
 		logcritical("Oracle isn't valid.");
-		exit(ExitCodes::StartupError);
+		LastError = ExitCodes::StartupError;
+		error = true;
+		return;
 	}
 	// set iteration variables
 	_iteration = 0;
@@ -44,6 +59,8 @@ void Session::StartSession(Settings* settings)
 	profile(TimeProfiling, "Time taken for session setup.");
 
 	// start iterations
+
+	_sessioncontroller = std::thread(&Session::SessionControl, this);
 }
 
 void Session::Snap()
@@ -83,6 +100,33 @@ void Session::Iterate()
 	profile(TimeProfiling, "Time taken for iteration {}", _iteration);
 }
 
+void Session::SessionControl()
+{
+	// this function controls the session.
+	// it runs periodically and handles top-level processing and checks for abort conditions and success conditions
+
+}
+
+bool Session::IsRunning()
+{
+	std::lock_guard<std::mutex> guard(runninglock);
+	return running;
+}
+
+bool Session::SetRunning(bool state)
+{
+	std::lock_guard<std::mutex> guard(runninglock);
+	if (running != state) {
+		// either we are starting a session or we are ending it, so this is a viable state
+		running = state;
+		return true;
+	} else {
+		// we are either not running a session and have encountered an unexpected situation,
+		// or we are running a session and are trying to start another one
+		logwarn("Trying to set session state has failes. Current state: {}", running);
+		return false;
+	}
+}
 
 void Session::Save()
 {

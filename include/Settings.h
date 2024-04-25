@@ -46,6 +46,15 @@ public:
 		/// </summary>
 		int numthreads = 20;
 		const char* numthreads_NAME = "NumThreads";
+
+		/// <summary>
+		/// whether to enable saves
+		/// </summary>
+		bool enablesaves = true;
+		/// <summary>
+		/// the path at which saves are made
+		/// </summary>
+		std::string savepath = ".";
 	};
 
 	General general;
@@ -79,19 +88,19 @@ public:
 		/// maximum generated inputs per generation cycle
 		/// </summary>
 		int generationsize = 100;
-		const char* generationsize_NAME = "";
+		const char* generationsize_NAME = "GenerationSize";
 
 		/// <summary>
 		/// starting parameter for automatic generationsize scaling
 		/// </summary>
 		float generationtweakstart = 0.2;
-		const char* generationtweakstart_NAME = "";
+		const char* generationtweakstart_NAME = "GenerationTweakStart";
 
 		/// <summary>
 		/// max parameter for automatic generationsize scaling
 		/// </summary>
 		float generationtweakmax = 10;
-		const char* generationtweakmax_NAME = "";
+		const char* generationtweakmax_NAME = "GenerationTweakMax";
 	};
 
 	Generation generation;
@@ -102,22 +111,32 @@ public:
 		/// whether to stop the execution after a set amount of iterations
 		/// </summary>
 		bool use_maxiterations = true;
-		const char* use_maxiterations_NAME = "";
+		const char* use_maxiterations_NAME = "UseMaxIterations";
 		/// <summary>
 		/// the number of iterations to run
 		/// </summary>
 		int maxiterations = 10;
-		const char* maxiterations_NAME = "";
+		const char* maxiterations_NAME = "MaxIterations";
 		/// <summary>
 		/// whether to stop the execution after a set amount of failing inputs have been found
 		/// </summary>
 		bool use_foundnegatives = true;
-		const char* use_foundnegatives_NAME = "";
+		const char* use_foundnegatives_NAME = "UseFoundNegatives";
 		/// <summary>
 		/// the number of failing inputs to generate
 		/// </summary>
 		int foundnegatives = 100;
-		const char* foundnegatives_NAME = "";
+		const char* foundnegatives_NAME = "FoundNegatives";
+		/// <summary>
+		/// whether to stop the execution after a certain time has passed
+		/// </summary>
+		bool use_timeout = true;
+		const char* use_timeout_NAME = "UseTimeout";
+		/// <summary>
+		/// the time after which to stop the execution
+		/// </summary>
+		int timeout = 60;
+		const char* timeout_NAME = "Timeout";
 	};
 
 	EndConditions conditions;
