@@ -4,7 +4,7 @@
 #include "Settings.h"
 #include "Processes.h"
 #include "Logging.h"
-#include <io.h>
+//#include <io.h>
 
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
@@ -25,11 +25,11 @@ Test::Test(std::function<void()>&& a_callback, uint64_t id) :
 	identifier = id;
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
-	if (pipe(red_output, O_NONBLOCK == -1) {
+	if (pipe2(red_output, O_NONBLOCK == -1)) {
 		exitreason = ExitReason::InitError;
 		return;
 	}
-	if (pipe(red_input, O_NONBLOCK == -1) {
+	if (pipe2(red_input, O_NONBLOCK == -1)) {
 		exitreason = ExitReason::InitError;
 		return;
 	}
@@ -138,7 +138,11 @@ bool Test::IsRunning()
 		logcritical("called IsRunning after invalidation");
 		return false;
 	}
+#if defined(unix) || defined(__unix__) || defined(__unix)
+	bool running = Processes::GetProcessRunning(processid);
+#elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	bool running = Processes::GetProcessRunning(pi.hProcess);
+#endif
 	if (running)
 		return true;
 	else {
@@ -156,7 +160,7 @@ void Test::WriteInput(std::string str)
 	}
 	logdebug("Writing input: \"{}\"", str);
 #if defined(unix) || defined(__unix__) || defined(__unix)
-	throw std::runtime_exception("not implemented");
+	throw std::runtime_error("not implemented");
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	DWORD dwWritten;
 	BOOL bSuccess = FALSE;
@@ -210,10 +214,11 @@ bool Test::CheckInput()
 	fds.fd = 0; // stdin
 	fds.events = POLLIN;
 	events = poll(&fds, 1, 0);
-	if (events & 0x1 > 0)
+	if ((events & 0x1) > 0)
 		ret = false;
 	else
 		ret = true;
+	logdebug("CheckInput : {}", ret);
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	//DWORD bytesAvail = 0;
 	//BOOL bSuccess = PeekNamedPipe(red_input[0], NULL, 0, NULL, &bytesAvail, NULL);
@@ -232,8 +237,8 @@ bool Test::CheckInput()
 	}
 	else
 		ret = true;
-#endif
 	logdebug("CheckInput : {}, succ {}, err {}", ret, bSuccess, GetLastError());
+#endif
 	return ret;
 }
 
@@ -245,7 +250,7 @@ std::string Test::ReadOutput()
 	}
 	std::string ret;
 #if defined(unix) || defined(__unix__) || defined(__unix)
-	throw std::runtime_exception("not implemented");
+	throw std::runtime_error("not implemented");
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	DWORD dwRead;
 	CHAR chBuf[512];

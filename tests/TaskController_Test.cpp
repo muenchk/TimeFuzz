@@ -1,11 +1,15 @@
 #include "Logging.h"
 #include "TaskController.h"
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 #include "CrashHandler.h"
+#endif
 
 int main(int argc, char** argv)
 {
 	Logging::InitializeLog(".");
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	Crash::Install(".");
+#endif
 	TaskController controller;
 	controller.Start(10);
 	int arr[100];

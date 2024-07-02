@@ -21,12 +21,11 @@ namespace Processes
 {
 #	if defined(unix) || defined(__unix__) || defined(__unix)
 
-#		include <cstring>
+#		include <unistd.h>
 #		include <fcntl.h>
 #		include <sys/stat.h>
 #		include <sys/types.h>
 #		include <sys/wait.h>
-#		include <unistd.h>
 
 	////////////////// Original Author : CAIORSS
 	// C++ wrapper for the exevp() library-call

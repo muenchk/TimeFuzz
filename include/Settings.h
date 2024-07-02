@@ -5,6 +5,9 @@
 #include "Generator.h"
 #include "Oracle.h"
 
+#define SI_NO_CONVERSION
+#define SI_SUPPORT_IOSTREAMS
+
 class Settings
 {
 public:

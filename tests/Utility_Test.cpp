@@ -1,6 +1,8 @@
 #include "Logging.h"
 #include "Utility.h"
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 #include "CrashHandler.h"
+#endif
 
 bool TestSplitString(std::string input, std::vector<std::string> output, bool removeempty, bool disableescape = false)
 {
@@ -83,7 +85,9 @@ bool TestRemoveSymbols(std::string input, std::string output, char symbol, bool 
 int main(int argc, char** argv)
 {
 	Logging::InitializeLog(".");
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	Crash::Install(".");
+#endif
 	loginfo("Starting Utility_test.exe");
 	bool res = true;
 	res &= TestSplitString("1|2", std::vector<std::string>{ "1", "2" }, true);

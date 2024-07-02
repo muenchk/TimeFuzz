@@ -5,10 +5,17 @@
 #include <string_view>
 #include "Logging.h"
 
+
+
+#if defined(unix) || defined(__unix__) || defined(__unix)
+#		include <cstring>
+#endif
+
 namespace Processes
 {
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
+
 
 	void execvp_cpp(std::string app, std::vector<std::string> args)
 	{
@@ -84,14 +91,14 @@ namespace Processes
 			// From header: #include <sys/wait.h>
 			int ret = waitpid(pid, &status, WNOHANG);
 			if (ret == -1) {
-				logger::error("Processes", "Fork_exec", "Error: cannot wait for child process");
+				//logger::error("Processes", "Fork_exec", "Error: cannot wait for child process");
 				throw std::runtime_error("Error: cannot wait for child process");
 			} else if (ret == pid) {
 				finished = true;
 				break;
 			} else {
 				if ((std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - start).count()) % 60 == 0)
-					logger::info("Processes", "Fork_exec", "Still waiting for child to finish. Running for: " + std::to_string(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - start).count()) + "s");
+					//logger::info("Processes", "Fork_exec", "Still waiting for child to finish. Running for: " + std::to_string(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - start).count()) + "s");
 				std::this_thread::sleep_for(1s);
 			}
 		}
@@ -103,7 +110,7 @@ namespace Processes
 			kill(pid, SIGTERM);
 		}
 
-		logger::info("Processes", "Fork_exec", "Child has finished after: " + std::to_string(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - start).count()) + " seconds");
+		//logger::info("Processes", "Fork_exec", "Child has finished after: " + std::to_string(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - start).count()) + " seconds");
 
 		std::printf(" [TRACE] Child process has been terminated with exitcode: %d\n", exitcode);
 		// -------- Parent process ----------------//
@@ -192,12 +199,14 @@ namespace Processes
 			std::vector<std::string> command = SplitArguments(args);
 
 			// change program
-			execvp_cpp(app, args);
+			Processes::execvp_cpp(app, command);
 			return false;
 		}
 
 		test->processid = pid;
 		close(test->red_output[1]);
+
+		return true;
 	}
 
 	long GetProcessMemory(pid_t pid)

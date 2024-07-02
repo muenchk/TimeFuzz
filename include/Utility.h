@@ -3,10 +3,13 @@
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
+#include <fstream>
 #include <sstream>
 #include <stdio.h>
 #include <string>
 #include <filesystem>
+#include <cstdlib>
+#include <cstring>
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
@@ -35,8 +38,13 @@ public:
 #if defined(PLATFORM_POSIX) || defined(__linux__)  //check defines for your setup
 
 		std::string sp;
-		std::ifstream("/proc/self/comm") >> sp;
+		std::ifstream stream(std::filesystem::path("/proc/self/comm"), std::ios_base::in);
+		stream >> sp;
 		return sp;
+
+		//char result[ 100 ];
+  		//ssize_t count = readlink( "/proc/self/comm", result, 100 );
+  		//return std::string( result, (count > 0) ? count : 0 );
 
 #elif defined(_WIN32)
 
@@ -200,7 +208,8 @@ public:
 		std::string out(size, '\0');
 
 		size_t convertedSize;
-		wcstombs_s(&convertedSize, out.data(), size, input, size);
+		//wcstombs_s(&convertedSize, out.data(), size, input, size);
+		convertedSize = wcstombs(out.data(), input, size);
 
 		if (strcmp(out.c_str(), ""))
 			return std::nullopt;

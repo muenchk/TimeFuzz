@@ -1,6 +1,8 @@
 #include "Logging.h"
 #include "ExecutionHandler.h"
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 #include "CrashHandler.h"
+#endif
 #include "Settings.h"
 #include "TaskController.h"
 #include "Input.h"
@@ -20,7 +22,9 @@ std::string ReturnArgs(std::shared_ptr<Input> input)
 int main(int argc, char** argv)
 {
 	Logging::InitializeLog(".");
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	Crash::Install(".");
+#endif
 	logdebug("Init");
 	std::shared_ptr<TaskController> controller = std::make_shared<TaskController>();
 	logdebug("Created TaskController");

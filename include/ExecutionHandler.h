@@ -13,6 +13,7 @@
 #include <thread>
 #include <queue>
 #include <condition_variable>
+#include <list>
 
 class Settings;
 class TaskController;

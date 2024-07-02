@@ -20,7 +20,13 @@ void Settings::Load()
 	CSimpleIniA ini;
 
 	ini.SetUnicode();
+
+#if defined(unix) || defined(__unix__) || defined(__unix)
+	std::ifstream istr(std::filesystem::path(path), std::ios_base::in);
+	ini.LoadData(istr);
+#elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	ini.LoadFile(path);
+#endif
 
 	//oracle
 	oracle = Oracle::ParseType(ini.GetValue("Oracle", oracle_NAME, "PythonScript"));
@@ -65,7 +71,11 @@ void Settings::Load()
 
 void Settings::Save()
 {
+#if defined(unix) || defined(__unix__) || defined(__unix)
+	constexpr auto path = "config.ini";
+#elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	constexpr auto path = L"config.ini";
+#endif
 
 	CSimpleIniA ini;
 
