@@ -12,7 +12,7 @@ public:
 	/// Returns a singleton the the session
 	/// </summary>
 	/// <returns></returns>
-	Settings* GetSingleton();
+	static Settings* GetSingleton();
 
 	/// <summary>
 	/// Loads the settings for the working directory
@@ -46,6 +46,18 @@ public:
 		/// </summary>
 		int numthreads = 20;
 		const char* numthreads_NAME = "NumThreads";
+
+		/// <summary>
+		/// number of threads used for computational purposes
+		/// </summary>
+		int numcomputingthreads = 1;
+		const char* numcomputingthreads_NAME = "NumComputeThreads";
+		
+		/// <summary>
+		/// Number of tests run concurrently
+		/// </summary>
+		int concurrenttests = 1;
+		const char* concurrenttests_NAME = "ConcurrentTests";
 
 		/// <summary>
 		/// whether to enable saves
@@ -140,4 +152,53 @@ public:
 	};
 
 	EndConditions conditions;
+
+	struct Tests
+	{
+		/// <summary>
+		/// whether to execute tests as fragments or complete
+		/// </summary>
+		bool executeFragments = true;
+		const char* executeFragments_NAME = "ExecuteFragments";
+		/// <summary>
+		/// whether to apply a timeout to a complete testcase
+		/// </summary>
+		bool use_testtimeout = true;
+		const char* use_testtimeout_NAME = "UseTestTimeout";
+		/// <summary>
+		/// the timeout for a complete testcase in microseconds
+		/// </summary>
+		long testtimeout = 60000000;
+		const char* testtimeout_NAME = "TestTimeout";
+		/// <summary>
+		/// whether to apply a timeout to every run fragement
+		/// </summary>
+		bool use_fragmenttimeout = false;
+		const char* use_fragmenttimeout_NAME = "UseFragmentTimeout";
+		/// <summary>
+		/// the timeout for a fragment in microseconds
+		/// </summary>
+		long fragmenttimeout = 1000000;
+		const char* fragmenttimeout_NAME = "FragmentTimeout";
+
+		/// <summary>
+		/// whether to store the PUT outputs for all run tests [doesn't disable option below when false]
+		/// </summary>
+		bool storePUToutput = true;
+		const char* storePUToutput_NAME = "StorePUTOutput";
+		/// <summary>
+		/// whether to store the PUT outputs for successful test runs [applies even if above is false]
+		/// </summary>
+		bool storePUToutputSuccessful = true;
+		const char* storePUToutputSuccessful_NAME = "StorePUTOutputSuccessful";
+
+		/// <summary>
+		/// maximum of memory the PUT may consume, it will be killed above this value
+		/// [set to 0 to disable]
+		/// </summary>
+		long maxUsedMemory = 0;
+		const char* maxUsedMemory_NAME = "MaxUsedMemory";
+	};
+
+	Tests tests;
 };

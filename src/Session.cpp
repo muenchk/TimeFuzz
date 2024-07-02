@@ -15,7 +15,7 @@ Session* Session::GetSingleton()
 
 std::vector<std::shared_ptr<Input>> Session::GenerateNegatives(int negatives, bool& error, int maxiterations, int timeout, bool returnpositives)
 {
-
+	return {};
 }
 
 void Session::StartSession(std::shared_ptr<Settings> settings, bool &error)
@@ -86,7 +86,15 @@ void Session::Iterate()
 	_iteration++;
 
 	// start threadcontroller
-	_controller->Start(_settings->general.usehardwarethreads, _settings->general.numthreads);
+	// threads need to be split into computing and test execution. if usehardwarethreads is activated, make sure we don't exceed.
+	int numc = _settings->general.numcomputingthreads;
+	int nume = _settings->general.concurrenttests;
+	if (numc + nume > std::thread::hardware_concurrency())
+	{
+		numc = (int)((((double)numc) / ((double)nume)) * std::thread::hardware_concurrency());
+		nume = std::thread::hardware_concurrency() - numc;
+	}
+	_controller->Start(numc);
 
 	// generate inputs, execute, sort relevance, delta debug
 

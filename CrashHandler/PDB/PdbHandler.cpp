@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Code from StackOverflow
 
-#pragma once
+
 #include "PDB/PdbHandler.h"
 #include <comdef.h>
 #include <atlcomcli.h>

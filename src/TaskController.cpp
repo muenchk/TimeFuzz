@@ -1,5 +1,6 @@
 #include <atomic>
 #include <queue>
+#include <exception>
 
 #include "TaskController.h"
 #include "Threading.h"
@@ -19,12 +20,10 @@ void TaskController::AddTask(TaskDelegate* a_task)
 	condition.notify_one();
 }
 
-void TaskController::Start(bool hardwarethreads, int numthreads)
+void TaskController::Start(int numthreads)
 {
-	if (hardwarethreads)
-		numthreads = std::thread::hardware_concurrency();
 	if (numthreads == 0)
-		throw std::exception("Cannot start a TaskController with 0 threads.");
+		throw std::runtime_error("Cannot start a TaskController with 0 threads.");
 	for (uint32_t i = 0; i < numthreads; i++)
 		threads.emplace_back(std::thread(&TaskController::InternalLoop, this));
 }
@@ -40,6 +39,18 @@ void TaskController::Stop(bool completeall)
 	for (std::thread& t : threads)
 		t.join();
 	threads.clear();
+}
+
+TaskController::~TaskController()
+{
+	if (terminate == false)
+	{
+		// we are exiting unexpectedly
+		// set terminate and detach the threads so we do not have to wait on them
+		terminate = true;
+		for (auto& thread : threads)
+			thread.detach();
+	}
 }
 
 bool TaskController::Busy()

@@ -58,3 +58,8 @@ bool Oracle::Validate()
 {
 	return valid;
 }
+
+Oracle::OracleResult Oracle::Evaluate(Test* test)
+{
+	return Oracle::OracleResult::Passing;
+}

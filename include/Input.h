@@ -2,15 +2,31 @@
 
 #include <list>
 #include <filesystem>
+#include <chrono>
 
 #include "DerivationTree.h"
 #include "TaskController.h"
 #include "Utility.h"
 
+class ExecutionHandler;
+class Test;
+
 class Input
 {
+private:
+	bool hasfinished = false;
+	bool trimmed = false;
+	std::chrono::nanoseconds executiontime;
+	int exitcode = 0;
+
+	friend ExecutionHandler;
+	friend Test;
+
 public:
+	Test* test = nullptr;
 	Input();
+
+	~Input();
 	/// <summary>
 	/// converts the input to python code
 	/// </summary>
@@ -57,6 +73,39 @@ public:
 	[[nodiscard]] std::list<std::string>::iterator end();
 
 	/// <summary>
+	/// Returns the execution time of the test if it has already finished, otherwise -1
+	/// </summary>
+	/// <returns></returns>
+	inline std::chrono::nanoseconds GetExecutionTime()
+	{
+		if (hasfinished)
+			return executiontime;
+		else
+			return std::chrono::nanoseconds(-1);
+	}
+
+	/// <summary>
+	/// Returns the exitcode of the test if it has already finished, otherwise -1
+	/// </summary>
+	/// <returns></returns>
+	inline int GetExitCode()
+	{
+		if (hasfinished)
+			return exitcode;
+		else
+			return -1;
+	}
+
+	/// <summary>
+	/// Returns whether the corresponding test has finished
+	/// </summary>
+	/// <returns></returns>
+	inline bool Finished()
+	{
+		return hasfinished;
+	}
+
+	/// <summary>
 	/// Parses inputs from a python file.
 	/// [The file should contain a variable name [inputs = ...]
 	/// </summary>
@@ -81,4 +130,9 @@ private:
 	/// the underlying representation of the input sequence
 	/// </summary>
 	std::list<std::string> sequence;
+
+	/// <summary>
+	/// originally generated sequence [stores sequence after trimming]
+	/// </summary>
+	std::list<std::string> orig_sequence;
 };

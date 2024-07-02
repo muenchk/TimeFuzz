@@ -4,10 +4,17 @@
 
 #include "Input.h"
 #include "Logging.h"
+#include "ExecutionHandler.h"
 
 Input::Input()
 {
 
+}
+
+Input::~Input()
+{
+	if (test != nullptr)
+		delete test;
 }
 
 size_t Input::Length()

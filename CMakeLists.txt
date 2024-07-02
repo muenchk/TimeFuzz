@@ -17,18 +17,23 @@ endif()
 find_package(fmt CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_path(RAPIDCSV_INCLUDE_DIRS "rapidcsv.h")
-find_package(Boost
-        MODULE
-        REQUIRED
-        COMPONENTS
-        stacktrace_windbg
-)
-find_package(directxtk CONFIG REQUIRED)
 find_package(frozen REQUIRED CONFIG)
-find_package(infoware REQUIRED CONFIG)
 find_package(magic_enum CONFIG REQUIRED)
 find_package(zycore CONFIG REQUIRED)
 find_package(zydis CONFIG REQUIRED)
+
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+        find_package(Boost
+                MODULE
+                REQUIRED
+                COMPONENTS
+                stacktrace_windbg
+        )
+        find_package(directxtk CONFIG REQUIRED)
+        find_package(infoware REQUIRED CONFIG)
+else()
+        find_package(Threads)
+endif()
 
 
 macro(set_from_environment VARIABLE)
@@ -88,59 +93,61 @@ add_link_options("$<$<NOT:$<CONFIG:Debug>>:/DEBUG>")
 add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:REF>")
 add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:ICF>")
 
-include_directories("CrashHandler")
 
-configure_file(
-	"cmake/version.rc.in"
-	"${CMAKE_CURRENT_BINARY_DIR}/version.rc"
-	@ONLY
-)
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+        include_directories("CrashHandler")
 
-set(SOURCE_FILES_CRASHHANDLER
-	"CrashHandler/CrashHandler.cpp"
-	"CrashHandler/PCH.cpp"
-	"CrashHandler/Introspection/Introspection.cpp"
-	"CrashHandler/Modules/ModuleHandler.cpp"
-	"CrashHandler/PDB/PDBHandler.cpp"
-)
-
-add_library(
-	"CrashHandler"
-	STATIC
-	${SOURCE_FILES_CRASHHANDLER}
-	"${VERSION_HEADER}"
-	"${CMAKE_CURRENT_BINARY_DIR}/version.rc"
-	".clang-format"
-	".editorconfig"
-)
-
-if(DIASDK_LIBRARIES)
-		add_custom_command(TARGET "CrashHandler" POST_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy ${DIA_DLL} "./")
-        target_include_directories("CrashHandler"
-                PUBLIC
-                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-                ${DIASDK_INCLUDE_DIRS}
-                ${DIASDK_INCLUDE_DIRS}/../lib
+        configure_file(
+                "cmake/version.rc.in"
+                "${CMAKE_CURRENT_BINARY_DIR}/version.rc"
+                @ONLY
         )
-        target_link_libraries("CrashHandler"
-                PUBLIC
-                ${DIASDK_INCLUDE_DIRS}/../lib/amd64/diaguids.lib
+
+        set(SOURCE_FILES_CRASHHANDLER
+                "CrashHandler/CrashHandler.cpp"
+                "CrashHandler/PCH.cpp"
+                "CrashHandler/Introspection/Introspection.cpp"
+                "CrashHandler/Modules/ModuleHandler.cpp"
+                "CrashHandler/PDB/PDBHandler.cpp"
+        )
+
+        add_library(
+                "CrashHandler"
+                STATIC
+                ${SOURCE_FILES_CRASHHANDLER}
+                "${VERSION_HEADER}"
+                "${CMAKE_CURRENT_BINARY_DIR}/version.rc"
+                ".clang-format"
+                ".editorconfig"
+        )
+
+        if(DIASDK_LIBRARIES)
+                        add_custom_command(TARGET "CrashHandler" POST_BUILD
+                                COMMAND ${CMAKE_COMMAND} -E copy ${DIA_DLL} "./")
+                target_include_directories("CrashHandler"
+                        PUBLIC
+                        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                        ${DIASDK_INCLUDE_DIRS}
+                        ${DIASDK_INCLUDE_DIRS}/../lib
+                )
+                target_link_libraries("CrashHandler"
+                        PUBLIC
+                        ${DIASDK_INCLUDE_DIRS}/../lib/amd64/diaguids.lib
+                )
+        endif()
+
+        target_link_libraries(
+                "CrashHandler"
+                PRIVATE
+                fmt::fmt
+        Boost::stacktrace_windbg
+        Dbghelp.lib
+        frozen::frozen
+        infoware
+        magic_enum::magic_enum
+        Zydis::Zydis
         )
 endif()
-
-target_link_libraries(
-	"CrashHandler"
-	PRIVATE
-	fmt::fmt
-    Boost::stacktrace_windbg
-    Dbghelp.lib
-    frozen::frozen
-    infoware
-    magic_enum::magic_enum
-    Zydis::Zydis
-)
-
 
 
 

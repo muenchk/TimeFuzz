@@ -7,7 +7,7 @@ int main(int argc, char** argv)
 	Logging::InitializeLog(".");
 	Crash::Install(".");
 	TaskController controller;
-	controller.Start(false, 10);
+	controller.Start(10);
 	int arr[100];
 	for (int i = 0; i < 100; i++) {
 		controller.AddTask([&arr, i]() {

@@ -21,8 +21,10 @@ public:
 	void AddTask(TaskFn a_task);
 	void AddTask(TaskDelegate* a_task);
 
-	void Start(bool hardwarethreads = false, int numthreads = 0);
+	void Start(int numthreads = 0);
 	void Stop(bool completeall = true);
+
+	~TaskController();
 
 	bool Busy();
 	

@@ -39,6 +39,16 @@
           }
       },
       {
+          "name": "vcpkg-linux",
+          "hidden": true,
+          "cacheVariables": {
+              "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+              "VCPKG_TARGET_TRIPLET": "x64-linux",
+              "VCPKG_HOST_TRIPLET": "x64-linux",
+              "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake"
+          }
+      },
+      {
           "name": "win32",
           "hidden": true,
           "environment": {
@@ -158,6 +168,35 @@
                   "value": "Debug"
               }
           }
+      },
+      {
+          "name": "linux",
+          "inherits": [
+              "base",
+              "vcpkg-linux",
+              "x64",
+              "clang",
+              "generator-ninja",
+              "build-tests"
+          ],
+          "displayName": "Release",
+          "description": "Optimized release build.",
+          "generator": "Ninja",
+          "binaryDir": "${sourceDir}/buildLinux",
+          "cacheVariables": {
+              "CMAKE_BUILD_TYPE": {
+                  "type": "STRING",
+                  "value": "Debug"
+              }
+          }
+      },
+      {
+        "name": "kali",
+        "inherits": [
+            "linux"
+        ],
+        "displayName": "Release",
+        "binaryDir": "${sourceDir}/buildKali"
       }
   ],
   "buildPresets": [

@@ -5,14 +5,21 @@
     "spdlog",
     "rapidcsv",
     "fmt",
-    "boost-stacktrace",
-    "directxtk",
+    {
+      "name": "boost-stacktrace",
+      "platform": "windows"
+    },
+    {
+      "name": "directxtk",
+      "platform": "windows"
+    },
     "frozen",
     {
       "name": "infoware",
       "features": [
         "d3d"
-      ]
+      ],
+      "platform": "windows"
     },
     "magic-enum",
     "rsm-binary-io",

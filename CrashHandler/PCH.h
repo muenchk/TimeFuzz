@@ -31,6 +31,7 @@ using namespace std::literals;
 #include <string_view>
 #include <xstring>
 #include <stdlib.h>
+#include <source_location>
 
 #define SKSE_MAKE_SOURCE_LOGGER(a_func, a_type)                                       \
                                                                                       \

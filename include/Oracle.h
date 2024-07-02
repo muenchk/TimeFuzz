@@ -3,13 +3,17 @@
 #include <filesystem>
 #include <tuple>
 
-#include "Input.h"
+#include "ExecutionHandler.h"
 
 class Oracle
 {
 public:
 	enum OracleResult : EnumType
 	{
+		/// <summary>
+		/// Program has not finished
+		/// </summary>
+		Unfinished = 0b0,
 		/// <summary>
 		/// The result is passing
 		/// </summary>
@@ -39,16 +43,23 @@ public:
 		CommandlineProgramDump,
 	};
 
-	Oracle(OracleType type, std::filesystem::path oraclepath);
-	bool Validate();
-
-	OracleResult Run(std::shared_ptr<Input> input);
-
-	static std::string TypeString(OracleType type);
-	static OracleType ParseType(std::string str);
-
 private:
 	std::filesystem::path _path;
 	OracleType _type;
 	bool valid = false;
+
+public:
+
+	Oracle(OracleType type, std::filesystem::path oraclepath);
+	bool Validate();
+
+	OracleResult Evaluate(Test* test);
+
+	static std::string TypeString(OracleType type);
+	static OracleType ParseType(std::string str);
+	inline std::filesystem::path path()
+	{
+		return _path;
+	}
+
 };

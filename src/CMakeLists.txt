@@ -106,12 +106,21 @@ if(DIASDK_LIBRARIES)
         )
 endif()
 
-target_link_libraries(
-	"${PROJECT_NAME}"
-	PRIVATE
-	fmt::fmt
-	CrashHandler
-)
+
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+	target_link_libraries(
+		"${PROJECT_NAME}"
+		PRIVATE
+		fmt::fmt
+		CrashHandler
+	)
+else()
+	target_link_libraries(
+		"${PROJECT_NAME}"
+		PRIVATE
+		fmt::fmt
+	)
+endif()
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 	target_compile_options(
@@ -176,17 +185,11 @@ target_include_directories(
 		${infoware_INCLUDE_DIRS}
 )
 
-install(
-	FILES
-		"$<TARGET_FILE:${PROJECT_NAME}>"
-	DESTINATION "SKSE/Plugins"
-	COMPONENT "main"
-)
-
-install(
-	FILES
-		"$<TARGET_PDB_FILE:${PROJECT_NAME}>"
-	DESTINATION "/"
-	COMPONENT "pdbs"
-)
-
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+	install(
+		FILES
+			"$<TARGET_PDB_FILE:${PROJECT_NAME}>"
+		DESTINATION "/"
+		COMPONENT "pdbs"
+	)
+endif()

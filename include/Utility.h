@@ -6,8 +6,12 @@
 #include <sstream>
 #include <stdio.h>
 #include <string>
-#include <Windows.h>
 #include <filesystem>
+
+#if defined(unix) || defined(__unix__) || defined(__unix)
+#elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+#	include <Windows.h>
+#endif
 
 typedef uint64_t EnumType;
 
@@ -168,6 +172,40 @@ public:
 					count++;
 		}
 		return count;
+	}
+
+	// From Crashandler
+
+	[[nodiscard]] static auto ConvertToWideString(std::string_view a_in) noexcept
+		-> std::optional<std::wstring>
+	{
+		const auto len = mbstowcs(nullptr, a_in.data(), a_in.length());
+		if (len == 0) {
+			return std::nullopt;
+		}
+
+		std::wstring out(len, '\0');
+		mbstowcs(out.data(), a_in.data(), a_in.length());
+
+		return out;
+	}
+
+	[[nodiscard]] static auto ConvertToString(std::wstring_view a_in) noexcept
+		-> std::optional<std::string>
+	{
+		const wchar_t* input = a_in.data();
+
+		// Count required buffer size (plus one for null-terminator).
+		size_t size = (wcslen(input) + 1) * sizeof(wchar_t);
+		std::string out(size, '\0');
+
+		size_t convertedSize;
+		wcstombs_s(&convertedSize, out.data(), size, input, size);
+
+		if (strcmp(out.c_str(), ""))
+			return std::nullopt;
+
+		return out;
 	}
 
 	static std::string ReadFile(std::filesystem::path path);
