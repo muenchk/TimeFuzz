@@ -196,11 +196,6 @@ public:
 		//	_stream = new std::ofstream(path.value() / pluginname / (pluginname + "log.log"), std::ios_base::out | std::ios_base::trunc);
 		//}
 		_stream = new std::ofstream(Logging::log_directory / (pluginname + ".log"), std::ios_base::out | std::ios_base::trunc);
-		printf("%s", (Logging::log_directory / (pluginname + ".log")).string().c_str());
-		if (_stream != nullptr)
-			printf("stream opened");
-		else
-			printf("stream failed");
 		lock.release();
 	}
 

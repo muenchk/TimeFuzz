@@ -1,4 +1,4 @@
 cmake --build buildKali --config Release
-cd buildKali
+cd ./buildKali
 ctest
 cd ..
