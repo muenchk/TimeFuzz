@@ -10,6 +10,7 @@
 #include <sstream>
 #include <string>
 #include <math.h>
+#include <optional>
 
 #include "Utility.h"
 

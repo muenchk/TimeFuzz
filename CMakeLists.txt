@@ -5,7 +5,7 @@ project(
 	VERSION 0.0.1
 	LANGUAGES C CXX
 )
-include(GNUInstallDirs)
+#include(GNUInstallDirs)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

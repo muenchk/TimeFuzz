@@ -5,11 +5,12 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include <stdio.h>
+#include <cstdio>
 #include <string>
 #include <filesystem>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
