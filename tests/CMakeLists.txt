@@ -181,7 +181,7 @@ add_test(NAME TaskController COMMAND $<TARGET_FILE:TaskController_Test>)
 # Inputs_Test
 add_executable(
 	"Inputs_Test"
-	"${TEST_SOURCE_DIR}/Inputs_test.cpp"
+	"${TEST_SOURCE_DIR}/Inputs_Test.cpp"
 	${SOURCE_FILES}
 	"${VERSION_HEADER}"
 	"${CMAKE_CURRENT_BINARY_DIR}/version.rc"
@@ -249,7 +249,7 @@ add_test(NAME Inputs COMMAND $<TARGET_FILE:Inputs_Test>)
 # Utility_test
 add_executable(
 	"Utility_Test"
-	"${TEST_SOURCE_DIR}/Utility_test.cpp"
+	"${TEST_SOURCE_DIR}/Utility_Test.cpp"
 	${SOURCE_FILES}
 	"${VERSION_HEADER}"
 	"${CMAKE_CURRENT_BINARY_DIR}/version.rc"
@@ -382,7 +382,7 @@ add_test(NAME Grammar COMMAND $<TARGET_FILE:Grammar_Test>)
 # ExecutionHandler_Test
 add_executable(
 	"ExecutionHandler_Test"
-	"${TEST_SOURCE_DIR}/ExecutionHandler_test.cpp"
+	"${TEST_SOURCE_DIR}/ExecutionHandler_Test.cpp"
 	${SOURCE_FILES}
 	"${VERSION_HEADER}"
 	"${CMAKE_CURRENT_BINARY_DIR}/version.rc"
