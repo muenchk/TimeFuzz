@@ -1,6 +1,10 @@
 set(ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
-set (cmpl_options "/sdl"	# Enable Additional Security Checks
+set (BUILD_DEBUG 1)
+
+set (cmpl_options 
+			"/DBUILD_DEBUG"
+			"/sdl"	# Enable Additional Security Checks
 			"/utf-8"	# Set Source and Executable character sets to UTF-8
 			"/Zi"	# Debug Information Format
 
@@ -47,7 +51,7 @@ set(SOURCE_DIR "${ROOT_DIR}/src")
 include(${ROOT_DIR}/cmake/sourcelist.cmake)
 #include_directories("D:/Program Files/Microsoft Visual Studio/2022/DIA SDK/include")
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 
 	set(VS_PATH ${CMAKE_GENERATOR_INSTANCE})
 	get_filename_component(VS_DIA_INC_PATH "${VS_PATH}/DIA SDK/include" ABSOLUTE CACHE)
@@ -103,6 +107,7 @@ add_link_options("$<$<NOT:$<CONFIG:Debug>>:/DEBUG>")
 add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:REF>")
 add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:ICF>")
 
+add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 
 
 ############################## TESTS ##############################
@@ -136,7 +141,7 @@ if(DIASDK_LIBRARIES)
         )
 endif()
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 	target_link_libraries(
 		"TaskController_Test"
 		PRIVATE
@@ -151,11 +156,49 @@ else()
 	)
 endif()
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 	target_compile_options(
 		"TaskController_Test"
 		PRIVATE
-		{$cmpl_options}
+		"/DBUILD_DEBUG"
+			"/sdl"	# Enable Additional Security Checks
+			"/utf-8"	# Set Source and Executable character sets to UTF-8
+			"/Zi"	# Debug Information Format
+
+			"/permissive-"	# Standards conformance
+			"/Zc:preprocessor"	# Enable preprocessor conformance mode
+
+			"/D_CRT_SECURE_NO_WARNINGS"
+
+			"/wd5105"
+			# disable warnings
+			"/wd4189"
+			"/wd4005" # macro redefinition
+			"/wd4061" # enumerator 'identifier' in switch of enum 'enumeration' is not explicitly handled by a case label
+			"/wd4200" # nonstandard extension used : zero-sized array in struct/union
+			"/wd4201" # nonstandard extension used : nameless struct/union
+			"/wd4265" # 'type': class has virtual functions, but its non-trivial destructor is not virtual; instances of this class may not be destructed correctly
+			"/wd4266" # 'function' : no override available for virtual member function from base 'type'; function is hidden
+			"/wd4371" # 'classname': layout of class may have changed from a previous version of the compiler due to better packing of member 'member'
+			"/wd4514" # 'function' : unreferenced inline function has been removed
+			"/wd4582" # 'type': constructor is not implicitly called
+			"/wd4583" # 'type': destructor is not implicitly called
+			"/wd4623" # 'derived class' : default constructor was implicitly defined as deleted because a base class default constructor is inaccessible or deleted
+			"/wd4625" # 'derived class' : copy constructor was implicitly defined as deleted because a base class copy constructor is inaccessible or deleted
+			"/wd4626" # 'derived class' : assignment operator was implicitly defined as deleted because a base class assignment operator is inaccessible or deleted
+			"/wd4710" # 'function' : function not inlined
+			"/wd4711" # function 'function' selected for inline expansion
+			"/wd4820" # 'bytes' bytes padding added after construct 'member_name'
+			"/wd5026" # 'type': move constructor was implicitly defined as deleted
+			"/wd5027" # 'type': move assignment operator was implicitly defined as deleted
+			"/wd5045" # Compiler will insert Spectre mitigation for memory load if /Qspectre switch specified
+			"/wd5053" # support for 'explicit(<expr>)' in C++17 and earlier is a vendor extension
+			"/wd5204" # 'type-name': class has virtual functions, but its trivial destructor is not virtual; instances of objects derived from this class may not be destructed correctly
+			"/wd5220" # 'member': a non-static data member with a volatile qualified type no longer implies that compiler generated copy / move constructors and copy / move assignment operators are not trivial
+			#"/wd4333" # to large right shift -> data loss
+
+			"$<$<CONFIG:DEBUG>:>"
+			"$<$<CONFIG:RELEASE>:/Zc:inline;/JMC-;/Ob3>"
 	)
 
 	target_link_options(
@@ -202,7 +245,7 @@ if(DIASDK_LIBRARIES)
         )
 endif()
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 	target_link_libraries(
 		"Inputs_Test"
 		PRIVATE
@@ -217,11 +260,49 @@ else()
 	)
 endif()
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 	target_compile_options(
 		"Inputs_Test"
 		PRIVATE
-		{$cmpl_options}
+		"/DBUILD_DEBUG"
+			"/sdl"	# Enable Additional Security Checks
+			"/utf-8"	# Set Source and Executable character sets to UTF-8
+			"/Zi"	# Debug Information Format
+
+			"/permissive-"	# Standards conformance
+			"/Zc:preprocessor"	# Enable preprocessor conformance mode
+
+			"/D_CRT_SECURE_NO_WARNINGS"
+
+			"/wd5105"
+			# disable warnings
+			"/wd4189"
+			"/wd4005" # macro redefinition
+			"/wd4061" # enumerator 'identifier' in switch of enum 'enumeration' is not explicitly handled by a case label
+			"/wd4200" # nonstandard extension used : zero-sized array in struct/union
+			"/wd4201" # nonstandard extension used : nameless struct/union
+			"/wd4265" # 'type': class has virtual functions, but its non-trivial destructor is not virtual; instances of this class may not be destructed correctly
+			"/wd4266" # 'function' : no override available for virtual member function from base 'type'; function is hidden
+			"/wd4371" # 'classname': layout of class may have changed from a previous version of the compiler due to better packing of member 'member'
+			"/wd4514" # 'function' : unreferenced inline function has been removed
+			"/wd4582" # 'type': constructor is not implicitly called
+			"/wd4583" # 'type': destructor is not implicitly called
+			"/wd4623" # 'derived class' : default constructor was implicitly defined as deleted because a base class default constructor is inaccessible or deleted
+			"/wd4625" # 'derived class' : copy constructor was implicitly defined as deleted because a base class copy constructor is inaccessible or deleted
+			"/wd4626" # 'derived class' : assignment operator was implicitly defined as deleted because a base class assignment operator is inaccessible or deleted
+			"/wd4710" # 'function' : function not inlined
+			"/wd4711" # function 'function' selected for inline expansion
+			"/wd4820" # 'bytes' bytes padding added after construct 'member_name'
+			"/wd5026" # 'type': move constructor was implicitly defined as deleted
+			"/wd5027" # 'type': move assignment operator was implicitly defined as deleted
+			"/wd5045" # Compiler will insert Spectre mitigation for memory load if /Qspectre switch specified
+			"/wd5053" # support for 'explicit(<expr>)' in C++17 and earlier is a vendor extension
+			"/wd5204" # 'type-name': class has virtual functions, but its trivial destructor is not virtual; instances of objects derived from this class may not be destructed correctly
+			"/wd5220" # 'member': a non-static data member with a volatile qualified type no longer implies that compiler generated copy / move constructors and copy / move assignment operators are not trivial
+			#"/wd4333" # to large right shift -> data loss
+
+			"$<$<CONFIG:DEBUG>:>"
+			"$<$<CONFIG:RELEASE>:/Zc:inline;/JMC-;/Ob3>"
 	)
 
 	target_link_options(
@@ -270,7 +351,7 @@ if(DIASDK_LIBRARIES)
         )
 endif()
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 	target_link_libraries(
 		"Utility_Test"
 		PRIVATE
@@ -285,11 +366,49 @@ else()
 	)
 endif()
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 	target_compile_options(
 		"Utility_Test"
 		PRIVATE
-		{$cmpl_options}
+		"/DBUILD_DEBUG"
+			"/sdl"	# Enable Additional Security Checks
+			"/utf-8"	# Set Source and Executable character sets to UTF-8
+			"/Zi"	# Debug Information Format
+
+			"/permissive-"	# Standards conformance
+			"/Zc:preprocessor"	# Enable preprocessor conformance mode
+
+			"/D_CRT_SECURE_NO_WARNINGS"
+
+			"/wd5105"
+			# disable warnings
+			"/wd4189"
+			"/wd4005" # macro redefinition
+			"/wd4061" # enumerator 'identifier' in switch of enum 'enumeration' is not explicitly handled by a case label
+			"/wd4200" # nonstandard extension used : zero-sized array in struct/union
+			"/wd4201" # nonstandard extension used : nameless struct/union
+			"/wd4265" # 'type': class has virtual functions, but its non-trivial destructor is not virtual; instances of this class may not be destructed correctly
+			"/wd4266" # 'function' : no override available for virtual member function from base 'type'; function is hidden
+			"/wd4371" # 'classname': layout of class may have changed from a previous version of the compiler due to better packing of member 'member'
+			"/wd4514" # 'function' : unreferenced inline function has been removed
+			"/wd4582" # 'type': constructor is not implicitly called
+			"/wd4583" # 'type': destructor is not implicitly called
+			"/wd4623" # 'derived class' : default constructor was implicitly defined as deleted because a base class default constructor is inaccessible or deleted
+			"/wd4625" # 'derived class' : copy constructor was implicitly defined as deleted because a base class copy constructor is inaccessible or deleted
+			"/wd4626" # 'derived class' : assignment operator was implicitly defined as deleted because a base class assignment operator is inaccessible or deleted
+			"/wd4710" # 'function' : function not inlined
+			"/wd4711" # function 'function' selected for inline expansion
+			"/wd4820" # 'bytes' bytes padding added after construct 'member_name'
+			"/wd5026" # 'type': move constructor was implicitly defined as deleted
+			"/wd5027" # 'type': move assignment operator was implicitly defined as deleted
+			"/wd5045" # Compiler will insert Spectre mitigation for memory load if /Qspectre switch specified
+			"/wd5053" # support for 'explicit(<expr>)' in C++17 and earlier is a vendor extension
+			"/wd5204" # 'type-name': class has virtual functions, but its trivial destructor is not virtual; instances of objects derived from this class may not be destructed correctly
+			"/wd5220" # 'member': a non-static data member with a volatile qualified type no longer implies that compiler generated copy / move constructors and copy / move assignment operators are not trivial
+			#"/wd4333" # to large right shift -> data loss
+
+			"$<$<CONFIG:DEBUG>:>"
+			"$<$<CONFIG:RELEASE>:/Zc:inline;/JMC-;/Ob3>"
 	)
 
 	target_link_options(
@@ -336,7 +455,7 @@ if(DIASDK_LIBRARIES)
         )
 endif()
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 	target_link_libraries(
 		"Grammar_Test"
 		PRIVATE
@@ -351,11 +470,49 @@ else()
 	)
 endif()
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 	target_compile_options(
 		"Grammar_Test"
 		PRIVATE
-		{$cmpl_options}
+		"/DBUILD_DEBUG"
+			"/sdl"	# Enable Additional Security Checks
+			"/utf-8"	# Set Source and Executable character sets to UTF-8
+			"/Zi"	# Debug Information Format
+
+			"/permissive-"	# Standards conformance
+			"/Zc:preprocessor"	# Enable preprocessor conformance mode
+
+			"/D_CRT_SECURE_NO_WARNINGS"
+
+			"/wd5105"
+			# disable warnings
+			"/wd4189"
+			"/wd4005" # macro redefinition
+			"/wd4061" # enumerator 'identifier' in switch of enum 'enumeration' is not explicitly handled by a case label
+			"/wd4200" # nonstandard extension used : zero-sized array in struct/union
+			"/wd4201" # nonstandard extension used : nameless struct/union
+			"/wd4265" # 'type': class has virtual functions, but its non-trivial destructor is not virtual; instances of this class may not be destructed correctly
+			"/wd4266" # 'function' : no override available for virtual member function from base 'type'; function is hidden
+			"/wd4371" # 'classname': layout of class may have changed from a previous version of the compiler due to better packing of member 'member'
+			"/wd4514" # 'function' : unreferenced inline function has been removed
+			"/wd4582" # 'type': constructor is not implicitly called
+			"/wd4583" # 'type': destructor is not implicitly called
+			"/wd4623" # 'derived class' : default constructor was implicitly defined as deleted because a base class default constructor is inaccessible or deleted
+			"/wd4625" # 'derived class' : copy constructor was implicitly defined as deleted because a base class copy constructor is inaccessible or deleted
+			"/wd4626" # 'derived class' : assignment operator was implicitly defined as deleted because a base class assignment operator is inaccessible or deleted
+			"/wd4710" # 'function' : function not inlined
+			"/wd4711" # function 'function' selected for inline expansion
+			"/wd4820" # 'bytes' bytes padding added after construct 'member_name'
+			"/wd5026" # 'type': move constructor was implicitly defined as deleted
+			"/wd5027" # 'type': move assignment operator was implicitly defined as deleted
+			"/wd5045" # Compiler will insert Spectre mitigation for memory load if /Qspectre switch specified
+			"/wd5053" # support for 'explicit(<expr>)' in C++17 and earlier is a vendor extension
+			"/wd5204" # 'type-name': class has virtual functions, but its trivial destructor is not virtual; instances of objects derived from this class may not be destructed correctly
+			"/wd5220" # 'member': a non-static data member with a volatile qualified type no longer implies that compiler generated copy / move constructors and copy / move assignment operators are not trivial
+			#"/wd4333" # to large right shift -> data loss
+
+			"$<$<CONFIG:DEBUG>:>"
+			"$<$<CONFIG:RELEASE>:/Zc:inline;/JMC-;/Ob3>"
 	)
 
 	target_link_options(
@@ -403,7 +560,7 @@ if(DIASDK_LIBRARIES)
         )
 endif()
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 	target_link_libraries(
 		"ExecutionHandler_Test"
 		PRIVATE
@@ -418,11 +575,49 @@ else()
 	)
 endif()
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 	target_compile_options(
 		"ExecutionHandler_Test"
 		PRIVATE
-		{$cmpl_options}
+		"/DBUILD_DEBUG"
+			"/sdl"	# Enable Additional Security Checks
+			"/utf-8"	# Set Source and Executable character sets to UTF-8
+			"/Zi"	# Debug Information Format
+
+			"/permissive-"	# Standards conformance
+			"/Zc:preprocessor"	# Enable preprocessor conformance mode
+
+			"/D_CRT_SECURE_NO_WARNINGS"
+
+			"/wd5105"
+			# disable warnings
+			"/wd4189"
+			"/wd4005" # macro redefinition
+			"/wd4061" # enumerator 'identifier' in switch of enum 'enumeration' is not explicitly handled by a case label
+			"/wd4200" # nonstandard extension used : zero-sized array in struct/union
+			"/wd4201" # nonstandard extension used : nameless struct/union
+			"/wd4265" # 'type': class has virtual functions, but its non-trivial destructor is not virtual; instances of this class may not be destructed correctly
+			"/wd4266" # 'function' : no override available for virtual member function from base 'type'; function is hidden
+			"/wd4371" # 'classname': layout of class may have changed from a previous version of the compiler due to better packing of member 'member'
+			"/wd4514" # 'function' : unreferenced inline function has been removed
+			"/wd4582" # 'type': constructor is not implicitly called
+			"/wd4583" # 'type': destructor is not implicitly called
+			"/wd4623" # 'derived class' : default constructor was implicitly defined as deleted because a base class default constructor is inaccessible or deleted
+			"/wd4625" # 'derived class' : copy constructor was implicitly defined as deleted because a base class copy constructor is inaccessible or deleted
+			"/wd4626" # 'derived class' : assignment operator was implicitly defined as deleted because a base class assignment operator is inaccessible or deleted
+			"/wd4710" # 'function' : function not inlined
+			"/wd4711" # function 'function' selected for inline expansion
+			"/wd4820" # 'bytes' bytes padding added after construct 'member_name'
+			"/wd5026" # 'type': move constructor was implicitly defined as deleted
+			"/wd5027" # 'type': move assignment operator was implicitly defined as deleted
+			"/wd5045" # Compiler will insert Spectre mitigation for memory load if /Qspectre switch specified
+			"/wd5053" # support for 'explicit(<expr>)' in C++17 and earlier is a vendor extension
+			"/wd5204" # 'type-name': class has virtual functions, but its trivial destructor is not virtual; instances of objects derived from this class may not be destructed correctly
+			"/wd5220" # 'member': a non-static data member with a volatile qualified type no longer implies that compiler generated copy / move constructors and copy / move assignment operators are not trivial
+			#"/wd4333" # to large right shift -> data loss
+
+			"$<$<CONFIG:DEBUG>:>"
+			"$<$<CONFIG:RELEASE>:/Zc:inline;/JMC-;/Ob3>"
 	)
 
 	target_link_options(
@@ -464,7 +659,7 @@ add_executable(
 	"${ROOT_DIR}/.editorconfig"
 )
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 	target_link_libraries(
 		"Test_PUT_General"
 		PRIVATE
@@ -479,11 +674,49 @@ else()
 	)
 endif()
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 	target_compile_options(
 		"Test_PUT_General"
 		PRIVATE
-		{$cmpl_options}
+		"/DBUILD_DEBUG"
+			"/sdl"	# Enable Additional Security Checks
+			"/utf-8"	# Set Source and Executable character sets to UTF-8
+			"/Zi"	# Debug Information Format
+
+			"/permissive-"	# Standards conformance
+			"/Zc:preprocessor"	# Enable preprocessor conformance mode
+
+			"/D_CRT_SECURE_NO_WARNINGS"
+
+			"/wd5105"
+			# disable warnings
+			"/wd4189"
+			"/wd4005" # macro redefinition
+			"/wd4061" # enumerator 'identifier' in switch of enum 'enumeration' is not explicitly handled by a case label
+			"/wd4200" # nonstandard extension used : zero-sized array in struct/union
+			"/wd4201" # nonstandard extension used : nameless struct/union
+			"/wd4265" # 'type': class has virtual functions, but its non-trivial destructor is not virtual; instances of this class may not be destructed correctly
+			"/wd4266" # 'function' : no override available for virtual member function from base 'type'; function is hidden
+			"/wd4371" # 'classname': layout of class may have changed from a previous version of the compiler due to better packing of member 'member'
+			"/wd4514" # 'function' : unreferenced inline function has been removed
+			"/wd4582" # 'type': constructor is not implicitly called
+			"/wd4583" # 'type': destructor is not implicitly called
+			"/wd4623" # 'derived class' : default constructor was implicitly defined as deleted because a base class default constructor is inaccessible or deleted
+			"/wd4625" # 'derived class' : copy constructor was implicitly defined as deleted because a base class copy constructor is inaccessible or deleted
+			"/wd4626" # 'derived class' : assignment operator was implicitly defined as deleted because a base class assignment operator is inaccessible or deleted
+			"/wd4710" # 'function' : function not inlined
+			"/wd4711" # function 'function' selected for inline expansion
+			"/wd4820" # 'bytes' bytes padding added after construct 'member_name'
+			"/wd5026" # 'type': move constructor was implicitly defined as deleted
+			"/wd5027" # 'type': move assignment operator was implicitly defined as deleted
+			"/wd5045" # Compiler will insert Spectre mitigation for memory load if /Qspectre switch specified
+			"/wd5053" # support for 'explicit(<expr>)' in C++17 and earlier is a vendor extension
+			"/wd5204" # 'type-name': class has virtual functions, but its trivial destructor is not virtual; instances of objects derived from this class may not be destructed correctly
+			"/wd5220" # 'member': a non-static data member with a volatile qualified type no longer implies that compiler generated copy / move constructors and copy / move assignment operators are not trivial
+			#"/wd4333" # to large right shift -> data loss
+
+			"$<$<CONFIG:DEBUG>:>"
+			"$<$<CONFIG:RELEASE>:/Zc:inline;/JMC-;/Ob3>"
 	)
 
 	target_link_options(
@@ -505,7 +738,7 @@ add_executable(
 	"${ROOT_DIR}/.editorconfig"
 )
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 	target_link_libraries(
 		"Test_PUT_IO"
 		PRIVATE
@@ -520,11 +753,49 @@ else()
 	)
 endif()
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 	target_compile_options(
 		"Test_PUT_IO"
 		PRIVATE
-		{$cmpl_options}
+		"/DBUILD_DEBUG"
+			"/sdl"	# Enable Additional Security Checks
+			"/utf-8"	# Set Source and Executable character sets to UTF-8
+			"/Zi"	# Debug Information Format
+
+			"/permissive-"	# Standards conformance
+			"/Zc:preprocessor"	# Enable preprocessor conformance mode
+
+			"/D_CRT_SECURE_NO_WARNINGS"
+
+			"/wd5105"
+			# disable warnings
+			"/wd4189"
+			"/wd4005" # macro redefinition
+			"/wd4061" # enumerator 'identifier' in switch of enum 'enumeration' is not explicitly handled by a case label
+			"/wd4200" # nonstandard extension used : zero-sized array in struct/union
+			"/wd4201" # nonstandard extension used : nameless struct/union
+			"/wd4265" # 'type': class has virtual functions, but its non-trivial destructor is not virtual; instances of this class may not be destructed correctly
+			"/wd4266" # 'function' : no override available for virtual member function from base 'type'; function is hidden
+			"/wd4371" # 'classname': layout of class may have changed from a previous version of the compiler due to better packing of member 'member'
+			"/wd4514" # 'function' : unreferenced inline function has been removed
+			"/wd4582" # 'type': constructor is not implicitly called
+			"/wd4583" # 'type': destructor is not implicitly called
+			"/wd4623" # 'derived class' : default constructor was implicitly defined as deleted because a base class default constructor is inaccessible or deleted
+			"/wd4625" # 'derived class' : copy constructor was implicitly defined as deleted because a base class copy constructor is inaccessible or deleted
+			"/wd4626" # 'derived class' : assignment operator was implicitly defined as deleted because a base class assignment operator is inaccessible or deleted
+			"/wd4710" # 'function' : function not inlined
+			"/wd4711" # function 'function' selected for inline expansion
+			"/wd4820" # 'bytes' bytes padding added after construct 'member_name'
+			"/wd5026" # 'type': move constructor was implicitly defined as deleted
+			"/wd5027" # 'type': move assignment operator was implicitly defined as deleted
+			"/wd5045" # Compiler will insert Spectre mitigation for memory load if /Qspectre switch specified
+			"/wd5053" # support for 'explicit(<expr>)' in C++17 and earlier is a vendor extension
+			"/wd5204" # 'type-name': class has virtual functions, but its trivial destructor is not virtual; instances of objects derived from this class may not be destructed correctly
+			"/wd5220" # 'member': a non-static data member with a volatile qualified type no longer implies that compiler generated copy / move constructors and copy / move assignment operators are not trivial
+			#"/wd4333" # to large right shift -> data loss
+
+			"$<$<CONFIG:DEBUG>:>"
+			"$<$<CONFIG:RELEASE>:/Zc:inline;/JMC-;/Ob3>"
 	)
 
 	target_link_options(

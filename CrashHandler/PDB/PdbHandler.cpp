@@ -44,12 +44,12 @@ namespace Crash
 		BSTR ConvertMBSToBSTR(const std::string& str)
 		{
 			int wslen = ::MultiByteToWideChar(CP_ACP, 0 /* no flags */,
-				str.data(), str.length(),
+				str.data(), (int)str.length(),
 				NULL, 0);
 
 			BSTR wsdata = ::SysAllocStringLen(NULL, wslen);
 			::MultiByteToWideChar(CP_ACP, 0 /* no flags */,
-				str.data(), str.length(),
+				str.data(), (int)str.length(),
 				wsdata, wslen);
 			return wsdata;
 		}
@@ -67,7 +67,7 @@ namespace Crash
 			ULONGLONG length = 0;
 			if (a_symbol->get_length(&length) == S_OK) {
 				IDiaEnumLineNumbers* lineNums[100];
-				if (a_session->findLinesByRVA(rva, length, lineNums) == S_OK) {
+				if (a_session->findLinesByRVA(rva, (DWORD)length, lineNums) == S_OK) {
 					auto& lineNumsPtr = lineNums[0];
 					CComPtr<IDiaLineNumber> line;
 					IDiaLineNumber* lineNum;
@@ -80,7 +80,7 @@ namespace Crash
 							found_line = false;
 							DWORD sline;
 							IDiaSourceFile* srcFile;
-							BSTR fileName = nullptr;
+							//BSTR fileName = nullptr;
 							std::string convertedFileName;
 							if (lineNum->get_sourceFile(&srcFile) == S_OK) {
 								BSTR fileName;
@@ -115,10 +115,10 @@ namespace Crash
 			return a_result;
 		}
 
-		std::string print_hr_failure(HRESULT hr)
+		std::string print_hr_failure(HRESULT a_hr)
 		{
 			auto errMsg = "";
-			switch ((unsigned int)hr) {
+			switch ((unsigned int)a_hr) {
 			case 0x806D0005:  // E_PDB_NOT_FOUND
 				errMsg = "Unable to locate PDB";
 				break;
@@ -127,7 +127,7 @@ namespace Crash
 				errMsg = "Invalid or obsolete file format";
 				break;
 			default:
-				_com_error err(hr);
+				_com_error err(a_hr);
 				errMsg = CT2A(err.ErrorMessage());
 			}
 			return errMsg;
@@ -169,8 +169,8 @@ namespace Crash
 							   CLSCTX_INPROC_SERVER,
 							   __uuidof(IDiaDataSource),
 							   (void**)&pSource))) {
-					auto error = print_hr_failure(hr);
-					logger::info("Failed to load registered msdia140.dll for dll {}+{:07X}\t{}", a_name, a_offset, error);
+					auto _error = print_hr_failure(hr);
+					logger::info("Failed to load registered msdia140.dll for dll {}+{:07X}\t{}", a_name, a_offset, _error);
 					CoUninitialize();
 					return result;
 				}
@@ -302,14 +302,14 @@ namespace Crash
 			const auto filename = std::make_optional(path.filename().string());
 			logger::info("Found dll {}", *filename);
 			auto dll_path = path.string();
-			auto search_path = Crash::PDB::sPluginPath.data();
+			//auto search_path = Crash::PDB::sPluginPath.data();
 			CComPtr<IDiaDataSource> source;
-			auto hr = CoCreateInstance(CLSID_DiaSource,
+			auto _hr = CoCreateInstance(CLSID_DiaSource,
 				NULL,
 				CLSCTX_INPROC_SERVER,
 				__uuidof(IDiaDataSource),
 				(void**)&source);
-			if (FAILED(hr)) {
+			if (FAILED(_hr)) {
 				retflag = 3;
 				return;
 			};
@@ -319,8 +319,8 @@ namespace Crash
 				wchar_t wszPath[_MAX_PATH];
 				mbstowcs(wszFilename, dll_path.c_str(), sizeof(wszFilename) / sizeof(wszFilename[0]));
 				mbstowcs(wszPath, sPluginPath.data(), sizeof(wszPath) / sizeof(wszPath[0]));
-				hr = source->loadDataForExe(wszFilename, wszPath, NULL);
-				if (FAILED(hr)) {
+				_hr = source->loadDataForExe(wszFilename, wszPath, NULL);
+				if (FAILED(_hr)) {
 					retflag = 3;
 					return;
 				};

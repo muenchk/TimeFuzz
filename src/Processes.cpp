@@ -296,7 +296,7 @@ namespace Processes
 			&mc,
 			sizeof(_PROCESS_MEMORY_COUNTERS_EX));
 		if (success)
-			return mc.PagefileUsage;
+			return (long)mc.PagefileUsage;
 		else
 			return -1;
 	}

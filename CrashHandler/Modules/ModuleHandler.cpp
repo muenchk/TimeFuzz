@@ -61,14 +61,14 @@ namespace Crash::Modules
 		{
 		public:
 			VTable(
-				std::string_view a_name,
-				std::span<const std::byte> a_module,
-				std::span<const std::byte> a_data,
-				std::span<const std::byte> a_rdata)
+				std::string_view /*a_name*/,
+				std::span<const std::byte> /*a_module*/,
+				std::span<const std::byte> /*a_data*/,
+				std::span<const std::byte> /*a_rdata*/)
 			{
-				const auto typeDesc = type_descriptor(a_name, a_data);
+				//const auto typeDesc = type_descriptor(a_name, a_data);
 				// auto col = typeDesc ? complete_object_locator(typeDesc, a_module, a_rdata) : nullptr;
-				auto col = nullptr;
+				//auto col = nullptr;
 				//_vtable = col ? virtual_table(col, a_rdata) : nullptr;
 				_vtable = nullptr;
 			}
@@ -77,8 +77,8 @@ namespace Crash::Modules
 
 		private:
 			[[nodiscard]] static auto type_descriptor(
-				std::string_view a_name,
-				std::span<const std::byte> a_data)
+				std::string_view /*a_name*/,
+				std::span<const std::byte> /*a_data*/)
 				-> const Crash::msvc::type_info*
 			{
 				return nullptr;

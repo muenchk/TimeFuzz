@@ -13,7 +13,7 @@ Session* Session::GetSingleton()
 	return std::addressof(session);
 }
 
-std::vector<std::shared_ptr<Input>> Session::GenerateNegatives(int negatives, bool& error, int maxiterations, int timeout, bool returnpositives)
+std::vector<std::shared_ptr<Input>> Session::GenerateNegatives(int /*negatives*/, bool& /*error*/, int /*maxiterations*/, int /*timeout*/, bool /*returnpositives*/)
 {
 	return {};
 }
@@ -89,7 +89,7 @@ void Session::Iterate()
 	// threads need to be split into computing and test execution. if usehardwarethreads is activated, make sure we don't exceed.
 	int numc = _settings->general.numcomputingthreads;
 	int nume = _settings->general.concurrenttests;
-	if (numc + nume > std::thread::hardware_concurrency())
+	if (numc + nume > (int)std::thread::hardware_concurrency())
 	{
 		numc = (int)((((double)numc) / ((double)nume)) * std::thread::hardware_concurrency());
 		nume = std::thread::hardware_concurrency() - numc;

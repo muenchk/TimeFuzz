@@ -29,6 +29,7 @@ GrammarNode::operator std::string()
 	case NodeType::Sequence:
 		return "SEQ_" + identifier;
 	}
+	return "T_";
 }
 
 std::string GrammarNode::string()
@@ -157,6 +158,7 @@ void GrammarTree::SetRoot(std::shared_ptr<GrammarNode> node)
 
 void GrammarTree::AddSymbol(std::string symbol, std::string derivation)
 {
+	logdebug("Adding new symbol: {} -> {}", symbol, derivation);
 	// remove whitespaces from symbol and identifiers, since they are superfluous
 	Utility::RemoveWhiteSpaces(symbol, '\"', true);
 	Utility::RemoveWhiteSpaces(derivation, '\"', true);
@@ -173,6 +175,7 @@ void GrammarTree::AddSymbol(std::string symbol, std::string derivation)
 
 void GrammarTree::AddSequenceSymbol(std::string symbol, std::string derivation)
 {
+	logdebug("Adding new seqsymbol: {} -> {}", symbol, derivation);
 	// remove whitespaces from symbol and identifiers, since they are superfluous
 	Utility::RemoveWhiteSpaces(symbol, '\"', true);
 	Utility::RemoveWhiteSpaces(derivation, '\"', true);
@@ -189,10 +192,15 @@ void GrammarTree::AddSequenceSymbol(std::string symbol, std::string derivation)
 
 std::shared_ptr<GrammarNode> GrammarTree::FindNode(std::string identifier)
 {
+	std::string symbols;
 	for (auto& node : nonterminals) {
-		if (node->identifier == identifier)
+		symbols += "|" + node->identifier;
+		if (node->identifier == identifier) {
 			return node;
+		}
 	}
+	symbols += "|";
+	logdebug("Nonterminals: {}, Symbols found: {}", nonterminals.size(), symbols);
 	return {};
 }
 
@@ -293,7 +301,7 @@ float GrammarTree::GetWeight(std::string production)
 		std::string wgt = production.substr(pos + 5, production.length() - (pos + 5));
 		try {
 			return std::stof(wgt);
-		} catch (std::exception& e) {
+		} catch (std::exception&) {
 			logwarn("Cannot extract weight form symbol: {}", production);
 		}
 	}
@@ -352,8 +360,9 @@ void GrammarTree::GatherFlags(std::shared_ptr<GrammarNode> node, std::set<uint64
 			return GrammarNode::NodeFlags::ProduceTerminals;
 			break;
 		}
+		return GrammarNode::NodeFlags::ProduceTerminals;
 	}();
-	for (int i = 0; i < node->expansions.size(); i++) {
+	for (int i = 0; i < (int)(node->expansions.size()); i++) {
 		if (skip.contains(node->expansions[i]))  // skip cycling expansions
 			continue;
 		node->producing |= node->expansions[i]->producing;
@@ -621,8 +630,8 @@ void Grammar::ParseScala(std::filesystem::path path)
 			bopen += Utility::CountSymbols(line, '(', '\'', '\"');
 			bclosed += Utility::CountSymbols(line, ')', '\'', '\"');
 			if (bclosed == bopen + 1) {
-				break;
 				logdebug("found end of grammar");
+				break;
 			}
 		}
 		// we have found the last occurence of the closing bracket. Remove it.
@@ -642,6 +651,8 @@ void Grammar::ParseScala(std::filesystem::path path)
 		for (auto rule : rules) {
 			// rules are of the form	symbol := derivation
 			Utility::RemoveWhiteSpaces(rule, '\"', true, true);
+			Utility::RemoveSymbols(rule, '\n', true, '\"');
+			Utility::RemoveSymbols(rule, '\r', true, '\"');
 			auto split = Utility::SplitString(rule, ":=", true, true, '\"');
 			if (split.size() == 2) {
 				if (auto pos = split[0].find("'SEQ"); pos != std::string::npos)

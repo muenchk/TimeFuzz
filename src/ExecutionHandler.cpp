@@ -139,11 +139,11 @@ bool Test::IsRunning()
 		return false;
 	}
 #if defined(unix) || defined(__unix__) || defined(__unix)
-	bool running = Processes::GetProcessRunning(processid);
+	bool res = Processes::GetProcessRunning(processid);
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-	bool running = Processes::GetProcessRunning(pi.hProcess);
+	bool res = Processes::GetProcessRunning(pi.hProcess);
 #endif
-	if (running)
+	if (res)
 		return true;
 	else {
 		endtime = std::chrono::steady_clock::now();
@@ -165,7 +165,7 @@ void Test::WriteInput(std::string str)
 	DWORD dwWritten;
 	BOOL bSuccess = FALSE;
 	const char* cstr = str.c_str();
-	bSuccess = WriteFile(red_input[1], cstr, strlen(cstr), &dwWritten, NULL);
+	bSuccess = WriteFile(red_input[1], cstr, (DWORD)strlen(cstr), &dwWritten, NULL);
 #endif
 }
 
@@ -190,12 +190,12 @@ bool Test::WriteAll()
 		logcritical("called WriteAll after invalidation");
 		return false;
 	}
-	auto itr = input->begin();
-	while (itr != input->end())
+	auto itra = input->begin();
+	while (itra != input->end())
 	{
-		WriteInput(*itr);
-		lastwritten += *itr;
-		itr++;
+		WriteInput(*itra);
+		lastwritten += *itra;
+		itra++;
 	}
 	lasttime = std::chrono::steady_clock::now();
 	return true;
@@ -227,7 +227,7 @@ bool Test::CheckInput()
 	//else
 	//	ret = true;
 	DWORD dwRead;
-	int sl = strlen(lastwritten.c_str());
+	int sl = (int)strlen(lastwritten.c_str());
 	char* chBuf = new char[sl + 1];
 	BOOL bSuccess = FALSE;
 	bSuccess = ReadFile(red_input[0], chBuf, sl, &dwRead, NULL);
@@ -563,7 +563,7 @@ void ExecutionHandler::InternalLoop()
 	while (_stopHandler == false || _finishtests) {
 		logdebug("find new tests");
 		while (_currentTests < _maxConcurrentTests && _waitingTests.size() > 0) {
-			Test* test = nullptr;
+			test = nullptr;
 			{
 				std::unique_lock<std::mutex> guard(_lockqueue);
 				if (_waitingTests.size() > 0) {
@@ -604,7 +604,7 @@ void ExecutionHandler::InternalLoop()
 		logdebug("Handling running tests: {}", _currentTests);
 		auto itr = _runningTests.begin();
 		while (itr != _runningTests.end()) {
-			Test* test = *itr;
+			test = *itr;
 			logdebug("Handling test {}", test->identifier);
 			// read output accumulated in the mean-time
 			// if process has ended there still may be something left over to read anyway
@@ -683,10 +683,13 @@ TestRunning:
 	}
 
 	// we will only get here once we terminate the handler
-KillRunningTests:
+//KillRunningTests:
 
 	// kill all running tests
-
+	for (auto tst : _runningTests) {
+		tst->KillProcess();
+	}
+	_runningTests.clear();
 	
 ExitHandler:
 	// mark thread as inactive

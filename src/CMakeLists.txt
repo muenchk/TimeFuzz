@@ -7,7 +7,7 @@ set(SOURCE_DIR "${ROOT_DIR}/src")
 include(${ROOT_DIR}/cmake/sourcelist.cmake)
 #include_directories("D:/Program Files/Microsoft Visual Studio/2022/DIA SDK/include")
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 
 	set(VS_PATH ${CMAKE_GENERATOR_INSTANCE})
 	get_filename_component(VS_DIA_INC_PATH "${VS_PATH}/DIA SDK/include" ABSOLUTE CACHE)
@@ -72,6 +72,8 @@ add_link_options("$<$<NOT:$<CONFIG:Debug>>:/DEBUG>")
 add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:REF>")
 add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:ICF>")
 
+add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+
 #add_library(
 #	"${PROJECT_NAME}"
 #	SHARED
@@ -110,7 +112,7 @@ if(DIASDK_LIBRARIES)
 endif()
 
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 	target_link_libraries(
 		"${PROJECT_NAME}"
 		PRIVATE
@@ -125,7 +127,7 @@ else()
 	)
 endif()
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 	target_compile_options(
 		"${PROJECT_NAME}"
 		PRIVATE
@@ -188,7 +190,7 @@ target_include_directories(
 		${infoware_INCLUDE_DIRS}
 )
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 	install(
 		FILES
 			"$<TARGET_PDB_FILE:${PROJECT_NAME}>"

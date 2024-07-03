@@ -1,210 +1,210 @@
 {
   "version": 2,
   "cmakeMinimumRequired": {
-      "major": 3,
-      "minor": 21,
-      "patch": 0
+    "major": 3,
+    "minor": 21,
+    "patch": 0
   },
   "configurePresets": [
-      {
-          "name": "base",
-          "hidden": true,
-          "cacheVariables": {
-            "CMAKE_CXX_FLAGS": "$env{PROJECT_PLATFORM_FLAGS} $env{PROJECT_TEXT_FLAGS} $env{PROJECT_COMPILER_FLAGS} $penv{CXX_FLAGS}"
-          },
-          "errors": {
-            "deprecated": true
-          },
-          "warnings": {
-            "deprecated": true,
-            "dev": true
-          },
-          "vendor": {
-            "microsoft.com/VisualStudioSettings/CMake/1.0": {
-              "intelliSenseMode": "$env{PROJECT_PLATFORM}-$env{PROJECT_COMPILER}-$env{PROJECT_ARCHITECTURE}",
-              "enableMicrosoftCodeAnalysis": true,
-              "enableClangTidyCodeAnalysis": true
-            }
-          }
+    {
+      "name": "base",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "$env{PROJECT_PLATFORM_FLAGS} $env{PROJECT_TEXT_FLAGS} $env{PROJECT_COMPILER_FLAGS} $penv{CXX_FLAGS}"
       },
-      {
-          "name": "vcpkg",
-          "hidden": true,
-          "cacheVariables": {
-              "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-              "VCPKG_TARGET_TRIPLET": "x64-windows-static-md",
-              "VCPKG_HOST_TRIPLET": "x64-windows-static-md",
-              "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake",
-              "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
-          }
+      "errors": {
+        "deprecated": true
       },
-      {
-          "name": "vcpkg-linux",
-          "hidden": true,
-          "cacheVariables": {
-              "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-              "VCPKG_TARGET_TRIPLET": "x64-linux",
-              "VCPKG_HOST_TRIPLET": "x64-linux",
-              "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake"
-          }
+      "warnings": {
+        "deprecated": true,
+        "dev": true
       },
-      {
-          "name": "win32",
-          "hidden": true,
-          "environment": {
-              "PROJECT_PLATFORM_FLAGS": "-DWIN32_LEAN_AND_MEAN -DNOMINMAX",
-              "PROJECT_PLATFORM": "windows"
-          }
-      },
-      {
-          "name": "win32-unicode",
-          "hidden": true,
-          "inherits": "win32",
-          "environment": {
-              "PROJECT_TEXT_FLAGS": "-DUNICODE -D_UNICODE"
-          }
-      },
-      {
-          "name": "x64",
-          "hidden": true,
-          "architecture": {
-              "value": "x64",
-              "strategy": "external"
-          }
-      },
-      {
-        "name": "generator-ninja",
-        "hidden": true,
-        "generator": "Ninja",
-        "cacheVariables": {
-          "CMAKE_MAKE_PROGRAM": "$env{NinjaPath}"
+      "vendor": {
+        "microsoft.com/VisualStudioSettings/CMake/1.0": {
+          "intelliSenseMode": "$env{PROJECT_PLATFORM}-$env{PROJECT_COMPILER}-$env{PROJECT_ARCHITECTURE}",
+          "enableMicrosoftCodeAnalysis": true,
+          "enableClangTidyCodeAnalysis": true
         }
-      },
-      {
-        "name": "clang",
-        "hidden": true,
-        "cacheVariables": {
-          "CMAKE_C_COMPILER": "clang",
-          "CMAKE_CXX_COMPILER": "clang++"
-        },
-        "environment": {
-          "PROJECT_COMPILER": "clang",
-          "PROJECT_COMPILER_FLAGS": "-Wno-overloaded-virtual -Wno-delete-non-abstract-non-virtual-dtor -Wno-inconsistent-missing-override -Wno-reinterpret-base-class -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format"
-        }
-      },
-      {
-          "name": "msvc",
-          "hidden": true,
-          "environment": {
-            "PROJECT_COMPILER_FLAGS": "/permissive- /Zc:preprocessor /EHsc /MP /W4 /WX /external:anglebrackets /external:W0 /bigobj $penv{CXXFLAGS}",
-            "PROJECT_COMPILER": "msvc"
-          }
-      },
-      {
-          "name": "clang-cl",
-          "hidden": true,
-          "inherits": "clang",
-          "cacheVariables": {
-              "CMAKE_C_COMPILER": "clang-cl",
-              "CMAKE_CXX_COMPILER": "clang-cl"
-          },
-        "environment": {
-          "CC": "clang-cl",
-          "CXX": "clang-cl",
-          "PROJECT_COMPILER_FLAGS": "/permissive- /EHsc -Wno-overloaded-virtual -Wno-delete-non-abstract-non-virtual-dtor -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format $penv{CXXFLAGS}"
-        }
-      },
-      {
-          "name": "build-tests",
-          "displayName": "Build Tests",
-          "hidden": true,
-          "description": "Include test suites in the build.",
-          "cacheVariables": {
-              "BUILD_TESTS": {
-                  "type": "STRING",
-                  "value": "ON"
-              }
-          }
-      },
-      {
-          "name": "build",
-          "inherits": [
-              "base",
-              "vcpkg",
-              "win32-unicode",
-              "x64",
-              "clang-cl",
-              "generator-ninja"
-          ],
-          "displayName": "Release",
-          "description": "Optimized release build.",
-          "generator": "Ninja",
-          "binaryDir": "${sourceDir}/build",
-          "cacheVariables": {
-              "CMAKE_BUILD_TYPE": {
-                  "type": "STRING",
-                  "value": "Release"
-              }
-          }
-      },
-      {
-          "name": "all",
-          "inherits": [
-              "base",
-              "vcpkg",
-              "win32-unicode",
-              "x64",
-              "clang-cl",
-              "generator-ninja",
-              "build-tests"
-          ],
-          "displayName": "Release",
-          "description": "Optimized release build.",
-          "generator": "Ninja",
-          "binaryDir": "${sourceDir}/build",
-          "cacheVariables": {
-              "CMAKE_BUILD_TYPE": {
-                  "type": "STRING",
-                  "value": "Debug"
-              }
-          }
-      },
-      {
-          "name": "linux",
-          "inherits": [
-              "base",
-              "vcpkg-linux",
-              "x64",
-              "clang",
-              "generator-ninja",
-              "build-tests"
-          ],
-          "displayName": "Release",
-          "description": "Optimized release build.",
-          "generator": "Ninja",
-          "binaryDir": "${sourceDir}/buildLinux",
-          "cacheVariables": {
-              "CMAKE_BUILD_TYPE": {
-                  "type": "STRING",
-                  "value": "Debug"
-              }
-          }
-      },
-      {
-        "name": "kali",
-        "inherits": [
-            "linux"
-        ],
-        "displayName": "Release",
-        "binaryDir": "${sourceDir}/buildKali"
       }
+    },
+    {
+      "name": "vcpkg",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows-static-md",
+        "VCPKG_HOST_TRIPLET": "x64-windows-static-md",
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake",
+        "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
+      }
+    },
+    {
+      "name": "vcpkg-linux",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-linux",
+        "VCPKG_HOST_TRIPLET": "x64-linux",
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake"
+      }
+    },
+    {
+      "name": "win32",
+      "hidden": true,
+      "environment": {
+        "PROJECT_PLATFORM_FLAGS": "-DWIN32_LEAN_AND_MEAN -DNOMINMAX",
+        "PROJECT_PLATFORM": "windows"
+      }
+    },
+    {
+      "name": "win32-unicode",
+      "hidden": true,
+      "inherits": "win32",
+      "environment": {
+        "PROJECT_TEXT_FLAGS": "-DUNICODE -D_UNICODE"
+      }
+    },
+    {
+      "name": "x64",
+      "hidden": true,
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      }
+    },
+    {
+      "name": "generator-ninja",
+      "hidden": true,
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_MAKE_PROGRAM": "$env{NinjaPath}"
+      }
+    },
+    {
+      "name": "clang",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      },
+      "environment": {
+        "PROJECT_COMPILER": "clang",
+        "PROJECT_COMPILER_FLAGS": "-Wno-overloaded-virtual -Wno-delete-non-abstract-non-virtual-dtor -Wno-inconsistent-missing-override -Wno-reinterpret-base-class -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format"
+      }
+    },
+    {
+      "name": "msvc",
+      "hidden": true,
+      "environment": {
+        "PROJECT_COMPILER_FLAGS": "/permissive- /Zc:preprocessor /EHsc /MP /W4 /WX /external:anglebrackets /external:W0 /bigobj $penv{CXXFLAGS}",
+        "PROJECT_COMPILER": "msvc"
+      }
+    },
+    {
+      "name": "clang-cl",
+      "hidden": true,
+      "inherits": "clang",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang-cl",
+        "CMAKE_CXX_COMPILER": "clang-cl"
+      },
+      "environment": {
+        "CC": "clang-cl",
+        "CXX": "clang-cl",
+        "PROJECT_COMPILER_FLAGS": "/permissive- /EHsc -Wno-overloaded-virtual -Wno-delete-non-abstract-non-virtual-dtor -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format $penv{CXXFLAGS}"
+      }
+    },
+    {
+      "name": "build-tests",
+      "displayName": "Build Tests",
+      "hidden": true,
+      "description": "Include test suites in the build.",
+      "cacheVariables": {
+        "BUILD_TESTS": {
+          "type": "STRING",
+          "value": "ON"
+        }
+      }
+    },
+    {
+      "name": "build",
+      "inherits": [
+        "base",
+        "vcpkg",
+        "win32-unicode",
+        "x64",
+        "clang-cl",
+        "generator-ninja"
+      ],
+      "displayName": "Release",
+      "description": "Optimized release build.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": {
+          "type": "STRING",
+          "value": "Release"
+        }
+      }
+    },
+    {
+      "name": "all",
+      "inherits": [
+        "base",
+        "vcpkg",
+        "win32-unicode",
+        "x64",
+        "generator-ninja",
+        "build-tests",
+        "msvc"
+      ],
+      "displayName": "Release",
+      "description": "Optimized release build.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": {
+          "type": "STRING",
+          "value": "Debug"
+        }
+      }
+    },
+    {
+      "name": "linux",
+      "inherits": [
+        "base",
+        "vcpkg-linux",
+        "x64",
+        "clang",
+        "generator-ninja",
+        "build-tests"
+      ],
+      "displayName": "Release",
+      "description": "Optimized release build.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/buildLinux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": {
+          "type": "STRING",
+          "value": "Debug"
+        }
+      }
+    },
+    {
+      "name": "kali",
+      "inherits": [
+        "linux"
+      ],
+      "displayName": "Release",
+      "binaryDir": "${sourceDir}/buildKali"
+    }
   ],
   "buildPresets": [
-      {
-          "name": "release-msvc",
-          "displayName": "Release (MSVC)",
-          "configurePreset": "all",
-          "description": "Optimized release build."
-      }
+    {
+      "name": "release-msvc",
+      "displayName": "Release (MSVC)",
+      "configurePreset": "all",
+      "description": "Optimized release build."
+    }
   ]
 }

@@ -37,7 +37,7 @@ namespace Processes
 
 	bool StartPUTProcess(Test* test, std::string app, std::string args);
 
-	long GetProcessMemory(pid_t pid);
+	size_t GetProcessMemory(pid_t pid);
 
 	bool KillProcess(pid_t pid);
 

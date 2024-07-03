@@ -101,7 +101,7 @@ std::vector<std::string> Utility::SplitString(std::string str, std::string delim
 		bool escaped = false;
 		std::string tmp;
 		window slide;
-		slide.maxsize = delimiter.size();
+		slide.maxsize = (int)delimiter.size();
 		for (char c : str) {
 			//logdebug("Char: {}\t Window: {}\t Wsize: {}\t Wmaxsize: {}\t tmp: {}", c, slide.GetWindow(), slide.size, slide.maxsize, tmp);
 			if (escape == true && escaped == true) {

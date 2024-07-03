@@ -19,7 +19,7 @@ std::string ReturnArgs(std::shared_ptr<Input> input)
 	return "";
 }
 
-int main(int argc, char** argv)
+int main(/*int argc, char** argv*/)
 {
 	Logging::InitializeLog(".");
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)

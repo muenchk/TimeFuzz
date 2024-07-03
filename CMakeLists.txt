@@ -24,7 +24,7 @@ find_package(magic_enum CONFIG REQUIRED)
 find_package(zycore CONFIG REQUIRED)
 find_package(zydis CONFIG REQUIRED)
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
         find_package(Boost
                 MODULE
                 REQUIRED
@@ -49,7 +49,7 @@ enable_testing()
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 
     set(VS_PATH ${CMAKE_GENERATOR_INSTANCE})
     get_filename_component(VS_DIA_INC_PATH "${VS_PATH}/DIA SDK/include" ABSOLUTE CACHE)
@@ -99,7 +99,9 @@ add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:REF>")
 add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:ICF>")
 
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
+        message(STATUS "building CrashHandler")
+        add_definitions(-D_CRT_SECURE_NO_WARNINGS)
         include_directories("CrashHandler")
 
         configure_file(
@@ -152,6 +154,8 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
         magic_enum::magic_enum
         Zydis::Zydis
         )
+else()
+        message(STATUS "not building CrashHandler ${CMAKE_CXX_COMPILER_ID}")
 endif()
 
 

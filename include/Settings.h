@@ -108,7 +108,7 @@ public:
 		/// <summary>
 		/// starting parameter for automatic generationsize scaling
 		/// </summary>
-		float generationtweakstart = 0.2;
+		float generationtweakstart = 0.2f;
 		const char* generationtweakstart_NAME = "GenerationTweakStart";
 
 		/// <summary>

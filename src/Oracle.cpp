@@ -61,5 +61,6 @@ bool Oracle::Validate()
 
 Oracle::OracleResult Oracle::Evaluate(Test* test)
 {
+	test->input;
 	return Oracle::OracleResult::Passing;
 }
