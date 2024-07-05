@@ -164,6 +164,11 @@ public:
 	~GrammarTree();
 
 	/// <summary>
+	/// clears all internal variables
+	/// </summary>
+	void Clear();
+
+	/// <summary>
 	/// Sets the root symbol of the grammar
 	/// </summary>
 	/// <param name="symbol"></param>
@@ -238,6 +243,7 @@ private:
 	/// <summary>
 	/// Prunes the grammar tree and removes all non-reachable and non-producing subtrees
 	/// </summary>
+	/// <param name="pruneall">prunes all nodes in the tree</param>
 	void Prune(bool pruneall = false);
 };
 
@@ -262,7 +268,18 @@ public:
 	/// <returns></returns>
 	std::string Python();
 
+	/// <summary>
+	/// returns whether the grammar is valid
+	/// </summary>
+	/// <returns></returns>
 	bool IsValid();
+
+	/// <summary>
+	/// Clears all internal variables
+	/// </summary>
+	void Clear();
+
+	~Grammar();
 
 private:
 	std::shared_ptr<GrammarTree> tree;

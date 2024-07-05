@@ -4,20 +4,23 @@
 
 std::string Oracle::TypeString(OracleType type)
 {
-	return type == Oracle::OracleType::PythonScript                 ? "PythonScript" :
-	       type == Oracle::OracleType::CommandlineProgramResponsive ? "cmdResponsive" :
-	       type == Oracle::OracleType::CommandlineProgramDump       ? "cmdDump" :
-	                                                                  "undefined";
+	return type == Oracle::OracleType::CMD              ? "CommandLine" :
+	       type == Oracle::OracleType::Script           ? "Script" :
+	       type == Oracle::OracleType::STDIN_Responsive ? "StdinResponsive" :
+	       type == Oracle::OracleType::STDIN_Responsive ? "StdinDump" :
+	                                                      "undefined";
 }
 
 Oracle::OracleType Oracle::ParseType(std::string str)
 {
-	if (Utility::ToLower(str) == "pythonscript")
-		return Oracle::OracleType::PythonScript;
-	else if (Utility::ToLower(str) == "cmdresponsive")
-		return Oracle::OracleType::CommandlineProgramResponsive;
-	else if (Utility::ToLower(str) == "cmddump")
-		return Oracle::OracleType::CommandlineProgramDump;
+	if (Utility::ToLower(str) == "CommandLine")
+		return Oracle::OracleType::CMD;
+	else if (Utility::ToLower(str) == "Script")
+		return Oracle::OracleType::Script;
+	else if (Utility::ToLower(str) == "StdinResponsive")
+		return Oracle::OracleType::STDIN_Responsive;
+	else if (Utility::ToLower(str) == "StdinDump")
+		return Oracle::OracleType::STDIN_Dump;
 	else
 		return Oracle::OracleType::Undefined;
 }

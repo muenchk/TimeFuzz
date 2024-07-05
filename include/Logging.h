@@ -83,6 +83,21 @@ public:
 	static void InitializeLog(std::filesystem::path _path);
 };
 
+#ifdef BUILD_DEBUG
+#	define StartProfilingDebug \
+	auto begin = std::chrono::steady_clock::now();
+#	define TimeProfilingDebug \
+	begin
+#	define profileDebug(...)                                    \
+		if (Logging::EnableProfile) {                       \
+			static_cast<void>(prof(__func__, __VA_ARGS__)); \
+		}
+#else
+#	define StartProfilingDebug ;
+#	define TimeProfilingDebug ;
+#	define profileDebug(...) ;
+#endif
+
 #define StartProfiling \
 	auto begin = std::chrono::steady_clock::now();
 

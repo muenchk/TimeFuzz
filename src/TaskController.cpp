@@ -39,6 +39,11 @@ void TaskController::Stop(bool completeall)
 	for (std::thread& t : threads)
 		t.join();
 	threads.clear();
+	while (tasks.empty() == false)
+	{
+		tasks.front()->Dispose();
+		tasks.pop();
+	}
 }
 
 TaskController::~TaskController()
@@ -50,6 +55,10 @@ TaskController::~TaskController()
 		terminate = true;
 		for (auto& thread : threads)
 			thread.detach();
+		while (tasks.empty() == false) {
+			tasks.front()->Dispose();
+			tasks.pop();
+		}
 	}
 }
 

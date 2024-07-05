@@ -8,6 +8,13 @@ class Generator
 {
 public:
 	virtual void Generate();
+	/// <summary>
+	/// clears all internal variables
+	/// </summary>
+	virtual void Clear();
+	/// <summary>
+	/// resets all progress made
+	/// </summary>
 	virtual void Clean();
 
 	virtual void AddExclusion(std::shared_ptr<Input> input);
@@ -18,6 +25,13 @@ public:
 class SimpleGenerator : Generator
 {
 	void Generate();
+	/// <summary>
+	/// clears all internal variables
+	/// </summary>
+	void Clear();
+	/// <summary>
+	/// resets all progress made
+	/// </summary>
 	void Clean();
 	void AddExclusion(std::shared_ptr<Input> input);
 	void AddExclusionPrefix(std::shared_ptr<Input> input);

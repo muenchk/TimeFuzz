@@ -131,6 +131,7 @@ public:
 	pid_t processid;
 	int red_input[2];
 	int red_output[2];
+	int exitcode = -1;
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	STARTUPINFO si;
 	PROCESS_INFORMATION pi;
@@ -219,12 +220,13 @@ private:
 	/// next test identifier
 	/// </summary>
 	uint64_t _nextid = 1;
+	bool cleared = false;
 
 	/// <summary>
 	/// time handler waits between cycles in nanoseconds
 	/// </summary>
-	std::chrono::nanoseconds _waittime = std::chrono::nanoseconds(1000);
-	long long _waittimeL = 1000;
+	std::chrono::nanoseconds _waittime = std::chrono::nanoseconds(1000000000);
+	long long _waittimeL = 1000000000;
 
 	bool _enableFragments = false;
 
@@ -246,12 +248,16 @@ public:
 	ExecutionHandler(Settings* settings, std::shared_ptr<TaskController> threadpool, int maxConcurrentTests, std::shared_ptr<Oracle> oracle, std::function<std::string(std::shared_ptr<Input>)>&& getCommandLineArgs);
 
 	/// <summary>
+	/// clears all internals and releases shared pointers
+	/// DO NOT CALL BEFORE WAITING ON HANDLER!
+	/// </summary>
+	void Clear();
+
+	/// <summary>
 	/// enables execution of test fragments
 	/// </summary>
 	/// <param name="enable"></param>
-	void SetEnableFragments(bool enable = true) {
-		_enableFragments = enable;
-	}
+	void SetEnableFragments(bool enable = true);
 
 	/// <summary>
 	/// Changes the maximum number of tests run concurrently

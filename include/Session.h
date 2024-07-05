@@ -18,6 +18,13 @@ public:
 	/// <returns></returns>
 	Session* GetSingleton();
 
+	~Session();
+
+	/// <summary>
+	/// clears all internal data
+	/// </summary>
+	void Clear();
+
 	/// <summary>
 	/// Starts the fuzzing session
 	/// </summary>

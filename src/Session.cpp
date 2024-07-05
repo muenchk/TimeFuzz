@@ -13,6 +13,43 @@ Session* Session::GetSingleton()
 	return std::addressof(session);
 }
 
+Session::~Session()
+{
+	Clear();
+}
+
+void Session::Clear()
+{
+	abort = true;
+	if (_sessioncontroller.joinable())
+		_sessioncontroller.join();
+	_sessioncontroller = {};
+	if (_oracle)
+		_oracle.reset();
+	if (_controller)
+	{
+		_controller->Stop(false);
+		_controller.reset();
+	}
+	if (_generator)
+	{
+		_generator->Clear();
+		_generator.reset();
+	}
+	if (_grammar)
+	{
+		_grammar->Clear();
+		_grammar.reset();
+	}
+	if (_settings)
+	{
+		_settings.reset();
+	}
+	data.Clear();
+	LastError = 0;
+	running = false;
+}
+
 std::vector<std::shared_ptr<Input>> Session::GenerateNegatives(int /*negatives*/, bool& /*error*/, int /*maxiterations*/, int /*timeout*/, bool /*returnpositives*/)
 {
 	return {};
@@ -113,6 +150,10 @@ void Session::SessionControl()
 	// this function controls the session.
 	// it runs periodically and handles top-level processing and checks for abort conditions and success conditions
 
+	while (!abort)
+	{
+
+	}
 }
 
 bool Session::IsRunning()

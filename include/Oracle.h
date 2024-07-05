@@ -34,13 +34,27 @@ public:
 
 	enum class OracleType
 	{
+		/// <summary>
+		/// Invalid value
+		/// </summary>
 		Undefined,
 		/// <summary>
-		/// executes a python script that execute the PUT and collects information about the result and the last executed element of the input sequence
+		/// Arguments are passed on the command line [no fragment evaluation]
 		/// </summary>
-		PythonScript,
-		CommandlineProgramResponsive,
-		CommandlineProgramDump,
+		CMD,
+		/// <summary>
+		/// Arguments are passed on the command line
+		/// [STDOUT returns formatted execution information]
+		/// </summary>
+		Script,
+		/// <summary>
+		/// Arguments are passed as fragments on STDIN
+		/// </summary>
+		STDIN_Responsive,
+		/// <summary>
+		/// Arguments are dumped on STDIN [no fragment evaluation
+		/// </summary>
+		STDIN_Dump,
 	};
 
 private:

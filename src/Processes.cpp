@@ -9,6 +9,10 @@
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
 #		include <cstring>
+# include <cstdlib>
+#include <signal.h>
+#include <errno.h>
+#include <libexplain/execvp.h>
 #endif
 
 namespace Processes
@@ -33,12 +37,13 @@ namespace Processes
 		int status = execvp(app.c_str(), (char* const*)pargs.data());
 
 		if (status == -1) {
-			std::fprintf(stderr, " Error: unable to launch process\n");
+			logcritical("Cannot start process: Error: {}, EXPL: {}", errno, std::string(explain_errno_execvp(errno, app.c_str(), (char* const*)pargs.data())));
 			throw std::runtime_error("Error: failed to launch process");
 		}
 	}
 	std::pair<bool, int> fork_exec(std::string app, std::vector<std::string> args, int timelimitsec, std::string outfile)
 	{
+		StartProfilingDebug;
 		std::printf(" [TRACE] <BEFORE FORK> PID of parent process = %d \n", getpid());
 
 		// PID of child process (copy of this process)
@@ -114,6 +119,7 @@ namespace Processes
 
 		std::printf(" [TRACE] Child process has been terminated with exitcode: %d\n", exitcode);
 		// -------- Parent process ----------------//
+		profileDebug(TimeProfilingDebug, "");
 		return { finished, exitcode };
 	}
 
@@ -180,6 +186,7 @@ namespace Processes
 
 	bool StartPUTProcess(Test* test, std::string app, std::string args)
 	{
+		StartProfilingDebug;
 		pid_t pid = fork();
 		if (pid == -1) {
 			return false;
@@ -206,27 +213,100 @@ namespace Processes
 		test->processid = pid;
 		close(test->red_output[1]);
 
+		profileDebug(TimeProfilingDebug, "");
 		return true;
+	}
+
+	#pragma region externalcodde
+	// from user Lanzelot / Peter Mortensen in https://stackoverflow.com/questions/63166/how-to-determine-cpu-and-memory-consumption-from-inside-a-process
+
+	long parseLine(char* line)
+	{
+		// This assumes that a digit will be found and the line ends in " Kb".
+		long i = strlen(line);
+		const char* p = line;
+		while (*p < '0' || *p > '9') p++;
+		line[i - 3] = '\0';
+		i = atol(p);
+		return i;
 	}
 
 	long GetProcessMemory(pid_t pid)
 	{
-		throw std::runtime_error("not implemented");
+		StartProfilingDebug;
+		char buf[32] = "/proc/";
+		strcat(buf, std::to_string(pid).c_str());
+		strcat(buf, "/status");
+		FILE* file = fopen(buf, "r");
+		long result = -1;
+		char line[128];
+
+		while (fgets(line, 128, file) != NULL) {
+			if (strncmp(line, "VmRSS:", 6) == 0) {
+				result = parseLine(line);
+				break;
+			}
+		}
+		fclose(file);
+		profileDebug(TimeProfilingDebug, "");
+		return result;
 	}
+
+	#pragma endregion
 
 	bool KillProcess(pid_t pid)
 	{
-		throw std::runtime_error("not implemented");
+		int res = 0;
+		if (pid > 0) {
+			res = kill(pid, SIGTERM);
+			pid_t res = waitpid(pid, NULL, 0);
+		}
+		else // do not kill everything because there was a stupid error
+			return false;
+		if (res == 0)
+			return true;
+		else
+		{
+			logwarn("Cannot kill process: {}, due to error: {}", pid, res);
+			return false;
+		}
 	}
 
-	bool GetProcessRunning(pid_t pid)
+	bool GetProcessRunning(pid_t pid, int* exitcode)
 	{
-		throw std::runtime_error("not implemented");
+		StartProfilingDebug;
+		// using waitpid in no hang mode to check whether child has exited
+		// as we are creating all processses to be waited upon, we do not have to handle
+		// pid recycling, as the children will remain in zombie-mode until we actively wait
+		// on them
+		bool result = false;
+		int status = 0;
+		pid_t res = waitpid(pid, &status, WNOHANG);
+		if (res == 0)  // has not exited so far (no state changes)
+			result = true;
+		else if (res == pid)  // child has exited
+		{
+			// find out exitcode 
+			if (WIFEXITED(status) == true) // normal exit -> retrieve exit code
+			{
+				*exitcode = WEXITSTATUS(status);
+			} else // set exitcode as -1
+				*exitcode = -1;
+			result =  false;
+		}
+		else
+		{
+			logcritical("Could not retrieve process information: {}", pid);
+			result = false;
+		}
+
+		profileDebug(TimeProfilingDebug, "");
+		return result;
 	}
 
 	int GetExitCode(pid_t)
 	{
-		throw std::runtime_error("not implemented");
+		throw std::runtime_error("use GetProcessRunning to get exitcode");
 	}
 
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
@@ -238,6 +318,7 @@ namespace Processes
 
 	bool StartPUTProcess(Test* test, std::string app, std::string args)
 	{
+		StartProfilingDebug;
 		BOOL success = false;
 
 		// process info
@@ -277,6 +358,7 @@ namespace Processes
 			&(test->si),
 			&(test->pi));
 
+		profileDebug(TimeProfilingDebug, "");
 		if (!success)
 			return false;
 		else {

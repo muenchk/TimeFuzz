@@ -8,7 +8,7 @@
 
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
-#include <fcntl.h>
+#include <fcntl.h> 
 #include <unistd.h>
 #include <poll.h>
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
@@ -21,6 +21,7 @@
 Test::Test(std::function<void()>&& a_callback, uint64_t id) :
 	callback(std::move(a_callback))
 {
+	StartProfiling;
 	loginfo("Init test");
 	identifier = id;
 
@@ -29,10 +30,14 @@ Test::Test(std::function<void()>&& a_callback, uint64_t id) :
 		exitreason = ExitReason::InitError;
 		return;
 	}
+	//fcntl64(red_output[0], F_SETFL, O_NONBLOCK);
+	//fcntl64(red_output[1], F_SETFL, O_NONBLOCK);
 	if (pipe2(red_input, O_NONBLOCK == -1)) {
 		exitreason = ExitReason::InitError;
 		return;
 	}
+	//fcntl64(red_input[0], F_SETFL, O_NONBLOCK);
+	//fcntl64(red_input[1], F_SETFL, O_NONBLOCK);
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	std::string pipe_name_input = "\\\\.\\pipe\\" + std::to_string(intptr_t(this)) + "inp";
 	std::string pipe_name_output = "\\\\.\\pipe\\" + std::to_string(intptr_t(this)) + "out";
@@ -87,7 +92,7 @@ Test::Test(std::function<void()>&& a_callback, uint64_t id) :
 	red_input[0] = CreateNamedPipeA(
 		pipe_name_input.c_str(),
 		PIPE_ACCESS_INBOUND,
-		PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_NOWAIT,
+		PIPE_TYPE_BYTE | PIPE_READMODE_BYTE,// | PIPE_NOWAIT,
 		1,
 		PIPE_SIZE,
 		PIPE_SIZE,
@@ -130,19 +135,22 @@ Test::Test(std::function<void()>&& a_callback, uint64_t id) :
 	// set writehandle for input to not be inherited
 	SetHandleInformation(&red_input[1], HANDLE_FLAG_INHERIT, 0);*/
 #endif
+	profile(TimeProfiling, "");
 }
 
 bool Test::IsRunning()
 {
+	StartProfilingDebug;
 	if (!valid) {
 		logcritical("called IsRunning after invalidation");
 		return false;
 	}
 #if defined(unix) || defined(__unix__) || defined(__unix)
-	bool res = Processes::GetProcessRunning(processid);
+	bool res = Processes::GetProcessRunning(processid, &exitcode);
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	bool res = Processes::GetProcessRunning(pi.hProcess);
 #endif
+	profileDebug(TimeProfilingDebug, "");
 	if (res)
 		return true;
 	else {
@@ -154,19 +162,26 @@ bool Test::IsRunning()
 
 void Test::WriteInput(std::string str)
 {
+	StartProfilingDebug;
 	if (!valid) {
 		logcritical("called WriteInput after invalidation");
 		return;
 	}
 	logdebug("Writing input: \"{}\"", str);
 #if defined(unix) || defined(__unix__) || defined(__unix)
-	throw std::runtime_error("not implemented");
+	size_t len = strlen(str.c_str());
+	if (size_t written = write(red_input[1], str.c_str(), len); written != len)
+	{
+		logcritical("Write to child is missing bytes: Supposed {}, written {}", len, written);
+		return;
+	}
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	DWORD dwWritten;
 	BOOL bSuccess = FALSE;
 	const char* cstr = str.c_str();
 	bSuccess = WriteFile(red_input[1], cstr, (DWORD)strlen(cstr), &dwWritten, NULL);
 #endif
+	profileDebug(TimeProfilingDebug, "");
 }
 
 bool Test::WriteNext()
@@ -203,6 +218,7 @@ bool Test::WriteAll()
 
 bool Test::CheckInput()
 {
+	StartProfilingDebug;
 	if (!valid) {
 		logcritical("called CheckInput after invalidation");
 		return false;
@@ -211,22 +227,23 @@ bool Test::CheckInput()
 #if defined(unix) || defined(__unix__) || defined(__unix)
 	struct pollfd fds;
 	int events = 0;
-	fds.fd = 0; // stdin
+	fds.fd = red_input[0]; // stdin
 	fds.events = POLLIN;
 	events = poll(&fds, 1, 0);
-	if ((events & 0x1) > 0)
+	if ((fds.revents & POLLIN) == POLLIN) {
 		ret = false;
+	}
 	else
 		ret = true;
 	logdebug("CheckInput : {}", ret);
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-	//DWORD bytesAvail = 0;
-	//BOOL bSuccess = PeekNamedPipe(red_input[0], NULL, 0, NULL, &bytesAvail, NULL);
-	//if (bytesAvail > 0)
-	//	ret = false;
-	//else
-	//	ret = true;
-	DWORD dwRead;
+	DWORD bytesAvail = 0;
+	BOOL bSuccess = PeekNamedPipe(red_input[0], NULL, 0, NULL, &bytesAvail, NULL);
+	if (bytesAvail > 0)
+		ret = false;
+	else
+		ret = true;
+	/*DWORD dwRead;
 	int sl = (int)strlen(lastwritten.c_str());
 	char* chBuf = new char[sl + 1];
 	BOOL bSuccess = FALSE;
@@ -237,26 +254,52 @@ bool Test::CheckInput()
 	}
 	else
 		ret = true;
-	logdebug("CheckInput : {}, succ {}, err {}", ret, bSuccess, GetLastError());
+	logdebug("CheckInput : {}, succ {}, err {}", ret, bSuccess, GetLastError());*/
 #endif
+	profileDebug(TimeProfilingDebug, "");
 	return ret;
 }
 
 std::string Test::ReadOutput()
 {
+	StartProfilingDebug;
 	if (!valid) {
 		logcritical("called ReadOutput after invalidation");
 		return "";
 	}
 	std::string ret;
 #if defined(unix) || defined(__unix__) || defined(__unix)
-	throw std::runtime_error("not implemented");
+	struct pollfd fds;
+	int events = 0;
+	fds.fd = red_output[0];  // stdin
+	fds.events = POLLIN;
+	events = poll(&fds, 1, 0);
+	logdebug("0: {}", events);
+	while ((fds.revents & POLLIN) == POLLIN) {  // input to read available
+		logdebug("1");
+		char buf[512];
+		logdebug("2");
+		logdebug("3: {}", red_output[0]);
+		int _read = read(red_output[0], buf, 511);
+		logdebug("4: {}", _read);
+		if (_read <= 0) {
+			logdebug("5");
+			break;
+		} else {
+			logdebug("6");
+			// convert to string
+			std::string str(buf, _read);
+			ret += str;
+		}
+		fds.revents = 0;
+		events = poll(&fds, 1, 0);
+	}
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	DWORD dwRead;
 	CHAR chBuf[512];
 	BOOL bSuccess = FALSE;
 	for (;;) {
-		bSuccess = ReadFile(red_input[0], chBuf, 512, &dwRead, NULL);
+		bSuccess = ReadFile(red_output[0], chBuf, 512, &dwRead, NULL);
 		if (!bSuccess || dwRead == 0)
 			break;
 		else {
@@ -265,8 +308,10 @@ std::string Test::ReadOutput()
 			ret += str;
 		}
 	}
-	return ret;
 #endif
+	logdebug("7");
+	profileDebug(TimeProfilingDebug, "");
+	return ret;
 }
 
 long Test::GetMemoryConsumption()
@@ -299,6 +344,7 @@ bool Test::KillProcess()
 
 void Test::TrimInput()
 {
+	StartProfilingDebug;
 	if (!valid) {
 		logcritical("called TrimInput after invalidation");
 		return;
@@ -311,6 +357,7 @@ void Test::TrimInput()
 		aitr++;
 	}
 	std::swap(input->sequence, input->orig_sequence);
+	profileDebug(TimeProfilingDebug, "");
 }
 
 int Test::GetExitCode()
@@ -320,7 +367,7 @@ int Test::GetExitCode()
 		return -1;
 	}
 #if defined(unix) || defined(__unix__) || defined(__unix)
-	return Processes::GetExitCode(processid);
+	return exitcode;
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	return Processes::GetExitCode(pi.hProcess);
 #endif
@@ -368,6 +415,60 @@ ExecutionHandler::ExecutionHandler(Settings* settings, std::shared_ptr<TaskContr
 	_oracle = oracle;
 }
 
+#if defined(unix) || defined(__unix__) || defined(__unix)
+#	pragma GCC diagnostic push
+#	pragma GCC diagnostic ignored "-Wunused-parameter"
+#elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+#	pragma warning(push)
+#	pragma warning(disable: 4100)
+#endif
+void ExecutionHandler::SetEnableFragments(bool enable)
+{
+#if defined(unix) || defined(__unix__) || defined(__unix)
+	_enableFragments = enable;
+#elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+	_enableFragments = false;
+	logcritical("Fragments are not available under windows");
+#endif
+}
+#if defined(unix) || defined(__unix__) || defined(__unix)
+#	pragma GCC diagnostic pop
+#elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+#	pragma warning(pop)
+#endif
+
+void ExecutionHandler::Clear()
+{
+	cleared = true;
+	_settings = nullptr;
+	_threadpool.reset();
+	_oracle.reset();
+	while (!_waitingTests.empty())
+	{
+		Test* test = _waitingTests.front();
+		_waitingTests.pop();
+		if (test->input) // if input is a valid shared_ptr we need to delete test
+		{
+			test->input.reset();
+			delete test;
+		}
+	}
+	for (auto test : _runningTests)
+	{
+		test->KillProcess();
+		StopTest(test);
+	}
+	_runningTests.clear();
+	_currentTests = 0;
+	_active = false;
+	_nextid = 1;
+	_enableFragments = false;
+	_stopHandler = false;
+	_finishtests = false;
+	_thread = {};
+	getCMDArgs = {};
+}
+
 void ExecutionHandler::SetMaxConcurrentTests(int maxConcurrenttests)
 {
 	loginfo("Set max concurrent tests to {}", maxConcurrenttests);
@@ -376,6 +477,10 @@ void ExecutionHandler::SetMaxConcurrentTests(int maxConcurrenttests)
 
 void ExecutionHandler::StartHandler()
 {
+	if (cleared) {
+		logcritical("Cannot Start Handler on a cleared class.");
+		return;
+	}
 	loginfo("Start execution handler");
 	// check that the handler isn't active already
 	{
@@ -462,6 +567,7 @@ void ExecutionHandler::StopHandlerAfterTestsFinishAndWait()
 
 bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::function<void()> callback)
 {
+	StartProfilingDebug;
 	loginfo("Adding new test");
 	uint64_t id = 0;
 	{
@@ -481,11 +587,13 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::function<void(
 		_waitingTests.push(test);
 	}
 	_waitforjob.notify_one();
+	profileDebug(TimeProfilingDebug, "");
 	return true;
 }
 
 bool ExecutionHandler::StartTest(Test* test)
 {
+	StartProfilingDebug;
 	logdebug("start test {}", uintptr_t(test));
 	// start test
 	// if successful: add test to list of active tests and update _currentTests
@@ -504,6 +612,7 @@ bool ExecutionHandler::StartTest(Test* test)
 		// call callback if test has finished
 		_threadpool->AddTask(test->callback);
 		logdebug("test cannot be started");
+		profileDebug(TimeProfilingDebug, "");
 		return false;
 	}
 	logdebug("started process");
@@ -514,6 +623,7 @@ bool ExecutionHandler::StartTest(Test* test)
 	_currentTests++;
 	_runningTests.push_back(test);
 	logdebug("test started");
+	profileDebug(TimeProfilingDebug, "");
 	return true;
 }
 
@@ -542,7 +652,6 @@ void ExecutionHandler::StopTest(Test* test)
 
 void ExecutionHandler::InternalLoop()
 {
-
 	// time_point used to record enter times and to calculate timeouts
 	auto time = std::chrono::steady_clock::now();
 	// time of last iteration
@@ -561,6 +670,7 @@ void ExecutionHandler::InternalLoop()
 	Test* test = nullptr;
 	logdebug("Entering loop");
 	while (_stopHandler == false || _finishtests) {
+		StartProfiling;
 		logdebug("find new tests");
 		while (_currentTests < _maxConcurrentTests && _waitingTests.size() > 0) {
 			test = nullptr;
@@ -596,10 +706,13 @@ void ExecutionHandler::InternalLoop()
 			logdebug("no tests active -> wait for new tests");
 			std::unique_lock<std::mutex> guard(_lockqueue);
 			_waitforjob.wait_for(guard, std::chrono::seconds(1), [this] { return !_waitingTests.empty() || _stopHandler; });
-			if (_stopHandler && _finishtests == false)
+			if (_stopHandler && _finishtests == false) {
+				profile(TimeProfiling, "Round");
 				break;
-			else
+			} else {
+				profile(TimeProfiling, "Round");
 				continue;
+			}
 		}
 		logdebug("Handling running tests: {}", _currentTests);
 		auto itr = _runningTests.begin();
@@ -609,6 +722,7 @@ void ExecutionHandler::InternalLoop()
 			// read output accumulated in the mean-time
 			// if process has ended there still may be something left over to read anyway
 			test->output += test->ReadOutput();
+			logdebug("Read Output {}", test->identifier);
 			// check for running
 			if (test->IsRunning() == false) {
 				// test has finished. Get exit code and check end conditions
@@ -634,6 +748,7 @@ void ExecutionHandler::InternalLoop()
 					goto TestFinished;
 				}
 			}
+			logdebug("Checked Input {}", test->identifier);
 			// compute timeouts
 			if (_enableFragments && _settings->tests.use_fragmenttimeout) {
 				difffrag = std::chrono::duration_cast<std::chrono::microseconds>(time - test->lasttime);
@@ -679,6 +794,7 @@ TestRunning:
 		}
 		// go to sleep until the next period.
 		logdebug("sleeping for {} ns", sleep.count());
+		profile(TimeProfiling, "Round");
 		std::this_thread::sleep_for(sleep);
 	}
 

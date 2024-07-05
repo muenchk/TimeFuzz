@@ -70,5 +70,8 @@ class SessionData
 	SessionData::Session _session;
 
 	SessionData::Alltime _alltime;
-	
+
+public:
+	void Clear();
+	~SessionData();
 };

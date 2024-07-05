@@ -27,6 +27,12 @@ public:
 	Input();
 
 	~Input();
+
+	/// <summary>
+	/// resets all internal variables
+	/// </summary>
+	void Clear();
+
 	/// <summary>
 	/// converts the input to python code
 	/// </summary>
@@ -117,7 +123,7 @@ private:
 	/// <summary>
 	/// derivation/parse tree of the input
 	/// </summary>
-	DerivationTree* derive;
+	DerivationTree* derive = nullptr;
 	/// <summary>
 	/// the string representation of the input
 	/// </summary>

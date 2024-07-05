@@ -1,5 +1,10 @@
 #include "Logging.h"
 #include "ExecutionHandler.h"
+#if defined(unix) || defined(__unix__) || defined(__unix)
+# include <cstdlib>
+#		include <unistd.h>
+#		include <sys/wait.h>
+#endif
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 #include "CrashHandler.h"
 #endif
@@ -32,7 +37,11 @@ int main(/*int argc, char** argv*/)
 	logdebug("Started TaskController with 1 thread");
 	Settings* sett = Settings::GetSingleton();
 	logdebug("Initialized Settings");
-	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>(Oracle::OracleType::CommandlineProgramDump, "Test_PUT_General.exe");
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>(Oracle::OracleType::CommandlineProgramDump, std::filesystem::absolute(std::filesystem::path("Test_PUT_General.exe")));
+#else
+	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>(Oracle::OracleType::CommandlineProgramDump, std::filesystem::absolute(std::filesystem::path("Test_PUT_General")));
+#endif
 	logdebug("Created Oracle");
 	std::shared_ptr<ExecutionHandler> execution = std::make_shared<ExecutionHandler>(sett, controller, 1, oracle, ReturnArgs);
 	execution->SetMaxConcurrentTests(50);
@@ -58,7 +67,13 @@ int main(/*int argc, char** argv*/)
 
 	execution.reset();
 	oracle.reset();
-	oracle = std::make_shared<Oracle>(Oracle::OracleType::CommandlineProgramDump, "Test_PUT_IO.exe");
+
+
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+	oracle = std::make_shared<Oracle>(Oracle::OracleType::CommandlineProgramDump, std::filesystem::absolute(std::filesystem::path("Test_PUT_IO.exe")));
+#else
+	oracle = std::make_shared<Oracle>(Oracle::OracleType::CommandlineProgramDump, std::filesystem::absolute(std::filesystem::path("Test_PUT_IO")));
+#endif
 	execution = std::make_shared<ExecutionHandler>(sett, controller, 1, oracle, ReturnArgs);
 	logdebug("Set up IO test");
 	sett->tests.use_testtimeout = true;
@@ -69,12 +84,12 @@ int main(/*int argc, char** argv*/)
 	inp->AddEntry("What a wonderful day.");
 	inp->AddEntry(".");
 	execution->AddTest(inp, Callback);
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	execution->StopHandlerAfterTestsFinishAndWait();
 	logdebug("Finished execution handler");
 	logdebug("TEST: {}, EXITREASON: {}, EXITCODE: {}, EXECTIME: {}ms, OUTPUT: {}", inp->test->identifier, inp->test->exitreason, inp->GetExitCode(), std::chrono::duration_cast<std::chrono::milliseconds>(inp->GetExecutionTime()).count(), inp->test->output);
 
 	execution.reset();
-	//controller->Stop();
+	controller->Stop();
 	controller.reset();
-	return 0;
 }

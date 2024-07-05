@@ -13,8 +13,23 @@ Input::Input()
 
 Input::~Input()
 {
-	if (test != nullptr)
+	Clear();
+}
+
+void Input::Clear()
+{
+	if (test != nullptr) {
 		delete test;
+		test = nullptr;
+	}
+	if (derive != nullptr)
+	{
+		delete derive;
+		derive = nullptr;
+	}
+	stringrep = "";
+	sequence.clear();
+	orig_sequence.clear();
 }
 
 size_t Input::Length()

@@ -1,7 +1,5 @@
 set(ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
-set (BUILD_DEBUG 1)
-
 set (cmpl_options 
 			"/DBUILD_DEBUG"
 			"/sdl"	# Enable Additional Security Checks
@@ -108,6 +106,7 @@ add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:REF>")
 add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:ICF>")
 
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+add_compile_definitions(BUILD_DEBUG)
 
 
 ############################## TESTS ##############################
@@ -572,6 +571,8 @@ else()
 		"ExecutionHandler_Test"
 		PRIVATE
 		fmt::fmt
+		explain
+		c
 	)
 endif()
 

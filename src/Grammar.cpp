@@ -101,22 +101,27 @@ GrammarTree::GrammarTree()
 
 GrammarTree::~GrammarTree()
 {
+	Clear();
+}
+
+void GrammarTree::Clear()
+{
+	// why not wait for automatic destruction?
+	//    because there may be multiple references (even though there shouldn't) and we want to destroy all pointers as soon as we can
+	//	  to avoid lingering shared objects
+	//	  this shouldn't happen to this class, but for consistency within the project its here
 	valid = false;
 	nonterminals.clear();
 	terminals.clear();
-	for (auto [key, node] : hashmap)
-	{
-		if (node)
-		{
+	for (auto [key, node] : hashmap) {
+		if (node) {
 			node->parents.clear();
 			node->expansions.clear();
 		}
 	}
 	hashmap.clear();
-	for (auto [key, expansion] : hashmap_expansions)
-	{
-		if (expansion)
-		{
+	for (auto [key, expansion] : hashmap_expansions) {
+		if (expansion) {
 			expansion->parent.reset();
 			expansion->nodes.clear();
 		}
@@ -705,4 +710,21 @@ std::string Grammar::Scala()
 		return tree->Scala();
 	else
 		return "Grammar()";
+}
+
+Grammar::~Grammar()
+{
+	Clear();
+}
+
+void Grammar::Clear()
+{
+	// remove tree shared_ptr so that grammar isn't valid anymore
+	std::shared_ptr tr = tree;
+	tree.reset();
+	if (tr)
+	{
+		tr->Clear();
+		tr.reset();
+	}
 }

@@ -84,9 +84,10 @@ void Settings::Save()
 	// oracle
 	ini.SetValue("Oracle", oracle_NAME, Oracle::TypeString(oracle).c_str(),
 		"\\ Type of oracle used to execute the Program Under Test. \n"
-		"\\	\tPythonScript\t-\tExecutes a pythonscript that itself executes the PUT\n"
-		"\\ \tcmdResponsive\t-\tExecutes a responsive cmd program. One input is given at a time, and a response is awaited.\n"
-		"\\ \tcmdDump\t-\tExecutes an unresponsive cmd program. All Inputs are dumped into the standardinput immediately.");
+		"\\	\CMD\t-\tExecutes an unresponsive program. All Inputs are dumped as cmd arguments\n"
+		"\\	\Script\t-\tExecutes a script that itself executes the PUT and returns relevant information on STDOUT\n"
+		"\\ \STDIN_Responsive\t-\tExecutes a responsive program. One input is given via STDIN at a time, and a response is awaited.\n"
+		"\\ \STDIN_Dump\t-\tExecutes an unresponsive program. All Inputs are dumped into the standardinput immediately.");
 	ini.SetValue("Oracle", oraclepath_NAME, oraclepath.string().c_str(), "\\ The path to the oracle.");
 
 	// general
