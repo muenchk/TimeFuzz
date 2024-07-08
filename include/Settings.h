@@ -29,8 +29,8 @@ public:
 	/// <summary>
 	/// Type of the oracle that is executed
 	/// </summary>
-	Oracle::OracleType oracle = Oracle::OracleType::PythonScript;
-	const char * oracle_NAME = "OracleType";
+	Oracle::PUTType oracle = Oracle::PUTType::Undefined;
+	const char * oracle_NAME = "PUTType";
 	/// <summary>
 	/// path the the oracle executing program/script OR the PUT itself
 	/// </summary>

@@ -32,7 +32,7 @@ public:
 		Prefix = 0b1000000,
 	};
 
-	enum class OracleType
+	enum class PUTType
 	{
 		/// <summary>
 		/// Invalid value
@@ -59,18 +59,18 @@ public:
 
 private:
 	std::filesystem::path _path;
-	OracleType _type;
+	PUTType _type;
 	bool valid = false;
 
 public:
 
-	Oracle(OracleType type, std::filesystem::path oraclepath);
+	Oracle(PUTType type, std::filesystem::path PUTpath);
 	bool Validate();
 
 	OracleResult Evaluate(Test* test);
 
-	static std::string TypeString(OracleType type);
-	static OracleType ParseType(std::string str);
+	static std::string TypeString(PUTType type);
+	static PUTType ParseType(std::string str);
 	inline std::filesystem::path path()
 	{
 		return _path;

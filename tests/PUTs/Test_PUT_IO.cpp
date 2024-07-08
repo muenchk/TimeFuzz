@@ -40,6 +40,7 @@ int main(/*int argc, char** argv*/)
 				// convert to string
 				std::string str(buf, _read);
 				logdebug("{}", str);
+				write(STDOUT_FILENO, buf, _read);
 				ret += str;
 			}
 		}
@@ -61,6 +62,8 @@ int main(/*int argc, char** argv*/)
 		else {
 			// convert read to string
 			std::string str(chBuf, dwRead);
+			DWORD written;
+			WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), chBuf, dwRead, &written, NULL);
 			logdebug("{}", str);
 			ret += str;
 		}

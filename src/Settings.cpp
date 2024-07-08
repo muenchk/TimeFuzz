@@ -84,10 +84,10 @@ void Settings::Save()
 	// oracle
 	ini.SetValue("Oracle", oracle_NAME, Oracle::TypeString(oracle).c_str(),
 		"\\ Type of oracle used to execute the Program Under Test. \n"
-		"\\	\CMD\t-\tExecutes an unresponsive program. All Inputs are dumped as cmd arguments\n"
-		"\\	\Script\t-\tExecutes a script that itself executes the PUT and returns relevant information on STDOUT\n"
-		"\\ \STDIN_Responsive\t-\tExecutes a responsive program. One input is given via STDIN at a time, and a response is awaited.\n"
-		"\\ \STDIN_Dump\t-\tExecutes an unresponsive program. All Inputs are dumped into the standardinput immediately.");
+		"\\	\tCMD\t-\tExecutes an unresponsive program. All Inputs are dumped as cmd arguments\n"
+		"\\	\tScript\t-\tExecutes a script that itself executes the PUT and returns relevant information on STDOUT\n"
+		"\\ \tSTDIN_Responsive\t-\tExecutes a responsive program. One input is given via STDIN at a time, and a response is awaited.\n"
+		"\\ \tSTDIN_Dump\t-\tExecutes an unresponsive program. All Inputs are dumped into the standardinput immediately.");
 	ini.SetValue("Oracle", oraclepath_NAME, oraclepath.string().c_str(), "\\ The path to the oracle.");
 
 	// general

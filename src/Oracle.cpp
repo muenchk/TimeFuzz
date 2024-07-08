@@ -2,57 +2,72 @@
 #include "Oracle.h"
 #include "Utility.h"
 
-std::string Oracle::TypeString(OracleType type)
+std::string Oracle::TypeString(PUTType type)
 {
-	return type == Oracle::OracleType::CMD              ? "CommandLine" :
-	       type == Oracle::OracleType::Script           ? "Script" :
-	       type == Oracle::OracleType::STDIN_Responsive ? "StdinResponsive" :
-	       type == Oracle::OracleType::STDIN_Responsive ? "StdinDump" :
+	return type == Oracle::PUTType::CMD                 ? "CommandLine" :
+	       type == Oracle::PUTType::Script              ? "Script" :
+	       type == Oracle::PUTType::STDIN_Responsive    ? "StdinResponsive" :
+	       type == Oracle::PUTType::STDIN_Responsive ? "StdinDump" :
 	                                                      "undefined";
 }
 
-Oracle::OracleType Oracle::ParseType(std::string str)
+Oracle::PUTType Oracle::ParseType(std::string str)
 {
 	if (Utility::ToLower(str) == "CommandLine")
-		return Oracle::OracleType::CMD;
+		return Oracle::PUTType::CMD;
 	else if (Utility::ToLower(str) == "Script")
-		return Oracle::OracleType::Script;
+		return Oracle::PUTType::Script;
 	else if (Utility::ToLower(str) == "StdinResponsive")
-		return Oracle::OracleType::STDIN_Responsive;
+		return Oracle::PUTType::STDIN_Responsive;
 	else if (Utility::ToLower(str) == "StdinDump")
-		return Oracle::OracleType::STDIN_Dump;
+		return Oracle::PUTType::STDIN_Dump;
 	else
-		return Oracle::OracleType::Undefined;
+		return Oracle::PUTType::Undefined;
 }
 
-Oracle::Oracle(OracleType type, std::filesystem::path oraclepath)
+Oracle::Oracle(PUTType type, std::filesystem::path PUTpath)
 {
 	_type = type;
-	_path = oraclepath;
-	if (!std::filesystem::exists(_path))
-	{
-		logwarn("Oracle cannot be initialised with a non-existent path: {}", _path.string());
-		return;
+	_path = PUTpath;
+	try {
+		if (!std::filesystem::exists(_path)) {
+			logwarn("Oracle cannot be initialised with a non-existent path: {}", _path.string());
+			return;
+		}
+		if (std::filesystem::is_directory(_path)) {
+			logwarn("Oracle cannot be initialised with a directory: {}", _path.string());
+			return;
+		}
+		if (std::filesystem::is_symlink(_path)) {
+			logwarn("Oracle cannot be initialsed with a symlink: {}", _path.string());
+			return;
+		}
+		if (std::filesystem::is_regular_file(_path) == false) {
+			logwarn("Oracle cannot be initialised on an unsupported filetype: {}", _path.string());
+			return;
+		}
+		if (std::filesystem::is_empty(_path)) {
+			logwarn("Oracle cannot be initialised on an empty file: {}", _path.string());
+			return;
+		}
 	}
-	if (std::filesystem::is_directory(_path))
-	{
-		logwarn("Oracle cannot be initialised with a directory: {}", _path.string());
+	catch (std::filesystem::filesystem_error& e) {
+		#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+		// windows when checking certain pathes the files cannot be accessed and throw error, for instance python installation from the store
+		// so we just continue if we get that specific error without outputting any errors and settings us to invalid
+		if (e.code().value() == ERROR_CANT_ACCESS_FILE)
+		{
+			valid = true;
+			return;
+		}
+		valid = false;
 		return;
-	}
-	if (std::filesystem::is_symlink(_path))
-	{
-		logwarn("Oracle cannot be initialsed with a symlink: {}", _path.string());
+		#else
+		// linux file not found, etc... just exit
+		logcritical("Cannot check for Oracle: {}", e.what());
+		valid = false;
 		return;
-	}
-	if (std::filesystem::is_regular_file(_path) == false)
-	{
-		logwarn("Oracle cannot be initialised on an unsupported filetype: {}", _path.string());
-		return;
-	}
-	if (std::filesystem::is_empty(_path))
-	{
-		logwarn("Oracle cannot be initialised on an empty file: {}", _path.string());
-		return;
+		#endif
 	}
 	valid = true;
 }

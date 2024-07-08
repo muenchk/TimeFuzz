@@ -31,18 +31,23 @@ int main(/*int argc, char** argv*/)
 	Crash::Install(".");
 #endif
 	logdebug("Init");
-	std::shared_ptr<TaskController> controller = std::make_shared<TaskController>();
-	logdebug("Created TaskController");
-	controller->Start(1);
 	logdebug("Started TaskController with 1 thread");
 	Settings* sett = Settings::GetSingleton();
 	logdebug("Initialized Settings");
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>(Oracle::OracleType::CommandlineProgramDump, std::filesystem::absolute(std::filesystem::path("Test_PUT_General.exe")));
+	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>(Oracle::PUTType::STDIN_Dump, std::filesystem::absolute(std::filesystem::path("Test_PUT_General.exe")));
 #else
-	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>(Oracle::OracleType::CommandlineProgramDump, std::filesystem::absolute(std::filesystem::path("Test_PUT_General")));
+	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>(Oracle::PUTType::STDIN_Dump, std::filesystem::absolute(std::filesystem::path("Test_PUT_General")));
 #endif
+	// check the oracle for validity
+	if (oracle->Validate() == false) {
+		logcritical("Oracle isn't valid.");
+		exit(1);
+	}
 	logdebug("Created Oracle");
+	std::shared_ptr<TaskController> controller = std::make_shared<TaskController>();
+	logdebug("Created TaskController");
+	controller->Start(1);
 	std::shared_ptr<ExecutionHandler> execution = std::make_shared<ExecutionHandler>(sett, controller, 1, oracle, ReturnArgs);
 	execution->SetMaxConcurrentTests(50);
 	logdebug("Created executionhandler");
@@ -70,10 +75,16 @@ int main(/*int argc, char** argv*/)
 
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-	oracle = std::make_shared<Oracle>(Oracle::OracleType::CommandlineProgramDump, std::filesystem::absolute(std::filesystem::path("Test_PUT_IO.exe")));
+	oracle = std::make_shared<Oracle>(Oracle::PUTType::STDIN_Dump, std::filesystem::absolute(std::filesystem::path("Test_PUT_IO.exe")));
 #else
-	oracle = std::make_shared<Oracle>(Oracle::OracleType::CommandlineProgramDump, std::filesystem::absolute(std::filesystem::path("Test_PUT_IO")));
+	oracle = std::make_shared<Oracle>(Oracle::PUTType::STDIN_Dump, std::filesystem::absolute(std::filesystem::path("Test_PUT_IO")));
 #endif
+	// check the oracle for validity
+	if (oracle->Validate() == false) {
+		logcritical("Oracle isn't valid.");
+		controller->Stop();
+		exit(1);
+	}
 	execution = std::make_shared<ExecutionHandler>(sett, controller, 1, oracle, ReturnArgs);
 	logdebug("Set up IO test");
 	sett->tests.use_testtimeout = true;
@@ -92,4 +103,5 @@ int main(/*int argc, char** argv*/)
 	execution.reset();
 	controller->Stop();
 	controller.reset();
+	exit(0);
 }

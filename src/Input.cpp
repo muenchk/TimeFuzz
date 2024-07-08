@@ -32,6 +32,28 @@ void Input::Clear()
 	orig_sequence.clear();
 }
 
+std::string Input::ConvertToPython(bool update)
+{
+	// if we already generated the python commands and aren't forces to update, just return the last one
+	if (!update && pythonconverted)
+		return pythonstring;
+	pythonstring = "inputs = [ ";
+	auto itr = begin();
+	if (itr != end())
+	{
+		// first one doesn't have command
+		pythonstring += "\"" + (*itr) + "\"";
+		itr++;
+	}
+	while (itr != end()) {
+		pythonstring += ", \"" + (*itr) + "\"";
+		itr++;
+	}
+	pythonstring += " ]";
+	pythonconverted = true;
+	return pythonstring;
+}
+
 size_t Input::Length()
 {
 	return sequence.size();

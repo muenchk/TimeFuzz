@@ -71,7 +71,7 @@ void Session::StartSession(bool &error)
 {
 	StartProfiling;
 	// populate the oracle
-	if (_settings->oracle == Oracle::OracleType::Undefined) {
+	if (_settings->oracle == Oracle::PUTType::Undefined) {
 		logcritical("The oracle type could not be identified");
 		LastError = ExitCodes::StartupError;
 		error = true;

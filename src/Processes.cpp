@@ -359,11 +359,11 @@ namespace Processes
 			&(test->pi));
 
 		profileDebug(TimeProfilingDebug, "");
+		// close input pipe of redirected output
+		CloseHandle(test->red_output[1]);
 		if (!success)
 			return false;
 		else {
-			// close input pipe of redirected output
-			CloseHandle(test->red_output[1]);
 			// don't close input pipe handle, as we will be using that
 			return true;
 		}

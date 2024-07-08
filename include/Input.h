@@ -22,6 +22,9 @@ private:
 	friend ExecutionHandler;
 	friend Test;
 
+	std::string pythonstring;
+	bool pythonconverted = false;
+
 public:
 	Test* test = nullptr;
 	Input();
@@ -36,7 +39,7 @@ public:
 	/// <summary>
 	/// converts the input to python code
 	/// </summary>
-	void ConvertToPython();
+	std::string ConvertToPython(bool update = false);
 	/// <summary>
 	/// converts the input to a stream
 	/// </summary>
