@@ -6,14 +6,24 @@
 #include "Logging.h"
 //#include <io.h>
 
-ExecutionHandler::ExecutionHandler(Settings* settings, std::shared_ptr<TaskController> threadpool, int maxConcurrentTests, std::shared_ptr<Oracle> oracle, std::function<std::string(std::shared_ptr<Input>)>&& getCommandLineArgs) :
-	getCMDArgs(std::move(getCommandLineArgs))
+ExecutionHandler::ExecutionHandler()
+{
+}
+
+void ExecutionHandler::Init(Settings* settings, std::shared_ptr<TaskController> threadpool, int maxConcurrentTests, std::shared_ptr<Oracle> oracle, std::function<std::string(std::shared_ptr<Input>)>&& getCommandLineArgs)
 {
 	loginfo("Init execution handler");
 	_maxConcurrentTests = maxConcurrentTests > 0 ? maxConcurrentTests : 1;
 	_threadpool = threadpool;
 	_settings = settings;
 	_oracle = oracle;
+	getCMDArgs = std::move(getCommandLineArgs);
+}
+
+ExecutionHandler* ExecutionHandler::GetSingleton()
+{
+	static ExecutionHandler session;
+	return std::addressof(session);
 }
 
 #if defined(unix) || defined(__unix__) || defined(__unix)

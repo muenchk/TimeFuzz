@@ -10,6 +10,9 @@
 
 class Settings
 {
+private:
+	bool initialized = false;
+
 public:
 	/// <summary>
 	/// Returns a singleton the the session
@@ -20,11 +23,11 @@ public:
 	/// <summary>
 	/// Loads the settings for the working directory
 	/// </summary>
-	void Load();
+	void Load(std::wstring path = L"");
 	/// <summary>
 	/// Saves the settings in the working directory
 	/// </summary>
-	void Save();
+	void Save(std::wstring path = L"");
 
 	/// <summary>
 	/// Type of the oracle that is executed

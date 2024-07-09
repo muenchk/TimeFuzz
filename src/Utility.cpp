@@ -200,7 +200,7 @@ std::string& Utility::RemoveWhiteSpaces(std::string& str, char escape, bool remo
 			escaped = !escaped;
 		last = *itr;
 		if (!escaped) {
-			char c = *itr;
+			//char c = *itr;
 			if (*itr == ' ' || (removetab && *itr == '\t')) {
 				itr = str.erase(itr);
 				continue;

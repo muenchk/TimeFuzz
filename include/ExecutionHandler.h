@@ -57,8 +57,8 @@ private:
 	/// <summary>
 	/// time handler waits between cycles in nanoseconds
 	/// </summary>
-	std::chrono::nanoseconds _waittime = std::chrono::nanoseconds(1000000000);
-	long long _waittimeL = 1000000000;
+	std::chrono::nanoseconds _waittime = std::chrono::nanoseconds(100000000);
+	long long _waittimeL = 100000000;
 
 	bool _enableFragments = false;
 
@@ -77,7 +77,11 @@ private:
 	void StopTest(Test* test);
 
 public:
-	ExecutionHandler(Settings* settings, std::shared_ptr<TaskController> threadpool, int maxConcurrentTests, std::shared_ptr<Oracle> oracle, std::function<std::string(std::shared_ptr<Input>)>&& getCommandLineArgs);
+	ExecutionHandler();
+
+	void Init(Settings* settings, std::shared_ptr<TaskController> threadpool, int maxConcurrentTests, std::shared_ptr<Oracle> oracle, std::function<std::string(std::shared_ptr<Input>)>&& getCommandLineArgs);
+
+	static ExecutionHandler* GetSingleton();
 
 	/// <summary>
 	/// clears all internals and releases shared pointers

@@ -11,11 +11,16 @@ Settings* Settings::GetSingleton()
 	return std::addressof(session);
 }
 
-void Settings::Load()
+void Settings::Load(std::wstring path)
 {
+	if (initialized)
+		return;
 	loginfo("Begin loading settings.");
+	initialized = true;
 
-	constexpr auto path = L"config.ini";
+	constexpr auto defpath = L"config.ini";
+	if (path == L"")
+		path = std::wstring(defpath);
 
 	CSimpleIniA ini;
 
@@ -25,7 +30,7 @@ void Settings::Load()
 	std::ifstream istr(std::filesystem::path(path), std::ios_base::in);
 	ini.LoadData(istr);
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-	ini.LoadFile(path);
+	ini.LoadFile(path.c_str());
 #endif
 
 	//oracle
@@ -69,14 +74,24 @@ void Settings::Load()
 	loginfo("Finished loading settings.");
 }
 
-void Settings::Save()
+void Settings::Save(std::wstring _path)
 {
 #if defined(unix) || defined(__unix__) || defined(__unix)
-	constexpr auto path = "config.ini";
+	constexpr auto defpath = "config.ini";
+	std::string path;
+	if (_path == L"")
+		path = std::string(defpath);
+	else
+		path = Utility::ConvertToString(_path).value();
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-	constexpr auto path = L"config.ini";
+	std::wstring path;
+	constexpr auto defpath = L"config.ini";
+	if (_path == L"")
+		path = std::wstring(defpath);
+	else
+		path = _path;
 #endif
-
+		          
 	CSimpleIniA ini;
 
 	ini.SetUnicode();
@@ -117,5 +132,5 @@ void Settings::Save()
 	ini.SetBoolValue("EndConditions", conditions.use_foundnegatives_NAME, conditions.use_foundnegatives, "\\ Stop execution after foundnegatives failing inputs have been found");
 	ini.SetLongValue("EndConditions", conditions.foundnegatives_NAME, conditions.foundnegatives, "\\ The number of failing inputs to generate.");
 
-	ini.SaveFile(path);
+	ini.SaveFile(path.c_str());
 }

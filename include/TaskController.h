@@ -18,6 +18,8 @@ public:
 		virtual void Dispose() = 0;
 	};
 
+	static TaskController* GetSingleton();
+
 	void AddTask(TaskFn a_task);
 	void AddTask(TaskDelegate* a_task);
 

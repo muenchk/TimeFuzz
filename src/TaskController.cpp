@@ -5,6 +5,11 @@
 #include "TaskController.h"
 #include "Threading.h"
 
+TaskController* TaskController::GetSingleton()
+{
+	static TaskController session;
+	return std::addressof(session);
+}
 
 void TaskController::AddTask(TaskFn a_task)
 {

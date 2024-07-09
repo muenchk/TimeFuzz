@@ -115,7 +115,7 @@ add_compile_definitions(BUILD_DEBUG)
 add_executable(
 	"TaskController_Test"
 	"${TEST_SOURCE_DIR}/TaskController_Test.cpp"
-	${SOURCE_FILES}
+	#${SOURCE_FILES}
 	"${VERSION_HEADER}"
 	"${CMAKE_CURRENT_BINARY_DIR}/version.rc"
 	"${ROOT_DIR}/.clang-format"
@@ -146,12 +146,14 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMA
 		PRIVATE
 		fmt::fmt
 		CrashHandler
+		${PROJECT_NAME}_lib
 	)
 else()
 	target_link_libraries(
 		"TaskController_Test"
 		PRIVATE
 		fmt::fmt
+		${PROJECT_NAME}_lib
 	)
 endif()
 
@@ -224,7 +226,7 @@ add_test(NAME TaskController COMMAND $<TARGET_FILE:TaskController_Test>)
 add_executable(
 	"Inputs_Test"
 	"${TEST_SOURCE_DIR}/Inputs_Test.cpp"
-	${SOURCE_FILES}
+	#${SOURCE_FILES}
 	"${VERSION_HEADER}"
 	"${CMAKE_CURRENT_BINARY_DIR}/version.rc"
 	"${ROOT_DIR}/.clang-format"
@@ -250,12 +252,14 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMA
 		PRIVATE
 		fmt::fmt
 		CrashHandler
+		${PROJECT_NAME}_lib
 	)
 else()
 	target_link_libraries(
 		"Inputs_Test"
 		PRIVATE
 		fmt::fmt
+		${PROJECT_NAME}_lib
 	)
 endif()
 
@@ -330,7 +334,7 @@ add_test(NAME Inputs COMMAND $<TARGET_FILE:Inputs_Test>)
 add_executable(
 	"Utility_Test"
 	"${TEST_SOURCE_DIR}/Utility_Test.cpp"
-	${SOURCE_FILES}
+	#${SOURCE_FILES}
 	"${VERSION_HEADER}"
 	"${CMAKE_CURRENT_BINARY_DIR}/version.rc"
 	"${ROOT_DIR}/.clang-format"
@@ -356,12 +360,14 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMA
 		PRIVATE
 		fmt::fmt
 		CrashHandler
+		${PROJECT_NAME}_lib
 	)
 else()
 	target_link_libraries(
 		"Utility_Test"
 		PRIVATE
 		fmt::fmt
+		${PROJECT_NAME}_lib
 	)
 endif()
 
@@ -434,7 +440,7 @@ add_test(NAME Utility COMMAND $<TARGET_FILE:Utility_Test>)
 add_executable(
 	"Grammar_Test"
 	"${TEST_SOURCE_DIR}/Grammar_Test.cpp"
-	${SOURCE_FILES}
+	#${SOURCE_FILES}
 	"${VERSION_HEADER}"
 	"${CMAKE_CURRENT_BINARY_DIR}/version.rc"
 	"${ROOT_DIR}/.clang-format"
@@ -460,12 +466,14 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMA
 		PRIVATE
 		fmt::fmt
 		CrashHandler
+		${PROJECT_NAME}_lib
 	)
 else()
 	target_link_libraries(
 		"Grammar_Test"
 		PRIVATE
 		fmt::fmt
+		${PROJECT_NAME}_lib
 	)
 endif()
 
@@ -539,7 +547,7 @@ add_test(NAME Grammar COMMAND $<TARGET_FILE:Grammar_Test>)
 add_executable(
 	"ExecutionHandler_Test"
 	"${TEST_SOURCE_DIR}/ExecutionHandler_Test.cpp"
-	${SOURCE_FILES}
+	#${SOURCE_FILES}
 	"${VERSION_HEADER}"
 	"${CMAKE_CURRENT_BINARY_DIR}/version.rc"
 	"${ROOT_DIR}/.clang-format"
@@ -565,6 +573,7 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMA
 		PRIVATE
 		fmt::fmt
 		CrashHandler
+		${PROJECT_NAME}_lib
 	)
 else()
 	target_link_libraries(
@@ -573,6 +582,7 @@ else()
 		fmt::fmt
 		explain
 		c
+		${PROJECT_NAME}_lib
 	)
 endif()
 
@@ -647,7 +657,7 @@ add_test(NAME ExecutionHandler COMMAND $<TARGET_FILE:ExecutionHandler_Test>)
 add_executable(
 	"Mario_Test"
 	"${TEST_SOURCE_DIR}/Mario_Test.cpp"
-	${SOURCE_FILES}
+	#${SOURCE_FILES}
 	"${VERSION_HEADER}"
 	"${CMAKE_CURRENT_BINARY_DIR}/version.rc"
 	"${ROOT_DIR}/.clang-format"
@@ -673,6 +683,7 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMA
 		PRIVATE
 		fmt::fmt
 		CrashHandler
+		${PROJECT_NAME}_lib
 	)
 else()
 	target_link_libraries(
@@ -681,6 +692,7 @@ else()
 		fmt::fmt
 		explain
 		c
+		${PROJECT_NAME}_lib
 	)
 endif()
 
@@ -760,7 +772,7 @@ configure_file("${SOURCE_DIR}/../FormatExamples/TestMario.py" "${CMAKE_CURRENT_B
 add_executable(
 	"Test_PUT_General"
 	"${TEST_SOURCE_DIR}/PUTs/Test_PUT_General.cpp"
-	${SOURCE_FILES}
+	#${SOURCE_FILES}
 	"${VERSION_HEADER}"
 	"${CMAKE_CURRENT_BINARY_DIR}/version.rc"
 	"${ROOT_DIR}/.clang-format"
@@ -773,12 +785,14 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMA
 		PRIVATE
 		fmt::fmt
 		CrashHandler
+		${PROJECT_NAME}_lib
 	)
 else()
 	target_link_libraries(
 		"Test_PUT_General"
 		PRIVATE
 		fmt::fmt
+		${PROJECT_NAME}_lib
 	)
 endif()
 
@@ -839,7 +853,7 @@ endif()
 add_executable(
 	"Test_PUT_IO"
 	"${TEST_SOURCE_DIR}/PUTs/Test_PUT_IO.cpp"
-	${SOURCE_FILES}
+	#${SOURCE_FILES}
 	"${VERSION_HEADER}"
 	"${CMAKE_CURRENT_BINARY_DIR}/version.rc"
 	"${ROOT_DIR}/.clang-format"
@@ -852,12 +866,14 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMA
 		PRIVATE
 		fmt::fmt
 		CrashHandler
+		${PROJECT_NAME}_lib
 	)
 else()
 	target_link_libraries(
 		"Test_PUT_IO"
 		PRIVATE
 		fmt::fmt
+		${PROJECT_NAME}_lib
 	)
 endif()
 

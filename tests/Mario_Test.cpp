@@ -22,7 +22,7 @@ std::string getCMDArgs(std::shared_ptr<Input>)
 {
 	std::string arg = "[[], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['Z', 'MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], ['MOTION_RIGHT', 'RIGHT'], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []]";
 
-	return "-m TestMario \"" + arg + "\"";
+	return "-m TestMario_NoGraphics \"" + arg + "\"";
 }
 
 int main(/*int argc, char** argv*/)
@@ -49,16 +49,25 @@ int main(/*int argc, char** argv*/)
 	logdebug("Created TaskController");
 	controller->Start(1);
 	logdebug("Started TaskController with 1 thread");
-	std::shared_ptr<ExecutionHandler> execution = std::make_shared<ExecutionHandler>(sett, controller, 1, oracle, getCMDArgs);
-	execution->SetMaxConcurrentTests(50);
+	std::shared_ptr<ExecutionHandler> execution = std::make_shared<ExecutionHandler>();
+	execution->Init(sett, controller, 1, oracle, getCMDArgs);
+	execution->SetMaxConcurrentTests(10);
 	logdebug("Created executionhandler");
 	execution->StartHandler();
 	logdebug("Started executionhandler");
 	logdebug("Adding test");
-	std::shared_ptr<Input> input = std::make_shared<Input>();
-	execution->AddTest(input, [input]() {
-		Callback(input);
-	});
+	std::vector<std::shared_ptr<Input>> ls;
+	for (int i = 0; i < 5; i++) {
+		std::shared_ptr<Input> input = std::make_shared<Input>();
+		execution->AddTest(input, [input]() {
+			Callback(input);
+		});
+		ls.push_back(input);
+	}
+	//std::shared_ptr<Input> input = std::make_shared<Input>();
+	//execution->AddTest(input, [input]() {
+	//	Callback(input);
+	//});
 	execution->StopHandlerAfterTestsFinishAndWait();
 	logdebug("waited on executionhandler to finish all tests");
 

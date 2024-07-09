@@ -50,6 +50,11 @@ void Session::Clear()
 	running = false;
 }
 
+void Session::Wait()
+{
+	throw std::runtime_error("Not implemented");
+}
+
 std::vector<std::shared_ptr<Input>> Session::GenerateNegatives(int /*negatives*/, bool& /*error*/, int /*maxiterations*/, int /*timeout*/, bool /*returnpositives*/)
 {
 	return {};
@@ -65,9 +70,37 @@ void Session::StartSession(std::shared_ptr<Settings> settings, bool &error)
 		error = true;
 		return;
 	}
+	// set taskcontroller
+	_controller = std::make_shared<TaskController>();
+	// set executionhandler
+	_exechandler = std::make_shared<ExecutionHandler>();
+	// start session
+	StartSessionIntern(error);
 }
 
-void Session::StartSession(bool &error)
+void Session::StartSession(bool& error, bool globalTaskController, bool globalExecutionHandler, bool globalSettings, std::wstring settingsPath)
+{
+	// init settings
+	if (globalSettings == true)
+		_settings = std::shared_ptr<Settings>(Settings::GetSingleton());
+	else
+		_settings = std::make_shared<Settings>();
+	_settings->Load(settingsPath);
+	// set taskcontroller
+	if (globalTaskController)
+		_controller = std::shared_ptr<TaskController>(TaskController::GetSingleton());
+	else
+		_controller = std::make_shared<TaskController>();
+	// set executionhandler
+	if (globalExecutionHandler)
+		_exechandler = std::shared_ptr<ExecutionHandler>(ExecutionHandler::GetSingleton());
+	else
+		_exechandler = std::make_shared<ExecutionHandler>();
+	// start session
+	StartSessionIntern(error);
+}
+
+void Session::StartSessionIntern(bool &error)
 {
 	StartProfiling;
 	// populate the oracle
@@ -87,8 +120,6 @@ void Session::StartSession(bool &error)
 	}
 	// set iteration variables
 	_iteration = 0;
-	// set threadcontroller
-	_controller = std::make_shared<TaskController>();
 	// set generator
 
 	//

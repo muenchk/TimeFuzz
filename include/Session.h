@@ -31,6 +31,20 @@ public:
 	void StartSession(std::shared_ptr<Settings> settings, bool &error);
 
 	/// <summary>
+	/// Starts the fuzzing session
+	/// </summary>
+	/// <param name="error"></param>
+	/// <param name="globalTaskController"></param>
+	/// <param name="globalExecutionHandler"></param>
+	/// <param name="globalSettings"></param>
+	void StartSession(bool& error, bool globalTaskController = false, bool globalExecutionHandler = false, bool globalSettings = false, std::wstring settingsPath = L"");
+
+	/// <summary>
+	/// Waits for the session to end
+	/// </summary>
+	void Wait();
+
+	/// <summary>
 	/// Starts generation of [negatives] negative inputs, while stopping after [maxiterations] or when [timeout] is exceeded,
 	/// even if the number of generated negatives has not reached [negatives]
 	/// </summary>
@@ -55,6 +69,11 @@ private:
 	/// Task controller for the active session
 	/// </summary>
 	std::shared_ptr<TaskController> _controller;
+
+	/// <summary>
+	/// Executionhandler for the active session
+	/// </summary>
+	std::shared_ptr<ExecutionHandler> _exechandler;
 
 	/// <summary>
 	/// Generator for fuzzing
@@ -138,5 +157,5 @@ private:
 	/// <summary>
 	/// Starts the session
 	/// </summary>
-	void StartSession(bool &error);
+	void StartSessionIntern(bool &error);
 };

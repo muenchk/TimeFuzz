@@ -48,7 +48,8 @@ int main(/*int argc, char** argv*/)
 	std::shared_ptr<TaskController> controller = std::make_shared<TaskController>();
 	logdebug("Created TaskController");
 	controller->Start(1);
-	std::shared_ptr<ExecutionHandler> execution = std::make_shared<ExecutionHandler>(sett, controller, 1, oracle, ReturnArgs);
+	std::shared_ptr<ExecutionHandler> execution = std::make_shared<ExecutionHandler>();
+	execution->Init(sett, controller, 1, oracle, ReturnArgs);
 	execution->SetMaxConcurrentTests(50);
 	logdebug("Created executionhandler");
 	execution->StartHandler();
@@ -85,7 +86,8 @@ int main(/*int argc, char** argv*/)
 		controller->Stop();
 		exit(1);
 	}
-	execution = std::make_shared<ExecutionHandler>(sett, controller, 1, oracle, ReturnArgs);
+	execution = std::make_shared<ExecutionHandler>();
+	execution->Init(sett, controller, 1, oracle, ReturnArgs);
 	logdebug("Set up IO test");
 	sett->tests.use_testtimeout = true;
 	sett->tests.testtimeout = 10000000;
