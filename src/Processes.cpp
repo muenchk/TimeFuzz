@@ -8,11 +8,13 @@
 
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
-#		include <cstring>
-# include <cstdlib>
-#include <signal.h>
-#include <errno.h>
-#include <libexplain/execvp.h>
+#	include <cstring>
+#	include <cstdlib>
+#	include <signal.h>
+#	include <errno.h>
+#	ifdef INCLLIBEXPLAIN
+#		include <libexplain/execvp.h>	
+#	endif
 #endif
 
 namespace Processes
@@ -37,7 +39,11 @@ namespace Processes
 		int status = execvp(app.c_str(), (char* const*)pargs.data());
 
 		if (status == -1) {
+#	ifdef INCLLIBEXPLAIN
 			logcritical("Cannot start process: Error: {}, EXPL: {}", errno, std::string(explain_errno_execvp(errno, app.c_str(), (char* const*)pargs.data())));
+#	else
+			logcritical("Cannot start process: Error: {}, EXPL: {}", errno, std::string(app.c_str()));
+#	endif
 			throw std::runtime_error("Error: failed to launch process");
 		}
 	}
