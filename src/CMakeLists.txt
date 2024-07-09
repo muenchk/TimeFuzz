@@ -146,11 +146,26 @@ else()
 		fmt::fmt
 		${PROJECT_NAME}_lib
 	)
+	if (LIBEXPLAIN_INCLUDE)
 	target_link_libraries(
 		"${PROJECT_NAME}_lib"
 		PRIVATE
 		fmt::fmt
+		Threads::Threads
+		pthread
+		explain
+		c
 	)
+	else()
+	target_link_libraries(
+		"${PROJECT_NAME}_lib"
+		PRIVATE
+		fmt::fmt
+		Threads::Threads
+		pthread
+		c
+	)
+	endif()
 endif()
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")

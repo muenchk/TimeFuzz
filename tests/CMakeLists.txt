@@ -580,8 +580,6 @@ else()
 		"ExecutionHandler_Test"
 		PRIVATE
 		fmt::fmt
-		explain
-		c
 		${PROJECT_NAME}_lib
 	)
 endif()
@@ -690,8 +688,6 @@ else()
 		"Mario_Test"
 		PRIVATE
 		fmt::fmt
-		explain
-		c
 		${PROJECT_NAME}_lib
 	)
 endif()
