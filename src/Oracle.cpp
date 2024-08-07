@@ -102,7 +102,7 @@ bool Oracle::WriteData(unsigned char* buffer, size_t offset)
 	return true;
 }
 
-bool Oracle::ReadData(unsigned char* buffer, size_t offset, size_t length)
+bool Oracle::ReadData(unsigned char* buffer, size_t offset, size_t /*length*/)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {

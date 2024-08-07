@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <shared_mutex>
+#include <unordered_map>
 
 #include "Input.h"
 
@@ -16,13 +17,17 @@ class ExclusionTree
 	struct TreeNode
 	{
 		std::string identifier;
+		uint64_t id;
 		std::vector<TreeNode*> children;
+		std::vector<uint64_t> childrenids;
 		bool isLeaf = false;
 
 		TreeNode* HasChild(std::string str);
 	};
 
 public:
+	ExclusionTree();
+
 	/// <summary>
 	/// adds a new input to the tree
 	/// </summary>
@@ -70,14 +75,24 @@ public:
 	/// </summary>
 	/// <param name="buffer"></param>
 	/// <param name="length"></param>
-	bool ReadData(unsigned char* buffer, size_t offset, size_t length, LoadResolver* resolver);
+	bool ReadData(unsigned char* buffer, size_t offset, size_t length);
+
+	bool AqcuireLock();
+
+	void ReleaseLock();
 
 private:
 	TreeNode root;
 
 	std::shared_mutex mutex;
 
+	uint64_t nextid = 1;
+
+	std::unordered_map<uint64_t, TreeNode*> hashmap;
+
 	void DeleteChildren(TreeNode* node);
 
-	void DeleteNode(TreeNode* node);
+	void DeleteChildrenIntern(TreeNode* node);
+
+	void DeleteNodeIntern(TreeNode* node);
 };

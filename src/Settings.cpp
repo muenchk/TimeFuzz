@@ -131,7 +131,7 @@ void Settings::Save(std::wstring _path)
 	ini.SetBoolValue("EndConditions", conditions.use_maxiterations_NAME, conditions.use_maxiterations, "\\ Stop execution after MaxIterations.");
 	ini.SetLongValue("EndConditions", conditions.maxiterations_NAME, conditions.maxiterations, "\\ The maximum number of iterations to run.");
 	ini.SetBoolValue("EndConditions", conditions.use_foundnegatives_NAME, conditions.use_foundnegatives, "\\ Stop execution after foundnegatives failing inputs have been found");
-	ini.SetLongValue("EndConditions", conditions.foundnegatives_NAME, conditions.foundnegatives, "\\ The number of failing inputs to generate.");
+	ini.SetLongValue("EndConditions", conditions.foundnegatives_NAME, (long)conditions.foundnegatives, "\\ The number of failing inputs to generate.");
 
 	ini.SaveFile(path.c_str());
 }
@@ -268,7 +268,7 @@ bool Settings::ReadData(unsigned char* buffer, size_t offset, size_t /*length*/)
 			tests.fragmenttimeout = Buffer::ReadInt64(buffer, offset);
 			tests.storePUToutput = Buffer::ReadBool(buffer, offset);
 			tests.storePUToutputSuccessful = Buffer::ReadBool(buffer, offset);
-			tests.maxUsedMemory = Buffer::ReadInt64(buffer, output);
+			tests.maxUsedMemory = Buffer::ReadInt64(buffer, offset);
 			return true;
 		}
 		break;
