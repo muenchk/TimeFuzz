@@ -155,9 +155,9 @@ size_t Settings::GetStaticSize(int32_t version)
 	                        + 1   // EndConditions::use_maxiterations
 	                        + 4   // EndConditions::maxiterations
 	                        + 1   // EndConditions::use_foundnegatives
-	                        + 4   // EndConditions::foundnegatives
+	                        + 8   // EndConditions::foundnegatives
 	                        + 1   // EndConditions::use_timeout
-	                        + 4   // EndConditions::timeout
+	                        + 8   // EndConditions::timeout
 	                        + 1   // EndConditions::use_overalltests
 	                        + 8   // EndConditions::overalltests
 	                        + 1   // Tests::executeFragments
@@ -207,6 +207,23 @@ bool Settings::WriteData(unsigned char* buffer, size_t offset)
 	Buffer::Write(generation.generationtweakstart, buffer, offset);
 	Buffer::Write(generation.generationtweakmax, buffer, offset);
 	// endconditions
+	Buffer::Write(conditions.use_maxiterations, buffer, offset);
+	Buffer::Write(conditions.maxiterations, buffer, offset);
+	Buffer::Write(conditions.use_foundnegatives, buffer, offset);
+	Buffer::Write(conditions.foundnegatives, buffer, offset);
+	Buffer::Write(conditions.use_timeout, buffer, offset);
+	Buffer::Write(conditions.timeout, buffer, offset);
+	Buffer::Write(conditions.use_overalltests, buffer, offset);
+	Buffer::Write(conditions.overalltests, buffer, offset);
+	// tests
+	Buffer::Write(tests.executeFragments, buffer, offset);
+	Buffer::Write(tests.use_testtimeout, buffer, offset);
+	Buffer::Write(tests.testtimeout, buffer, offset);
+	Buffer::Write(tests.use_fragmenttimeout, buffer, offset);
+	Buffer::Write(tests.fragmenttimeout, buffer, offset);
+	Buffer::Write(tests.storePUToutput, buffer, offset);
+	Buffer::Write(tests.storePUToutputSuccessful, buffer, offset);
+	Buffer::Write(tests.maxUsedMemory, buffer, offset);
 }
 
 bool Settings::ReadData(unsigned char* buffer, size_t offset, size_t /*length*/)
@@ -235,6 +252,23 @@ bool Settings::ReadData(unsigned char* buffer, size_t offset, size_t /*length*/)
 			generation.generationtweakstart = Buffer::ReadFloat(buffer, offset);
 			generation.generationtweakmax = Buffer::ReadFloat(buffer, offset);
 			// endconditions
+			conditions.use_maxiterations = Buffer::ReadBool(buffer, offset);
+			conditions.maxiterations = Buffer::ReadInt32(buffer, offset);
+			conditions.use_foundnegatives = Buffer::ReadBool(buffer, offset);
+			conditions.foundnegatives = Buffer::ReadInt64(buffer, offset);
+			conditions.use_timeout = Buffer::ReadBool(buffer, offset);
+			conditions.timeout = Buffer::ReadInt64(buffer, offset);
+			conditions.use_overalltests = Buffer::ReadBool(buffer, offset);
+			conditions.overalltests = Buffer::ReadUInt64(buffer, offset);
+			// tests
+			tests.executeFragments = Buffer::ReadBool(buffer, offset);
+			tests.use_testtimeout = Buffer::ReadBool(buffer, offset);
+			tests.testtimeout = Buffer::ReadInt64(buffer, offset);
+			tests.use_fragmenttimeout = Buffer::ReadBool(buffer, offset);
+			tests.fragmenttimeout = Buffer::ReadInt64(buffer, offset);
+			tests.storePUToutput = Buffer::ReadBool(buffer, offset);
+			tests.storePUToutputSuccessful = Buffer::ReadBool(buffer, offset);
+			tests.maxUsedMemory = Buffer::ReadInt64(buffer, output);
 			return true;
 		}
 		break;

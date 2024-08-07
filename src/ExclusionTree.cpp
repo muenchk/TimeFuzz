@@ -1,8 +1,12 @@
 #include "ExclusionTree.h"
 #include "Input.h"
 
+#define exclrlock std::unique_lock<std::shared_mutex> guard(mutex);  //((void)0); 
+#define exclwlock std::shared_lock<std::shared_mutex> guard(mutex);
+
 ExclusionTree::TreeNode* ExclusionTree::TreeNode::HasChild(std::string str)
 {
+	exclrlock;
 	for (int32_t i = 0; i < children.size(); i++) {
 		if (children[i] && children[i]->identifier == str)
 			return children[i];
@@ -12,6 +16,7 @@ ExclusionTree::TreeNode* ExclusionTree::TreeNode::HasChild(std::string str)
 
 ExclusionTree::~ExclusionTree()
 {
+	exclwlock;
 	DeleteChildren(&root);
 	root = TreeNode();
 }
@@ -20,6 +25,8 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input)
 {
 	if (input.get() == nullptr)
 		return;
+
+	exclwlock;
 	TreeNode* node = &root;
 	auto itr = input->begin();
 	while (itr != input->end()) {
@@ -49,6 +56,8 @@ bool ExclusionTree::HasPrefix(std::shared_ptr<Input> input)
 {
 	if (input.get() == nullptr)
 		return false;
+
+	exclrlock;
 	TreeNode* node = &root;
 	auto itr = input->begin();
 	while (itr != input->end()) {
@@ -67,6 +76,7 @@ bool ExclusionTree::HasPrefix(std::shared_ptr<Input> input)
 
 void ExclusionTree::DeleteChildren(TreeNode* node)
 {
+	exclwlock;
 	// delete all children
 	for (int32_t i = 0; i < node->children.size(); i++) {
 		DeleteChildren(node->children[i]);
@@ -76,6 +86,7 @@ void ExclusionTree::DeleteChildren(TreeNode* node)
 
 void ExclusionTree::DeleteNode(TreeNode* node)
 {
+	exclwlock;
 	// delete all children of this node
 	for (int32_t i = 0; i < node->children.size(); i++) {
 		DeleteNode(node->children[i]);

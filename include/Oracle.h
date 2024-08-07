@@ -80,4 +80,24 @@ public:
 	{
 		return 'ORAC';
 	}
+
+	/// <summary>
+	/// returns the total size of all fields of this instance
+	/// </summary>
+	/// <returns></returns>
+	size_t GetDynamicSize();
+
+	const int32_t classversion = 0x1;
+	/// <summary>
+	/// saves all relevant information of this instance to the given buffer
+	/// </summary>
+	/// <param name="buffer"></param>
+	/// <returns></returns>
+	bool WriteData(unsigned char* buffer, size_t offset);
+	/// <summary>
+	/// reads all relevant information of this instance from the buffer
+	/// </summary>
+	/// <param name="buffer"></param>
+	/// <param name="length"></param>
+	bool ReadData(unsigned char* buffer, size_t offset, size_t length);
 };

@@ -180,7 +180,7 @@ public:
 		/// <summary>
 		/// the number of failing inputs to generate
 		/// </summary>
-		int32_t foundnegatives = 100;
+		int64_t foundnegatives = 100;
 		const char* foundnegatives_NAME = "FoundNegatives";
 		/// <summary>
 		/// whether to stop the execution after a certain time has passed
@@ -190,7 +190,7 @@ public:
 		/// <summary>
 		/// the time after which to stop the execution
 		/// </summary>
-		int32_t timeout = 60;
+		int64_t timeout = 60;
 		const char* timeout_NAME = "Timeout";
 		/// <summary>
 		/// whether the program ends when a sepcific number of tests have been executed

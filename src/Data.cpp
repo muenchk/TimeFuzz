@@ -1,6 +1,7 @@
 #include "Data.h"
 
 #include <memory>
+#include <exception>
 
 Data::Data()
 {
@@ -12,6 +13,21 @@ Data* Data::GetSingleton()
 {
 	static Data data;
 	return std::addressof(data);
+}
+
+void Data::Save()
+{
+	// create new file on disc
+
+	// write main information about savefile: name, savenumber, nextformid, etc.
+
+	// write session data
+	throw std::runtime_error("Data::Save is not yet implemented");
+}
+
+void Data::Load()
+{
+	throw std::runtime_error("Data::Load is not yet implemented");
 }
 
 

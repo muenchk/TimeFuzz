@@ -1,6 +1,7 @@
 #include "Logging.h"
 #include "Oracle.h"
 #include "Utility.h"
+#include "BufferOperations.h"
 
 std::string Oracle::TypeString(PUTType type)
 {
@@ -81,4 +82,38 @@ Oracle::OracleResult Oracle::Evaluate(Test* test)
 {
 	test->input;
 	return Oracle::OracleResult::Passing;
+}
+
+
+size_t Oracle::GetDynamicSize()
+{
+	static size_t size0x1 = 4     // version
+	                 + 4   // type
+	                 + 1;  // valid
+	return size0x1 + Buffer::CalcStringLength(_path.string());
+}
+
+bool Oracle::WriteData(unsigned char* buffer, size_t offset)
+{
+	Buffer::Write(classversion, buffer, offset);
+	Buffer::Write((int32_t)_type, buffer, offset);
+	Buffer::Write(valid, buffer, offset);
+	Buffer::Write(_path.string(), buffer, offset);
+	return true;
+}
+
+bool Oracle::ReadData(unsigned char* buffer, size_t offset, size_t length)
+{
+	int32_t version = Buffer::ReadInt32(buffer, offset);
+	switch (version) {
+	case 0x1:
+		{
+			_type = (PUTType)Buffer::ReadInt32(buffer, offset);
+			valid = Buffer::ReadBool(buffer, offset);
+			_path = std::filesystem::path(Buffer::ReadString(buffer, offset));
+		}
+		break;
+	default:
+		return false;
+	}
 }

@@ -80,7 +80,7 @@ public:
 		return ss.str();
 	}
 
-	static void InitializeLog(std::filesystem::path _path);
+	static void InitializeLog(std::filesystem::path _path, bool append = false);
 };
 
 #ifdef BUILD_DEBUG
@@ -131,14 +131,17 @@ public:
 	/// Inits profile log
 	/// </summary>
 	/// <param name="pluginname"></param>
-	static void Init(std::string pluginname)
+	static void Init(std::string pluginname, bool append = false)
 	{
 		lock.acquire();
 		//auto path = SKSE::log::log_directory();
 		//if (path.has_value()) {
 		//	_stream = new std::ofstream(path.value() / (pluginname + "_profile.log"), std::ios_base::out | std::ios_base::trunc);
 		//}
-		_stream = new std::ofstream(Logging::log_directory / (pluginname + "_profile.log"), std::ios_base::out | std::ios_base::trunc);
+		if (!append)
+			_stream = new std::ofstream(Logging::log_directory / (pluginname + "_profile.log"), std::ios_base::out | std::ios_base::trunc);
+		else
+			_stream = new std::ofstream(Logging::log_directory / (pluginname + "_profile.log"), std::ios_base::out | std::ios_base::ate);
 		lock.release();
 	}
 
@@ -204,14 +207,17 @@ public:
 	/// Inits profile log
 	/// </summary>
 	/// <param name="pluginname"></param>
-	static void Init(std::string pluginname)
+	static void Init(std::string pluginname, bool append = false)
 	{
 		lock.acquire();
 		//auto path = SKSE::log::log_directory();
 		//if (path.has_value()) {
 		//	_stream = new std::ofstream(path.value() / pluginname / (pluginname + "log.log"), std::ios_base::out | std::ios_base::trunc);
 		//}
-		_stream = new std::ofstream(Logging::log_directory / (pluginname + ".log"), std::ios_base::out | std::ios_base::trunc);
+		if (!append)
+			_stream = new std::ofstream(Logging::log_directory / (pluginname + ".log"), std::ios_base::out | std::ios_base::trunc);
+		else
+			_stream = new std::ofstream(Logging::log_directory / (pluginname + ".log"), std::ios_base::out | std::ios_base::ate);
 		lock.release();
 	}
 
