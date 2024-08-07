@@ -187,6 +187,40 @@ public:
 	/// </summary>
 	void InValidate();
 
+	const int32_t version = 0x1;
+
+	/// <summary>
+	/// returns the size of all fields with static size
+	/// </summary>
+	/// <returns></returns>
+	size_t GetStaticSize(int version = );
+	/// <summary>
+	/// returns the save-size of the instance
+	/// </summary>
+	/// <returns></returns>
+	size_t GetDynamicSize();
+	/// <summary>
+	/// returns the version of the class
+	/// </summary>
+	/// <returns></returns>
+	int GetClassVersion();
+	/// <summary>
+	/// Writes the instance data to the buffer
+	/// </summary>
+	/// <param name="buffer"></param>
+	/// <param name="offset"></param>
+	/// <returns></returns>
+	bool WriteData(unsigned char* buffer, int offset);
+	/// <summary>
+	/// Reads the instance data from the buffer
+	/// </summary>
+	/// <param name="buffer"></param>
+	/// <param name="offset"></param>
+	/// <param name="length"></param>
+	/// <returns></returns>
+	bool ReadData(unsigned char* buffer, int offset, int length, LoadResolver* resolver);
+
+
 private:
 	bool valid = true;
 };

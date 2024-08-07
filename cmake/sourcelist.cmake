@@ -1,5 +1,7 @@
 set(SOURCE_FILES
+	"${SOURCE_DIR}/BufferOperations.cpp"
 	"${SOURCE_DIR}/Data.cpp"
+	"${SOURCE_DIR}/DerivationTree.cpp"
 	"${SOURCE_DIR}/ExecutionHandler.cpp"
 	"${SOURCE_DIR}/ExclusionTree.cpp"
 	"${SOURCE_DIR}/Grammar.cpp"

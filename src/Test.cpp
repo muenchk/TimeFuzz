@@ -2,6 +2,7 @@
 #include "Input.h"
 #include "Processes.h"
 #include "Logging.h"
+#include "BufferOperations.h"
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
 #	include <fcntl.h>
@@ -414,4 +415,96 @@ void Test::InValidate()
 	si = {};
 #endif
 	itr = {};
+}
+
+size_t Test::GetStaticSize(int version)
+{
+	static size_t size0x1 = 4     // version
+	                        + 1   // running
+	                        + 8   // starttime
+	                        + 8   // endtime
+	                        + 8   // formid for input
+	                        + 8   // lasttime
+	                        + 8   // identifier
+	                        + 8   // exitreason
+	                        + 1;  // valid
+	switch (version)
+	{
+	case 0x1:
+		return size0x1;
+	default:
+		return 0;
+	}
+}
+
+size_t Test::GetDynamicSize()
+{
+	size_t sz = GetStaticSize(version);
+	sz += Buffer::CalcStringLength(lastwritten);
+	sz += Buffer::List::GetListLength(reactiontime);
+	sz += Buffer::CalcStringLength(output);
+	return sz;
+}
+
+int Test::GetClassVersion()
+{
+	return version;
+}
+
+bool Test::WriteData(unsigned char* buffer, int offset)
+{
+	Buffer::Write(version, buffer, offset);
+	Buffer::Write(running, buffer, offset);
+	Buffer::Write(starttime, buffer, offset);
+	Buffer::Write(endtime, buffer, offset);
+	// shared ptr
+	if (input)
+		Buffer::Write(input->GetFormID(), buffer, offset);
+	else
+		Buffer::Write((int)0);
+	Buffer::Write(lastwritten);
+	Buffer::Write(lasttime);
+	Buffer::List::WriteList(reactiontime);
+	Buffer::Write(output);
+	Buffer::Write(identifier);
+	Buffer::Write(exitreason);
+	Buffer::Write(valid);
+	return true;
+}
+
+bool Test::ReadData(unsigned char* buffer, int offset, int length, LoadResolver* resolver)
+{
+	int initoff = offset;
+	int version = Buffer::ReadInt32(buffer, offset);
+	switch (version)
+	{
+	case 0x1:
+		if (length < GetStaticSize(version))
+			return false;
+		running = Buffer::ReadBool(buffer, offset);
+		starttime = Buffer::ReadTime(buffer, offset);
+		endtime = Buffer::ReadTime(buffer, offset);
+		uint32_t formid = Buffer::ReadUInt32(buffer, offset);
+		resolver->AddTask([this, resolver]() {
+			this->input = resolver->ResolveFormID<Input>(formid);
+		});
+		if (length < offset - initoff + 8 || length < offset - initoff + Buffer::CalcStringLength(buffer, offset))
+			return false;
+		lastwritten = Buffer::ReadString(lastwritten);
+		lastime = Buffer::ReadTime(lasttime);
+		if (length < offset - initoff + 8 || length < offset - initoff + Buffer::List::GetListLength(buffer, offset))
+			return false;
+		Buffer::List::ReadList(reactiontime, buffer, offset);
+		if (length < offset - initoff + 8 || length < offset - initoff + Buffer::CalcStringLength(buffer, offset))
+			return false;
+		output = Buffer::ReadString(buffer, offset);
+		identifier = Buffer::ReadUInt64(buffer, offset);
+		exitreason = Buffer::ReadUInt64(buffer, offset);
+		valid = Buffer::ReadBool(buffer, offset);
+
+		itr = begin();
+		return true;
+	default:
+		return false;
+	}
 }

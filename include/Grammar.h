@@ -8,6 +8,7 @@
 #include <unordered_map>
 
 #include "Utility.h"
+#include "TaskController.h"
 
 class GrammarExpansion;
 
@@ -103,6 +104,29 @@ public:
 
 	operator std::string();
 	std::string string();
+
+	/// <summary>
+	/// returns the size of the node in bytes
+	/// </summary>
+	/// <returns></returns>
+	size_t GetDynamicSize();
+	/// <summary>
+	/// Writes the node data to the buffer
+	/// </summary>
+	/// <param name="buffer"></param>
+	/// <param name="offset"></param>
+	/// <returns></returns>
+	bool WriteData(unsigned char* buffer, int& offset);
+	const int32_t version = 0x1;
+	/// <summary>
+	/// Reads the node data from the buffer
+	/// </summary>
+	/// <param name="buffer"></param>
+	/// <param name="offset"></param>
+	/// <param name="length"></param>
+	/// <param name="resolver"></param>
+	/// <returns></returns>
+	bool ReadData(unsigned char* buffer, int& offset, int length, LoadResolverGrammar* resolver);
 };
 
 class GrammarExpansion : public GrammarObject
@@ -143,6 +167,29 @@ public:
 	virtual std::string Scala();
 
 	operator std::string();
+
+	/// <summary>
+	/// returns the size of the expansion in bytes
+	/// </summary>
+	/// <returns></returns>
+	size_t GetDynamicSize();
+	/// <summary>
+	/// Writes the expansion data to the buffer
+	/// </summary>
+	/// <param name="buffer"></param>
+	/// <param name="offset"></param>
+	/// <returns></returns>
+	bool WriteData(unsigned char* buffer, int& offset);
+	const int32_t version = 0x1;
+	/// <summary>
+	/// Reads the expansion data from the buffer
+	/// </summary>
+	/// <param name="buffer"></param>
+	/// <param name="offset"></param>
+	/// <param name="length"></param>
+	/// <param name="resolver"></param>
+	/// <returns></returns>
+	bool ReadData(unsigned char* buffer, int& offset, int length, LoadResolverGrammar* resolver);
 };
 
 class GrammarTree
@@ -217,6 +264,9 @@ private:
 
 	uint64_t GetNextID();
 
+	friend Grammar::GetDynamicSize();
+	friend LoadResolverGrammar;
+
 	/// <summary>
 	/// Finds cycles in the grammar
 	/// </summary>
@@ -281,6 +331,48 @@ public:
 
 	~Grammar();
 
+	/// <summary>
+	/// returns the static size of the instance
+	/// </summary>
+	/// <param name="version"></param>
+	/// <returns></returns>
+	size_t GetStaticSize(int version = version);
+	/// <summary>
+	/// returns the full size of the instance
+	/// </summary>
+	/// <returns></returns>
+	size_t GetDynamicSize();
+
+
 private:
 	std::shared_ptr<GrammarTree> tree;
+
+	const int32_t version = 0x1;
+};
+
+class LoadResolverGrammar
+{
+	std::queue<TaskController::TaskDelegate*> tasks;
+
+public:
+	std::shared_ptr<GrammarTree> tree;
+	~LoadResolverGrammar();
+
+	void AddTask(TaskController::TaskFn a_task);
+	void AddTask(TaskController::TaskDelegate* a_task);
+
+	std::shared_ptr<GrammarNode> ResolveNodeID(uint64_t id)
+	{
+		auto itr = tree->hashmap.find(id);
+		if (itr != tree->hashmap.end()) {
+			return std::get<1>(*itr);
+		}
+	}
+	std::shared_ptr<GrammarExpansion> ResolveExpansionID(uint64_t id)
+	{
+		auto itr = tree->hashmap_expansions.find(id);
+		if (itr != tree->hashmap_expansions.end()) {
+			return std::get<1>(*itr);
+		}
+	}
 };

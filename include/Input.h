@@ -7,12 +7,51 @@
 #include "DerivationTree.h"
 #include "TaskController.h"
 #include "Utility.h"
+#include "Data.h"
 
 class ExecutionHandler;
 class Test;
 
 class Input
 {
+	const int32_t classversion = 0x1;
+	uint32_t _formid = 0;
+	#pragma region SaveLoad
+public:
+	/// <summary>
+	/// returns the total size of the fields with static size
+	/// </summary>
+	/// <returns></returns>
+	size_t GetStaticSize(int32_t version = classversion);
+	/// <summary>
+	/// returns the total size of all fields of this instance
+	/// </summary>
+	/// <returns></returns>
+	size_t GetDynamicSize();
+	/// <summary>
+	/// returns the class version
+	/// </summary>
+	/// <returns></returns>
+	static int32_t GetClassVersion();
+	/// <summary>
+	/// saves all relevant information of this instance to the given buffer
+	/// </summary>
+	/// <param name="buffer"></param>
+	/// <returns></returns>
+	bool WriteData(unsigned char* buffer, int offset);
+	/// <summary>
+	/// reads all relevant information of this instance from the buffer
+	/// </summary>
+	/// <param name="buffer"></param>
+	/// <param name="length"></param>
+	bool ReadData(unsigned char* buffer, int offset, size_t length, LoadResolver* resolver);
+	int GetType()
+	{
+		return 'INPU';
+	}
+
+	#pragma endregion
+
 private:
 	bool hasfinished = false;
 	bool trimmed = false;
@@ -35,6 +74,17 @@ public:
 	/// resets all internal variables
 	/// </summary>
 	void Clear();
+
+	/// <summary>
+	/// returns the formid of this instance
+	/// </summary>
+	/// <returns></returns>
+	uint32_t GetFormID();
+	/// <summary>
+	/// sets the formid
+	/// </summary>
+	/// <param name="formid"></param>
+	void SetFormID(uint32_t formid);
 
 	/// <summary>
 	/// converts the input to python code
