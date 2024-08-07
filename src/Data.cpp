@@ -26,14 +26,14 @@ LoadResolver::~LoadResolver()
 	data = nullptr;
 	while (!tasks.empty())
 	{
-		delete tasks.front();
+		tasks.front()->Dispose();
 		tasks.pop();
 	}
 }
 
 void LoadResolver::AddTask(TaskController::TaskFn a_task)
 {
-	AddTask(new Task(std::move(a_task)));
+	AddTask(new TaskController::Task(std::move(a_task)));
 }
 
 void LoadResolver::AddTask(TaskController::TaskDelegate* a_task)

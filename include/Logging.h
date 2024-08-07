@@ -54,24 +54,24 @@ public:
 	/// Formats microseconds into a proper time string
 	/// </summary>
 	/// <returns></returns>
-	static std::string FormatTime(long long microseconds)
+	static std::string FormatTime(int64_t microseconds)
 	{
 		std::stringstream ss;
-		long long tmp = 0;
+		int64_t tmp = 0;
 		if (microseconds > 60000000) {
-			tmp = (long long)trunc((long double)microseconds / 60000000);
+			tmp = (int64_t)trunc((long double)microseconds / 60000000);
 			ss << std::setw(6) << tmp << "m ";
 			microseconds -= tmp * 60000000;
 		} else
 			ss << "        ";
 		if (microseconds > 1000000) {
-			tmp = (long long)trunc((long double)microseconds / 1000000);
+			tmp = (int64_t)trunc((long double)microseconds / 1000000);
 			ss << std::setw(2) << tmp << "s ";
 			microseconds -= tmp * 1000000;
 		} else
 			ss << "    ";
 		if (microseconds > 1000) {
-			tmp = (long long)trunc((long double)microseconds / 1000);
+			tmp = (int64_t)trunc((long double)microseconds / 1000);
 			ss << std::setw(3) << tmp << "ms ";
 			microseconds -= tmp * 1000;
 		} else

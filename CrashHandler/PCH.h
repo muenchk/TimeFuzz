@@ -91,7 +91,7 @@ namespace util
 
 	void TerminateProcess(
 		void* a_process,
-		unsigned int a_exitCode) noexcept;
+		uint32_t a_exitCode) noexcept;
 
 	[[nodiscard]] inline auto utf8_to_utf16(std::string_view a_in) noexcept
 		-> std::optional<std::wstring>

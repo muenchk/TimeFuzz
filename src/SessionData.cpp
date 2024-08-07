@@ -10,5 +10,5 @@ SessionData::~SessionData()
 
 void SessionData::Clear()
 {
-	throw std::runtime_error("SessionData::Clear not implemented");
+	//throw std::runtime_error("SessionData::Clear not implemented");
 }

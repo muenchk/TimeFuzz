@@ -37,7 +37,7 @@ namespace util
 
 	void TerminateProcess(
 		void* a_process,
-		unsigned int a_exitCode) noexcept
+		uint32_t a_exitCode) noexcept
 	{
 		::TerminateProcess(
 			static_cast<::HANDLE>(a_process),

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string>
 #include <mutex>
+#include <exception>
 
 #include "ExitCodes.h"
 #include "Logging.h"
@@ -45,7 +46,12 @@ void Session::Clear()
 	{
 		_settings.reset();
 	}
-	data.Clear();
+	try {
+		data.Clear();
+	} catch (std::exception)
+	{
+		throw std::runtime_error("session clear fail");
+	}
 	LastError = 0;
 	running = false;
 }
@@ -55,7 +61,7 @@ void Session::Wait()
 	throw std::runtime_error("Not implemented");
 }
 
-std::vector<std::shared_ptr<Input>> Session::GenerateNegatives(int /*negatives*/, bool& /*error*/, int /*maxiterations*/, int /*timeout*/, bool /*returnpositives*/)
+std::vector<std::shared_ptr<Input>> Session::GenerateNegatives(int32_t /*negatives*/, bool& /*error*/, int32_t /*maxiterations*/, int32_t /*timeout*/, bool /*returnpositives*/)
 {
 	return {};
 }
@@ -155,8 +161,8 @@ void Session::Iterate()
 
 	// start threadcontroller
 	// threads need to be split into computing and test execution. if usehardwarethreads is activated, make sure we don't exceed.
-	int numc = _settings->general.numcomputingthreads;
-	int nume = _settings->general.concurrenttests;
+	int32_t numc = _settings->general.numcomputingthreads;
+	int32_t nume = _settings->general.concurrenttests;
 	if (numc + nume > (int)std::thread::hardware_concurrency())
 	{
 		numc = (int)((((double)numc) / ((double)nume)) * std::thread::hardware_concurrency());

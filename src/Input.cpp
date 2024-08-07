@@ -6,7 +6,6 @@
 #include "Logging.h"
 #include "ExecutionHandler.h"
 #include "BufferOperations.h"
-using Buffer;
 
 #pragma region SaveLoad
 
@@ -48,7 +47,7 @@ int32_t Input::GetClassVersion()
 	return classversion;
 }
 
-size_t Input::WriteData(unsigned char* buffer, int offset)
+bool Input::WriteData(unsigned char* buffer, size_t offset)
 {
 	Buffer::Write(GetClassVersion(), buffer, offset);
 	Buffer::Write(hasfinished, buffer, offset);
@@ -59,7 +58,7 @@ size_t Input::WriteData(unsigned char* buffer, int offset)
 	if (test) {
 		size_t sz = test->GetDynamicSize();
 		Buffer::Write(true, buffer, offset);
-		Buffer::Write(sz, buffer, offset);
+		Buffer::WriteSize(sz, buffer, offset);
 		test->WriteData(buffer, offset);
 		offset += sz;
 	} else
@@ -68,88 +67,88 @@ size_t Input::WriteData(unsigned char* buffer, int offset)
 	{
 		size_t sz = derive->GetDynamicSize();
 		Buffer::Write(true, buffer, offset);
-		Buffer::Write(sz, buffer, offset);
+		Buffer::WriteSize(sz, buffer, offset);
 		derive->WriteData(buffer, offset);
 		offset += sz;
 	} else
 		Buffer::Write(false, buffer, offset);
-	Buffer::Write(stringrep);
-	Buffer::List::WriteList(sequence);
-	Buffer::List::WriteList(orig_sequence);
+	Buffer::Write(stringrep, buffer, offset);
+	Buffer::List::WriteList(sequence, buffer, offset);
+	Buffer::List::WriteList(orig_sequence, buffer, offset);
 
 	return true;
 }
 
-bool Input::ReadData(unsigned char* buffer, int offset, size_t length, LoadResolver* resolver)
+bool Input::ReadData(unsigned char* buffer, size_t offset, size_t length, LoadResolver* resolver)
 {
-	int initoff = offset;
+	size_t initoff = offset;
 	int32_t version = Buffer::ReadInt32(buffer, offset);
-	switch (version)
-	{
+	switch (version) {
 	case 0x1:
-		// if the current length is smaller stan the minimal size of the class then return false
-		if (length < GetStaticSize(0x1))
-			return false;
-		// static init
-		pythonconverted = false;
-		pythonstring = "";
-		test = nullptr;
-		derive = nullptr;
-		// end
-		hasfinished = Buffer::ReadBool(buffer, offset);
-		trimmed = Buffer::ReadBool(buffer, offset);
-		executiontime = Buffer::ReadNanoSeconds(buffer, offset);
-		exitcode = Buffer::ReadInt32(buffer, offset);
-		oracleResult = Buffer::ReadUInt64(buffer, offset);
-		bool readtest = Buffer::ReadBool(buffer, offset);
-		if (readtest) {
-			test = new Test;
-			if (length < offset - initoff + 8)
+		{
+			// if the current length is smaller stan the minimal size of the class then return false
+			if (length < GetStaticSize(0x1))
 				return false;
-			size_t len = Buffer::ReadSize(buffer, offset);
-			if (length < offset - initoff + len)
-				return false;
-			bool res = test->ReadData(buffer, offset, len, resolver);
-			offset += len;
-			if (!res) {
-				delete test;
-				test = nullptr;
-				return false;
+			// static init
+			pythonconverted = false;
+			pythonstring = "";
+			test = nullptr;
+			derive = nullptr;
+			// end
+			hasfinished = Buffer::ReadBool(buffer, offset);
+			trimmed = Buffer::ReadBool(buffer, offset);
+			executiontime = Buffer::ReadNanoSeconds(buffer, offset);
+			exitcode = Buffer::ReadInt32(buffer, offset);
+			oracleResult = Buffer::ReadUInt64(buffer, offset);
+			bool readtest = Buffer::ReadBool(buffer, offset);
+			if (readtest) {
+				test = new Test;
+				if (length < offset - initoff + 8)
+					return false;
+				size_t len = Buffer::ReadSize(buffer, offset);
+				if (length < offset - initoff + len)
+					return false;
+				bool res = test->ReadData(buffer, offset, len, resolver);
+				offset += len;
+				if (!res) {
+					delete test;
+					test = nullptr;
+					return false;
+				}
 			}
-		}
-		// else no test present
-		test = nullptr;
-		bool readderive = Buffer::ReadBool(buffer, offset);
-		if (readderive) {
-			derive = new DerivationTree();
-			if (length < offset - initoff + 8)
-				return false;
-			size_t len = Buffer::ReadSize(buffer, offset);
-			if (length < offset - initoff + len)
-				return false;
-			bool rest = derive->ReadData(buffer, offset, len, resolver);
-			offset += len;
-			if (!res)
-			{
-				delete derive;
-				derive = nullptr;
-				return false;
+			// else no test present
+			test = nullptr;
+			bool readderive = Buffer::ReadBool(buffer, offset);
+			if (readderive) {
+				derive = new DerivationTree();
+				if (length < offset - initoff + 8)
+					return false;
+				size_t len = Buffer::ReadSize(buffer, offset);
+				if (length < offset - initoff + len)
+					return false;
+				bool rest = derive->ReadData(buffer, offset, len, resolver);
+				offset += len;
+				if (!rest) {
+					delete derive;
+					derive = nullptr;
+					return false;
+				}
 			}
+			// else no derivation tree present
+			// get stringrep
+			if (length < offset - initoff + 8 || length < offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
+				return false;
+			stringrep = Buffer::ReadString(buffer, offset);
+			// read sequence
+			if (length < offset - initoff + 8 || length < offset - initoff + 8 + Buffer::List::GetListLength(buffer, offset))
+				return false;
+			Buffer::List::ReadList(sequence, buffer, offset);
+			// read orig_sequence
+			if (length < offset - initoff + 8 || length < offset - initoff + 8 + Buffer::List::GetListLength(buffer, offset))
+				return false;
+			Buffer::List::ReadList(orig_sequence, buffer, offset);
+			return true;
 		}
-		// else no derivation tree present
-		// get stringrep
-		if (length < offset - initoff + 8 || length < offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
-			return false;
-		stringrep = Buffer::ReadString(buffer, offset);
-		// read sequence
-		if (length < offset - initoff + 8 || length < offset - initoff + 8 + Buffer::List::GetlistLength(buffer, offset))
-			return false;
-		Buffer::List::ReadList(buffer, offset);
-		// read orig_sequence
-		if (length < offset - initoff + 8 || length < offset - initoff + 8 + Buffer::List::GetListLength(buffer, offset))
-			return false;
-		Buffer::List::ReadList(buffer, offset);
-		return true;
 	default:
 		return false;
 	}
@@ -243,7 +242,7 @@ void Input::AddEntry(std::string entry)
 std::string Input::ToString()
 {
 	std::string str = "[ ";
-	int count = 0;
+	int32_t count = 0;
 	for (auto& s : sequence)
 	{
 		count++;
@@ -288,7 +287,7 @@ std::vector<std::shared_ptr<Input>> Input::ParseInputs(std::filesystem::path pat
 	}
 	if (_stream.is_open()) {
 		/* auto CountSymbols = [](std::string str, char symbol, char escaped1, char escaped2) {
-			int count = 0;
+			int32_t count = 0;
 			bool escape = false;
 			for (char& c : str) {
 				// escaped strings are marked by, e.g., " or ' and everything between two of them should not be counted
@@ -305,8 +304,8 @@ std::vector<std::shared_ptr<Input>> Input::ParseInputs(std::filesystem::path pat
 
 		// parse file for a variable named inputs
 		std::string contents;
-		int open = 0;
-		int closed = 0;
+		int32_t open = 0;
+		int32_t closed = 0;
 		std::string line;
 		while (std::getline(_stream, line)) {
 			// we read another line
@@ -342,7 +341,7 @@ std::vector<std::shared_ptr<Input>> Input::ParseInputs(std::filesystem::path pat
 
 					struct record
 					{
-						int open = 0;
+						int32_t open = 0;
 						bool escaped = false;
 						std::string current;
 						bool brk = false;

@@ -33,10 +33,10 @@ namespace Processes
 		}
 		pargs.push_back(NULL);
 
-		// Signature: int execvp(const char *file, char *const argv[]);
+		// Signature: int32_t execvp(const char *file, char *const argv[]);
 
 		// execvp(app.c_str(), execvp(app.c_str(), (char* const *) pargs.data() )
-		int status = execvp(app.c_str(), (char* const*)pargs.data());
+		int32_t status = execvp(app.c_str(), (char* const*)pargs.data());
 
 		if (status == -1) {
 #	ifdef INCLLIBEXPLAIN
@@ -47,7 +47,8 @@ namespace Processes
 			throw std::runtime_error("Error: failed to launch process");
 		}
 	}
-	std::pair<bool, int> fork_exec(std::string app, std::vector<std::string> args, int timelimitsec, std::string outfile)
+	std::pair<bool, int> fork_exec(std::string app, std::vector<std::string> args, 
+		timelimitsec, std::string outfile)
 	{
 		StartProfilingDebug;
 		std::printf(" [TRACE] <BEFORE FORK> PID of parent process = %d \n", getpid());
@@ -88,8 +89,8 @@ namespace Processes
 
 		std::printf(" [TRACE] <AFTER FORK> PID of parent process = %d \n", getpid());
 
-		// pid_t waitpid(pid_t pid, int *wstatus, int options);
-		int status;
+		// pid_t waitpid(pid_t pid, int32_t *wstatus, int32_t options);
+		int32_t status;
 
 		std::printf(" [TRACE] Waiting for child process to finish.\n");
 
@@ -100,7 +101,7 @@ namespace Processes
 		while (timelimitsec == 0 || std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - start).count() < timelimitsec * 1000) {
 			// Wait for child process termination.
 			// From header: #include <sys/wait.h>
-			int ret = waitpid(pid, &status, WNOHANG);
+			int32_t ret = waitpid(pid, &status, WNOHANG);
 			if (ret == -1) {
 				//logger::error("Processes", "Fork_exec", "Error: cannot wait for child process");
 				throw std::runtime_error("Error: cannot wait for child process");
@@ -113,7 +114,7 @@ namespace Processes
 				std::this_thread::sleep_for(1s);
 			}
 		}
-		int exitcode = 1;
+		int32_t exitcode = 1;
 		if (finished && WIFEXITED(status)) {
 			exitcode = WEXITSTATUS(status);
 		} else {
@@ -226,10 +227,10 @@ namespace Processes
 	#pragma region externalcodde
 	// from user Lanzelot / Peter Mortensen in https://stackoverflow.com/questions/63166/how-to-determine-cpu-and-memory-consumption-from-inside-a-process
 
-	long parseLine(char* line)
+	int64_t parseLine(char* line)
 	{
 		// This assumes that a digit will be found and the line ends in " Kb".
-		long i = strlen(line);
+		int64_t i = strlen(line);
 		const char* p = line;
 		while (*p < '0' || *p > '9') p++;
 		line[i - 3] = '\0';
@@ -237,14 +238,14 @@ namespace Processes
 		return i;
 	}
 
-	long GetProcessMemory(pid_t pid)
+	int64_t GetProcessMemory(pid_t pid)
 	{
 		StartProfilingDebug;
 		char buf[32] = "/proc/";
 		strcat(buf, std::to_string(pid).c_str());
 		strcat(buf, "/status");
 		FILE* file = fopen(buf, "r");
-		long result = -1;
+		int64_t result = -1;
 		char line[128];
 
 		while (fgets(line, 128, file) != NULL) {
@@ -262,7 +263,7 @@ namespace Processes
 
 	bool KillProcess(pid_t pid)
 	{
-		int res = 0;
+		int32_t res = 0;
 		if (pid > 0) {
 			res = kill(pid, SIGTERM);
 			pid_t res = waitpid(pid, NULL, 0);
@@ -278,7 +279,7 @@ namespace Processes
 		}
 	}
 
-	bool GetProcessRunning(pid_t pid, int* exitcode)
+	bool GetProcessRunning(pid_t pid, int32_t* exitcode)
 	{
 		StartProfilingDebug;
 		// using waitpid in no hang mode to check whether child has exited
@@ -286,7 +287,7 @@ namespace Processes
 		// pid recycling, as the children will remain in zombie-mode until we actively wait
 		// on them
 		bool result = false;
-		int status = 0;
+		int32_t status = 0;
 		pid_t res = waitpid(pid, &status, WNOHANG);
 		if (res == 0)  // has not exited so far (no state changes)
 			result = true;
@@ -310,7 +311,7 @@ namespace Processes
 		return result;
 	}
 
-	int GetExitCode(pid_t)
+	int32_t GetExitCode(pid_t)
 	{
 		throw std::runtime_error("use GetProcessRunning to get exitcode");
 	}
@@ -375,7 +376,7 @@ namespace Processes
 		}
 	}
 
-	long GetProcessMemory(HANDLE pid)
+	int64_t GetProcessMemory(HANDLE pid)
 	{
 		BOOL success;
 		PROCESS_MEMORY_COUNTERS mc;
@@ -407,7 +408,7 @@ namespace Processes
 			return false; // probs don't have permissions to retrieve exit code
 	}
 
-	int GetExitCode(HANDLE pid)
+	int32_t GetExitCode(HANDLE pid)
 	{
 		DWORD exitcode;
 		BOOL success = GetExitCodeProcess(

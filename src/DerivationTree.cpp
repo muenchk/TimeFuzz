@@ -1,9 +1,9 @@
 #include "DerivationTree.h"
 #include "BufferOperations.h"
 
-int DerivationTree::GetClassVersion()
+int32_t DerivationTree::GetClassVersion()
 {
-	return version;
+	return classversion;
 }
 
 size_t DerivationTree::GetStaticSize(int32_t version)
@@ -21,16 +21,16 @@ size_t DerivationTree::GetStaticSize(int32_t version)
 
 size_t DerivationTree::GetDynamicSize()
 {
-	return GetStaticSize;
+	return GetStaticSize();
 }
 
-bool WriteData(unsigned char* buffer, int offset)
+bool DerivationTree::WriteData(unsigned char* buffer, size_t offset)
 {
-	Buffer::Write(version, buffer, offset);
+	Buffer::Write(classversion, buffer, offset);
 	return true;
 }
 
-bool ReadData(unsigned char* buffer, int offset, int length, LoadResolver* resolver)
+bool DerivationTree::ReadData(unsigned char* buffer, size_t offset, size_t /*length*/, LoadResolver* /*resolver*/)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version)

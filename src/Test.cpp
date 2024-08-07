@@ -221,7 +221,7 @@ bool Test::CheckInput()
 	bool ret = false;
 #if defined(unix) || defined(__unix__) || defined(__unix)
 	struct pollfd fds;
-	int events = 0;
+	int32_t events = 0;
 	fds.fd = red_input[0];  // stdin
 	fds.events = POLLIN;
 	events = poll(&fds, 1, 0);
@@ -238,7 +238,7 @@ bool Test::CheckInput()
 	else
 		ret = true;
 		/*DWORD dwRead;
-	int sl = (int)strlen(lastwritten.c_str());
+	int32_t sl = (int)strlen(lastwritten.c_str());
 	char* chBuf = new char[sl + 1];
 	BOOL bSuccess = FALSE;
 	bSuccess = ReadFile(red_input[0], chBuf, sl, &dwRead, NULL);
@@ -264,7 +264,7 @@ std::string Test::ReadOutput()
 	std::string ret;
 #if defined(unix) || defined(__unix__) || defined(__unix)
 	struct pollfd fds;
-	int events = 0;
+	int32_t events = 0;
 	fds.fd = red_output[0];  // stdin
 	fds.events = POLLIN;
 	events = poll(&fds, 1, 0);
@@ -274,7 +274,7 @@ std::string Test::ReadOutput()
 		char buf[512];
 		logdebug("2");
 		logdebug("3: {}", red_output[0]);
-		int _read = read(red_output[0], buf, 511);
+		int32_t _read = read(red_output[0], buf, 511);
 		logdebug("4: {}", _read);
 		if (_read <= 0) {
 			logdebug("5");
@@ -308,7 +308,7 @@ std::string Test::ReadOutput()
 	return ret;
 }
 
-long Test::GetMemoryConsumption()
+int64_t Test::GetMemoryConsumption()
 {
 	if (!valid) {
 		logcritical("called GetMemoryConsumption after invalidation");
@@ -336,7 +336,7 @@ bool Test::KillProcess()
 #endif
 }
 
-void Test::TrimInput(int executed)
+void Test::TrimInput(int32_t executed)
 {
 	StartProfilingDebug;
 	if (!valid) {
@@ -347,7 +347,7 @@ void Test::TrimInput(int executed)
 	{
 		// we are trimming to a specific length
 		input->trimmed = true;
-		int count = 0;
+		int32_t count = 0;
 		auto aitr = input->begin();
 		// add as long as we don't reach the end of the sequence and haven't added more than [executed] inputs
 		while (aitr != input->end() && count != executed) {
@@ -372,7 +372,7 @@ void Test::TrimInput(int executed)
 	}
 }
 
-int Test::GetExitCode()
+int32_t Test::GetExitCode()
 {
 	if (!valid) {
 		logcritical("called GetExitCode after invalidation");
@@ -417,7 +417,7 @@ void Test::InValidate()
 	itr = {};
 }
 
-size_t Test::GetStaticSize(int version)
+size_t Test::GetStaticSize(int32_t version)
 {
 	static size_t size0x1 = 4     // version
 	                        + 1   // running
@@ -439,21 +439,21 @@ size_t Test::GetStaticSize(int version)
 
 size_t Test::GetDynamicSize()
 {
-	size_t sz = GetStaticSize(version);
+	size_t sz = GetStaticSize(classversion);
 	sz += Buffer::CalcStringLength(lastwritten);
-	sz += Buffer::List::GetListLength(reactiontime);
+	sz += Buffer::ListBasic::GetListLength(reactiontime);
 	sz += Buffer::CalcStringLength(output);
 	return sz;
 }
 
-int Test::GetClassVersion()
+int32_t Test::GetClassVersion()
 {
-	return version;
+	return classversion;
 }
 
-bool Test::WriteData(unsigned char* buffer, int offset)
+bool Test::WriteData(unsigned char* buffer, size_t offset)
 {
-	Buffer::Write(version, buffer, offset);
+	Buffer::Write(classversion, buffer, offset);
 	Buffer::Write(running, buffer, offset);
 	Buffer::Write(starttime, buffer, offset);
 	Buffer::Write(endtime, buffer, offset);
@@ -461,49 +461,51 @@ bool Test::WriteData(unsigned char* buffer, int offset)
 	if (input)
 		Buffer::Write(input->GetFormID(), buffer, offset);
 	else
-		Buffer::Write((int)0);
-	Buffer::Write(lastwritten);
-	Buffer::Write(lasttime);
-	Buffer::List::WriteList(reactiontime);
-	Buffer::Write(output);
-	Buffer::Write(identifier);
-	Buffer::Write(exitreason);
-	Buffer::Write(valid);
+		Buffer::Write((int32_t)0, buffer, offset);
+	Buffer::Write(lastwritten, buffer, offset);
+	Buffer::Write(lasttime, buffer, offset);
+	Buffer::ListBasic::WriteList(reactiontime, buffer, offset);
+	Buffer::Write(output, buffer, offset);
+	Buffer::Write(identifier, buffer, offset);
+	Buffer::Write(exitreason, buffer, offset);
+	Buffer::Write(valid, buffer, offset);
 	return true;
 }
 
-bool Test::ReadData(unsigned char* buffer, int offset, int length, LoadResolver* resolver)
+bool Test::ReadData(unsigned char* buffer, size_t offset, size_t length, LoadResolver* resolver)
 {
-	int initoff = offset;
-	int version = Buffer::ReadInt32(buffer, offset);
+	size_t initoff = offset;
+	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version)
 	{
 	case 0x1:
-		if (length < GetStaticSize(version))
-			return false;
-		running = Buffer::ReadBool(buffer, offset);
-		starttime = Buffer::ReadTime(buffer, offset);
-		endtime = Buffer::ReadTime(buffer, offset);
-		uint32_t formid = Buffer::ReadUInt32(buffer, offset);
-		resolver->AddTask([this, resolver]() {
-			this->input = resolver->ResolveFormID<Input>(formid);
-		});
-		if (length < offset - initoff + 8 || length < offset - initoff + Buffer::CalcStringLength(buffer, offset))
-			return false;
-		lastwritten = Buffer::ReadString(lastwritten);
-		lastime = Buffer::ReadTime(lasttime);
-		if (length < offset - initoff + 8 || length < offset - initoff + Buffer::List::GetListLength(buffer, offset))
-			return false;
-		Buffer::List::ReadList(reactiontime, buffer, offset);
-		if (length < offset - initoff + 8 || length < offset - initoff + Buffer::CalcStringLength(buffer, offset))
-			return false;
-		output = Buffer::ReadString(buffer, offset);
-		identifier = Buffer::ReadUInt64(buffer, offset);
-		exitreason = Buffer::ReadUInt64(buffer, offset);
-		valid = Buffer::ReadBool(buffer, offset);
-
-		itr = begin();
-		return true;
+		{
+			if (length < GetStaticSize(version))
+				return false;
+			running = Buffer::ReadBool(buffer, offset);
+			starttime = Buffer::ReadTime(buffer, offset);
+			endtime = Buffer::ReadTime(buffer, offset);
+			uint32_t formid = Buffer::ReadUInt32(buffer, offset);
+			resolver->AddTask([this, resolver, formid]() {
+				this->input = resolver->ResolveFormID<Input>(formid);
+				if (this->input)
+					this->itr = input->begin();
+			});
+			if (length < offset - initoff + 8 || length < offset - initoff + Buffer::CalcStringLength(buffer, offset))
+				return false;
+			lastwritten = Buffer::ReadString(buffer, offset);
+			lasttime = Buffer::ReadTime(buffer, offset);
+			if (length < offset - initoff + 8 || length < offset - initoff + Buffer::ListBasic::GetListLength(buffer, offset))
+				return false;
+			Buffer::ListBasic::ReadList(reactiontime, buffer, offset);
+			if (length < offset - initoff + 8 || length < offset - initoff + Buffer::CalcStringLength(buffer, offset))
+				return false;
+			output = Buffer::ReadString(buffer, offset);
+			identifier = Buffer::ReadUInt64(buffer, offset);
+			exitreason = Buffer::ReadUInt64(buffer, offset);
+			valid = Buffer::ReadBool(buffer, offset);
+			return true;
+		}
 	default:
 		return false;
 	}

@@ -22,7 +22,7 @@ public:
 	/// returns the total size of the fields with static size
 	/// </summary>
 	/// <returns></returns>
-	size_t GetStaticSize(int32_t version = classversion);
+	size_t GetStaticSize(int32_t version = 0x1);
 	/// <summary>
 	/// returns the total size of all fields of this instance
 	/// </summary>
@@ -32,20 +32,20 @@ public:
 	/// returns the class version
 	/// </summary>
 	/// <returns></returns>
-	static int32_t GetClassVersion();
+	int32_t GetClassVersion();
 	/// <summary>
 	/// saves all relevant information of this instance to the given buffer
 	/// </summary>
 	/// <param name="buffer"></param>
 	/// <returns></returns>
-	bool WriteData(unsigned char* buffer, int offset);
+	bool WriteData(unsigned char* buffer, size_t offset);
 	/// <summary>
 	/// reads all relevant information of this instance from the buffer
 	/// </summary>
 	/// <param name="buffer"></param>
 	/// <param name="length"></param>
-	bool ReadData(unsigned char* buffer, int offset, size_t length, LoadResolver* resolver);
-	int GetType()
+	bool ReadData(unsigned char* buffer, size_t offset, size_t length, LoadResolver* resolver);
+	static int32_t GetType()
 	{
 		return 'INPU';
 	}
@@ -56,7 +56,7 @@ private:
 	bool hasfinished = false;
 	bool trimmed = false;
 	std::chrono::nanoseconds executiontime;
-	int exitcode = 0;
+	int32_t exitcode = 0;
 
 	friend ExecutionHandler;
 	friend Test;
@@ -147,7 +147,7 @@ public:
 	/// Returns the exitcode of the test if it has already finished, otherwise -1
 	/// </summary>
 	/// <returns></returns>
-	inline int GetExitCode()
+	inline int32_t GetExitCode()
 	{
 		if (hasfinished)
 			return exitcode;

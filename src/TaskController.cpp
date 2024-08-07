@@ -25,11 +25,11 @@ void TaskController::AddTask(TaskDelegate* a_task)
 	condition.notify_one();
 }
 
-void TaskController::Start(int numthreads)
+void TaskController::Start(int32_t numthreads)
 {
 	if (numthreads == 0)
 		throw std::runtime_error("Cannot start a TaskController with 0 threads.");
-	for (int i = 0; i < numthreads; i++)
+	for (int32_t i = 0; i < numthreads; i++)
 		threads.emplace_back(std::thread(&TaskController::InternalLoop, this));
 }
 

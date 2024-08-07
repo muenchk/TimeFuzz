@@ -60,8 +60,8 @@ struct window
 {
 	std::string sliding;
 
-	int size = 0;
-	int maxsize = 0;
+	int32_t size = 0;
+	int32_t maxsize = 0;
 
 	char AddChar(char c)
 	{
@@ -88,7 +88,7 @@ struct window
 	{
 		return sliding;
 	}
-	int Compare(std::string &other)
+	int32_t Compare(std::string& other)
 	{
 		return sliding.compare(other);
 	}

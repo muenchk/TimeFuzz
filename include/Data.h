@@ -15,7 +15,7 @@ class Data
 private:
 	std::string uniquename;
 	std::string savename;
-	int savenumber;
+	int32_t savenumber;
 	LoadResolver* lresolve;
 
 	uint32_t nextformid = 1;
@@ -45,7 +45,7 @@ public:
 		return false;
 	}
 
-	template<class t>
+	template<class T>
 	bool RegisterNewFormID(std::shared_ptr<T> ptr)
 	{
 		if (ptr)
@@ -74,6 +74,7 @@ public:
 class LoadResolver
 {
 	std::queue<TaskController::TaskDelegate*> tasks;
+	std::mutex lock;
 
 public:
 	static LoadResolver* GetSingleton();
@@ -96,5 +97,6 @@ public:
 			else
 				return {};
 		}
+		return {};
 	}
 };

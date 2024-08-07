@@ -3,7 +3,7 @@
 
 ExclusionTree::TreeNode* ExclusionTree::TreeNode::HasChild(std::string str)
 {
-	for (int i = 0; i < children.size(); i++) {
+	for (int32_t i = 0; i < children.size(); i++) {
 		if (children[i] && children[i]->identifier == str)
 			return children[i];
 	}
@@ -68,7 +68,7 @@ bool ExclusionTree::HasPrefix(std::shared_ptr<Input> input)
 void ExclusionTree::DeleteChildren(TreeNode* node)
 {
 	// delete all children
-	for (int i = 0; i < node->children.size(); i++) {
+	for (int32_t i = 0; i < node->children.size(); i++) {
 		DeleteChildren(node->children[i]);
 	}
 	node->children.clear();
@@ -77,7 +77,7 @@ void ExclusionTree::DeleteChildren(TreeNode* node)
 void ExclusionTree::DeleteNode(TreeNode* node)
 {
 	// delete all children of this node
-	for (int i = 0; i < node->children.size(); i++) {
+	for (int32_t i = 0; i < node->children.size(); i++) {
 		DeleteNode(node->children[i]);
 	}
 	node->children.clear();

@@ -12,7 +12,7 @@ namespace DeltaDebugging
 		/// Sets the number of tasks that have been started for this instance of delta debugging
 		/// </summary>
 		/// <param name="numtasks"></param>
-		void SetTasks(int numtasks);
+		void SetTasks(int32_t numtasks);
 		/// <summary>
 		/// Sets one task started for this instance of delta debugging as completed
 		/// </summary>
@@ -28,11 +28,11 @@ namespace DeltaDebugging
 		/// <summary>
 		/// number of tasks that were started
 		/// </summary>
-		int tasks = 0;
+		int32_t tasks = 0;
 		/// <summary>
 		/// number of tasks that need to be completed, before the callback can be scheduled
 		/// </summary>
-		int remainingtasks = 0;
+		int32_t remainingtasks = 0;
 		/// <summary>
 		/// Callback used to evaluate result of all executed tasks
 		/// </summary>

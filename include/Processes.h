@@ -33,29 +33,29 @@ namespace Processes
 	// from other executable.
 	void execvp_cpp(std::string app, std::vector<std::string> args);
 
-	std::pair<bool, int> fork_exec(std::string app, std::vector<std::string> args, int timelimitsec, std::string outfile);
+	std::pair<bool, int32_t> fork_exec(std::string app, std::vector<std::string> args, int32_t timelimitsec, std::string outfile);
 
 	bool StartPUTProcess(Test* test, std::string app, std::string args);
 
-	long GetProcessMemory(pid_t pid);
+	int64_t GetProcessMemory(pid_t pid);
 
 	bool KillProcess(pid_t pid);
 
-	bool GetProcessRunning(pid_t pid, int* exitcode);
+	bool GetProcessRunning(pid_t pid, int32_t* exitcode);
 
-	int GetExitCode(pid_t);
+	int32_t GetExitCode(pid_t);
 
 #	elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 
 	bool StartPUTProcess(Test* test, std::string app, std::string args);
 
-	long GetProcessMemory(HANDLE pid);
+	int64_t GetProcessMemory(HANDLE pid);
 
 	bool KillProcess(HANDLE pid);
 
 	bool GetProcessRunning(HANDLE pid);
 
-	int GetExitCode(HANDLE pid);
+	int32_t GetExitCode(HANDLE pid);
 
 #	endif
 

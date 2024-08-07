@@ -52,7 +52,7 @@ public:
 	/// <param name="maxiterations">maximum number of iterations to run [set to 0 to disable]</param>
 	/// <param name="timeout">maximum amount of time in seconds [set to 0 to disable]</param>
 	/// <param name="returnpositives">returns the generated positives as well as the negatives</param>
-	std::vector<std::shared_ptr<Input>> GenerateNegatives(int negatives, bool &error, int maxiterations = 0, int timeout = 0, bool returnpositives = false);
+	std::vector<std::shared_ptr<Input>> GenerateNegatives(int32_t negatives, bool& error, int32_t maxiterations = 0, int32_t timeout = 0, bool returnpositives = false);
 
 private:
 	/// <summary>
@@ -63,7 +63,7 @@ private:
 	/// <summary>
 	/// the current iteration of the fuzzing main routine
 	/// </summary>
-	int _iteration = 0;
+	int32_t _iteration = 0;
 
 	/// <summary>
 	/// Task controller for the active session

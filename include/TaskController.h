@@ -6,6 +6,9 @@
 #include <vector>
 #include <condition_variable>
 
+class LoadResolver;
+class LoadResolverGrammar;
+
 class TaskController
 {
 public:
@@ -23,7 +26,7 @@ public:
 	void AddTask(TaskFn a_task);
 	void AddTask(TaskDelegate* a_task);
 
-	void Start(int numthreads = 0);
+	void Start(int32_t numthreads = 0);
 	void Stop(bool completeall = true);
 
 	~TaskController();
@@ -42,6 +45,9 @@ private:
 	private:
 		TaskFn _fn;
 	};
+
+	friend class LoadResolver;
+	friend class LoadResolverGrammar;
 
 
 	void InternalLoop();

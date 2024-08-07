@@ -50,19 +50,19 @@ public:
 		/// <summary>
 		/// the number of backgroundthreads to use if [usehardwarethreads] is set to false
 		/// </summary>
-		int numthreads = 20;
+		int32_t numthreads = 20;
 		const char* numthreads_NAME = "NumThreads";
 
 		/// <summary>
 		/// number of threads used for computational purposes
 		/// </summary>
-		int numcomputingthreads = 1;
+		int32_t numcomputingthreads = 1;
 		const char* numcomputingthreads_NAME = "NumComputeThreads";
 		
 		/// <summary>
 		/// Number of tests run concurrently
 		/// </summary>
-		int concurrenttests = 1;
+		int32_t concurrenttests = 1;
 		const char* concurrenttests_NAME = "ConcurrentTests";
 
 		/// <summary>
@@ -105,7 +105,7 @@ public:
 		/// <summary>
 		/// maximum generated inputs per generation cycle
 		/// </summary>
-		int generationsize = 100;
+		int32_t generationsize = 100;
 		const char* generationsize_NAME = "GenerationSize";
 
 		/// <summary>
@@ -133,7 +133,7 @@ public:
 		/// <summary>
 		/// the number of iterations to run
 		/// </summary>
-		int maxiterations = 10;
+		int32_t maxiterations = 10;
 		const char* maxiterations_NAME = "MaxIterations";
 		/// <summary>
 		/// whether to stop the execution after a set amount of failing inputs have been found
@@ -143,7 +143,7 @@ public:
 		/// <summary>
 		/// the number of failing inputs to generate
 		/// </summary>
-		int foundnegatives = 100;
+		int32_t foundnegatives = 100;
 		const char* foundnegatives_NAME = "FoundNegatives";
 		/// <summary>
 		/// whether to stop the execution after a certain time has passed
@@ -153,7 +153,7 @@ public:
 		/// <summary>
 		/// the time after which to stop the execution
 		/// </summary>
-		int timeout = 60;
+		int32_t timeout = 60;
 		const char* timeout_NAME = "Timeout";
 	};
 
@@ -174,7 +174,7 @@ public:
 		/// <summary>
 		/// the timeout for a complete testcase in microseconds
 		/// </summary>
-		long testtimeout = 60000000;
+		int64_t testtimeout = 60000000;
 		const char* testtimeout_NAME = "TestTimeout";
 		/// <summary>
 		/// whether to apply a timeout to every run fragement
@@ -184,7 +184,7 @@ public:
 		/// <summary>
 		/// the timeout for a fragment in microseconds
 		/// </summary>
-		long fragmenttimeout = 1000000;
+		int64_t fragmenttimeout = 1000000;
 		const char* fragmenttimeout_NAME = "FragmentTimeout";
 
 		/// <summary>
@@ -202,7 +202,7 @@ public:
 		/// maximum of memory the PUT may consume, it will be killed above this value
 		/// [set to 0 to disable]
 		/// </summary>
-		long maxUsedMemory = 0;
+		int64_t maxUsedMemory = 0;
 		const char* maxUsedMemory_NAME = "MaxUsedMemory";
 	};
 

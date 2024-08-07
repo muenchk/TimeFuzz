@@ -65,7 +65,7 @@ public:
 	/// </summary>
 	/// <param name="val"></param>
 	/// <returns></returns>
-	static std::string GetHex(long val)
+	static std::string GetHex(int64_t val)
 	{
 		std::stringstream ss;
 		ss << std::hex << val;
@@ -98,7 +98,7 @@ public:
 	/// </summary>
 	/// <param name="val"></param>
 	/// <returns></returns>
-	static std::string GetHex(int val)
+	static std::string GetHex(int32_t val)
 	{
 		std::stringstream ss;
 		ss << std::hex << val;
@@ -166,9 +166,9 @@ public:
 	/// <summary>
 	/// Counts the occurences of the given symbol, respecting escaped sequences
 	/// </summary>
-	static int CountSymbols(std::string str, char symbol, char escaped1, char escaped2)
+	static int32_t CountSymbols(std::string str, char symbol, char escaped1, char escaped2)
 	{
-		int count = 0;
+		int32_t count = 0;
 		bool escape = false;
 		for (char& c : str) {
 			// escaped strings are marked by, e.g., " or ' and everything between two of them should not be counted

@@ -11,6 +11,8 @@
 #include "TaskController.h"
 
 class GrammarExpansion;
+class Grammar;
+class LoadResolverGrammar;
 
 class GrammarObject
 {
@@ -116,8 +118,8 @@ public:
 	/// <param name="buffer"></param>
 	/// <param name="offset"></param>
 	/// <returns></returns>
-	bool WriteData(unsigned char* buffer, int& offset);
-	const int32_t version = 0x1;
+	bool WriteData(unsigned char* buffer, size_t& offset);
+	const int32_t classversion = 0x1;
 	/// <summary>
 	/// Reads the node data from the buffer
 	/// </summary>
@@ -126,7 +128,7 @@ public:
 	/// <param name="length"></param>
 	/// <param name="resolver"></param>
 	/// <returns></returns>
-	bool ReadData(unsigned char* buffer, int& offset, int length, LoadResolverGrammar* resolver);
+	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolverGrammar* resolver);
 };
 
 class GrammarExpansion : public GrammarObject
@@ -179,8 +181,8 @@ public:
 	/// <param name="buffer"></param>
 	/// <param name="offset"></param>
 	/// <returns></returns>
-	bool WriteData(unsigned char* buffer, int& offset);
-	const int32_t version = 0x1;
+	bool WriteData(unsigned char* buffer, size_t& offset);
+	const int32_t classversion = 0x1;
 	/// <summary>
 	/// Reads the expansion data from the buffer
 	/// </summary>
@@ -189,7 +191,7 @@ public:
 	/// <param name="length"></param>
 	/// <param name="resolver"></param>
 	/// <returns></returns>
-	bool ReadData(unsigned char* buffer, int& offset, int length, LoadResolverGrammar* resolver);
+	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolverGrammar* resolver);
 };
 
 class GrammarTree
@@ -259,13 +261,13 @@ private:
 
 	bool valid = false;
 
-	int _numcycles = 0;
+	int32_t _numcycles = 0;
 	uint64_t nextid = 0;
 
 	uint64_t GetNextID();
 
-	friend Grammar::GetDynamicSize();
-	friend LoadResolverGrammar;
+	friend class Grammar;
+	friend class LoadResolverGrammar;
 
 	/// <summary>
 	/// Finds cycles in the grammar
@@ -336,7 +338,7 @@ public:
 	/// </summary>
 	/// <param name="version"></param>
 	/// <returns></returns>
-	size_t GetStaticSize(int version = version);
+	size_t GetStaticSize(int32_t version = 0x1);
 	/// <summary>
 	/// returns the full size of the instance
 	/// </summary>
@@ -347,12 +349,13 @@ public:
 private:
 	std::shared_ptr<GrammarTree> tree;
 
-	const int32_t version = 0x1;
+	const int32_t classversion = 0x1;
 };
 
 class LoadResolverGrammar
 {
 	std::queue<TaskController::TaskDelegate*> tasks;
+	std::mutex lock;
 
 public:
 	std::shared_ptr<GrammarTree> tree;
@@ -367,6 +370,7 @@ public:
 		if (itr != tree->hashmap.end()) {
 			return std::get<1>(*itr);
 		}
+		return {};
 	}
 	std::shared_ptr<GrammarExpansion> ResolveExpansionID(uint64_t id)
 	{
@@ -374,5 +378,6 @@ public:
 		if (itr != tree->hashmap_expansions.end()) {
 			return std::get<1>(*itr);
 		}
+		return {};
 	}
 };

@@ -7,7 +7,7 @@
 #	include "CrashHandler.h"
 #endif
 
-int main(int argc, char** argv)
+int32_t main(int32_t argc, char** argv)
 {
 	Logging::InitializeLog(".");
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
@@ -25,7 +25,7 @@ int main(int argc, char** argv)
 
 	std::wstring settingspath = L"";
 	
-	for (int i = 1; i < argc; i++) {
+	for (int32_t i = 1; i < argc; i++) {
 		size_t pos = 0;
 		std::string option = std::string(argv[i]);
 		if (option.find("--help") != std::string::npos) {

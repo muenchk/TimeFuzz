@@ -10,7 +10,7 @@ ExecutionHandler::ExecutionHandler()
 {
 }
 
-void ExecutionHandler::Init(Settings* settings, std::shared_ptr<TaskController> threadpool, int maxConcurrentTests, std::shared_ptr<Oracle> oracle, std::function<std::string(std::shared_ptr<Input>)>&& getCommandLineArgs)
+void ExecutionHandler::Init(Settings* settings, std::shared_ptr<TaskController> threadpool, int32_t maxConcurrentTests, std::shared_ptr<Oracle> oracle, std::function<std::string(std::shared_ptr<Input>)>&& getCommandLineArgs)
 {
 	loginfo("Init execution handler");
 	_maxConcurrentTests = maxConcurrentTests > 0 ? maxConcurrentTests : 1;
@@ -80,7 +80,7 @@ void ExecutionHandler::Clear()
 	getCMDArgs = {};
 }
 
-void ExecutionHandler::SetMaxConcurrentTests(int maxConcurrenttests)
+void ExecutionHandler::SetMaxConcurrentTests(int32_t maxConcurrenttests)
 {
 	loginfo("Set max concurrent tests to {}", maxConcurrenttests);
 	_maxConcurrentTests = maxConcurrenttests > 0 ? maxConcurrenttests : 1;
@@ -274,7 +274,7 @@ void ExecutionHandler::InternalLoop()
 	// time giver for period
 	auto steady = time;
 	// time diff between last cycle and this one doesn't exist. -1 is the value for unknown #Don'tApplyTimeouts
-	long nano = -1; 
+	int64_t nano = -1; 
 	// used for sleep time calculation
 	std::chrono::nanoseconds sleep = std::chrono::nanoseconds(-1);
 	// tmp test var

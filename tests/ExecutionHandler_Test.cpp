@@ -24,7 +24,7 @@ std::string ReturnArgs(std::shared_ptr<Input> input)
 	return "";
 }
 
-int main(/*int argc, char** argv*/)
+int32_t main(/*int32_t argc, char** argv*/)
 {
 	Logging::InitializeLog(".");
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
@@ -56,7 +56,7 @@ int main(/*int argc, char** argv*/)
 	logdebug("Started executionhandler");
 	logdebug("Adding tests");
 	std::vector<std::shared_ptr<Input>> ls;
-	for (int i = 0; i < NUM_TESTS; i++) {
+	for (int32_t i = 0; i < NUM_TESTS; i++) {
 		std::shared_ptr<Input> input = std::make_shared<Input>();
 		execution->AddTest(input, Callback);
 		ls.push_back(input);
@@ -65,7 +65,7 @@ int main(/*int argc, char** argv*/)
 	execution->StopHandlerAfterTestsFinishAndWait();
 	logdebug("waited on executionhandler to finish all tests");
 
-	for (int i = 0; i < NUM_TESTS; i++)
+	for (int32_t i = 0; i < NUM_TESTS; i++)
 	{
 		if (ls[i]->Finished())
 			logdebug("TEST: {}, EXITREASON: {}, EXITCODE: {}, EXECTIME: {}ms, OUTPUT: {}", ls[i]->test->identifier, ls[i]->test->exitreason, ls[i]->GetExitCode(), std::chrono::duration_cast<std::chrono::milliseconds>(ls[i]->GetExecutionTime()).count(), ls[i]->test->output);

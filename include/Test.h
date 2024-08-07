@@ -16,6 +16,8 @@
 #include <condition_variable>
 #include <list>
 
+#include "Data.h"
+
 class Settings;
 class TaskController;
 class Input;
@@ -64,6 +66,7 @@ public:
 	};
 
 	Test(std::function<void()>&& a_callback, uint64_t id);
+	Test() {}
 
 	/// <summary>
 	/// whether test is currently running
@@ -96,7 +99,7 @@ public:
 	/// <summary>
 	/// reaction time for each fragment [on whole test this contains only one element]
 	/// </summary>
-	std::list<long> reactiontime;
+	std::list<uint64_t> reactiontime;
 	/// <summary>
 	/// called after the test has been finished
 	/// </summary>
@@ -120,9 +123,9 @@ public:
 	// process stuff
 #if defined(unix) || defined(__unix__) || defined(__unix)
 	pid_t processid;
-	int red_input[2];
-	int red_output[2];
-	int exitcode = -1;
+	int32_t red_input[2];
+	int32_t red_output[2];
+	int32_t exitcode = -1;
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	STARTUPINFO si;
 	PROCESS_INFORMATION pi;
@@ -165,7 +168,7 @@ public:
 	/// returns the memory used by the process
 	/// </summary>
 	/// <returns></returns>
-	long GetMemoryConsumption();
+	int64_t GetMemoryConsumption();
 	/// <summary>
 	/// terminates the process
 	/// </summary>
@@ -175,25 +178,25 @@ public:
 	/// <summary>
 	/// trims input to the last executed
 	/// </summary>
-	void TrimInput(int executed = -1);
+	void TrimInput(int32_t executed = -1);
 
 	/// <summary>
 	/// returns the exitcode
 	/// </summary>
-	int GetExitCode();
+	int32_t GetExitCode();
 
 	/// <summary>
 	/// invalidates the test [functions cannot be called anymore]
 	/// </summary>
 	void InValidate();
 
-	const int32_t version = 0x1;
+	const int32_t classversion = 0x1;
 
 	/// <summary>
 	/// returns the size of all fields with static size
 	/// </summary>
 	/// <returns></returns>
-	size_t GetStaticSize(int version = );
+	size_t GetStaticSize(int32_t version = 0x1);
 	/// <summary>
 	/// returns the save-size of the instance
 	/// </summary>
@@ -203,14 +206,14 @@ public:
 	/// returns the version of the class
 	/// </summary>
 	/// <returns></returns>
-	int GetClassVersion();
+	int32_t GetClassVersion();
 	/// <summary>
 	/// Writes the instance data to the buffer
 	/// </summary>
 	/// <param name="buffer"></param>
 	/// <param name="offset"></param>
 	/// <returns></returns>
-	bool WriteData(unsigned char* buffer, int offset);
+	bool WriteData(unsigned char* buffer, size_t offset);
 	/// <summary>
 	/// Reads the instance data from the buffer
 	/// </summary>
@@ -218,7 +221,7 @@ public:
 	/// <param name="offset"></param>
 	/// <param name="length"></param>
 	/// <returns></returns>
-	bool ReadData(unsigned char* buffer, int offset, int length, LoadResolver* resolver);
+	bool ReadData(unsigned char* buffer, size_t offset, size_t length, LoadResolver* resolver);
 
 
 private:

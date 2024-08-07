@@ -39,8 +39,8 @@ private:
 	Settings* _settings;
 	std::shared_ptr<TaskController> _threadpool;
 	std::shared_ptr<Oracle> _oracle;
-	int _maxConcurrentTests = 1;
-	int _currentTests = 0;
+	int32_t _maxConcurrentTests = 1;
+	int32_t _currentTests = 0;
 	std::mutex _lockqueue;
 	std::condition_variable _waitforjob;
 	std::queue<Test*> _waitingTests;
@@ -58,7 +58,7 @@ private:
 	/// time handler waits between cycles in nanoseconds
 	/// </summary>
 	std::chrono::nanoseconds _waittime = std::chrono::nanoseconds(100000000);
-	long long _waittimeL = 100000000;
+	int64_t _waittimeL = 100000000;
 
 	bool _enableFragments = false;
 
@@ -79,7 +79,7 @@ private:
 public:
 	ExecutionHandler();
 
-	void Init(Settings* settings, std::shared_ptr<TaskController> threadpool, int maxConcurrentTests, std::shared_ptr<Oracle> oracle, std::function<std::string(std::shared_ptr<Input>)>&& getCommandLineArgs);
+	void Init(Settings* settings, std::shared_ptr<TaskController> threadpool, int32_t maxConcurrentTests, std::shared_ptr<Oracle> oracle, std::function<std::string(std::shared_ptr<Input>)>&& getCommandLineArgs);
 
 	static ExecutionHandler* GetSingleton();
 
@@ -99,7 +99,7 @@ public:
 	/// Changes the maximum number of tests run concurrently
 	/// </summary>
 	/// <param name="maxConcurrentTests"></param>
-	void SetMaxConcurrentTests(int maxConcurrentTests);
+	void SetMaxConcurrentTests(int32_t maxConcurrentTests);
 
 	/// <summary>
 	/// starts the handler

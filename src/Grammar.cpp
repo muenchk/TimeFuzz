@@ -46,7 +46,7 @@ GrammarObject::Type GrammarNode::GetObjectType()
 std::string GrammarNode::Scala()
 {
 	std::string str = "\t" + identifier + " := ";
-	for (int i = 0; i < expansions.size(); i++)
+	for (int32_t i = 0; i < expansions.size(); i++)
 	{
 		if (i == expansions.size() - 1)
 			str += expansions[i]->Scala();
@@ -73,20 +73,20 @@ size_t GrammarNode::GetDynamicSize()
 	return sz;
 }
 
-bool GrammarNode::WriteData(unsigned char* buffer, int& offset)
+bool GrammarNode::WriteData(unsigned char* buffer, size_t& offset)
 {
-	Buffer::Write(version, buffer, offset);
+	Buffer::Write(classversion, buffer, offset);
 	Buffer::Write(identifier, buffer, offset);
 	Buffer::Write(derivation, buffer, offset);
 	Buffer::Write(id, buffer, offset);
 	// expansions
-	Buffer::Write(expansions.size(), buffer, offset);
-	for (int i = 0; i < expansions.size(); i++)
+	Buffer::WriteSize(expansions.size(), buffer, offset);
+	for (int32_t i = 0; i < expansions.size(); i++)
 		Buffer::Write(expansions[i]->id, buffer, offset);
 	Buffer::Write(flags, buffer, offset);
 	Buffer::Write((uint32_t)type, buffer, offset);
 	// parents
-	Buffer::Write(parents.size(), buffer, offset);
+	Buffer::WriteSize(parents.size(), buffer, offset);
 	for (auto expansion : parents)
 		Buffer::Write(expansion->id, buffer, offset);
 	Buffer::Write(reachable, buffer, offset);
@@ -95,46 +95,47 @@ bool GrammarNode::WriteData(unsigned char* buffer, int& offset)
 	return true;
 }
 
-bool GrammarNode::ReadData(unsigned char* buffer, int& offset, int length, LoadResolverGrammar* resolver)
+bool GrammarNode::ReadData(unsigned char* buffer, size_t& offset, size_t /*length*/, LoadResolverGrammar* resolver)
 {
-	int version = Buffer::ReadInt32(buffer, offset);
+	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version)
 	{
 	case 0x1:
-		identifier = Buffer::ReadString(buffer, offset);
-		derivation = Buffer::ReadString(buffer, offset);
-		id = Buffer::ReadUInt64(buffer, offset);
-		// expansions
-		size_t len = Buffer::ReadSize(buffer, offset);
-		std::vector<uint64_t> exp;
-		for (int i = 0; i < len; i++)
 		{
-			exp.push_back(Buffer::ReadUInt64(buffer, offset));
-		}
-		resolver->AddTask([this, exp, resolver]() {
-			for (int i = 0; i < exp.size(); i++) {
-				expansions.push_back(resolver->ResolveExpansionID(exp[i]));
+			identifier = Buffer::ReadString(buffer, offset);
+			derivation = Buffer::ReadString(buffer, offset);
+			id = Buffer::ReadUInt64(buffer, offset);
+			// expansions
+			size_t len = Buffer::ReadSize(buffer, offset);
+			std::vector<uint64_t> exp;
+			for (int32_t i = 0; i < len; i++) {
+				exp.push_back(Buffer::ReadUInt64(buffer, offset));
 			}
-		});
-		
-		flags = Buffer::ReadUInt64(buffer, offset);
-		type = (GrammarNode::Nodetype)(Buffer::ReadUInt32(buffer, offset));
-		// parents
-		size_t plen = Buffer::ReadSize(buffer, offset);
-		std::vector<uint64_t> par;
-		for (int i = 0; i < plen; i++) {
-			exp.push_back(Buffer::ReadUInt64(buffer, offset));
-		}
-		resolver->AddTask([this, par, resolver]() {
-			for (int i = 0; i < par.size(); i++) {
-				expansions.push_back(resolver->ResolveNodeID(par[i]));
-			}
-		});
+			resolver->AddTask([this, exp, resolver]() {
+				for (int32_t i = 0; i < exp.size(); i++) {
+					expansions.push_back(resolver->ResolveExpansionID(exp[i]));
+				}
+			});
 
-		reachable = Buffer::ReadBool(buffer, offset);
-		producing = Buffer::ReadBool(buffer, offset);
-		remove = Buffer::ReadBool(buffer, offset);
-		return true;
+			flags = Buffer::ReadUInt64(buffer, offset);
+			type = (GrammarNode::NodeType)(Buffer::ReadUInt32(buffer, offset));
+			// parents
+			size_t plen = Buffer::ReadSize(buffer, offset);
+			std::vector<uint64_t> par;
+			for (int32_t i = 0; i < plen; i++) {
+				exp.push_back(Buffer::ReadUInt64(buffer, offset));
+			}
+			resolver->AddTask([this, par, resolver]() {
+				for (int32_t i = 0; i < par.size(); i++) {
+					parents.insert(resolver->ResolveExpansionID(par[i]));
+				}
+			});
+
+			reachable = Buffer::ReadBool(buffer, offset);
+			producing = Buffer::ReadBool(buffer, offset);
+			remove = Buffer::ReadBool(buffer, offset);
+			return true;
+		}
 	default:
 		return false;
 	}
@@ -143,7 +144,7 @@ bool GrammarNode::ReadData(unsigned char* buffer, int& offset, int length, LoadR
 GrammarExpansion::operator std::string()
 {
 	std::string ret;
-	for (int i = 0; i < nodes.size(); i++)
+	for (int32_t i = 0; i < nodes.size(); i++)
 	{
 		if (i == nodes.size() - 1)
 			ret += nodes[i]->string();
@@ -161,7 +162,7 @@ GrammarObject::Type GrammarExpansion::GetObjectType()
 std::string GrammarExpansion::Scala()
 {
 	std::string ret;
-	for (int i = 0; i < nodes.size(); i++) {
+	for (int32_t i = 0; i < nodes.size(); i++) {
 		switch (nodes[i]->type) {
 		case GrammarNode::NodeType::Terminal:
 			ret += "\"" + nodes[i]->identifier + "\"";
@@ -190,11 +191,11 @@ size_t GrammarExpansion::GetDynamicSize()
 	return sz;
 }
 
-bool GrammarExpansion::WriteData(unsigned char* buffer, int& offset)
+bool GrammarExpansion::WriteData(unsigned char* buffer, size_t& offset)
 {
-	Buffer::Write(version, buffer, offset);
-	Buffer::Write(nodes.size(), buffer, offset);
-	for (int i = 0; i < nodes.size(); i++)
+	Buffer::Write(classversion, buffer, offset);
+	Buffer::WriteSize(nodes.size(), buffer, offset);
+	for (int32_t i = 0; i < nodes.size(); i++)
 		Buffer::Write(nodes[i]->id, buffer, offset);
 	Buffer::Write(weight, buffer, offset);
 	Buffer::Write(id, buffer, offset);
@@ -205,28 +206,30 @@ bool GrammarExpansion::WriteData(unsigned char* buffer, int& offset)
 	return true;
 }
 
-bool GrammarExpansion::ReadData(unsigned char* buffer, int& offset, int length, LoadResolverGrammar* resolver)
+bool GrammarExpansion::ReadData(unsigned char* buffer, size_t& offset, size_t /*length*/, LoadResolverGrammar* resolver)
 {
-	int version = Buffer::ReadInt32(buffer, offset);
+	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version)
 	{
 	case 0x1:
-		size_t len = Buffer::ReadSize(buffer, offset);
-		std::vector<uint64_t> nds;
-		resolver->AddTask([this, resolver, nds]() {
-			for (int i = 0; i < nds.size(); i++)
-				this->nodes.push_back(resolver->ResolveNodeID(nds[i]));
-		});
-		weight = Buffer::ReadFloat(buffer, offset);
-		id = Buffer::ReadUInt64(buffer, offset);
-		producing = Buffer::ReadBool(buffer, offset);
-		flags = Buffer::ReadUInt64(buffer, offset);
-		remove = Buffer::ReadBool(buffer, offset);
-		uint64_t pid = Buffer::ReadUInt64(buffer, offset);
-		resolver->AddTask([this, resolver, pid]() {
-			this->parent = resolver->ResolveNodeID(pid);
-		});
-		return true;
+		{
+			size_t len = Buffer::ReadSize(buffer, offset);
+			std::vector<uint64_t> nds;
+			resolver->AddTask([this, resolver, nds]() {
+				for (int32_t i = 0; i < nds.size(); i++)
+					this->nodes.push_back(resolver->ResolveNodeID(nds[i]));
+			});
+			weight = Buffer::ReadFloat(buffer, offset);
+			id = Buffer::ReadUInt64(buffer, offset);
+			producing = Buffer::ReadBool(buffer, offset);
+			flags = Buffer::ReadUInt64(buffer, offset);
+			remove = Buffer::ReadBool(buffer, offset);
+			uint64_t pid = Buffer::ReadUInt64(buffer, offset);
+			resolver->AddTask([this, resolver, pid]() {
+				this->parent = resolver->ResolveNodeID(pid);
+			});
+			return true;
+		}
 	default:
 		return false;
 	}
@@ -372,7 +375,7 @@ void GrammarTree::Construct()
 				std::vector<std::string> productions = Utility::SplitString(alter, '~', true, true, '\"', true);
 				std::shared_ptr<GrammarExpansion> expansion = std::make_shared<GrammarExpansion>();
 				float weight = 0.0f;
-				for (int i = 0; i < productions.size(); i++) {
+				for (int32_t i = 0; i < productions.size(); i++) {
 					// if the rule is a weight, get the weight
 					if (float wgt = GetWeight(productions[i]); wgt != -1.0f)
 						weight = wgt;
@@ -506,7 +509,7 @@ void GrammarTree::GatherFlags(std::shared_ptr<GrammarNode> node, std::set<uint64
 		}
 		return GrammarNode::NodeFlags::ProduceTerminals;
 	}();
-	for (int i = 0; i < (int)(node->expansions.size()); i++) {
+	for (int32_t i = 0; i < (int)(node->expansions.size()); i++) {
 		if (skip.contains(node->expansions[i]))  // skip cycling expansions
 			continue;
 		node->producing |= node->expansions[i]->producing;
@@ -527,7 +530,7 @@ void GrammarTree::GatherFlags(std::shared_ptr<GrammarExpansion> expansion, std::
 	path.insert(expansion->id);
 	// the expansion is only producing if and only if ALL its nodes are also producing
 	expansion->producing = true;
-	for (int i = 0; i < expansion->nodes.size(); i++) {
+	for (int32_t i = 0; i < expansion->nodes.size(); i++) {
 		if (finished_ids.contains(expansion->nodes[i]->id) == false) {
 			GatherFlags(expansion->nodes[i], path);
 		}
@@ -746,8 +749,8 @@ void Grammar::ParseScala(std::filesystem::path path)
 		bool fGrammar = false;
 		std::string backup;
 		std::string grammar;
-		int bopen = 0;
-		int bclosed = 0;
+		int32_t bopen = 0;
+		int32_t bclosed = 0;
 		while (std::getline(_stream, line)) {
 			// we read another line
 			// check if its empty or with a comment
@@ -868,7 +871,7 @@ void Grammar::Clear()
 	}
 }
 
-size_t Grammar::GetStaticSize(int version)
+size_t Grammar::GetStaticSize(int32_t version)
 {
 	static size_t size0x1 = 4     // version
 	                        + 8   // nextid
@@ -905,4 +908,17 @@ size_t Grammar::GetDynamicSize()
 	sz += 8 + tree->terminals.size() * 8;
 
 	return sz;
+}
+
+void LoadResolverGrammar::AddTask(TaskController::TaskFn a_task)
+{
+	AddTask(new TaskController::Task(std::move(a_task)));
+}
+
+void LoadResolverGrammar::AddTask(TaskController::TaskDelegate* a_task)
+{
+	{
+		std::unique_lock<std::mutex> guard(lock);
+		tasks.push(a_task);
+	}
 }
