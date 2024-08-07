@@ -910,6 +910,119 @@ size_t Grammar::GetDynamicSize()
 	return sz;
 }
 
+bool Grammar::WriteData(unsigned char* buffer, size_t offset)
+{
+	Buffer::Write(classversion, buffer, offset);
+	Buffer::Write(tree->nextid, buffer, offset);
+	Buffer::Write(tree->_numcycles, buffer, offset);
+	Buffer::Write(tree->valid, buffer, offset);
+	Buffer::Write(tree->root->id, buffer, offset);
+	Buffer::VectorBasic::WriteVector<uint64_t>(tree->ruleorder, buffer, offset);
+	Buffer::WriteSize(tree->hashmap.size(), buffer, offset);
+	for (auto& [id, node] : tree->hashmap)
+	{
+		Buffer::Write(id, buffer, offset);
+		node->WriteData(buffer, offset);
+	}
+	Buffer::WriteSize(tree->hashmap_expansions.size(), buffer, offset);
+	for (auto& [id, expan] : tree->hashmap_expansions)
+	{
+		Buffer::Write(id, buffer, offset);
+		expan->WriteData(buffer, offset);
+	}
+	Buffer::WriteSize(tree->nonterminals.size(), buffer, offset);
+	for (auto& node : tree->nonterminals)
+		Buffer::Write(node->id, buffer, offset);
+	Buffer::WriteSize(tree->terminals.size(), buffer, offset);
+	for (auto& node : tree->terminals)
+		Buffer::Write(node->id, buffer, offset);
+}
+
+bool Grammar::ReadData(unsigned char* buffer, size_t offset, size_t length, LoadResolver* /*resolver*/)
+{
+	int32_t version = Buffer::ReadInt32(buffer, offset);
+	tree = std::make_shared<GrammarTree>();
+	LoadResolverGrammar* lresolve = new LoadResolverGrammar();
+	lresolve->tree = tree;
+	switch (version) {
+	case 0x1:
+		{
+			tree->nextid = Buffer::ReadUInt64(buffer, offset);
+			tree->_numcycles = Buffer::ReadInt32(buffer, offset);
+			tree->valid = Buffer::ReadBool(buffer, offset);
+			auto& tmptree = tree;
+			uint64_t rootid = Buffer::ReadUInt64(buffer, offset);
+			lresolve->AddTask([lresolve, rootid, tmptree]() {
+				tmptree->SetRoot(lresolve->ResolveNodeID(rootid));
+			});
+			tree->ruleorder = Buffer::VectorBasic::ReadVector<uint64_t>(buffer, offset);
+			{
+				// hashmap
+				size_t len = Buffer::ReadSize(buffer, offset);
+				for (int64_t i = 0; i < (int64_t)len; i++)
+				{
+					uint64_t id = Buffer::ReadUInt64(buffer, offset);
+					std::shared_ptr<GrammarNode> node = std::make_shared<GrammarNode>();
+					node->ReadData(buffer, offset, length, lresolve);
+					tree->hashmap.insert({ id, node });
+				}
+			}
+			{
+				// hashmap_expansions
+				size_t len = Buffer::ReadSize(buffer, offset);
+				for (int64_t i = 0; i < (int64_t)len; i++)
+				{
+					uint64_t id = Buffer::ReadUInt64(buffer, offset);
+					std::shared_ptr<GrammarExpansion> expan = std::make_shared<GrammarExpansion>();
+					expan->ReadData(buffer, offset, length, lresolve);
+					tree->hashmap_expansions.insert({ id, expan });
+				}
+			}
+			// hashmaps are initialized and all nodes are known so we can just find them in the hashmap if we need them
+			{
+				// nonterminals
+				size_t len = Buffer::ReadSize(buffer, offset);
+				for (int64_t i = 0; i < (int64_t)len; i++)
+				{
+					uint64_t id = Buffer::ReadUInt64(buffer, offset);
+					if (auto ptr = tree->hashmap.at(id); ptr)
+						tree->nonterminals.insert(ptr);
+					else
+						logcritical("cannot find nonterminal node {}", id);
+				}
+			}
+			{
+				// terminals
+				size_t len = Buffer::ReadSize(buffer, offset);
+				for (int64_t i = 0; i < (int64_t)len; i++)
+				{
+					uint64_t id = Buffer::ReadUInt64(buffer, offset);
+					if (auto ptr = tree->hashmap.at(id); ptr)
+						tree->terminals.insert(ptr);
+					else
+						logcritical("cannot find terminal node {}", id);
+				}
+			}
+			lresolve->Resolve();
+			delete lresolve;
+			return true;
+		}
+		break;
+	default:
+		return false;
+	}
+}
+
+
+LoadResolverGrammar::~LoadResolverGrammar()
+{
+	tree.reset();
+	while (!tasks.empty()) {
+		tasks.front()->Dispose();
+		tasks.pop();
+	}
+}
+
 void LoadResolverGrammar::AddTask(TaskController::TaskFn a_task)
 {
 	AddTask(new TaskController::Task(std::move(a_task)));
@@ -920,5 +1033,36 @@ void LoadResolverGrammar::AddTask(TaskController::TaskDelegate* a_task)
 	{
 		std::unique_lock<std::mutex> guard(lock);
 		tasks.push(a_task);
+	}
+}
+
+std::shared_ptr<GrammarNode> LoadResolverGrammar::ResolveNodeID(uint64_t id)
+{
+	auto itr = tree->hashmap.find(id);
+	if (itr != tree->hashmap.end()) {
+		return std::get<1>(*itr);
+	} else
+		logcritical("cannot resolve nodeid {}", id);
+	return {};
+}
+
+std::shared_ptr<GrammarExpansion> LoadResolverGrammar::ResolveExpansionID(uint64_t id)
+{
+	auto itr = tree->hashmap_expansions.find(id);
+	if (itr != tree->hashmap_expansions.end()) {
+		return std::get<1>(*itr);
+	} else
+		logcritical("cannot resolve expansionid {}", id);
+	return {};
+}
+
+void LoadResolverGrammar::Resolve()
+{
+	while (!tasks.empty()) {
+		TaskController::TaskDelegate* del;
+		del = tasks.front();
+		tasks.pop();
+		del->Run();
+		del->Dispose();
 	}
 }

@@ -99,4 +99,6 @@ public:
 		}
 		return {};
 	}
+
+	void Resolve();
 };

@@ -48,3 +48,14 @@ void LoadResolver::SetData(Data* dat)
 {
 	data = dat;
 }
+
+void LoadResolver::Resolve()
+{
+	while (!tasks.empty()) {
+		TaskController::TaskDelegate* del;
+		del = tasks.front();
+		tasks.pop();
+		del->Run();
+		del->Dispose();
+	}
+}

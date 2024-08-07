@@ -344,6 +344,18 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	size_t GetDynamicSize();
+	/// <summary>
+	/// saves all relevant information of this instance to the given buffer
+	/// </summary>
+	/// <param name="buffer"></param>
+	/// <returns></returns>
+	bool WriteData(unsigned char* buffer, size_t offset);
+	/// <summary>
+	/// reads all relevant information of this instance from the buffer
+	/// </summary>
+	/// <param name="buffer"></param>
+	/// <param name="length"></param>
+	bool ReadData(unsigned char* buffer, size_t offset, size_t length, LoadResolver* resolver);
 
 
 private:
@@ -364,20 +376,8 @@ public:
 	void AddTask(TaskController::TaskFn a_task);
 	void AddTask(TaskController::TaskDelegate* a_task);
 
-	std::shared_ptr<GrammarNode> ResolveNodeID(uint64_t id)
-	{
-		auto itr = tree->hashmap.find(id);
-		if (itr != tree->hashmap.end()) {
-			return std::get<1>(*itr);
-		}
-		return {};
-	}
-	std::shared_ptr<GrammarExpansion> ResolveExpansionID(uint64_t id)
-	{
-		auto itr = tree->hashmap_expansions.find(id);
-		if (itr != tree->hashmap_expansions.end()) {
-			return std::get<1>(*itr);
-		}
-		return {};
-	}
+	std::shared_ptr<GrammarNode> ResolveNodeID(uint64_t id);
+	std::shared_ptr<GrammarExpansion> ResolveExpansionID(uint64_t id);
+
+	void Resolve();
 };

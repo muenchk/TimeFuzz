@@ -279,7 +279,7 @@ namespace Buffer
 		void WriteVector(std::vector<T>& vector, unsigned char* buffer, size_t& offset)
 		{
 			Buffer::WriteSize(vector.size(), buffer, offset);
-			for (int64_t i = 0; i < vector.size(); i++)
+			for (int64_t i = 0; i < (int64_t)vector.size(); i++)
 				Buffer::Write(vector[i], buffer, offset);
 		}
 		template<class T>
