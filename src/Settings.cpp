@@ -4,6 +4,7 @@
 #include "Settings.h"
 #include "SimpleIni.h"
 #include "Utility.h"
+#include "BufferOperations.h"
 
 Settings* Settings::GetSingleton()
 {
@@ -133,4 +134,111 @@ void Settings::Save(std::wstring _path)
 	ini.SetLongValue("EndConditions", conditions.foundnegatives_NAME, conditions.foundnegatives, "\\ The number of failing inputs to generate.");
 
 	ini.SaveFile(path.c_str());
+}
+
+size_t Settings::GetStaticSize(int32_t version)
+{
+	static size_t size0x1 = 4     // version
+	                        + 4   // oracle
+	                        + 1   // General::usehardwarethreads
+	                        + 4   // General::numthreads
+	                        + 4   // General::numcomputingthreads
+	                        + 4   // General::concurrenttests
+	                        + 1   // General::enablesaves
+	                        + 8   // General::autosave_every_tests
+	                        + 8   // General::autosave_every_seconds
+	                        + 1   // Optimization::constructinputsiteratively
+	                        + 1   // Methods::deltadebugging
+	                        + 4   // Generation::generationsize
+	                        + 4   // Generation::generationtweakstart
+	                        + 4   // Generation::generationtweakmax
+	                        + 1   // EndConditions::use_maxiterations
+	                        + 4   // EndConditions::maxiterations
+	                        + 1   // EndConditions::use_foundnegatives
+	                        + 4   // EndConditions::foundnegatives
+	                        + 1   // EndConditions::use_timeout
+	                        + 4   // EndConditions::timeout
+	                        + 1   // EndConditions::use_overalltests
+	                        + 8   // EndConditions::overalltests
+	                        + 1   // Tests::executeFragments
+	                        + 1   // Tests::use_testtimeout
+	                        + 8   // Tests::testtimeout
+	                        + 1   // Tests::use_fragmenttimeout
+	                        + 8   // Tests::fragmenttimeout
+	                        + 1   // Tests::storePUToutput
+	                        + 1   // Tests::storePUToutputSuccessful
+	                        + 8;  // Tests::maxUsedMemory
+
+	switch (version) {
+	case 0x1:
+		return size0x1;
+	default:
+		return 0;
+	}
+}
+
+size_t Settings::GetDynamicSize()
+{
+	return GetStaticSize()                                  // static size
+	       + Buffer::CalcStringLength(oraclepath.string())  // oraclepath
+	       + Buffer::CalcStringLength(general.savepath);    // General::savepath
+}
+
+bool Settings::WriteData(unsigned char* buffer, size_t offset)
+{
+	Buffer::Write(classversion, buffer, offset);
+	Buffer::Write((int32_t)oracle, buffer, offset);
+	// general
+	Buffer::Write(oraclepath.string(), buffer, offset);
+	Buffer::Write(general.usehardwarethreads, buffer, offset);
+	Buffer::Write(general.numthreads, buffer, offset);
+	Buffer::Write(general.numcomputingthreads, buffer, offset);
+	Buffer::Write(general.concurrenttests, buffer, offset);
+	Buffer::Write(general.enablesaves, buffer, offset);
+	Buffer::Write(general.autosave_every_tests, buffer, offset);
+	Buffer::Write(general.autosave_every_seconds, buffer, offset);
+	Buffer::Write(general.savepath, buffer, offset);
+	// optimization
+	Buffer::Write(optimization.constructinputsiteratively, buffer, offset);
+	// methods
+	Buffer::Write(methods.deltadebugging, buffer, offset);
+	// generation
+	Buffer::Write(generation.generationsize, buffer, offset);
+	Buffer::Write(generation.generationtweakstart, buffer, offset);
+	Buffer::Write(generation.generationtweakmax, buffer, offset);
+	// endconditions
+}
+
+bool Settings::ReadData(unsigned char* buffer, size_t offset, size_t /*length*/)
+{
+	int32_t version = Buffer::ReadInt32(buffer, offset);
+	switch (version) {
+	case 0x1:
+		{
+			oracle = (Oracle::PUTType)Buffer::ReadInt32(buffer, offset);
+			oraclepath = std::filesystem::path(Buffer::ReadString(buffer, offset));
+			// general
+			general.usehardwarethreads = Buffer::ReadBool(buffer, offset);
+			general.numthreads = Buffer::ReadInt32(buffer, offset);
+			general.numcomputingthreads = Buffer::ReadInt32(buffer, offset);
+			general.concurrenttests = Buffer::ReadInt32(buffer, offset);
+			general.enablesaves = Buffer::ReadBool(buffer, offset);
+			general.autosave_every_tests = Buffer::ReadInt64(buffer, offset);
+			general.autosave_every_seconds = Buffer::ReadInt64(buffer, offset);
+			general.savepath = Buffer::ReadString(buffer, offset);
+			// optimization
+			optimization.constructinputsiteratively = Buffer::ReadBool(buffer, offset);
+			// methods
+			methods.deltadebugging = Buffer::ReadBool(buffer, offset);
+			// generation
+			generation.generationsize = Buffer::ReadInt32(buffer, offset);
+			generation.generationtweakstart = Buffer::ReadFloat(buffer, offset);
+			generation.generationtweakmax = Buffer::ReadFloat(buffer, offset);
+			// endconditions
+			return true;
+		}
+		break;
+	default:
+		return false;
+	}
 }

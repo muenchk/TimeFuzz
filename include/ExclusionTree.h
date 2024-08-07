@@ -36,6 +36,12 @@ public:
 
 	~ExclusionTree();
 
+	
+	static int32_t GetType()
+	{
+		return 'EXCL';
+	}
+
 private:
 	TreeNode root;
 

@@ -29,6 +29,35 @@ public:
 	/// </summary>
 	void Save(std::wstring path = L"");
 
+	const int32_t classversion = 0x1;
+	/// <summary>
+	/// returns the total size of the fields with static size
+	/// </summary>
+	/// <returns></returns>
+	size_t GetStaticSize(int32_t version = 0x1);
+	/// <summary>
+	/// returns the total size of all fields of this instance
+	/// </summary>
+	/// <returns></returns>
+	size_t GetDynamicSize();
+	/// <summary>
+	/// saves all relevant information of this instance to the given buffer
+	/// </summary>
+	/// <param name="buffer"></param>
+	/// <returns></returns>
+	bool WriteData(unsigned char* buffer, size_t offset);
+	/// <summary>
+	/// reads all relevant information of this instance from the buffer
+	/// </summary>
+	/// <param name="buffer"></param>
+	/// <param name="length"></param>
+	bool ReadData(unsigned char* buffer, size_t offset, size_t length);
+	
+	static int32_t GetType()
+	{
+		return 'SETT';
+	}
+
 	/// <summary>
 	/// Type of the oracle that is executed
 	/// </summary>
@@ -69,6 +98,14 @@ public:
 		/// whether to enable saves
 		/// </summary>
 		bool enablesaves = true;
+		/// <summary>
+		/// automatically saves after x tests [set to 0 to disable]
+		/// </summary>
+		int64_t autosave_every_tests = 1000;
+		/// <summary>
+		/// automatically saves after x seconds [set to 0 to disable]
+		/// </summary>
+		int64_t autosave_every_seconds = 300;
 		/// <summary>
 		/// the path at which saves are made
 		/// </summary>
@@ -155,6 +192,16 @@ public:
 		/// </summary>
 		int32_t timeout = 60;
 		const char* timeout_NAME = "Timeout";
+		/// <summary>
+		/// whether the program ends when a sepcific number of tests have been executed
+		/// </summary>
+		bool use_overalltests = true;
+		const char* use_overalltests_NAME = "UseOverallTests";
+		/// <summary>
+		/// the number of overal tests that have been executed
+		/// </summary>
+		uint64_t overalltests = 10000;
+		const char* overalltests_NAME = "OverallTests";
 	};
 
 	EndConditions conditions;

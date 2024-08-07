@@ -76,4 +76,8 @@ public:
 		return _path;
 	}
 
+	static int32_t GetType()
+	{
+		return 'ORAC';
+	}
 };

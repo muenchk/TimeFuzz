@@ -356,6 +356,10 @@ public:
 	/// <param name="buffer"></param>
 	/// <param name="length"></param>
 	bool ReadData(unsigned char* buffer, size_t offset, size_t length, LoadResolver* resolver);
+	static int32_t GetType()
+	{
+		return 'GRAM';
+	}
 
 
 private:

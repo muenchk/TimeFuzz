@@ -4,26 +4,10 @@
 
 #include "Input.h"
 
+
 class Generator
 {
 public:
-	virtual void Generate();
-	/// <summary>
-	/// clears all internal variables
-	/// </summary>
-	virtual void Clear();
-	/// <summary>
-	/// resets all progress made
-	/// </summary>
-	virtual void Clean();
-
-	virtual void AddExclusion(std::shared_ptr<Input> input);
-	virtual void AddExclusionPrefix(std::shared_ptr<Input> input);
-};
-
-
-class SimpleGenerator : Generator
-{
 	void Generate();
 	/// <summary>
 	/// clears all internal variables
@@ -35,6 +19,11 @@ class SimpleGenerator : Generator
 	void Clean();
 	void AddExclusion(std::shared_ptr<Input> input);
 	void AddExclusionPrefix(std::shared_ptr<Input> input);
+
+	static int32_t GetType()
+	{
+		return 'INPU';
+	}
 
 private:
 	
