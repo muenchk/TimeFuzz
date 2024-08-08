@@ -8,8 +8,9 @@
 #include "Settings.h"
 #include "SessionData.h"
 #include "TaskController.h"
+#include "Form.h"
 
-class Session
+class Session : public Form
 {
 public:
 	/// <summary>
@@ -17,6 +18,8 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	Session* GetSingleton();
+
+	Session();
 
 	~Session();
 
@@ -28,16 +31,10 @@ public:
 	/// <summary>
 	/// Starts the fuzzing session
 	/// </summary>
-	void StartSession(std::shared_ptr<Settings> settings, bool &error);
-
-	/// <summary>
-	/// Starts the fuzzing session
-	/// </summary>
 	/// <param name="error"></param>
 	/// <param name="globalTaskController"></param>
 	/// <param name="globalExecutionHandler"></param>
-	/// <param name="globalSettings"></param>
-	void StartSession(bool& error, bool globalTaskController = false, bool globalExecutionHandler = false, bool globalSettings = false, std::wstring settingsPath = L"");
+	void StartSession(bool& error, bool globalTaskController = false, bool globalExecutionHandler = false, std::wstring settingsPath = L"");
 
 	/// <summary>
 	/// Waits for the session to end
@@ -55,6 +52,8 @@ public:
 	std::vector<std::shared_ptr<Input>> GenerateNegatives(int32_t negatives, bool& error, int32_t maxiterations = 0, int32_t timeout = 0, bool returnpositives = false);
 
 private:
+	void* data = nullptr;
+
 	/// <summary>
 	/// The Task used to execute the PUT and retrieve the oracle result
 	/// </summary>
@@ -93,7 +92,7 @@ private:
 	/// <summary>
 	/// the runtime data of the session
 	/// </summary>
-	SessionData data;
+	SessionData sessiondata;
 
 	/// <summary>
 	/// Does one iteration of the session

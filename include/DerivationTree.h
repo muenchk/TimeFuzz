@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Data.h"
+#include "Form.h"
 
 #include <string>
-class DerivationTree
+class DerivationTree : public Form
 {
 private:
 	const int32_t classversion = 0x1;
@@ -15,33 +15,15 @@ public:
 	/// </summary>
 	void Clear();
 
-	/// <summary>
-	/// returns the size of all fields with static size
-	/// </summary>
-	/// <returns></returns>
-	size_t GetStaticSize(int32_t version = 0x1);
-	/// <summary>
-	/// returns the save-size of the instance
-	/// </summary>
-	/// <returns></returns>
-	size_t GetDynamicSize();
-	/// <summary>
-	/// returns the version of the class
-	/// </summary>
-	/// <returns></returns>
-	int32_t GetClassVersion();
-	/// <summary>
-	/// Writes the instance data to the buffer
-	/// </summary>
-	/// <param name="buffer"></param>
-	/// <param name="offset"></param>
-	/// <returns></returns>
-	bool WriteData(unsigned char* buffer, size_t offset);
-	/// <summary>
-	/// Reads the instance data from the buffer
-	/// </summary>
-	/// <param name="buffer"></param>
-	/// <param name="offset"></param>
-	/// <returns></returns>
-	bool ReadData(unsigned char* buffer, size_t offset, size_t length, LoadResolver* resolver);
+	#pragma region InheritedForm
+
+	size_t GetStaticSize(int32_t version = 0x1) override;
+	size_t GetDynamicSize() override;
+	bool WriteData(unsigned char* buffer, size_t& offset) override;
+	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+	static int32_t GetType() {
+		return FormType::DevTree;
+	}
+
+	#pragma endregion
 };

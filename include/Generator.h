@@ -3,9 +3,9 @@
 #include <memory>
 
 #include "Input.h"
+#include "Form.h"
 
-
-class Generator
+class Generator : public Form
 {
 public:
 	void Generate();
@@ -20,12 +20,22 @@ public:
 	void AddExclusion(std::shared_ptr<Input> input);
 	void AddExclusionPrefix(std::shared_ptr<Input> input);
 
+	#pragma region InheritedForm
+
+	size_t GetStaticSize(int32_t version = 0x1) override;
+	size_t GetDynamicSize() override;
+	virtual bool WriteData(unsigned char* buffer, size_t& offset) override;
+	virtual bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 	static int32_t GetType()
 	{
-		return 'INPU';
+		return FormType::Generator;
 	}
 
+	#pragma endregion
+
 private:
+
+	const int32_t classversion = 0x1;
 	
 	class ExclusionNode
 	{

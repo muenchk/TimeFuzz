@@ -6,64 +6,88 @@
 #include <mutex>
 
 #include "TaskController.h"
-#include "PtrHolder.h"
+#include "Form.h"
+#include "Session.h"
+#include "Settings.h"
+#include "Oracle.h"
+#include "Generator.h"
+#include "ExclusionTree.h"
+#include "ExecutionHandler.h"
+#include "Logging.h"
 
 class LoadResolver;
 
 class Data
 {
+	struct StaticFormIDs
+	{
+		enum StaticFormID
+		{
+			Session = 0,
+			TaskController = 1,
+			Settings = 2,
+			Oracle = 3,
+			Generator = 4,
+			ExclusionTree = 5,
+			ExecutionHandler = 6,
+		};
+	};
+
 private:
 	std::string uniquename;
 	std::string savename;
 	int32_t savenumber;
-	LoadResolver* lresolve;
+	LoadResolver* _lresolve;
 
-	uint32_t nextformid = 1;
-	std::mutex lockformid;
-	std::unordered_map<uint32_t, PtrHolder*> hashmap;
+	const FormID _baseformid = 100;
+	FormID _nextformid = _baseformid;
+	std::mutex _lockformid;
+	std::unordered_map<FormID, std::shared_ptr<Form>> _hashmap;
+	std::shared_mutex _hashmaplock;
 
 	friend LoadResolver;
 
 public:
 
+	bool _globalTasks = false;
+	bool _globalExec = false;
+
 	Data();
 
 	static Data* GetSingleton();
 
-	template<class T>
-	bool RegisterExistingFormID(std::shared_ptr<T> ptr)
+	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+	std::shared_ptr<T> CreateForm()
 	{
-		if (ptr) {
-			if (auto itr = hashmap.find(ptr->GetFormID()); itr == hashmap.end()) {
-				PtrHolderClass<T>* holder = new PtrHolderClass<T>();
-				holder->type = T::GetType();
-				holder->formid = ptr->GetFormID();
-				holder->ptr = ptr;
-				hashmap.insert(ptr->GetFormID(), holder);
-			}
-		}
-		return false;
-	}
-
-	template<class T>
-	bool RegisterNewFormID(std::shared_ptr<T> ptr)
-	{
-		if (ptr)
-			;
-		else
-			return false;
-		uint32_t formid = 0;
+		loginfo("Create Form");
+		std::shared_ptr<T> ptr = std::make_shared<T>();
+		FormID formid = 0;
 		{
-			std::lock_guard<std::mutex> guard(lockformid);
-			formid = nextformid++;
+			std::lock_guard<std::mutex> guard(_lockformid);
+			formid = _nextformid++;
 		}
-		PtrHolderClass<T>* holder = new PtrHolderClass<T>();
-		holder->type = T::GetType();
-		holder->formid = formid;
-		holder->ptr = ptr;
 		ptr->SetFormID(formid);
-		hashmap.insert(formid, holder);
+		{
+			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
+			_hashmap.insert({ formid, dynamic_pointer_cast<Form>(ptr) });
+		}
+		return ptr;
 	}
+	template<>
+	std::shared_ptr<Session> CreateForm();
+	template <>
+	std::shared_ptr<TaskController> CreateForm();
+	template <>
+	std::shared_ptr<Settings> CreateForm();
+	template <>
+	std::shared_ptr<Oracle> CreateForm();
+	template <>
+	std::shared_ptr<Generator> CreateForm();
+	template <>
+	std::shared_ptr<ExclusionTree> CreateForm();
+	template <>
+	std::shared_ptr<ExecutionHandler> CreateForm();
+	
 
 	void Save();
 
@@ -86,17 +110,11 @@ public:
 	void AddTask(TaskController::TaskDelegate* a_task);
 
 	template <class T>
-	std::shared_ptr<T> ResolveFormID(uint32_t formid)
+	std::shared_ptr<T> ResolveFormID(FormID formid)
 	{
-		auto itr = data->hashmap.find(formid);
-		if (itr != data->hashmap.end())
-		{
-			PtrHolderClass<T>* holder = std::get<1>(*itr)->As<T>();
-			if (auto ptr = holder->ptr.lock(); ptr)
-				return ptr;
-			else
-				return {};
-		}
+		auto ptr = data->_hashmap.at(formid);
+		if (ptr)
+			return dynamic_pointer_cast<T>(ptr);
 		return {};
 	}
 

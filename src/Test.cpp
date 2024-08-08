@@ -3,6 +3,7 @@
 #include "Processes.h"
 #include "Logging.h"
 #include "BufferOperations.h"
+#include "Data.h"
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
 #	include <fcntl.h>
@@ -419,15 +420,16 @@ void Test::InValidate()
 
 size_t Test::GetStaticSize(int32_t version)
 {
-	static size_t size0x1 = 4     // version
-	                        + 1   // running
-	                        + 8   // starttime
-	                        + 8   // endtime
-	                        + 8   // formid for input
-	                        + 8   // lasttime
-	                        + 8   // identifier
-	                        + 8   // exitreason
-	                        + 1;  // valid
+	static size_t size0x1 = Form::GetDynamicSize()  // form base size
+	                        + 4                     // version
+	                        + 1                     // running
+	                        + 8                     // starttime
+	                        + 8                     // endtime
+	                        + 8                     // formid for input
+	                        + 8                     // lasttime
+	                        + 8                     // identifier
+	                        + 8                     // exitreason
+	                        + 1;                    // valid
 	switch (version)
 	{
 	case 0x1:
@@ -446,14 +448,10 @@ size_t Test::GetDynamicSize()
 	return sz;
 }
 
-int32_t Test::GetClassVersion()
-{
-	return classversion;
-}
-
-bool Test::WriteData(unsigned char* buffer, size_t offset)
+bool Test::WriteData(unsigned char* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
+	Form::WriteData(buffer, offset);
 	Buffer::Write(running, buffer, offset);
 	Buffer::Write(starttime, buffer, offset);
 	Buffer::Write(endtime, buffer, offset);
@@ -472,7 +470,7 @@ bool Test::WriteData(unsigned char* buffer, size_t offset)
 	return true;
 }
 
-bool Test::ReadData(unsigned char* buffer, size_t offset, size_t length, LoadResolver* resolver)
+bool Test::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	size_t initoff = offset;
 	int32_t version = Buffer::ReadInt32(buffer, offset);
@@ -482,6 +480,7 @@ bool Test::ReadData(unsigned char* buffer, size_t offset, size_t length, LoadRes
 		{
 			if (length < GetStaticSize(version))
 				return false;
+			Form::ReadData(buffer, offset, length, resolver);
 			running = Buffer::ReadBool(buffer, offset);
 			starttime = Buffer::ReadTime(buffer, offset);
 			endtime = Buffer::ReadTime(buffer, offset);

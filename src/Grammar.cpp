@@ -873,11 +873,12 @@ void Grammar::Clear()
 
 size_t Grammar::GetStaticSize(int32_t version)
 {
-	static size_t size0x1 = 4     // version
-	                        + 8   // nextid
-	                        + 4   // numcycles
-	                        + 1   // valid
-	                        + 8;  // root id
+	static size_t size0x1 = Form::GetDynamicSize()  // form base size
+	                        + 4                     // version
+	                        + 8                     // nextid
+	                        + 4                     // numcycles
+	                        + 1                     // valid
+	                        + 8;                    // root id
 	switch (version)
 	{
 	case 0x1:
@@ -910,9 +911,10 @@ size_t Grammar::GetDynamicSize()
 	return sz;
 }
 
-bool Grammar::WriteData(unsigned char* buffer, size_t offset)
+bool Grammar::WriteData(unsigned char* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
+	Form::WriteData(buffer, offset);
 	Buffer::Write(tree->nextid, buffer, offset);
 	Buffer::Write(tree->_numcycles, buffer, offset);
 	Buffer::Write(tree->valid, buffer, offset);
@@ -938,7 +940,7 @@ bool Grammar::WriteData(unsigned char* buffer, size_t offset)
 		Buffer::Write(node->id, buffer, offset);
 }
 
-bool Grammar::ReadData(unsigned char* buffer, size_t offset, size_t length, LoadResolver* /*resolver*/)
+bool Grammar::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	tree = std::make_shared<GrammarTree>();
@@ -947,6 +949,7 @@ bool Grammar::ReadData(unsigned char* buffer, size_t offset, size_t length, Load
 	switch (version) {
 	case 0x1:
 		{
+			Form::ReadData(buffer, offset, length, resolver);
 			tree->nextid = Buffer::ReadUInt64(buffer, offset);
 			tree->_numcycles = Buffer::ReadInt32(buffer, offset);
 			tree->valid = Buffer::ReadBool(buffer, offset);

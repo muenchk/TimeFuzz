@@ -4,6 +4,7 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/DerivationTree.cpp"
 	"${SOURCE_DIR}/ExecutionHandler.cpp"
 	"${SOURCE_DIR}/ExclusionTree.cpp"
+	"${SOURCE_DIR}/Form.cpp"
 	"${SOURCE_DIR}/Grammar.cpp"
 	"${SOURCE_DIR}/Generator.cpp"
 	"${SOURCE_DIR}/Input.cpp"

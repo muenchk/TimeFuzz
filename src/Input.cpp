@@ -6,19 +6,21 @@
 #include "Logging.h"
 #include "ExecutionHandler.h"
 #include "BufferOperations.h"
+#include "Data.h"
 
-#pragma region SaveLoad
+#pragma region InheritedForm
 
 size_t Input::GetStaticSize(int32_t version)
 {
-	static size_t size0x1 = 4 +                 // version
-	                        1 +                 // hasfinished
-	                        1 +                 // trimmed
-	                        8 +                 // executiontime
-	                        4 +                 // exitcode
-	                        sizeof(EnumType) +  // oracleResult
-	                        1 +                 // byte indicator for test absent
-	                        1;                  // byte indicator for derivation tree absent
+	static size_t size0x1 = Form::GetDynamicSize()  // form base size
+	                        + 4 +                   // version
+	                        1 +                     // hasfinished
+	                        1 +                     // trimmed
+	                        8 +                     // executiontime
+	                        4 +                     // exitcode
+	                        sizeof(EnumType) +      // oracleResult
+	                        8 +                     // test
+	                        8;                      // derivationtree
 
 	switch (version)
 	{
@@ -32,46 +34,29 @@ size_t Input::GetStaticSize(int32_t version)
 size_t Input::GetDynamicSize()
 {
 	size_t size = GetStaticSize();
-	if (test)
-		size += 8 + test->GetDynamicSize(); // length of test entry and test itself
-	if (derive)
-		size += 8 + test->GetDynamicSize(); // length of derivation tree entry and derivation tree itself
 	size += Buffer::CalcStringLength(stringrep);
 	size += Buffer::List::GetListLength(sequence);
 	size += Buffer::List::GetListLength(orig_sequence);
 	return size;
 }
 
-int32_t Input::GetClassVersion()
+bool Input::WriteData(unsigned char* buffer, size_t& offset)
 {
-	return classversion;
-}
-
-bool Input::WriteData(unsigned char* buffer, size_t offset)
-{
-	Buffer::Write(GetClassVersion(), buffer, offset);
+	Buffer::Write(classversion, buffer, offset);
+	Form::WriteData(buffer, offset);
 	Buffer::Write(hasfinished, buffer, offset);
 	Buffer::Write(trimmed, buffer, offset);
 	Buffer::Write(executiontime, buffer, offset);
 	Buffer::Write(exitcode, buffer, offset);
 	Buffer::Write((uint64_t)oracleResult, buffer, offset);
 	if (test) {
-		size_t sz = test->GetDynamicSize();
-		Buffer::Write(true, buffer, offset);
-		Buffer::WriteSize(sz, buffer, offset);
-		test->WriteData(buffer, offset);
-		offset += sz;
+		Buffer::Write(test->GetFormID(), buffer, offset);
 	} else
-		Buffer::Write(false, buffer, offset);
-	if (derive)
-	{
-		size_t sz = derive->GetDynamicSize();
-		Buffer::Write(true, buffer, offset);
-		Buffer::WriteSize(sz, buffer, offset);
-		derive->WriteData(buffer, offset);
-		offset += sz;
+		Buffer::Write((FormID)0, buffer, offset);
+	if (derive) {
+		Buffer::Write(derive->GetFormID(), buffer, offset);
 	} else
-		Buffer::Write(false, buffer, offset);
+		Buffer::Write((FormID)0, buffer, offset);
 	Buffer::Write(stringrep, buffer, offset);
 	Buffer::List::WriteList(sequence, buffer, offset);
 	Buffer::List::WriteList(orig_sequence, buffer, offset);
@@ -79,7 +64,7 @@ bool Input::WriteData(unsigned char* buffer, size_t offset)
 	return true;
 }
 
-bool Input::ReadData(unsigned char* buffer, size_t offset, size_t length, LoadResolver* resolver)
+bool Input::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	size_t initoff = offset;
 	int32_t version = Buffer::ReadInt32(buffer, offset);
@@ -89,6 +74,7 @@ bool Input::ReadData(unsigned char* buffer, size_t offset, size_t length, LoadRe
 			// if the current length is smaller stan the minimal size of the class then return false
 			if (length < GetStaticSize(0x1))
 				return false;
+			Form::ReadData(buffer, offset, length, resolver);
 			// static init
 			pythonconverted = false;
 			pythonstring = "";
@@ -100,41 +86,14 @@ bool Input::ReadData(unsigned char* buffer, size_t offset, size_t length, LoadRe
 			executiontime = Buffer::ReadNanoSeconds(buffer, offset);
 			exitcode = Buffer::ReadInt32(buffer, offset);
 			oracleResult = Buffer::ReadUInt64(buffer, offset);
-			bool readtest = Buffer::ReadBool(buffer, offset);
-			if (readtest) {
-				test = new Test;
-				if (length < offset - initoff + 8)
-					return false;
-				size_t len = Buffer::ReadSize(buffer, offset);
-				if (length < offset - initoff + len)
-					return false;
-				bool res = test->ReadData(buffer, offset, len, resolver);
-				offset += len;
-				if (!res) {
-					delete test;
-					test = nullptr;
-					return false;
-				}
-			}
-			// else no test present
-			test = nullptr;
-			bool readderive = Buffer::ReadBool(buffer, offset);
-			if (readderive) {
-				derive = new DerivationTree();
-				if (length < offset - initoff + 8)
-					return false;
-				size_t len = Buffer::ReadSize(buffer, offset);
-				if (length < offset - initoff + len)
-					return false;
-				bool rest = derive->ReadData(buffer, offset, len, resolver);
-				offset += len;
-				if (!rest) {
-					delete derive;
-					derive = nullptr;
-					return false;
-				}
-			}
-			// else no derivation tree present
+			FormID testid = Buffer::ReadUInt64(buffer, offset);
+			resolver->AddTask([this, resolver, testid]() {
+				this->test = resolver->ResolveFormID<Test>(testid).get();
+			});
+			FormID deriveid = Buffer::ReadUInt64(buffer, offset);
+			resolver->AddTask([this, resolver, deriveid]() {
+				this->derive = resolver->ResolveFormID<DerivationTree>(deriveid).get();
+			});
 			// get stringrep
 			if (length < offset - initoff + 8 || length < offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
 				return false;

@@ -138,36 +138,37 @@ void Settings::Save(std::wstring _path)
 
 size_t Settings::GetStaticSize(int32_t version)
 {
-	static size_t size0x1 = 4     // version
-	                        + 4   // oracle
-	                        + 1   // General::usehardwarethreads
-	                        + 4   // General::numthreads
-	                        + 4   // General::numcomputingthreads
-	                        + 4   // General::concurrenttests
-	                        + 1   // General::enablesaves
-	                        + 8   // General::autosave_every_tests
-	                        + 8   // General::autosave_every_seconds
-	                        + 1   // Optimization::constructinputsiteratively
-	                        + 1   // Methods::deltadebugging
-	                        + 4   // Generation::generationsize
-	                        + 4   // Generation::generationtweakstart
-	                        + 4   // Generation::generationtweakmax
-	                        + 1   // EndConditions::use_maxiterations
-	                        + 4   // EndConditions::maxiterations
-	                        + 1   // EndConditions::use_foundnegatives
-	                        + 8   // EndConditions::foundnegatives
-	                        + 1   // EndConditions::use_timeout
-	                        + 8   // EndConditions::timeout
-	                        + 1   // EndConditions::use_overalltests
-	                        + 8   // EndConditions::overalltests
-	                        + 1   // Tests::executeFragments
-	                        + 1   // Tests::use_testtimeout
-	                        + 8   // Tests::testtimeout
-	                        + 1   // Tests::use_fragmenttimeout
-	                        + 8   // Tests::fragmenttimeout
-	                        + 1   // Tests::storePUToutput
-	                        + 1   // Tests::storePUToutputSuccessful
-	                        + 8;  // Tests::maxUsedMemory
+	static size_t size0x1 = Form::GetDynamicSize()  // form base size
+	                        + 4                     // version
+	                        + 4                     // oracle
+	                        + 1                     // General::usehardwarethreads
+	                        + 4                     // General::numthreads
+	                        + 4                     // General::numcomputingthreads
+	                        + 4                     // General::concurrenttests
+	                        + 1                     // General::enablesaves
+	                        + 8                     // General::autosave_every_tests
+	                        + 8                     // General::autosave_every_seconds
+	                        + 1                     // Optimization::constructinputsiteratively
+	                        + 1                     // Methods::deltadebugging
+	                        + 4                     // Generation::generationsize
+	                        + 4                     // Generation::generationtweakstart
+	                        + 4                     // Generation::generationtweakmax
+	                        + 1                     // EndConditions::use_maxiterations
+	                        + 4                     // EndConditions::maxiterations
+	                        + 1                     // EndConditions::use_foundnegatives
+	                        + 8                     // EndConditions::foundnegatives
+	                        + 1                     // EndConditions::use_timeout
+	                        + 8                     // EndConditions::timeout
+	                        + 1                     // EndConditions::use_overalltests
+	                        + 8                     // EndConditions::overalltests
+	                        + 1                     // Tests::executeFragments
+	                        + 1                     // Tests::use_testtimeout
+	                        + 8                     // Tests::testtimeout
+	                        + 1                     // Tests::use_fragmenttimeout
+	                        + 8                     // Tests::fragmenttimeout
+	                        + 1                     // Tests::storePUToutput
+	                        + 1                     // Tests::storePUToutputSuccessful
+	                        + 8;                    // Tests::maxUsedMemory
 
 	switch (version) {
 	case 0x1:
@@ -184,9 +185,10 @@ size_t Settings::GetDynamicSize()
 	       + Buffer::CalcStringLength(general.savepath);    // General::savepath
 }
 
-bool Settings::WriteData(unsigned char* buffer, size_t offset)
+bool Settings::WriteData(unsigned char* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
+	Form::WriteData(buffer, offset);
 	Buffer::Write((int32_t)oracle, buffer, offset);
 	// general
 	Buffer::Write(oraclepath.string(), buffer, offset);
@@ -224,14 +226,16 @@ bool Settings::WriteData(unsigned char* buffer, size_t offset)
 	Buffer::Write(tests.storePUToutput, buffer, offset);
 	Buffer::Write(tests.storePUToutputSuccessful, buffer, offset);
 	Buffer::Write(tests.maxUsedMemory, buffer, offset);
+	return true;
 }
 
-bool Settings::ReadData(unsigned char* buffer, size_t offset, size_t /*length*/)
+bool Settings::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
 	case 0x1:
 		{
+			Form::ReadData(buffer, offset, length, resolver);
 			oracle = (Oracle::PUTType)Buffer::ReadInt32(buffer, offset);
 			oraclepath = std::filesystem::path(Buffer::ReadString(buffer, offset));
 			// general

@@ -16,6 +16,7 @@
 #include <list>
 
 #include "Test.h"
+#include "Form.h"
 
 class Settings;
 class TaskController;
@@ -32,7 +33,7 @@ class Oracle;
 *	Whole Execution: Executes the test in one go, and applies an overall timeout
 */
 
-class ExecutionHandler
+class ExecutionHandler: public Form
 {
 
 private:

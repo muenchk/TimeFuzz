@@ -7,11 +7,17 @@
 #include "ExitCodes.h"
 #include "Logging.h"
 #include "Session.h"
+#include "Data.h"
 
 Session* Session::GetSingleton()
 {
 	static Session session;
 	return std::addressof(session);
+}
+
+Session::Session()
+{
+	data = new Data();
 }
 
 Session::~Session()
@@ -47,12 +53,14 @@ void Session::Clear()
 		_settings.reset();
 	}
 	try {
-		data.Clear();
+		sessiondata.Clear();
 	} catch (std::exception)
 	{
 		throw std::runtime_error("session clear fail");
 	}
 	LastError = 0;
+	delete static_cast<Data*>(data);
+	data = nullptr;
 	running = false;
 }
 
@@ -66,42 +74,17 @@ std::vector<std::shared_ptr<Input>> Session::GenerateNegatives(int32_t /*negativ
 	return {};
 }
 
-void Session::StartSession(std::shared_ptr<Settings> settings, bool &error)
-{
-	// register settings
-	_settings = settings;
-	if (settings.get() == nullptr) {
-		logcritical("Didn't get a valid settings pointer.");
-		LastError = ExitCodes::StartupError;
-		error = true;
-		return;
-	}
-	// set taskcontroller
-	_controller = std::make_shared<TaskController>();
-	// set executionhandler
-	_exechandler = std::make_shared<ExecutionHandler>();
-	// start session
-	StartSessionIntern(error);
-}
-
-void Session::StartSession(bool& error, bool globalTaskController, bool globalExecutionHandler, bool globalSettings, std::wstring settingsPath)
+void Session::StartSession(bool& error, bool globalTaskController, bool globalExecutionHandler, std::wstring settingsPath)
 {
 	// init settings
-	if (globalSettings == true)
-		_settings = std::shared_ptr<Settings>(Settings::GetSingleton());
-	else
-		_settings = std::make_shared<Settings>();
+	_settings = static_cast<Data*>(data)->CreateForm<Settings>();
 	_settings->Load(settingsPath);
+	static_cast<Data*>(data)->_globalTasks = globalTaskController;
+	static_cast<Data*>(data)->_globalExec = globalExecutionHandler;
 	// set taskcontroller
-	if (globalTaskController)
-		_controller = std::shared_ptr<TaskController>(TaskController::GetSingleton());
-	else
-		_controller = std::make_shared<TaskController>();
+	_controller = static_cast<Data*>(data)->CreateForm<TaskController>();
 	// set executionhandler
-	if (globalExecutionHandler)
-		_exechandler = std::shared_ptr<ExecutionHandler>(ExecutionHandler::GetSingleton());
-	else
-		_exechandler = std::make_shared<ExecutionHandler>();
+	_exechandler = static_cast<Data*>(data)->CreateForm<ExecutionHandler>();
 	// start session
 	StartSessionIntern(error);
 }
@@ -116,7 +99,8 @@ void Session::StartSessionIntern(bool &error)
 		error = true;
 		return;
 	}
-	_oracle = std::make_shared<Oracle>(_settings->oracle, _settings->oraclepath);
+	_oracle = static_cast<Data*>(data)->CreateForm<Oracle>();
+	_oracle->Set(_settings->oracle, _settings->oraclepath);
 	// check the oracle for validity
 	if (_oracle->Validate() == false) {
 		logcritical("Oracle isn't valid.");

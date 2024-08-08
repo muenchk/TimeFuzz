@@ -5,12 +5,14 @@
 #include <vector>
 #include <unordered_map>
 
+#include "Form.h"
+
 class Input;
 class Grammar;
 class Generator;
 class Settings;
 
-class SessionData
+class SessionData : public Form
 {
 	struct Iteration
 	{

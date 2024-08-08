@@ -6,10 +6,12 @@
 #include <vector>
 #include <condition_variable>
 
+#include "Form.h"
+
 class LoadResolver;
 class LoadResolverGrammar;
 
-class TaskController
+class TaskController : public Form
 {
 public:
 	using TaskFn = std::function<void()>;

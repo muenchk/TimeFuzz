@@ -51,7 +51,7 @@ int32_t main(int32_t argc, char** argv)
 	}
 	bool error = false;
 	Session* sess = new Session();
-	sess->StartSession(error, false, false, false, settingspath);
+	sess->StartSession(error, false, false, settingspath);
 	sess->Wait();
 	sess->Clear();
 	delete sess;

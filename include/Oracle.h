@@ -4,8 +4,9 @@
 #include <tuple>
 
 #include "ExecutionHandler.h"
+#include "Form.h"
 
-class Oracle
+class Oracle : public Form
 {
 public:
 	enum OracleResult : EnumType
@@ -61,10 +62,11 @@ private:
 	std::filesystem::path _path;
 	PUTType _type;
 	bool valid = false;
+	const int32_t classversion = 0x1;
 
 public:
-
-	Oracle(PUTType type, std::filesystem::path PUTpath);
+	Oracle();
+	void Set(PUTType type, std::filesystem::path PUTpath);
 	bool Validate();
 
 	OracleResult Evaluate(Test* test);
@@ -76,28 +78,12 @@ public:
 		return _path;
 	}
 
+	size_t GetStaticSize(int32_t version = 0x1) override;
+	size_t GetDynamicSize() override;
+	bool WriteData(unsigned char* buffer, size_t& offset) override;
+	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 	static int32_t GetType()
 	{
 		return 'ORAC';
 	}
-
-	/// <summary>
-	/// returns the total size of all fields of this instance
-	/// </summary>
-	/// <returns></returns>
-	size_t GetDynamicSize();
-
-	const int32_t classversion = 0x1;
-	/// <summary>
-	/// saves all relevant information of this instance to the given buffer
-	/// </summary>
-	/// <param name="buffer"></param>
-	/// <returns></returns>
-	bool WriteData(unsigned char* buffer, size_t offset);
-	/// <summary>
-	/// reads all relevant information of this instance from the buffer
-	/// </summary>
-	/// <param name="buffer"></param>
-	/// <param name="length"></param>
-	bool ReadData(unsigned char* buffer, size_t offset, size_t length);
 };

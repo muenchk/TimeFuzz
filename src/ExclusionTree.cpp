@@ -3,8 +3,8 @@
 #include "BufferOperations.h"
 #include "Logging.h"
 
-#define exclrlock std::unique_lock<std::shared_mutex> guard(mutex);  //((void)0); 
-#define exclwlock std::shared_lock<std::shared_mutex> guard(mutex);
+#define exclrlock std::unique_lock<std::shared_mutex> guard(_lock);  //((void)0); 
+#define exclwlock std::shared_lock<std::shared_mutex> guard(_lock);
 
 ExclusionTree::TreeNode* ExclusionTree::TreeNode::HasChild(std::string str)
 {
@@ -113,10 +113,11 @@ void ExclusionTree::DeleteNodeIntern(TreeNode* node)
 
 size_t ExclusionTree::GetStaticSize(int32_t version)
 {
-	static size_t size0x1 = 4    // version
-	                        + 8  // nextid
-	                        + 8  // root children count
-	                        + 1; // root isLeaf
+	static size_t size0x1 = Form::GetDynamicSize()  // form base size
+	                        + 4                     // version
+	                        + 8                     // nextid
+	                        + 8                     // root children count
+	                        + 1;                    // root isLeaf
 	switch (version)
 	{
 	case 0x1:
@@ -128,18 +129,19 @@ size_t ExclusionTree::GetStaticSize(int32_t version)
 
 size_t ExclusionTree::GetDynamicSize()
 {
-	exclrlock;
 	size_t sz = GetStaticSize();
 	for (auto& [id, node] : hashmap)
 	{
 		// id, identifier, children, isLeaf
 		sz += 8 + Buffer::CalcStringLength(node->identifier) + 8 * node->children.size() + 1;
 	}
+	return sz;
 }
 
-bool ExclusionTree::WriteData(unsigned char* buffer, size_t offset)
+bool ExclusionTree::WriteData(unsigned char* buffer, size_t &offset)
 {
 	Buffer::Write(classversion, buffer, offset);
+	Form::WriteData(buffer, offset);
 	Buffer::Write(nextid, buffer, offset);
 	// root children
 	Buffer::WriteSize(root.children.size(), buffer, offset);
@@ -159,14 +161,16 @@ bool ExclusionTree::WriteData(unsigned char* buffer, size_t offset)
 			Buffer::Write(node->children[i]->id, buffer, offset);
 		Buffer::Write(node->isLeaf, buffer, offset);
 	}
+	return true;
 }
 
-bool ExclusionTree::ReadData(unsigned char* buffer, size_t offset, size_t length)
+bool ExclusionTree::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
 	case 0x1:
 		{
+			Form::ReadData(buffer, offset, length, resolver);
 			nextid = Buffer::ReadUInt64(buffer, offset);
 			size_t rch = Buffer::ReadSize(buffer, offset);
 			// root
@@ -216,15 +220,4 @@ bool ExclusionTree::ReadData(unsigned char* buffer, size_t offset, size_t length
 	default:
 		return false;
 	}
-}
-
-
-bool ExclusionTree::AqcuireLock()
-{
-	mutex.lock();
-}
-
-void ExclusionTree::ReleaseLock()
-{
-	mutex.unlock();
 }
