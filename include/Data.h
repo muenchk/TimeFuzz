@@ -119,17 +119,23 @@ public:
 
 class LoadResolver
 {
-	std::queue<TaskController::TaskDelegate*> tasks;
-	std::mutex lock;
-
 public:
+	using TaskFn = std::function<void()>;
+
+	class TaskDelegate
+	{
+	public:
+		virtual void Run() = 0;
+		virtual void Dispose() = 0;
+	};
+
 	static LoadResolver* GetSingleton();
 	~LoadResolver();
 	void SetData(Data* dat);
 	Data* data = nullptr;
 
-	void AddTask(TaskController::TaskFn a_task);
-	void AddTask(TaskController::TaskDelegate* a_task);
+	void AddTask(TaskFn a_task);
+	void AddTask(TaskDelegate* a_task);
 
 	template <class T>
 	std::shared_ptr<T> ResolveFormID(FormID formid)
@@ -141,4 +147,20 @@ public:
 	}
 
 	void Resolve();
+
+private:
+	std::queue<TaskDelegate*> tasks;
+	std::mutex lock;
+
+	class Task : public TaskDelegate
+	{
+	public:
+		Task(TaskFn&& a_fn);
+
+		void Run() override;
+		void Dispose() override;
+
+	private:
+		TaskFn _fn;
+	};
 };

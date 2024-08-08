@@ -356,18 +356,40 @@ private:
 
 class LoadResolverGrammar
 {
-	std::queue<TaskController::TaskDelegate*> tasks;
-	std::mutex lock;
 
 public:
+	using TaskFn = std::function<void()>;
+
+	class TaskDelegate
+	{
+	public:
+		virtual void Run() = 0;
+		virtual void Dispose() = 0;
+	};
 	std::shared_ptr<GrammarTree> tree;
 	~LoadResolverGrammar();
 
-	void AddTask(TaskController::TaskFn a_task);
-	void AddTask(TaskController::TaskDelegate* a_task);
+	void AddTask(TaskFn a_task);
+	void AddTask(TaskDelegate* a_task);
 
 	std::shared_ptr<GrammarNode> ResolveNodeID(uint64_t id);
 	std::shared_ptr<GrammarExpansion> ResolveExpansionID(uint64_t id);
 
 	void Resolve();
+
+private:
+	std::queue<TaskDelegate*> tasks;
+	std::mutex lock;
+
+	class Task : public TaskDelegate
+	{
+	public:
+		Task(TaskFn&& a_fn);
+
+		void Run() override;
+		void Dispose() override;
+
+	private:
+		TaskFn _fn;
+	};
 };

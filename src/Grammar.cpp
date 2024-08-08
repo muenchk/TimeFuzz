@@ -1031,17 +1031,31 @@ LoadResolverGrammar::~LoadResolverGrammar()
 	}
 }
 
-void LoadResolverGrammar::AddTask(TaskController::TaskFn a_task)
+void LoadResolverGrammar::AddTask(TaskFn a_task)
 {
-	AddTask(new TaskController::Task(std::move(a_task)));
+	AddTask(new Task(std::move(a_task)));
 }
 
-void LoadResolverGrammar::AddTask(TaskController::TaskDelegate* a_task)
+void LoadResolverGrammar::AddTask(TaskDelegate* a_task)
 {
 	{
 		std::unique_lock<std::mutex> guard(lock);
 		tasks.push(a_task);
 	}
+}
+
+LoadResolverGrammar::Task::Task(TaskFn&& a_fn) :
+	_fn(std::move(a_fn))
+{}
+
+void LoadResolverGrammar::Task::Run()
+{
+	_fn();
+}
+
+void LoadResolverGrammar::Task::Dispose()
+{
+	delete this;
 }
 
 std::shared_ptr<GrammarNode> LoadResolverGrammar::ResolveNodeID(uint64_t id)
@@ -1067,7 +1081,7 @@ std::shared_ptr<GrammarExpansion> LoadResolverGrammar::ResolveExpansionID(uint64
 void LoadResolverGrammar::Resolve()
 {
 	while (!tasks.empty()) {
-		TaskController::TaskDelegate* del;
+		TaskDelegate* del;
 		del = tasks.front();
 		tasks.pop();
 		del->Run();

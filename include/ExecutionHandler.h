@@ -132,7 +132,7 @@ public:
 	/// </summary>
 	/// <param name="input">The input to run the test on</param>
 	/// <param name="callback">called after the test has been finished</param>
-	bool AddTest(std::shared_ptr<Input> input, std::function<void()> callback);
+	bool AddTest(std::shared_ptr<Input> input, Functions::BaseFunction* callback);
 
 	void Delete(Data*) {}
 };

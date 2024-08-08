@@ -16,16 +16,16 @@
 
 #define PIPE_SIZE 65536
 
-Test::Test(std::function<void()>&& a_callback, uint64_t id) :
-	callback(std::move(a_callback))
+Test::Test(Functions::BaseFunction* a_callback, uint64_t id) :
+	callback(a_callback)
 {
 	identifier = id;
 	Init();
 }
 
-void Test::Init(std::function<void()>&& a_callback, uint64_t id)
+void Test::Init(Functions::BaseFunction* a_callback, uint64_t id)
 {
-	callback = std::move(a_callback);
+	callback = a_callback;
 	identifier = id;
 	Init();
 }

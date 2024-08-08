@@ -186,7 +186,7 @@ void ExecutionHandler::StopHandlerAfterTestsFinishAndWait()
 	}
 }
 
-bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::function<void()> callback)
+bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, Functions::BaseFunction* callback)
 {
 	StartProfilingDebug;
 	loginfo("Adding new test");
@@ -196,7 +196,7 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::function<void(
 		id = _nextid++;
 	}
 	std::shared_ptr<Test> test = _session->data->CreateForm<Test>();
-	test->Init(std::move(callback), id);
+	test->Init(callback, id);
 	if (test->exitreason & Test::ExitReason::InitError) {
 		_session->data->DeleteForm(test);
 		return false;

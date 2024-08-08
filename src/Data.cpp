@@ -17,6 +17,10 @@ Data* Data::GetSingleton()
 
 void Data::Save()
 {
+	// saves the current state of the program to disk
+	// saving requires all active operations to cease while the data is collected and written to disk
+	// 
+
 	// create new file on disc
 
 	// write main information about savefile: name, savenumber, nextformid, etc.
@@ -47,12 +51,12 @@ LoadResolver::~LoadResolver()
 	}
 }
 
-void LoadResolver::AddTask(TaskController::TaskFn a_task)
+void LoadResolver::AddTask(TaskFn a_task)
 {
-	AddTask(new TaskController::Task(std::move(a_task)));
+	AddTask(new Task(std::move(a_task)));
 }
 
-void LoadResolver::AddTask(TaskController::TaskDelegate* a_task)
+void LoadResolver::AddTask(TaskDelegate* a_task)
 {
 	{
 		std::unique_lock<std::mutex> guard(lock);
@@ -68,12 +72,26 @@ void LoadResolver::SetData(Data* dat)
 void LoadResolver::Resolve()
 {
 	while (!tasks.empty()) {
-		TaskController::TaskDelegate* del;
+		TaskDelegate* del;
 		del = tasks.front();
 		tasks.pop();
 		del->Run();
 		del->Dispose();
 	}
+}
+
+LoadResolver::Task::Task(TaskFn&& a_fn) :
+	_fn(std::move(a_fn))
+{}
+
+void LoadResolver::Task::Run()
+{
+	_fn();
+}
+
+void LoadResolver::Task::Dispose()
+{
+	delete this;
 }
 
 

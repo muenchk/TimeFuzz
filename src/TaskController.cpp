@@ -12,12 +12,7 @@ TaskController* TaskController::GetSingleton()
 	return std::addressof(session);
 }
 
-void TaskController::AddTask(TaskFn a_task)
-{
-	AddTask(new Task(std::move(a_task)));
-}
-
-void TaskController::AddTask(TaskDelegate* a_task)
+void TaskController::AddTask(Functions::BaseFunction* a_task)
 {
 	{
 		std::unique_lock<std::mutex> guard(lock);
@@ -78,7 +73,7 @@ void TaskController::InternalLoop()
 {
 	while (true)
 	{
-		TaskDelegate* del;
+		Functions::BaseFunction* del;
 		{
 			std::unique_lock<std::mutex> guard(lock);
 			condition.wait(guard, [this] { return !tasks.empty() || terminate && wait == false || terminate && tasks.empty(); });
@@ -90,20 +85,6 @@ void TaskController::InternalLoop()
 		del->Run();
 		del->Dispose();
 	}
-}
-
-TaskController::Task::Task(TaskFn&& a_fn) :
-	_fn(std::move(a_fn))
-{}
-
-void TaskController::Task::Run()
-{
-	_fn();
-}
-
-void TaskController::Task::Dispose()
-{
-	delete this;
 }
 
 size_t TaskController::GetStaticSize(int32_t version)

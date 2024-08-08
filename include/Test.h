@@ -17,6 +17,7 @@
 #include <list>
 
 #include "Form.h"
+#include "Function.h"
 
 class Settings;
 class TaskController;
@@ -67,9 +68,9 @@ public:
 		};
 	};
 
-	Test(std::function<void()>&& a_callback, uint64_t id);
+	Test(Functions::BaseFunction* a_callback, uint64_t id);
 	Test() {}
-	void Init(std::function<void()>&& a_callback, uint64_t id);
+	void Init(Functions::BaseFunction* a_callback, uint64_t id);
 
 	/// <summary>
 	/// whether test is currently running
@@ -110,7 +111,7 @@ public:
 	/// <summary>
 	/// called after the test has been finished
 	/// </summary>
-	std::function<void()> callback;
+	Functions::BaseFunction* callback;
 
 	/// <summary>
 	/// output of the PUT
