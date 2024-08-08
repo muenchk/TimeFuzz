@@ -11,12 +11,43 @@
 #include "Settings.h"
 #include "TaskController.h"
 #include "Input.h"
+#include "Session.h"
 
 #define NUM_TESTS 100
 
-void Callback()
-{
+#include "Function.h"
 
+namespace Functions
+{
+	class Callback : BaseFunction
+	{
+	public:
+
+		void Run()
+		{
+
+		}
+
+		static uint64_t GetType() { return 'CALL'; }
+		bool ReadData(unsigned char*, size_t&, size_t)
+		{
+			return true;
+		}
+		bool WriteData(unsigned char*, size_t&)
+		{
+			return true;
+		}
+
+		static BaseFunction* Create()
+		{
+			return new Callback();
+		}
+
+		void Dispose()
+		{
+			delete this;
+		}
+	};
 }
 
 std::string ReturnArgs(std::shared_ptr<Input> input)
@@ -32,12 +63,15 @@ int32_t main(/*int32_t argc, char** argv*/)
 #endif
 	logdebug("Init");
 	logdebug("Started TaskController with 1 thread");
-	Settings* sett = Settings::GetSingleton();
+	std::shared_ptr<Settings> sett = std::make_shared<Settings>();
+	std::shared_ptr<Session> sess = std::make_shared<Session>();
 	logdebug("Initialized Settings");
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>(Oracle::PUTType::STDIN_Dump, std::filesystem::absolute(std::filesystem::path("Test_PUT_General.exe")));
+	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>();
+	oracle->Set(Oracle::PUTType::STDIN_Dump, std::filesystem::absolute(std::filesystem::path("Test_PUT_General.exe")));
 #else
-	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>(Oracle::PUTType::STDIN_Dump, std::filesystem::absolute(std::filesystem::path("Test_PUT_General")));
+	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>();
+	oracle->Set(Oracle::PUTType::STDIN_Dump, std::filesystem::absolute(std::filesystem::path("Test_PUT_General")));
 #endif
 	// check the oracle for validity
 	if (oracle->Validate() == false) {
@@ -49,7 +83,7 @@ int32_t main(/*int32_t argc, char** argv*/)
 	logdebug("Created TaskController");
 	controller->Start(1);
 	std::shared_ptr<ExecutionHandler> execution = std::make_shared<ExecutionHandler>();
-	execution->Init(sett, controller, 1, oracle, ReturnArgs);
+	execution->Init(sess, sett, controller, 1, oracle, ReturnArgs);
 	execution->SetMaxConcurrentTests(50);
 	logdebug("Created executionhandler");
 	execution->StartHandler();
@@ -58,7 +92,7 @@ int32_t main(/*int32_t argc, char** argv*/)
 	std::vector<std::shared_ptr<Input>> ls;
 	for (int32_t i = 0; i < NUM_TESTS; i++) {
 		std::shared_ptr<Input> input = std::make_shared<Input>();
-		execution->AddTest(input, Callback);
+		execution->AddTest(input, (Functions::BaseFunction*)(new Functions::Callback()));
 		ls.push_back(input);
 	}
 	std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -68,7 +102,8 @@ int32_t main(/*int32_t argc, char** argv*/)
 	for (int32_t i = 0; i < NUM_TESTS; i++)
 	{
 		if (ls[i]->Finished())
-			logdebug("TEST: {}, EXITREASON: {}, EXITCODE: {}, EXECTIME: {}ms, OUTPUT: {}", ls[i]->test->identifier, ls[i]->test->exitreason, ls[i]->GetExitCode(), std::chrono::duration_cast<std::chrono::milliseconds>(ls[i]->GetExecutionTime()).count(), ls[i]->test->output);
+			if (auto ptr = ls[i]->test.lock(); ptr)
+				logdebug("TEST: {}, EXITREASON: {}, EXITCODE: {}, EXECTIME: {}ms, OUTPUT: {}", ptr->identifier, ptr->exitreason, ls[i]->GetExitCode(), std::chrono::duration_cast<std::chrono::milliseconds>(ls[i]->GetExecutionTime()).count(), ptr->output);
 	}
 
 	execution.reset();
@@ -76,9 +111,11 @@ int32_t main(/*int32_t argc, char** argv*/)
 
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-	oracle = std::make_shared<Oracle>(Oracle::PUTType::STDIN_Dump, std::filesystem::absolute(std::filesystem::path("Test_PUT_IO.exe")));
+	oracle = std::make_shared<Oracle>();
+	oracle->Set(Oracle::PUTType::STDIN_Dump, std::filesystem::absolute(std::filesystem::path("Test_PUT_IO.exe")));
 #else
-	oracle = std::make_shared<Oracle>(Oracle::PUTType::STDIN_Dump, std::filesystem::absolute(std::filesystem::path("Test_PUT_IO")));
+	oracle = std::make_shared<Oracle>();
+	oracle->Set(Oracle::PUTType::STDIN_Dump, std::filesystem::absolute(std::filesystem::path("Test_PUT_IO")));
 #endif
 	// check the oracle for validity
 	if (oracle->Validate() == false) {
@@ -87,7 +124,7 @@ int32_t main(/*int32_t argc, char** argv*/)
 		exit(1);
 	}
 	execution = std::make_shared<ExecutionHandler>();
-	execution->Init(sett, controller, 1, oracle, ReturnArgs);
+	execution->Init(sess, sett, controller, 1, oracle, ReturnArgs);
 	logdebug("Set up IO test");
 	sett->tests.use_testtimeout = true;
 	sett->tests.testtimeout = 10000000;
@@ -96,11 +133,12 @@ int32_t main(/*int32_t argc, char** argv*/)
 	std::shared_ptr<Input> inp = std::make_shared<Input>();
 	inp->AddEntry("What a wonderful day.");
 	inp->AddEntry(".");
-	execution->AddTest(inp, Callback);
+	execution->AddTest(inp, (Functions::BaseFunction*)(new Functions::Callback()));
 	std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	execution->StopHandlerAfterTestsFinishAndWait();
 	logdebug("Finished execution handler");
-	logdebug("TEST: {}, EXITREASON: {}, EXITCODE: {}, EXECTIME: {}ms, OUTPUT: {}", inp->test->identifier, inp->test->exitreason, inp->GetExitCode(), std::chrono::duration_cast<std::chrono::milliseconds>(inp->GetExecutionTime()).count(), inp->test->output);
+	if (auto ptr = inp->test.lock(); ptr)
+		logdebug("TEST: {}, EXITREASON: {}, EXITCODE: {}, EXECTIME: {}ms, OUTPUT: {}", ptr->identifier, ptr->exitreason, inp->GetExitCode(), std::chrono::duration_cast<std::chrono::milliseconds>(inp->GetExecutionTime()).count(), ptr->output);
 
 	execution.reset();
 	controller->Stop();

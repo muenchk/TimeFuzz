@@ -938,6 +938,7 @@ bool Grammar::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::WriteSize(tree->terminals.size(), buffer, offset);
 	for (auto& node : tree->terminals)
 		Buffer::Write(node->id, buffer, offset);
+	return true;
 }
 
 bool Grammar::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)

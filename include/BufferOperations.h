@@ -289,6 +289,7 @@ namespace Buffer
 			size_t len = Buffer::ReadSize(buffer, offset);
 			for (int64_t i = 0; i < (int64_t)len; i++)
 				vector.push_back(Buffer::Read<T>(buffer, offset));
+			return vector;
 		}
 	}
 }

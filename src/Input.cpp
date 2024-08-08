@@ -111,7 +111,6 @@ bool Input::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadR
 	default:
 		return false;
 	}
-	return true;
 }
 
 void Input::Delete(Data* data)

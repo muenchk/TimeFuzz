@@ -7,7 +7,7 @@ namespace Functions
 	/// </summary>
 	std::unordered_map<uint64_t, std::function<BaseFunction*()>> classregistry;
 
-	void RegisterClass(uint64_t classid, std::function<BaseFunction*()> factory)
+	void RegisterFactory(uint64_t classid, std::function<BaseFunction*()> factory)
 	{
 		classregistry.insert({ classid, factory });
 	}

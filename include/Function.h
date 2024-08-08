@@ -32,7 +32,7 @@ namespace Functions
 		}
 	};
 
-	void RegisterClass(uint64_t classid, std::function<BaseFunction*()> factory);
+	void RegisterFactory(uint64_t classid, std::function<BaseFunction*()> factory);
 
 	template <class T>
 	T* FunctionFactory()

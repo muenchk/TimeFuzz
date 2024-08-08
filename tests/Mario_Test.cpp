@@ -11,11 +11,43 @@
 #include "Settings.h"
 #include "TaskController.h"
 #include "Input.h"
+#include "Session.h"
 
-void Callback(std::shared_ptr<Input> input)
+namespace Functions
 {
-	if (input->Finished())
-		logdebug("TEST: {}, EXITREASON: {}, EXITCODE: {}, EXECTIME: {}ms, OUTPUT: {}", input->test->identifier, input->test->exitreason, input->GetExitCode(), std::chrono::duration_cast<std::chrono::milliseconds>(input->GetExecutionTime()).count(), input->test->output);
+	class Callback : BaseFunction
+	{
+	public:
+
+		std::shared_ptr<Input> input;
+
+		void Run()
+		{
+			if (input->Finished())
+				if (auto ptr = input->test.lock(); ptr)
+					logdebug("TEST: {}, EXITREASON: {}, EXITCODE: {}, EXECTIME: {}ms, OUTPUT: {}", ptr->identifier, ptr->exitreason, input->GetExitCode(), std::chrono::duration_cast<std::chrono::milliseconds>(input->GetExecutionTime()).count(), ptr->output);
+		}
+
+		static uint64_t GetType() { return 'CALL'; }
+		bool ReadData(unsigned char*, size_t&, size_t)
+		{
+			return true;
+		}
+		bool WriteData(unsigned char*, size_t&)
+		{
+			return true;
+		}
+
+		static BaseFunction* Create()
+		{
+			return new Callback();
+		}
+
+		void Dispose()
+		{
+			delete this;
+		}
+	};
 }
 
 std::string getCMDArgs(std::shared_ptr<Input>)
@@ -32,12 +64,15 @@ int main(/*int argc, char** argv*/)
 	Crash::Install(".");
 #endif
 	logdebug("Init");
-	Settings* sett = Settings::GetSingleton();
+	std::shared_ptr<Settings> sett = std::make_shared<Settings>();
+	std::shared_ptr<Session> sess = std::make_shared<Session>();
 	logdebug("Initialized Settings");
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>(Oracle::PUTType::Script, "C:/Users/Kai/AppData/Local/Microsoft/WindowsApps/python3.8.exe");
+	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>();
+	oracle->Set(Oracle::PUTType::Script, "C:/Users/Kai/AppData/Local/Microsoft/WindowsApps/python3.8.exe");
 #else
-	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>(Oracle::PUTType::Script, "/usr/local/bin/python3.8");
+	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>();
+	oracle->Set(Oracle::PUTType::Script, "/usr/local/bin/python3.8");
 #endif
 	// check the oracle for validity
 	if (oracle->Validate() == false) {
@@ -50,7 +85,7 @@ int main(/*int argc, char** argv*/)
 	controller->Start(1);
 	logdebug("Started TaskController with 1 thread");
 	std::shared_ptr<ExecutionHandler> execution = std::make_shared<ExecutionHandler>();
-	execution->Init(sett, controller, 1, oracle, getCMDArgs);
+	execution->Init(sess, sett, controller, 1, oracle, getCMDArgs);
 	execution->SetMaxConcurrentTests(10);
 	logdebug("Created executionhandler");
 	execution->StartHandler();
@@ -59,9 +94,10 @@ int main(/*int argc, char** argv*/)
 	std::vector<std::shared_ptr<Input>> ls;
 	for (int i = 0; i < 5; i++) {
 		std::shared_ptr<Input> input = std::make_shared<Input>();
-		execution->AddTest(input, [input]() {
-			Callback(input);
-		});
+
+		auto task = Functions::BaseFunction::Create<Functions::Callback>();
+		task->input = input;
+		execution->AddTest(input, (Functions::BaseFunction*)(task));
 		ls.push_back(input);
 	}
 	//std::shared_ptr<Input> input = std::make_shared<Input>();

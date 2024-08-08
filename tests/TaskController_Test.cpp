@@ -4,19 +4,59 @@
 #include "CrashHandler.h"
 #endif
 
+#include "Function.h"
+
+namespace Functions
+{
+	class TaskControllerTestCallback : BaseFunction
+	{
+	public:
+		int* arr = nullptr;
+		int i = 0;
+
+		void Run()
+		{
+			arr[i] = i;
+		}
+
+		static uint64_t GetType() { return 'TATE'; }
+		bool ReadData(unsigned char*, size_t&, size_t)
+		{
+			return true;
+		}
+		bool WriteData(unsigned char*, size_t&)
+		{
+			return true;
+		}
+
+		static BaseFunction* Create()
+		{
+			return new TaskControllerTestCallback();
+		}
+
+		void Dispose()
+		{
+			arr = nullptr;
+			delete this;
+		}
+	};
+}
+
 int main(/*int argc, char** argv*/)
 {
 	Logging::InitializeLog(".");
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	Crash::Install(".");
 #endif
+	Functions::RegisterFactory(Functions::TaskControllerTestCallback::GetType(), Functions::TaskControllerTestCallback::Create);
 	TaskController controller;
 	controller.Start(10);
 	int arr[100];
 	for (int i = 0; i < 100; i++) {
-		controller.AddTask([&arr, i]() {
-			arr[i] = i;
-		});
+		auto task = Functions::BaseFunction::Create<Functions::TaskControllerTestCallback>();
+		task->arr = arr;
+		task->i = i;
+		controller.AddTask((Functions::BaseFunction*)(task));
 	}
 	controller.Stop();
 	for (int i = 0; i < 100; i++) {
