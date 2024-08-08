@@ -22,6 +22,7 @@ class Settings;
 class TaskController;
 class Input;
 class Oracle;
+class Session;
 
 /* Class Notes
 * The class is the overall handler for all gtest execution
@@ -37,15 +38,16 @@ class ExecutionHandler: public Form
 {
 
 private:
-	Settings* _settings;
+	std::shared_ptr<Session> _session;
+	std::shared_ptr<Settings> _settings;
 	std::shared_ptr<TaskController> _threadpool;
 	std::shared_ptr<Oracle> _oracle;
 	int32_t _maxConcurrentTests = 1;
 	int32_t _currentTests = 0;
 	std::mutex _lockqueue;
 	std::condition_variable _waitforjob;
-	std::queue<Test*> _waitingTests;
-	std::list<Test*> _runningTests;
+	std::queue<std::weak_ptr<Test>> _waitingTests;
+	std::list<std::weak_ptr<Test>> _runningTests;
 	std::mutex _toplevelsync;
 	std::condition_variable _waitforhandler;
 	bool _active = false;
@@ -73,14 +75,14 @@ private:
 
 	std::function<std::string(std::shared_ptr<Input>)> getCMDArgs;
 
-	bool StartTest(Test* test);
+	bool StartTest(std::shared_ptr<Test> test);
 
-	void StopTest(Test* test);
+	void StopTest(std::shared_ptr<Test> test);
 
 public:
 	ExecutionHandler();
 
-	void Init(Settings* settings, std::shared_ptr<TaskController> threadpool, int32_t maxConcurrentTests, std::shared_ptr<Oracle> oracle, std::function<std::string(std::shared_ptr<Input>)>&& getCommandLineArgs);
+	void Init(std::shared_ptr<Session> session, std::shared_ptr<Settings> settings, std::shared_ptr<TaskController> threadpool, int32_t maxConcurrentTests, std::shared_ptr<Oracle> oracle, std::function<std::string(std::shared_ptr<Input>)>&& getCommandLineArgs);
 
 	static ExecutionHandler* GetSingleton();
 
@@ -132,4 +134,5 @@ public:
 	/// <param name="callback">called after the test has been finished</param>
 	bool AddTest(std::shared_ptr<Input> input, std::function<void()> callback);
 
+	void Delete(Data*) {}
 };

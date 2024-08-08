@@ -10,6 +10,8 @@
 #include "TaskController.h"
 #include "Form.h"
 
+class Data;
+
 class Session : public Form
 {
 public:
@@ -51,8 +53,9 @@ public:
 	/// <param name="returnpositives">returns the generated positives as well as the negatives</param>
 	std::vector<std::shared_ptr<Input>> GenerateNegatives(int32_t negatives, bool& error, int32_t maxiterations = 0, int32_t timeout = 0, bool returnpositives = false);
 
+	Data* data = nullptr;
+
 private:
-	void* data = nullptr;
 
 	/// <summary>
 	/// The Task used to execute the PUT and retrieve the oracle result
@@ -157,4 +160,6 @@ private:
 	/// Starts the session
 	/// </summary>
 	void StartSessionIntern(bool &error);
+
+	void Delete(Data*) {}
 };

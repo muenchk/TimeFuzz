@@ -24,6 +24,7 @@ public:
 	static int32_t GetType() {
 		return FormType::DevTree;
 	}
+	void Delete(Data* data);
 
 	#pragma endregion
 };

@@ -4,6 +4,7 @@
 
 #include "TaskController.h"
 #include "Threading.h"
+#include "BufferOperations.h"
 
 TaskController* TaskController::GetSingleton()
 {
@@ -29,6 +30,7 @@ void TaskController::Start(int32_t numthreads)
 {
 	if (numthreads == 0)
 		throw std::runtime_error("Cannot start a TaskController with 0 threads.");
+	_numthreads = numthreads;
 	for (int32_t i = 0; i < numthreads; i++)
 		threads.emplace_back(std::thread(&TaskController::InternalLoop, this));
 }
@@ -69,7 +71,6 @@ TaskController::~TaskController()
 
 bool TaskController::Busy()
 {
-	std::unique_lock<std::mutex> guard(lock);
 	return !tasks.empty();
 }
 
@@ -103,4 +104,59 @@ void TaskController::Task::Run()
 void TaskController::Task::Dispose()
 {
 	delete this;
+}
+
+size_t TaskController::GetStaticSize(int32_t version)
+{
+	static size_t size0x1 = Form::GetDynamicSize()  // form base size
+	                        + 4                     // version
+	                        + 1                     // terminate
+	                        + 1                     // wait
+	                        + 4;                    // numthreads
+	switch (version)
+	{
+	case 0x1:
+		return size0x1;
+	default:
+		return 0;
+	}
+}
+
+size_t TaskController::GetDynamicSize()
+{
+	return GetStaticSize(classversion);
+}
+
+bool TaskController::WriteData(unsigned char* buffer, size_t& offset)
+{
+	Buffer::Write(classversion, buffer, offset);
+	Form::WriteData(buffer, offset);
+	Buffer::Write(terminate, buffer, offset);
+	Buffer::Write(wait, buffer, offset);
+	Buffer::Write(_numthreads, buffer, offset);
+	return true;
+}
+
+bool TaskController::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+{
+	int32_t version = Buffer::ReadInt32(buffer, offset);
+	switch (version) {
+	case 0x1:
+		{
+			Form::ReadData(buffer, offset, length, resolver);
+			terminate = Buffer::ReadBool(buffer, offset);
+			wait = Buffer::ReadBool(buffer, offset);
+			_numthreads = Buffer::ReadInt32(buffer, offset);
+			Start(_numthreads);
+			return true;
+		}
+		break;
+	default:
+		return false;
+	}
+}
+
+void TaskController::Delete(Data*)
+{
+
 }

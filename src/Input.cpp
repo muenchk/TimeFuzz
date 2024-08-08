@@ -49,12 +49,12 @@ bool Input::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(executiontime, buffer, offset);
 	Buffer::Write(exitcode, buffer, offset);
 	Buffer::Write((uint64_t)oracleResult, buffer, offset);
-	if (test) {
-		Buffer::Write(test->GetFormID(), buffer, offset);
+	if (auto ptr = test.lock(); ptr) {
+		Buffer::Write(ptr->GetFormID(), buffer, offset);
 	} else
 		Buffer::Write((FormID)0, buffer, offset);
-	if (derive) {
-		Buffer::Write(derive->GetFormID(), buffer, offset);
+	if (auto ptr = derive.lock(); ptr) {
+		Buffer::Write(ptr->GetFormID(), buffer, offset);
 	} else
 		Buffer::Write((FormID)0, buffer, offset);
 	Buffer::Write(stringrep, buffer, offset);
@@ -78,8 +78,8 @@ bool Input::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadR
 			// static init
 			pythonconverted = false;
 			pythonstring = "";
-			test = nullptr;
-			derive = nullptr;
+			test.reset();
+			derive.reset();
 			// end
 			hasfinished = Buffer::ReadBool(buffer, offset);
 			trimmed = Buffer::ReadBool(buffer, offset);
@@ -88,11 +88,11 @@ bool Input::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadR
 			oracleResult = Buffer::ReadUInt64(buffer, offset);
 			FormID testid = Buffer::ReadUInt64(buffer, offset);
 			resolver->AddTask([this, resolver, testid]() {
-				this->test = resolver->ResolveFormID<Test>(testid).get();
+				this->test = resolver->ResolveFormID<Test>(testid);
 			});
 			FormID deriveid = Buffer::ReadUInt64(buffer, offset);
 			resolver->AddTask([this, resolver, deriveid]() {
-				this->derive = resolver->ResolveFormID<DerivationTree>(deriveid).get();
+				this->derive = resolver->ResolveFormID<DerivationTree>(deriveid);
 			});
 			// get stringrep
 			if (length < offset - initoff + 8 || length < offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
@@ -114,6 +114,12 @@ bool Input::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadR
 	return true;
 }
 
+void Input::Delete(Data* data)
+{
+	data->DeleteForm(derive.lock());
+	data->DeleteForm(test.lock());
+}
+
 #pragma endregion
 
 Input::Input()
@@ -128,15 +134,8 @@ Input::~Input()
 
 void Input::Clear()
 {
-	if (test != nullptr) {
-		delete test;
-		test = nullptr;
-	}
-	if (derive != nullptr)
-	{
-		delete derive;
-		derive = nullptr;
-	}
+	test.reset();
+	derive.reset();
 	stringrep = "";
 	sequence.clear();
 	orig_sequence.clear();

@@ -54,6 +54,7 @@ public:
 	{
 		return FormType::ExclTree;
 	}
+	void Delete(Data* data);
 
 
 	#pragma endregion

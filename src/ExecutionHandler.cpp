@@ -4,18 +4,21 @@
 #include "Settings.h"
 #include "Processes.h"
 #include "Logging.h"
+#include "Session.h"
+#include "Data.h"
 //#include <io.h>
 
 ExecutionHandler::ExecutionHandler()
 {
 }
 
-void ExecutionHandler::Init(Settings* settings, std::shared_ptr<TaskController> threadpool, int32_t maxConcurrentTests, std::shared_ptr<Oracle> oracle, std::function<std::string(std::shared_ptr<Input>)>&& getCommandLineArgs)
+void ExecutionHandler::Init(std::shared_ptr<Session> session, std::shared_ptr<Settings> settings, std::shared_ptr<TaskController> threadpool, int32_t maxConcurrentTests, std::shared_ptr<Oracle> oracle, std::function<std::string(std::shared_ptr<Input>)>&& getCommandLineArgs)
 {
 	loginfo("Init execution handler");
 	_maxConcurrentTests = maxConcurrentTests > 0 ? maxConcurrentTests : 1;
 	_threadpool = threadpool;
 	_settings = settings;
+	_session = session;
 	_oracle = oracle;
 	getCMDArgs = std::move(getCommandLineArgs);
 }
@@ -51,23 +54,22 @@ void ExecutionHandler::SetEnableFragments(bool enable)
 void ExecutionHandler::Clear()
 {
 	cleared = true;
-	_settings = nullptr;
+	_session.reset();
 	_threadpool.reset();
 	_oracle.reset();
 	while (!_waitingTests.empty())
 	{
-		Test* test = _waitingTests.front();
+		std::weak_ptr<Test> test = _waitingTests.front();
 		_waitingTests.pop();
-		if (test->input) // if input is a valid shared_ptr we need to delete test
-		{
-			test->input.reset();
-			delete test;
-		}
+		if (auto ptr = test.lock(); ptr)
+			_session->data->DeleteForm(ptr);
 	}
 	for (auto test : _runningTests)
 	{
-		test->KillProcess();
-		StopTest(test);
+		if (auto ptr = test.lock(); ptr) {
+			ptr->KillProcess();
+			StopTest(ptr);
+		}
 	}
 	_runningTests.clear();
 	_currentTests = 0;
@@ -110,26 +112,34 @@ void ExecutionHandler::StartHandler()
 		_currentTests = 0;
 		// delete all waiting tests
 		while (_waitingTests.empty() == false) {
-			Test* test = _waitingTests.front();
+			auto weak = _waitingTests.front();
 			_waitingTests.pop();
-			test->input->hasfinished = true;
-			test->exitreason = Test::ExitReason::InitError;
-			test->InValidate();
-			test->input->test = test;
-			test->input.reset();
-			// call callback if test has finished
-			_threadpool->AddTask(test->callback);
+			if (auto test = weak.lock(); test) {
+				if (auto ptr = test->input.lock(); ptr) {
+					ptr->hasfinished = true;
+					ptr->test = test;
+				}
+				test->exitreason = Test::ExitReason::InitError;
+				test->InValidate();
+				test->input.reset();
+				// call callback if test has finished
+				_threadpool->AddTask(test->callback);
+			}
 		}
 		// delete all running tests
-		for (Test* test : _runningTests) {
-			test->KillProcess();
-			test->input->hasfinished = true;
-			test->exitreason = Test::ExitReason::InitError;
-			test->InValidate();
-			test->input->test = test;
-			test->input.reset();
-			// call callback if test has finished
-			_threadpool->AddTask(test->callback);
+		for (std::weak_ptr<Test> weak : _runningTests) {
+			if (auto test = weak.lock(); test) {
+				test->KillProcess();
+				if (auto ptr = test->input.lock(); ptr) {
+					ptr->hasfinished = true;
+					ptr->test = test;
+				}
+				test->exitreason = Test::ExitReason::InitError;
+				test->InValidate();
+				test->input.reset();
+				// call callback if test has finished
+				_threadpool->AddTask(test->callback);
+			}
 		}
 		_runningTests.clear();
 		// wake anything that may sleep here
@@ -185,12 +195,16 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::function<void(
 		std::unique_lock<std::mutex> guard(_lockqueue);
 		id = _nextid++;
 	}
-	Test* test = new Test(std::move(callback), id);
-	if (test->exitreason == Test::ExitReason::InitError)
+	std::shared_ptr<Test> test = _session->data->CreateForm<Test>();
+	test->Init(std::move(callback), id);
+	if (test->exitreason & Test::ExitReason::InitError) {
+		_session->data->DeleteForm(test);
 		return false;
+	}
 	test->running = false;
 	test->input = input;
-	test->itr = test->input->begin();
+	test->itr = test->input.lock()->begin();
+	test->itrend = test->input.lock()->end();
 	test->reactiontime = {};
 	test->output = "";
 	{
@@ -202,23 +216,25 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::function<void(
 	return true;
 }
 
-bool ExecutionHandler::StartTest(Test* test)
+bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 {
 	StartProfilingDebug;
-	logdebug("start test {}", uintptr_t(test));
+	logdebug("start test {}", uintptr_t(test.get()));
 	// start test
 	// if successful: add test to list of active tests and update _currentTests
 	// give test its first input on startup
 	// if unsuccessful: report error and complete test-case as failed
 	test->starttime = std::chrono::steady_clock::now();
-	if (!Processes::StartPUTProcess(test, _oracle->path().string(), getCMDArgs(test->input)))
+	if (!Processes::StartPUTProcess(test, _oracle->path().string(), getCMDArgs(test->input.lock())))
 	{
 		test->exitreason = Test::ExitReason::InitError;
-		test->input->hasfinished = true;
-		// invalidate so no more functions can be called on the test
-		test->InValidate();
-		// give input access to test information
-		test->input->test = test;
+		if (auto ptr = test->input.lock(); ptr) {
+			ptr->hasfinished = true;
+			// invalidate so no more functions can be called on the test
+			test->InValidate();
+			// give input access to test information
+			ptr->test = test;
+		}
 		test->input.reset();
 		// call callback if test has finished
 		_threadpool->AddTask(test->callback);
@@ -238,22 +254,24 @@ bool ExecutionHandler::StartTest(Test* test)
 	return true;
 }
 
-void ExecutionHandler::StopTest(Test* test)
+void ExecutionHandler::StopTest(std::shared_ptr<Test> test)
 {
 	// clean up input length (cut the sequence to last executed
 	if (_enableFragments) {
 		test->TrimInput();
 	}
-	// write back test results to input
-	test->input->hasfinished = true;
-	test->input->executiontime = std::chrono::duration_cast<std::chrono::nanoseconds>(test->endtime - test->starttime);
-	test->input->exitcode = test->GetExitCode();
-	// invalidate so no more functions can be called on the test
-	test->InValidate();
-	// give input access to test information
-	test->input->test = test;
+	if (auto ptr = test->input.lock(); ptr) {
+		// write back test results to input
+		ptr->hasfinished = true;
+		ptr->executiontime = std::chrono::duration_cast<std::chrono::nanoseconds>(test->endtime - test->starttime);
+		ptr->exitcode = test->GetExitCode();
+		// give input access to test information
+		ptr->test = test;
+	}
 	// reset pointer to input, otherwise we have a loop
 	test->input.reset();
+	// invalidate so no more functions can be called on the test
+	test->InValidate();
 	// evaluate oracle
 	auto result = _oracle->Evaluate(test);
 	// call callback if test has finished
@@ -278,13 +296,13 @@ void ExecutionHandler::InternalLoop()
 	// used for sleep time calculation
 	std::chrono::nanoseconds sleep = std::chrono::nanoseconds(-1);
 	// tmp test var
-	Test* test = nullptr;
+	std::weak_ptr<Test> test;
 	logdebug("Entering loop");
 	while (_stopHandler == false || _finishtests) {
 		StartProfiling;
 		logdebug("find new tests");
 		while (_currentTests < _maxConcurrentTests && _waitingTests.size() > 0) {
-			test = nullptr;
+			test.reset();
 			{
 				std::unique_lock<std::mutex> guard(_lockqueue);
 				if (_waitingTests.size() > 0) {
@@ -292,8 +310,8 @@ void ExecutionHandler::InternalLoop()
 					_waitingTests.pop();
 				}
 			}
-			if (test != nullptr) {
-				StartTest(test);
+			if (auto ptr = test.lock(); ptr) {
+				StartTest(ptr);
 			}
 		}
 
@@ -329,68 +347,72 @@ void ExecutionHandler::InternalLoop()
 		auto itr = _runningTests.begin();
 		while (itr != _runningTests.end()) {
 			test = *itr;
-			logdebug("Handling test {}", test->identifier);
-			// read output accumulated in the mean-time
-			// if process has ended there still may be something left over to read anyway
-			test->output += test->ReadOutput();
-			logdebug("Read Output {}", test->identifier);
-			// check for running
-			if (test->IsRunning() == false) {
-				// test has finished. Get exit code and check end conditions
-				goto TestFinished;
-			}
-			// check for memory consumption
-			if (_settings->tests.maxUsedMemory != 0) {
-				// memory limitation enabled
+			if (auto ptr = test.lock(); ptr) {
+				logdebug("Handling test {}", ptr->identifier);
+				// read output accumulated in the mean-time
+				// if process has ended there still may be something left over to read anyway
+				ptr->output += ptr->ReadOutput();
+				logdebug("Read Output {}", ptr->identifier);
+				// check for running
+				if (ptr->IsRunning() == false) {
+					// test has finished. Get exit code and check end conditions
+					goto TestFinished;
+				}
+				// check for memory consumption
+				if (_settings->tests.maxUsedMemory != 0) {
+					// memory limitation enabled
 
-				if (test->GetMemoryConsumption() > _settings->tests.maxUsedMemory) {
-					test->KillProcess();
-					// process killed, now set flags for oracle
-					test->exitreason = Test::ExitReason::Memory;
-					goto TestFinished;
+					if (ptr->GetMemoryConsumption() > _settings->tests.maxUsedMemory) {
+						ptr->KillProcess();
+						// process killed, now set flags for oracle
+						ptr->exitreason = Test::ExitReason::Memory;
+						goto TestFinished;
+					}
 				}
-			}
-			// check for fragment completion
-			if (_enableFragments && test->CheckInput()) {
-				// fragment has been completed
-				if (test->WriteNext() == false && _settings->tests.use_fragmenttimeout && std::chrono::duration_cast<std::chrono::microseconds>(time - test->lasttime).count() > _settings->tests.fragmenttimeout)
-				{
-					test->exitreason = Test::ExitReason::Natural | Test::ExitReason::LastInput;
-					goto TestFinished;
+				// check for fragment completion
+				if (_enableFragments && ptr->CheckInput()) {
+					// fragment has been completed
+					if (ptr->WriteNext() == false && _settings->tests.use_fragmenttimeout && std::chrono::duration_cast<std::chrono::microseconds>(time - ptr->lasttime).count() > _settings->tests.fragmenttimeout) {
+						ptr->exitreason = Test::ExitReason::Natural | Test::ExitReason::LastInput;
+						goto TestFinished;
+					}
 				}
-			}
-			logdebug("Checked Input {}", test->identifier);
-			// compute timeouts
-			if (_enableFragments && _settings->tests.use_fragmenttimeout) {
-				difffrag = std::chrono::duration_cast<std::chrono::microseconds>(time - test->lasttime);
-				if (difffrag.count() > _settings->tests.fragmenttimeout) {
-					test->KillProcess();
-					test->exitreason = Test::ExitReason::FragmentTimeout;
-					goto TestFinished;
+				logdebug("Checked Input {}", ptr->identifier);
+				// compute timeouts
+				if (_enableFragments && _settings->tests.use_fragmenttimeout) {
+					difffrag = std::chrono::duration_cast<std::chrono::microseconds>(time - ptr->lasttime);
+					if (difffrag.count() > _settings->tests.fragmenttimeout) {
+						ptr->KillProcess();
+						ptr->exitreason = Test::ExitReason::FragmentTimeout;
+						goto TestFinished;
+					}
 				}
-			}
-			if (_settings->tests.use_testtimeout) {
-				difffrag = std::chrono::duration_cast<std::chrono::microseconds>(time - test->starttime);
-				if (difffrag.count() > _settings->tests.testtimeout) {
-					test->KillProcess();
-					test->exitreason = Test::ExitReason::Timeout;
-					goto TestFinished;
+				if (_settings->tests.use_testtimeout) {
+					difffrag = std::chrono::duration_cast<std::chrono::microseconds>(time - ptr->starttime);
+					if (difffrag.count() > _settings->tests.testtimeout) {
+						ptr->KillProcess();
+						ptr->exitreason = Test::ExitReason::Timeout;
+						goto TestFinished;
+					}
 				}
-			}
-			goto TestRunning;
+				goto TestRunning;
 TestFinished:
-			{
-				logdebug("Test {} has ended", test->identifier);
-				StopTest(test);
-				// delete test from list
+				{
+					logdebug("Test {} has ended", ptr->identifier);
+					StopTest(ptr);
+					// delete test from list
+					itr = _runningTests.erase(itr);
+					continue;
+				}
+TestRunning:;
+			} else {
 				itr = _runningTests.erase(itr);
 				continue;
 			}
-TestRunning:
 			itr++;
 		}
 		// reset vars
-		test = nullptr;
+		test.reset();
 
 		// calculate the difference between the cycle period and what we used doing the cycle
 		sleep = _waittime - std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - steady);
@@ -414,7 +436,8 @@ TestRunning:
 
 	// kill all running tests
 	for (auto tst : _runningTests) {
-		tst->KillProcess();
+		if (auto ptr = tst.lock(); ptr)
+			ptr->KillProcess();
 	}
 	_runningTests.clear();
 	

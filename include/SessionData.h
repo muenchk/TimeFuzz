@@ -19,7 +19,7 @@ class SessionData : public Form
 		/// <summary>
 		/// vector holding all new inputs generated in the last iteration
 		/// </summary>
-		std::vector<std::shared_ptr<Input>> _newinputs;
+		std::vector<std::weak_ptr<Input>> _newinputs;
 	};
 
 	struct Session
@@ -27,7 +27,7 @@ class SessionData : public Form
 		/// <summary>
 		/// vector holding all new inputs generated in the last call to the session
 		/// </summary>
-		std::vector<std::shared_ptr<Input>> _newinputs;
+		std::vector<std::weak_ptr<Input>> _newinputs;
 		/// <summary>
 		/// number of positives in _newinputs
 		/// </summary>
@@ -65,13 +65,15 @@ class SessionData : public Form
 	/// <summary>
 	/// pointer to the session settings
 	/// </summary>
-	std::shared_ptr<Settings> _settings;
+	std::weak_ptr<Settings> _settings;
 
 	SessionData::Iteration _iteration;
 
 	SessionData::Session _session;
 
 	SessionData::Alltime _alltime;
+
+	void Delete(Data*) {}
 
 public:
 	void Clear();

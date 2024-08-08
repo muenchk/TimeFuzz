@@ -6,6 +6,7 @@
 typedef uint64_t FormID;
 
 class LoadResolver;
+class Data;
 
 class Form
 {
@@ -36,6 +37,10 @@ public:
 	/// <param name="buffer"></param>
 	/// <param name="length"></param>
 	virtual bool ReadData(unsigned char* buffer, size_t &offset, size_t length, LoadResolver* resolver);
+	/// <summary>
+	/// Deletes all relevant for fields
+	/// </summary>
+	virtual void Delete(Data* data) = 0;
 	/// <summary>
 	/// Returns the formtype
 	/// </summary>
@@ -83,13 +88,14 @@ struct FormType
 {
 	enum FormTypes
 	{
-		Input = 'INPU',      // Input
-		Grammar = 'GRAM',    // Grammar
-		DevTree = 'DEVT',    // Derivation Tree
-		ExclTree = 'EXCL',   // ExclusionTree
-		Generator = 'GENR',  // Generator
-		Session = 'SESS',    // Session
-		Settings = 'SETT',   // Settings
-		Test = 'TEST',       // Test
+		Input = 'INPU',          // Input
+		Grammar = 'GRAM',        // Grammar
+		DevTree = 'DEVT',        // Derivation Tree
+		ExclTree = 'EXCL',       // ExclusionTree
+		Generator = 'GENR',      // Generator
+		Session = 'SESS',        // Session
+		Settings = 'SETT',       // Settings
+		Test = 'TEST',           // Test
+		TaskController = 'TASK'  // TaskController
 	};
 };

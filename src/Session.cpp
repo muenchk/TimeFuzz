@@ -59,7 +59,7 @@ void Session::Clear()
 		throw std::runtime_error("session clear fail");
 	}
 	LastError = 0;
-	delete static_cast<Data*>(data);
+	delete data;
 	data = nullptr;
 	running = false;
 }
@@ -77,14 +77,14 @@ std::vector<std::shared_ptr<Input>> Session::GenerateNegatives(int32_t /*negativ
 void Session::StartSession(bool& error, bool globalTaskController, bool globalExecutionHandler, std::wstring settingsPath)
 {
 	// init settings
-	_settings = static_cast<Data*>(data)->CreateForm<Settings>();
+	_settings = data->CreateForm<Settings>();
 	_settings->Load(settingsPath);
-	static_cast<Data*>(data)->_globalTasks = globalTaskController;
-	static_cast<Data*>(data)->_globalExec = globalExecutionHandler;
+	data->_globalTasks = globalTaskController;
+	data->_globalExec = globalExecutionHandler;
 	// set taskcontroller
-	_controller = static_cast<Data*>(data)->CreateForm<TaskController>();
+	_controller = data->CreateForm<TaskController>();
 	// set executionhandler
-	_exechandler = static_cast<Data*>(data)->CreateForm<ExecutionHandler>();
+	_exechandler = data->CreateForm<ExecutionHandler>();
 	// start session
 	StartSessionIntern(error);
 }
@@ -99,7 +99,7 @@ void Session::StartSessionIntern(bool &error)
 		error = true;
 		return;
 	}
-	_oracle = static_cast<Data*>(data)->CreateForm<Oracle>();
+	_oracle = data->CreateForm<Oracle>();
 	_oracle->Set(_settings->oracle, _settings->oraclepath);
 	// check the oracle for validity
 	if (_oracle->Validate() == false) {

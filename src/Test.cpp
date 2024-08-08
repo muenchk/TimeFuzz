@@ -19,9 +19,21 @@
 Test::Test(std::function<void()>&& a_callback, uint64_t id) :
 	callback(std::move(a_callback))
 {
+	identifier = id;
+	Init();
+}
+
+void Test::Init(std::function<void()>&& a_callback, uint64_t id)
+{
+	callback = std::move(a_callback);
+	identifier = id;
+	Init();
+}
+
+void Test::Init()
+{
 	StartProfiling;
 	loginfo("Init test");
-	identifier = id;
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
 	if (pipe2(red_output, O_NONBLOCK == -1)) {
@@ -187,7 +199,7 @@ bool Test::WriteNext()
 		logcritical("called WriteNext after invalidation");
 		return false;
 	}
-	if (itr == input->end())
+	if (itr == itrend)
 		return false;
 	WriteInput(*itr);
 	lasttime = std::chrono::steady_clock::now();
@@ -202,8 +214,8 @@ bool Test::WriteAll()
 		logcritical("called WriteAll after invalidation");
 		return false;
 	}
-	auto itra = input->begin();
-	while (itra != input->end()) {
+	auto itra = itr;
+	while (itra != itrend) {
 		WriteInput(*itra);
 		lastwritten += *itra;
 		itra++;
@@ -346,30 +358,33 @@ void Test::TrimInput(int32_t executed)
 	}
 	if (executed != -1)
 	{
-		// we are trimming to a specific length
-		input->trimmed = true;
-		int32_t count = 0;
-		auto aitr = input->begin();
-		// add as long as we don't reach the end of the sequence and haven't added more than [executed] inputs
-		while (aitr != input->end() && count != executed) {
-			input->orig_sequence.push_back(*aitr);
-			aitr++;
-			count++;
+		if (auto ptr = input.lock(); ptr) {
+			// we are trimming to a specific length
+			ptr->trimmed = true;
+			int32_t count = 0;
+			auto aitr = ptr->begin();
+			// add as long as we don't reach the end of the sequence and haven't added more than [executed] inputs
+			while (aitr != ptr->end() && count != executed) {
+				ptr->orig_sequence.push_back(*aitr);
+				aitr++;
+				count++;
+			}
+			std::swap(ptr->sequence, ptr->orig_sequence);
+			logdebug("Test {}: trimmed input to length", identifier);
 		}
-		std::swap(input->sequence, input->orig_sequence);
-		logdebug("Test {}: trimmed input to length", identifier);
-
 	} else {
-		// we are trimming to match our iterator
-		input->trimmed = true;
-		auto aitr = input->begin();
-		while (aitr != itr) {
-			input->orig_sequence.push_back(*aitr);
-			aitr++;
+		if (auto ptr = input.lock(); ptr) {
+			// we are trimming to match our iterator
+			ptr->trimmed = true;
+			auto aitr = ptr->begin();
+			while (aitr != itr) {
+				ptr->orig_sequence.push_back(*aitr);
+				aitr++;
+			}
+			std::swap(ptr->sequence, ptr->orig_sequence);
+			profileDebug(TimeProfilingDebug, "");
+			logdebug("Test {}: trimmed input to iterator", identifier);
 		}
-		std::swap(input->sequence, input->orig_sequence);
-		profileDebug(TimeProfilingDebug, "");
-		logdebug("Test {}: trimmed input to iterator", identifier);
 	}
 }
 
@@ -456,8 +471,8 @@ bool Test::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(starttime, buffer, offset);
 	Buffer::Write(endtime, buffer, offset);
 	// shared ptr
-	if (input)
-		Buffer::Write(input->GetFormID(), buffer, offset);
+	if (auto ptr = input.lock(); ptr)
+		Buffer::Write(ptr->GetFormID(), buffer, offset);
 	else
 		Buffer::Write((int32_t)0, buffer, offset);
 	Buffer::Write(lastwritten, buffer, offset);
@@ -487,8 +502,8 @@ bool Test::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadRe
 			uint32_t formid = Buffer::ReadUInt32(buffer, offset);
 			resolver->AddTask([this, resolver, formid]() {
 				this->input = resolver->ResolveFormID<Input>(formid);
-				if (this->input)
-					this->itr = input->begin();
+				if (auto ptr = this->input.lock(); ptr)
+					this->itr = ptr->begin();
 			});
 			if (length < offset - initoff + 8 || length < offset - initoff + Buffer::CalcStringLength(buffer, offset))
 				return false;
@@ -508,4 +523,9 @@ bool Test::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadRe
 	default:
 		return false;
 	}
+}
+
+void Test::Delete(Data*)
+{
+
 }

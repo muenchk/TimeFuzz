@@ -83,7 +83,7 @@ bool Oracle::Validate()
 	return valid;
 }
 
-Oracle::OracleResult Oracle::Evaluate(Test* test)
+Oracle::OracleResult Oracle::Evaluate(std::shared_ptr<Test> test)
 {
 	test->input;
 	return Oracle::OracleResult::Passing;
@@ -129,10 +129,16 @@ bool Oracle::ReadData(unsigned char* buffer, size_t& offset, size_t length, Load
 			_type = (PUTType)Buffer::ReadInt32(buffer, offset);
 			valid = Buffer::ReadBool(buffer, offset);
 			_path = std::filesystem::path(Buffer::ReadString(buffer, offset));
+			Set(_type, _path);
 			return true;
 		}
 		break;
 	default:
 		return false;
 	}
+}
+
+void Oracle::Delete(Data*)
+{
+
 }

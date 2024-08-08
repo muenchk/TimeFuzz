@@ -34,6 +34,24 @@ public:
 	~TaskController();
 
 	bool Busy();
+
+	void Freeze();
+
+	void Unfreeze();
+
+	#pragma region InheritedForm
+
+	size_t GetDynamicSize() override;
+	size_t GetStaticSize(int32_t version = 0x1) override;
+	bool WriteData(unsigned char* buffer, size_t& offset) override;
+	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+	static int32_t GetType()
+	{
+		return FormType::TaskController;
+	}
+	void Delete(Data* data);
+
+	#pragma endregion
 	
 private:
 	class Task : public TaskDelegate
@@ -60,4 +78,7 @@ private:
 	std::vector<std::thread> threads;
 	std::queue<TaskDelegate*> tasks;
 	std::mutex lock;
+
+	int32_t _numthreads = 0;
+	const int32_t classversion = 0x1;
 };

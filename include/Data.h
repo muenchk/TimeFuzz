@@ -87,7 +87,29 @@ public:
 	std::shared_ptr<ExclusionTree> CreateForm();
 	template <>
 	std::shared_ptr<ExecutionHandler> CreateForm();
-	
+
+	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+	void DeleteForm(std::shared_ptr<T> form)
+	{
+		if (form)
+		{
+			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
+			_hashmap.erase(form->GetFormID());
+			form.reset();
+			return;
+		} else {
+			form.reset();
+			return;
+		}
+	}
+
+	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+	std::shared_ptr<T> LookupFormID(FormID formid)
+	{
+		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
+		std::shared_ptr<T> ptr = dynamic_pointer_cast<T>(_hashmap.at(formid));
+		return ptr;
+	}
 
 	void Save();
 

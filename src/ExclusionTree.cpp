@@ -221,3 +221,8 @@ bool ExclusionTree::ReadData(unsigned char* buffer, size_t& offset, size_t lengt
 		return false;
 	}
 }
+
+void ExclusionTree::Delete(Data*)
+{
+
+}

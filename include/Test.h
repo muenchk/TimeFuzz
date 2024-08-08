@@ -25,6 +25,8 @@ class Oracle;
 
 class Test : public Form
 {
+	void Init();
+
 public:
 	struct ExitReason
 	{
@@ -67,6 +69,7 @@ public:
 
 	Test(std::function<void()>&& a_callback, uint64_t id);
 	Test() {}
+	void Init(std::function<void()>&& a_callback, uint64_t id);
 
 	/// <summary>
 	/// whether test is currently running
@@ -83,11 +86,15 @@ public:
 	/// <summary>
 	/// the input for the PUT
 	/// </summary>
-	std::shared_ptr<Input> input;
+	std::weak_ptr<Input> input;
 	/// <summary>
 	/// the iterator the to the next sequence element to be given to executable
 	/// </summary>
 	std::list<std::string>::iterator itr;
+	/// <summary>
+	/// the end iterator of the sequence
+	/// </summary>
+	std::list<std::string>::iterator itrend;
 	/// <summary>
 	/// last string written to program
 	/// </summary>
@@ -200,6 +207,7 @@ public:
 	{
 		return FormType::Test;
 	}
+	void Delete(Data* data);
 
 
 private:

@@ -280,3 +280,8 @@ bool Settings::ReadData(unsigned char* buffer, size_t& offset, size_t length, Lo
 		return false;
 	}
 }
+
+void Settings::Delete(Data*)
+{
+
+}

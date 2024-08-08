@@ -191,7 +191,7 @@ namespace Processes
 		return argus;
 	}
 
-	bool StartPUTProcess(Test* test, std::string app, std::string args)
+	bool StartPUTProcess(std::shared_ptr<Test> test, std::string app, std::string args)
 	{
 		StartProfilingDebug;
 		pid_t pid = fork();
@@ -323,7 +323,7 @@ namespace Processes
 #	include <cstdlib>
 #	include <tchar.h>
 
-	bool StartPUTProcess(Test* test, std::string app, std::string args)
+	bool StartPUTProcess(std::shared_ptr<Test> test, std::string app, std::string args)
 	{
 		StartProfilingDebug;
 		BOOL success = false;

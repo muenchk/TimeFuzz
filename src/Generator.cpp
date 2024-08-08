@@ -47,3 +47,8 @@ bool Generator::ReadData(unsigned char* buffer, size_t& offset, size_t length, L
 		return false;
 	}
 }
+
+void Generator::Delete(Data*)
+{
+
+}

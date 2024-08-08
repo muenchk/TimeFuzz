@@ -344,6 +344,7 @@ public:
 	{
 		return FormType::Grammar;
 	}
+	void Delete(Data* data);
 
 	#pragma endregion
 

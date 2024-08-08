@@ -69,7 +69,7 @@ public:
 	void Set(PUTType type, std::filesystem::path PUTpath);
 	bool Validate();
 
-	OracleResult Evaluate(Test* test);
+	OracleResult Evaluate(std::shared_ptr<Test> test);
 
 	static std::string TypeString(PUTType type);
 	static PUTType ParseType(std::string str);
@@ -86,4 +86,5 @@ public:
 	{
 		return 'ORAC';
 	}
+	void Delete(Data* data);
 };

@@ -30,6 +30,7 @@ public:
 	{
 		return FormType::Generator;
 	}
+	void Delete(Data* data);
 
 	#pragma endregion
 

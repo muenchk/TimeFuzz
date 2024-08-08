@@ -25,6 +25,7 @@ public:
 	static int32_t GetType() {
 		return FormType::Input;
 	}
+	void Delete(Data* data);
 
 	#pragma endregion
 
@@ -41,7 +42,7 @@ private:
 	bool pythonconverted = false;
 
 public:
-	Test* test = nullptr;
+	std::weak_ptr<Test> test;
 	Input();
 
 	~Input();
@@ -152,7 +153,7 @@ private:
 	/// <summary>
 	/// derivation/parse tree of the input
 	/// </summary>
-	DerivationTree* derive = nullptr;
+	std::weak_ptr<DerivationTree> derive;
 	/// <summary>
 	/// the string representation of the input
 	/// </summary>
