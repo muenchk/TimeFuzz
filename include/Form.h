@@ -88,14 +88,15 @@ struct FormType
 {
 	enum FormTypes
 	{
-		Input = 'INPU',          // Input
-		Grammar = 'GRAM',        // Grammar
-		DevTree = 'DEVT',        // Derivation Tree
-		ExclTree = 'EXCL',       // ExclusionTree
-		Generator = 'GENR',      // Generator
-		Session = 'SESS',        // Session
-		Settings = 'SETT',       // Settings
-		Test = 'TEST',           // Test
-		TaskController = 'TASK'  // TaskController
+		Input = 'INPU',             // Input
+		Grammar = 'GRAM',           // Grammar
+		DevTree = 'DEVT',           // Derivation Tree
+		ExclTree = 'EXCL',          // ExclusionTree
+		Generator = 'GENR',         // Generator
+		Session = 'SESS',           // Session
+		Settings = 'SETT',          // Settings
+		Test = 'TEST',              // Test
+		TaskController = 'TASK',    // TaskController
+		ExecutionHandler = 'EXEC',  // ExecutionHandler
 	};
 };

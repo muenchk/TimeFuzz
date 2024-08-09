@@ -6,6 +6,7 @@
 #include "Logging.h"
 #include "Session.h"
 #include "Data.h"
+#include "BufferOperations.h"
 //#include <io.h>
 
 ExecutionHandler::ExecutionHandler()
@@ -60,7 +61,7 @@ void ExecutionHandler::Clear()
 	while (!_waitingTests.empty())
 	{
 		std::weak_ptr<Test> test = _waitingTests.front();
-		_waitingTests.pop();
+		_waitingTests.pop_front();
 		if (auto ptr = test.lock(); ptr)
 			_session->data->DeleteForm(ptr);
 	}
@@ -118,7 +119,7 @@ void ExecutionHandler::StartHandler()
 		// delete all waiting tests
 		while (_waitingTests.empty() == false) {
 			auto weak = _waitingTests.front();
-			_waitingTests.pop();
+			_waitingTests.pop_front();
 			if (auto test = weak.lock(); test) {
 				if (auto ptr = test->input.lock(); ptr) {
 					ptr->hasfinished = true;
@@ -214,7 +215,7 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, Functions::BaseFunc
 	test->output = "";
 	{
 		std::unique_lock<std::mutex> guard(_lockqueue);
-		_waitingTests.push(test);
+		_waitingTests.push_back(test);
 	}
 	_waitforjob.notify_one();
 	profileDebug(TimeProfilingDebug, "");
@@ -313,8 +314,8 @@ void ExecutionHandler::InternalLoop()
 			if (_frozen)
 			{
 				_frozen = false;
-				for (auto test : _stoppingTests)
-					StopTest(test);
+				for (auto tst : _stoppingTests)
+					StopTest(tst);
 				_stoppingTests.clear();
 			}
 		}
@@ -325,7 +326,7 @@ void ExecutionHandler::InternalLoop()
 				std::unique_lock<std::mutex> guard(_lockqueue);
 				if (_waitingTests.size() > 0) {
 					test = _waitingTests.front();
-					_waitingTests.pop();
+					_waitingTests.pop_front();
 				}
 			}
 			if (auto ptr = test.lock(); ptr) {
@@ -421,8 +422,10 @@ TestFinished:
 					if (!_frozen)
 						StopTest(ptr);
 					// otherwise save test to stop it later
-					else
+					else {
+						std::unique_lock<std::mutex> guard(_freezelock);
 						_stoppingTests.push_back(ptr);
+					}
 					// delete test from list
 					itr = _runningTests.erase(itr);
 					continue;
@@ -494,4 +497,93 @@ void ExecutionHandler::Thaw()
 	loginfo("Thawing execution...");
 	_freeze = false;
 	loginfo("Resumed execution.");
+}
+
+size_t ExecutionHandler::GetStaticSize(int32_t version)
+{
+	static size_t size0x1 = Form::GetDynamicSize()  // form base size
+	                        + 4                     // version
+	                        + 1                     // enableFragments
+	                        + 8                     // waittimeL
+	                        + 1                     // cleared
+	                        + 8                     // nextid
+	                        + 1                     // active
+	                        + 4;                    // maxConcurrentTests
+	switch (version) {
+	case 0x1:
+		return size0x1;
+	default:
+		return 0;
+	}
+}
+
+size_t ExecutionHandler::GetDynamicSize()
+{
+	return GetStaticSize(classversion) + _stoppingTests.size() * 8 + _runningTests.size() * 8 + _waitingTests.size() * 8;
+}
+
+bool ExecutionHandler::WriteData(unsigned char* buffer, size_t& offset)
+{
+	Buffer::Write(classversion, buffer, offset);
+	Form::WriteData(buffer, offset);
+	Buffer::Write(_enableFragments, buffer, offset);
+	Buffer::Write(_waittimeL, buffer, offset);
+	Buffer::Write(_cleared, buffer, offset);
+	Buffer::Write(_nextid, buffer, offset);
+	Buffer::Write(_active, buffer, offset);
+	Buffer::Write(_maxConcurrentTests, buffer, offset);
+	// _waitingtests
+	// save all tests running and waiting as waiting tests, since we cannot solve external programs
+	Buffer::WriteSize(_waitingTests.size() + _runningTests.size() + _waitingTests.size(), buffer, offset);
+	for (auto test : _runningTests) {
+		if (auto ptr = test.lock(); ptr)
+			Buffer::Write(ptr->GetFormID(), buffer, offset);
+		else
+			Buffer::Write((uint64_t)0, buffer, offset);
+	}
+	for (auto ptr : _stoppingTests) {
+		Buffer::Write(ptr->GetFormID(), buffer, offset);
+	}
+	for (auto test : _waitingTests) {
+		if (auto ptr = test.lock(); ptr)
+			Buffer::Write(ptr->GetFormID(), buffer, offset);
+		else
+			Buffer::Write((uint64_t)0, buffer, offset);
+	}
+	return true;
+}
+
+bool ExecutionHandler::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+{
+	int32_t version = Buffer::ReadInt32(buffer, offset);
+	switch (version)
+	{
+	case 0x1:
+		{
+			Form::ReadData(buffer, offset, length, resolver);
+			_enableFragments = Buffer::ReadBool(buffer, offset);
+			_waittimeL = Buffer::ReadInt64(buffer, offset);
+			_waittime = std::chrono::nanoseconds(_waittimeL);
+			_cleared = Buffer::ReadBool(buffer, offset);
+			_nextid = Buffer::ReadUInt64(buffer, offset);
+			_active = Buffer::ReadBool(buffer, offset);
+			_maxConcurrentTests = Buffer::ReadInt32(buffer, offset);
+			size_t len = Buffer::ReadSize(buffer, offset);
+			std::vector<FormID> ids;
+			for (int32_t i = 0; i < (int32_t)len; i++)
+				ids.push_back(Buffer::ReadUInt64(buffer, offset));
+			resolver->AddTask([this, ids, resolver]() {
+				for (int32_t i = 0; i < (int32_t)ids.size(); i++) {
+					if (ids[i] != 0)
+						_waitingTests.push_back(resolver->ResolveFormID<Test>(ids[i]));
+					else
+						logcritical("ExecutionHandler::Load cannot resolve test");
+				}
+			});
+		return true;
+		}
+		break;
+	default:
+		return false;
+	}
 }

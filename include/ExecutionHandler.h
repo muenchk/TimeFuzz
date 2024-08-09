@@ -11,7 +11,7 @@
 #include <memory>
 #include <mutex>
 #include <thread>
-#include <queue>
+#include <deque>
 #include <condition_variable>
 #include <list>
 
@@ -73,7 +73,7 @@ private:
 	/// <summary>
 	/// queue for tests waiting to be executed
 	/// </summary>
-	std::queue<std::weak_ptr<Test>> _waitingTests;
+	std::deque<std::weak_ptr<Test>> _waitingTests;
 	/// <summary>
 	/// list holding currently active tests
 	/// </summary>
@@ -110,6 +110,10 @@ private:
 	/// response to freezing
 	/// </summary>
 	bool _frozen = false;
+	/// <summary>
+	/// locks access to _stoppingtests to provide a consistent evironment during freeze
+	/// </summary>
+	std::mutex _freezelock;
 
 	/// <summary>
 	/// time handler waits between cycles in nanoseconds
@@ -144,6 +148,11 @@ private:
 	bool StartTest(std::shared_ptr<Test> test);
 
 	void StopTest(std::shared_ptr<Test> test);
+
+	/// <summary>
+	/// class version
+	/// </summary>
+	const int32_t classversion = 0x1;
 
 public:
 	ExecutionHandler();
@@ -210,4 +219,13 @@ public:
 	/// Resumes test execution
 	/// </summary>
 	void Thaw();
+
+	size_t GetStaticSize(int32_t version = 0x1) override;
+	size_t GetDynamicSize() override;
+	bool WriteData(unsigned char* buffer, size_t& offset) override;
+	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+	static int32_t GetType()
+	{
+		return FormType::ExecutionHandler;
+	}
 };

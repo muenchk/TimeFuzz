@@ -47,6 +47,11 @@ namespace Functions
 		{
 			delete this;
 		}
+
+		size_t GetLength()
+		{
+			return 0;
+		}
 	};
 }
 

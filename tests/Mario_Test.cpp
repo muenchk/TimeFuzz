@@ -48,6 +48,11 @@ namespace Functions
 			BaseFunction::Dispose();
 			delete this;
 		}
+
+		size_t GetLength()
+		{
+			return 0;
+		}
 	};
 }
 

@@ -40,6 +40,11 @@ namespace Functions
 			arr = nullptr;
 			delete this;
 		}
+
+		size_t GetLength()
+		{
+			return 0;
+		}
 	};
 }
 
