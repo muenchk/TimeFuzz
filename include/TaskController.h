@@ -65,7 +65,11 @@ public:
 	size_t GetStaticSize(int32_t version = 0x1) override;
 	bool WriteData(unsigned char* buffer, size_t& offset) override;
 	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
-	static int32_t GetType()
+	int32_t GetType() override
+	{
+		return FormType::TaskController;
+	}
+	static int32_t GetTypeStatic()
 	{
 		return FormType::TaskController;
 	}

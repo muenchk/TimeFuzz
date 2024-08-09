@@ -12,7 +12,7 @@ class Grammar;
 class Generator;
 class Settings;
 
-class SessionData : public Form
+class SessionData
 {
 	struct Iteration
 	{

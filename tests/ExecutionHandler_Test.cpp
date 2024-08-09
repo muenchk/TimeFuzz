@@ -47,7 +47,6 @@ namespace Functions
 
 		void Dispose()
 		{
-			BaseFunction::Dispose();
 			delete this;
 		}
 
@@ -73,7 +72,7 @@ int32_t main(/*int32_t argc, char** argv*/)
 	logdebug("Init");
 	logdebug("Started TaskController with 1 thread");
 	std::shared_ptr<Settings> sett = std::make_shared<Settings>();
-	std::shared_ptr<Session> sess = std::make_shared<Session>();
+	std::shared_ptr<Session> sess = Session::CreateSeassion();
 	logdebug("Initialized Settings");
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>();

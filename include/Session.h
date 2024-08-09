@@ -23,6 +23,11 @@ public:
 
 	Session();
 
+	static std::shared_ptr<Session> CreateSeassion();
+
+	static std::shared_ptr<Session> LoadSession(std::string name);
+	static std::shared_ptr<Session> LoadSession(std::string name, int32_t number);
+
 	~Session();
 
 	/// <summary>
@@ -54,6 +59,15 @@ public:
 	std::vector<std::shared_ptr<Input>> GenerateNegatives(int32_t negatives, bool& error, int32_t maxiterations = 0, int32_t timeout = 0, bool returnpositives = false);
 
 	Data* data = nullptr;
+
+	int32_t GetType() override
+	{
+		return FormType::Session;
+	}
+	static int32_t GetTypeStatic()
+	{
+		return FormType::Session;
+	}
 
 private:
 
@@ -105,15 +119,6 @@ private:
 	/// Makes sure no other tasks are currently running on data
 	/// </summary>
 	void Snap();
-
-	/// <summary>
-	/// Saves the current program state to disc
-	/// </summary>
-	void Save();
-	/// <summary>
-	/// Loads the program state from disc
-	/// </summary>
-	void Load();
 
 	/// <summary>
 	/// the controller for the session

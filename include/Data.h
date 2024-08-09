@@ -23,20 +23,32 @@ class Data
 	{
 		enum StaticFormID
 		{
-			Session = 0,
-			TaskController = 1,
-			Settings = 2,
-			Oracle = 3,
-			Generator = 4,
-			ExclusionTree = 5,
-			ExecutionHandler = 6,
+			Session = 1,
+			TaskController = 2,
+			Settings = 3,
+			Oracle = 4,
+			Generator = 5,
+			ExclusionTree = 6,
+			ExecutionHandler = 7,
 		};
 	};
 
 private:
+	const int32_t saveversion = 0x1;
+	/// <summary>
+	/// unique name of the save [i.e. "Testing"]
+	/// </summary>
 	std::string uniquename;
+	/// <summary>
+	/// save name of the save itself, contains unique name and saveidentifiers
+	/// </summary>
 	std::string savename;
-	int32_t savenumber;
+	std::string extension = ".tfsave";
+	std::filesystem::path savepath = std::filesystem::path(".") / "saves";
+	/// <summary>
+	/// number of the next save
+	/// </summary>
+	int32_t savenumber = 1;
 	LoadResolver* _lresolve;
 
 	const FormID _baseformid = 100;
@@ -47,10 +59,19 @@ private:
 
 	friend LoadResolver;
 
+	std::string GetSaveName();
+
+	/// <summary>
+	/// Loads a savefile, where [name] is the fully qualified filename
+	/// </summary>
+	/// <param name="name"></param>
+	void LoadIntern(std::filesystem::path path);
+
 public:
 
 	bool _globalTasks = false;
 	bool _globalExec = false;
+	bool _loaded = false;
 
 	Data();
 
@@ -63,7 +84,7 @@ public:
 		std::shared_ptr<T> ptr = std::make_shared<T>();
 		FormID formid = 0;
 		{
-			std::lock_guard<std::mutex> guard(_lockformid);
+			std::unique_lock<std::mutex> guard(_lockformid);
 			formid = _nextformid++;
 		}
 		ptr->SetFormID(formid);
@@ -107,13 +128,29 @@ public:
 	std::shared_ptr<T> LookupFormID(FormID formid)
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
-		std::shared_ptr<T> ptr = dynamic_pointer_cast<T>(_hashmap.at(formid));
-		return ptr;
+		auto itr = _hashmap.find(formid);
+		if (itr != _hashmap.end())
+			return dynamic_pointer_cast<T>(itr->second);
+		return {};
 	}
 
+	/// <summary>
+	/// saves the current state of the program to a savefile
+	/// </summary>
 	void Save();
 
-	void Load();
+	/// <summary>
+	/// Loads the last savefile with the uniquename [name]
+	/// </summary>
+	/// <param name="name"></param>
+	void Load(std::string name);
+	
+	/// <summary>
+	/// Loads the [number]-th savefile with the uniquename [name]
+	/// </summary>
+	/// <param name="name"></param>
+	/// <param name="number"></param>
+	void Load(std::string name, int32_t number);
 
 };
 

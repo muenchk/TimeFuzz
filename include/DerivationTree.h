@@ -21,7 +21,11 @@ public:
 	size_t GetDynamicSize() override;
 	bool WriteData(unsigned char* buffer, size_t& offset) override;
 	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
-	static int32_t GetType() {
+	int32_t GetType() override {
+		return FormType::DevTree;
+	}
+	static int32_t GetTypeStatic()
+	{
 		return FormType::DevTree;
 	}
 	void Delete(Data* data);

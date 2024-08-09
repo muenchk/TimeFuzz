@@ -37,7 +37,11 @@ public:
 	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 	void Delete(Data* data);
 	
-	static int32_t GetType()
+	int32_t GetType() override
+	{
+		return FormType::Settings;
+	}
+	static int32_t GetTypeStatic()
 	{
 		return FormType::Settings;
 	}

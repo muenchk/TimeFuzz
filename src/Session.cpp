@@ -17,7 +17,34 @@ Session* Session::GetSingleton()
 
 Session::Session()
 {
-	data = new Data();
+}
+
+std::shared_ptr<Session> Session::CreateSeassion()
+{
+	Data* dat = new Data();
+	return dat->CreateForm<Session>();
+}
+
+std::shared_ptr<Session> Session::LoadSession(std::string name)
+{
+	Data* dat = new Data();
+	dat->Load(name);
+	if (!dat->_loaded) {
+		delete dat;
+		return {};
+	}
+	return dat->CreateForm<Session>();
+}
+
+std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number)
+{
+	Data* dat = new Data();
+	dat->Load(name, number);
+	if (!dat->_loaded) {
+		delete dat;
+		return {};
+	}
+	return dat->CreateForm<Session>();
 }
 
 Session::~Session()
@@ -196,14 +223,4 @@ bool Session::SetRunning(bool state)
 		logwarn("Trying to set session state has failes. Current state: {}", running);
 		return false;
 	}
-}
-
-void Session::Save()
-{
-
-}
-
-void Session::Load()
-{
-
 }

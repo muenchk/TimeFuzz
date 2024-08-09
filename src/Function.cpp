@@ -21,26 +21,6 @@ namespace Functions
 		else
 			return nullptr;
 	}
-
-	void BaseFunction::RegisterPointer(void** ptr)
-	{
-		ptrs.push_back(ptr);
-	}
-
-	void BaseFunction::DeletePointers()
-	{
-		for (void** ptr : ptrs)
-		{
-			*ptr = nullptr;
-		}
-		ptrs.clear();
-	}
-
-	void BaseFunction::Dispose()
-	{
-		DeletePointers();
-	}
-
 	BaseFunction* BaseFunction::Create(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 	{
 		uint64_t type = Buffer::ReadUInt64(buffer, offset);

@@ -17,6 +17,7 @@
 
 #include "Test.h"
 #include "Form.h"
+#include "Record.h"
 
 class Settings;
 class TaskController;
@@ -224,8 +225,14 @@ public:
 	size_t GetDynamicSize() override;
 	bool WriteData(unsigned char* buffer, size_t& offset) override;
 	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
-	static int32_t GetType()
+	static int32_t GetTypeStatic()
 	{
 		return FormType::ExecutionHandler;
 	}
+	int32_t GetType() override
+	{
+		return FormType::ExecutionHandler;
+	}
+
+	friend unsigned char* Records::CreateRecord(ExecutionHandler* value, size_t& length);
 };

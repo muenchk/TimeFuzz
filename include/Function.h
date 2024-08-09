@@ -21,7 +21,7 @@ namespace Functions
 		/// <summary>
 		/// Deletes the object and resets all internal variables and pointers
 		/// </summary>
-		virtual void Dispose();
+		virtual void Dispose() = 0;
 		/// <summary>
 		/// Reads the object information from the given buffer
 		/// </summary>
@@ -42,15 +42,6 @@ namespace Functions
 		/// </summary>
 		/// <returns></returns>
 		virtual size_t GetLength();
-		/// <summary>
-		/// Registers a pointer to this object
-		/// </summary>
-		/// <param name="ptr"></param>
-		void RegisterPointer(void** ptr);
-		/// <summary>
-		/// Changes all registered pointers to this object to the [nullptr]
-		/// </summary>
-		void DeletePointers();
 
 		static uint64_t GetTypeStatic() { return 0; };
 		virtual uint64_t GetType() = 0;

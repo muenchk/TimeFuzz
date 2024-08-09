@@ -204,7 +204,11 @@ public:
 	size_t GetDynamicSize();
 	virtual bool WriteData(unsigned char* buffer, size_t& offset);
 	virtual bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
-	static int32_t GetType()
+	int32_t GetType() override
+	{
+		return FormType::Test;
+	}
+	static int32_t GetTypeStatic()
 	{
 		return FormType::Test;
 	}

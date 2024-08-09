@@ -12,6 +12,7 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/Logging.cpp" 
 	"${SOURCE_DIR}/Oracle.cpp"
 	"${SOURCE_DIR}/Processes.cpp"
+	"${SOURCE_DIR}/Record.cpp"
 	"${SOURCE_DIR}/Session.cpp"
 	"${SOURCE_DIR}/SessionData.cpp"
 	"${SOURCE_DIR}/Settings.cpp"

@@ -45,7 +45,8 @@ public:
 	/// Returns the formtype
 	/// </summary>
 	/// <returns></returns>
-	static int32_t GetType();
+	static int32_t GetTypeStatic();
+	virtual int32_t GetType() = 0;
 	/// <summary>
 	/// Returns the formid of the instance
 	/// </summary>
