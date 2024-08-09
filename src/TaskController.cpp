@@ -5,6 +5,7 @@
 #include "TaskController.h"
 #include "Threading.h"
 #include "BufferOperations.h"
+#include "Logging.h"
 
 TaskController* TaskController::GetSingleton()
 {
@@ -26,8 +27,10 @@ void TaskController::Start(int32_t numthreads)
 	if (numthreads == 0)
 		throw std::runtime_error("Cannot start a TaskController with 0 threads.");
 	_numthreads = numthreads;
-	for (int32_t i = 0; i < numthreads; i++)
-		threads.emplace_back(std::thread(&TaskController::InternalLoop, this));
+	for (int32_t i = 0; i < numthreads; i++) {
+		status.push_back(ThreadStatus::Initializing);
+		threads.emplace_back(std::thread(&TaskController::InternalLoop, this, i));
+	}
 }
 
 void TaskController::Stop(bool completeall)
@@ -66,19 +69,25 @@ TaskController::~TaskController()
 
 bool TaskController::Busy()
 {
-	return !tasks.empty();
+	bool running = true;
+	for (int32_t i = 0; i < (int32_t)status.size(); i++)
+		running &= status[i] == ThreadStatus::Running;
+	return !tasks.empty() || running;
 }
 
-void TaskController::InternalLoop()
+void TaskController::InternalLoop(int32_t number)
 {
 	while (true)
 	{
 		Functions::BaseFunction* del;
 		{
 			std::unique_lock<std::mutex> guard(lock);
-			condition.wait(guard, [this] { return !tasks.empty() || terminate && wait == false || terminate && tasks.empty(); });
+			status[number] = ThreadStatus::Waiting;
+			// while freeze is [true], this will never return, if freeze is [false] it only returns when [tasks is non-empty], when [terinated and not waiting], or when [terminating and tasks is empty]
+			condition.wait(guard, [this] { return freeze == false && (!tasks.empty() || terminate && wait == false || terminate && tasks.empty()); });
 			if (terminate && wait == false || terminate && tasks.empty())
 				return;
+			status[number] = ThreadStatus::Running;
 			del = tasks.front();
 			tasks.pop();
 		}
@@ -140,4 +149,28 @@ bool TaskController::ReadData(unsigned char* buffer, size_t& offset, size_t leng
 void TaskController::Delete(Data*)
 {
 
+}
+
+void TaskController::Freeze()
+{
+	loginfo("Freezing execution...");
+	// set freezing to true
+	freeze = true;
+	// wait for all threads to freeze
+	bool frozen = false;
+	while (frozen == false)
+	{
+		frozen = true;
+		for (int32_t i = 0; i < (int32_t)status.size(); i++)
+			frozen &= status[i] == ThreadStatus::Waiting;
+	}
+	loginfo("Frozen execution.");
+}
+
+void TaskController::Thaw()
+{
+	loginfo("Thawing execution...");
+	freeze = false;
+	condition.notify_all();
+	loginfo("Resumed execution.");
 }

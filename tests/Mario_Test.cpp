@@ -45,6 +45,7 @@ namespace Functions
 
 		void Dispose()
 		{
+			BaseFunction::Dispose();
 			delete this;
 		}
 	};

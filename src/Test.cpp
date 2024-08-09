@@ -26,6 +26,7 @@ Test::Test(Functions::BaseFunction* a_callback, uint64_t id) :
 void Test::Init(Functions::BaseFunction* a_callback, uint64_t id)
 {
 	callback = a_callback;
+	a_callback->RegisterPointer(&callback);
 	identifier = id;
 	Init();
 }

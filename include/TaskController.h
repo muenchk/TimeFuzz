@@ -16,20 +16,48 @@ class TaskController : public Form
 {
 public:
 
+	enum class ThreadStatus
+	{
+		Initializing,
+		Running,
+		Waiting
+	};
+
 	static TaskController* GetSingleton();
 
+	/// <summary>
+	/// Adds a new task to the execution queue
+	/// </summary>
+	/// <param name="a_task"></param>
 	void AddTask(Functions::BaseFunction* a_task);
 
+	/// <summary>
+	/// Starts the TaskController
+	/// </summary>
+	/// <param name="numthreads"></param>
 	void Start(int32_t numthreads = 0);
+	/// <summary>
+	/// Stops the TaskController, optionally waiting for the completion of all tasks
+	/// </summary>
+	/// <param name="completeall"></param>
 	void Stop(bool completeall = true);
 
 	~TaskController();
 
+	/// <summary>
+	/// Checks whether there are tasks being executed or currently waiting
+	/// </summary>
+	/// <returns></returns>
 	bool Busy();
 
+	/// <summary>
+	/// Freezes task execution
+	/// </summary>
 	void Freeze();
-
-	void Unfreeze();
+	/// <summary>
+	/// Resumes task execution
+	/// </summary>
+	void Thaw();
 
 	#pragma region InheritedForm
 
@@ -51,14 +79,19 @@ private:
 	friend class LoadResolverGrammar;
 
 
-	void InternalLoop();
+	void InternalLoop(int32_t number);
 
 	bool terminate = false;
 	bool wait = false;
+	/// <summary>
+	/// freezes thread execution without terminating threads or discarding tasks
+	/// </summary>
+	bool freeze = false;
 	std::condition_variable condition;
 	std::vector<std::thread> threads;
 	std::queue<Functions::BaseFunction*> tasks;
 	std::mutex lock;
+	std::vector<ThreadStatus> status;
 
 	int32_t _numthreads = 0;
 	const int32_t classversion = 0x1;

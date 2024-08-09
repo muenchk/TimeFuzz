@@ -36,6 +36,7 @@ namespace Functions
 
 		void Dispose()
 		{
+			BaseFunction::Dispose();
 			arr = nullptr;
 			delete this;
 		}

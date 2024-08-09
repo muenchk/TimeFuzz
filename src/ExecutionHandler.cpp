@@ -53,7 +53,7 @@ void ExecutionHandler::SetEnableFragments(bool enable)
 
 void ExecutionHandler::Clear()
 {
-	cleared = true;
+	_cleared = true;
 	_session.reset();
 	_threadpool.reset();
 	_oracle.reset();
@@ -72,6 +72,11 @@ void ExecutionHandler::Clear()
 		}
 	}
 	_runningTests.clear();
+	for (auto test : _stoppingTests)
+	{
+		StopTest(test);
+	}
+	_stoppingTests.clear();
 	_currentTests = 0;
 	_active = false;
 	_nextid = 1;
@@ -90,7 +95,7 @@ void ExecutionHandler::SetMaxConcurrentTests(int32_t maxConcurrenttests)
 
 void ExecutionHandler::StartHandler()
 {
-	if (cleared) {
+	if (_cleared) {
 		logcritical("Cannot Start Handler on a cleared class.");
 		return;
 	}
@@ -301,7 +306,20 @@ void ExecutionHandler::InternalLoop()
 	while (_stopHandler == false || _finishtests) {
 		StartProfiling;
 		logdebug("find new tests");
-		while (_currentTests < _maxConcurrentTests && _waitingTests.size() > 0) {
+		if (_freeze)
+			_frozen = true;
+		else {
+			// when not in freeze anymore, but still frozen, we have to catch up on tests that should have been stopped
+			if (_frozen)
+			{
+				_frozen = false;
+				for (auto test : _stoppingTests)
+					StopTest(test);
+				_stoppingTests.clear();
+			}
+		}
+		// while we are not at the max concurrent tests, there are tests waiting to be executed and we are not FROZEN
+		while (_currentTests < _maxConcurrentTests && _waitingTests.size() > 0 && !_frozen) {
 			test.reset();
 			{
 				std::unique_lock<std::mutex> guard(_lockqueue);
@@ -399,7 +417,12 @@ void ExecutionHandler::InternalLoop()
 TestFinished:
 				{
 					logdebug("Test {} has ended", ptr->identifier);
-					StopTest(ptr);
+					// if not frozen, stop test
+					if (!_frozen)
+						StopTest(ptr);
+					// otherwise save test to stop it later
+					else
+						_stoppingTests.push_back(ptr);
 					// delete test from list
 					itr = _runningTests.erase(itr);
 					continue;
@@ -455,4 +478,20 @@ ExitHandler:
 			loginfo("Finished Execution Handler");
 		}
 	}
+}
+
+void ExecutionHandler::Freeze()
+{
+	loginfo("Freezing execution...");
+	_freeze = true;
+	while (_frozen == false)
+		;
+	loginfo("Frozen execution.");
+}
+
+void ExecutionHandler::Thaw()
+{
+	loginfo("Thawing execution...");
+	_freeze = false;
+	loginfo("Resumed execution.");
 }

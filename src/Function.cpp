@@ -20,4 +20,22 @@ namespace Functions
 		else
 			return nullptr;
 	}
+
+	void BaseFunction::RegisterPointer(void** ptr)
+	{
+		ptrs.push_back(ptr);
+	}
+
+	void BaseFunction::DeletePointers()
+	{
+		for (void** ptr : ptrs)
+		{
+			*ptr = nullptr;
+		}
+	}
+
+	void BaseFunction::Dispose()
+	{
+		DeletePointers();
+	}
 }

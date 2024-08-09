@@ -38,35 +38,101 @@ class ExecutionHandler: public Form
 {
 
 private:
+	/// <summary>
+	/// the current session
+	/// </summary>
 	std::shared_ptr<Session> _session;
+	/// <summary>
+	/// settings of the current session
+	/// </summary>
 	std::shared_ptr<Settings> _settings;
+	/// <summary>
+	/// taskcontroller used to execute callbacks
+	/// </summary>
 	std::shared_ptr<TaskController> _threadpool;
+	/// <summary>
+	/// test oracle
+	/// </summary>
 	std::shared_ptr<Oracle> _oracle;
+	/// <summary>
+	/// maximum amount of concurrently active tests
+	/// </summary>
 	int32_t _maxConcurrentTests = 1;
+	/// <summary>
+	/// currently active tests
+	/// </summary>
 	int32_t _currentTests = 0;
+	/// <summary>
+	/// lock for the internal loop and test queue synchronisation
+	/// </summary>
 	std::mutex _lockqueue;
+	/// <summary>
+	/// condition variable for waiting in the InternalQueue
+	/// </summary>
 	std::condition_variable _waitforjob;
+	/// <summary>
+	/// queue for tests waiting to be executed
+	/// </summary>
 	std::queue<std::weak_ptr<Test>> _waitingTests;
+	/// <summary>
+	/// list holding currently active tests
+	/// </summary>
 	std::list<std::weak_ptr<Test>> _runningTests;
+	/// <summary>
+	/// list holding stopped tests while handler is frozen
+	/// </summary>
+	std::list<std::shared_ptr<Test>> _stoppingTests;
+	/// <summary>
+	/// synchronises access to all top-level functions, including start, stop, wait
+	/// </summary>
 	std::mutex _toplevelsync;
+	/// <summary>
+	/// condition used to wait on handler exiting
+	/// </summary>
 	std::condition_variable _waitforhandler;
+	/// <summary>
+	/// whether the execution handler is currently running
+	/// </summary>
 	bool _active = false;
 	/// <summary>
 	/// next test identifier
 	/// </summary>
 	uint64_t _nextid = 1;
-	bool cleared = false;
+	/// <summary>
+	/// whether the instace has been cleared for deletion
+	/// </summary>
+	bool _cleared = false;
+	/// <summary>
+	/// freezes test execution
+	/// </summary>
+	bool _freeze = false;
+	/// <summary>
+	/// response to freezing
+	/// </summary>
+	bool _frozen = false;
 
 	/// <summary>
 	/// time handler waits between cycles in nanoseconds
 	/// </summary>
 	std::chrono::nanoseconds _waittime = std::chrono::nanoseconds(100000000);
+	/// <summary>
+	/// int-value for waittime
+	/// </summary>
 	int64_t _waittimeL = 100000000;
 
+	/// <summary>
+	/// whether to enable fragment execution
+	/// </summary>
 	bool _enableFragments = false;
 
+	/// <summary>
+	/// whether to stop the execution handler
+	/// </summary>
 	bool _stopHandler = false;
 
+	/// <summary>
+	/// whether to finish tests before stopping the handler
+	/// </summary>
 	bool _finishtests = false;
 
 	std::thread _thread;
@@ -135,4 +201,13 @@ public:
 	bool AddTest(std::shared_ptr<Input> input, Functions::BaseFunction* callback);
 
 	void Delete(Data*) {}
+
+	/// <summary>
+	/// Freezes test execution
+	/// </summary>
+	void Freeze();
+	/// <summary>
+	/// Resumes test execution
+	/// </summary>
+	void Thaw();
 };
