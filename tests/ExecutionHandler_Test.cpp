@@ -28,13 +28,15 @@ namespace Functions
 
 		}
 
-		static uint64_t GetType() { return 'CALL'; }
-		bool ReadData(unsigned char*, size_t&, size_t)
+		static uint64_t GetTypeStatic() { return 'CALL'; }
+		uint64_t GetType() override { return 'CALL'; }
+		bool ReadData(unsigned char*, size_t&, size_t, LoadResolver*)
 		{
 			return true;
 		}
-		bool WriteData(unsigned char*, size_t&)
+		bool WriteData(unsigned char* buffer, size_t& offset)
 		{
+			BaseFunction::WriteData(buffer, offset);
 			return true;
 		}
 
@@ -45,12 +47,13 @@ namespace Functions
 
 		void Dispose()
 		{
+			BaseFunction::Dispose();
 			delete this;
 		}
 
 		size_t GetLength()
 		{
-			return 0;
+			return BaseFunction::GetLength();
 		}
 	};
 }
@@ -66,6 +69,7 @@ int32_t main(/*int32_t argc, char** argv*/)
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	Crash::Install(".");
 #endif
+	Functions::RegisterFactory(Functions::Callback::GetTypeStatic(), Functions::Callback::Create);
 	logdebug("Init");
 	logdebug("Started TaskController with 1 thread");
 	std::shared_ptr<Settings> sett = std::make_shared<Settings>();

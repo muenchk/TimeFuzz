@@ -1,7 +1,7 @@
 #pragma once
 
 #include <functional>
-#include <queue>
+#include <deque>
 #include <thread>
 #include <vector>
 #include <condition_variable>
@@ -89,7 +89,7 @@ private:
 	bool freeze = false;
 	std::condition_variable condition;
 	std::vector<std::thread> threads;
-	std::queue<Functions::BaseFunction*> tasks;
+	std::deque<Functions::BaseFunction*> tasks;
 	std::mutex lock;
 	std::vector<ThreadStatus> status;
 

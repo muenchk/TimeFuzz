@@ -28,13 +28,15 @@ namespace Functions
 					logdebug("TEST: {}, EXITREASON: {}, EXITCODE: {}, EXECTIME: {}ms, OUTPUT: {}", ptr->identifier, ptr->exitreason, input->GetExitCode(), std::chrono::duration_cast<std::chrono::milliseconds>(input->GetExecutionTime()).count(), ptr->output);
 		}
 
-		static uint64_t GetType() { return 'CALL'; }
-		bool ReadData(unsigned char*, size_t&, size_t)
+		static uint64_t GetTypeStatic() { return 'CALL'; }
+		uint64_t GetType() override { return 'CALL'; }
+		bool ReadData(unsigned char*, size_t&, size_t, LoadResolver*)
 		{
 			return true;
 		}
-		bool WriteData(unsigned char*, size_t&)
+		bool WriteData(unsigned char* buffer, size_t& offset)
 		{
+			BaseFunction::WriteData(buffer, offset);
 			return true;
 		}
 
@@ -51,7 +53,7 @@ namespace Functions
 
 		size_t GetLength()
 		{
-			return 0;
+			return BaseFunction::GetLength();
 		}
 	};
 }
@@ -69,6 +71,7 @@ int main(/*int argc, char** argv*/)
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	Crash::Install(".");
 #endif
+	Functions::RegisterFactory(Functions::Callback::GetTypeStatic(), Functions::Callback::Create);
 	logdebug("Init");
 	std::shared_ptr<Settings> sett = std::make_shared<Settings>();
 	std::shared_ptr<Session> sess = std::make_shared<Session>();

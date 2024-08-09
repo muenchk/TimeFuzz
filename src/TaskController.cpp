@@ -17,7 +17,7 @@ void TaskController::AddTask(Functions::BaseFunction* a_task)
 {
 	{
 		std::unique_lock<std::mutex> guard(lock);
-		tasks.push(a_task);
+		tasks.push_back(a_task);
 	}
 	condition.notify_one();
 }
@@ -47,7 +47,7 @@ void TaskController::Stop(bool completeall)
 	while (tasks.empty() == false)
 	{
 		tasks.front()->Dispose();
-		tasks.pop();
+		tasks.pop_front();
 	}
 }
 
@@ -62,7 +62,7 @@ TaskController::~TaskController()
 			thread.detach();
 		while (tasks.empty() == false) {
 			tasks.front()->Dispose();
-			tasks.pop();
+			tasks.pop_front();
 		}
 	}
 }
@@ -89,10 +89,12 @@ void TaskController::InternalLoop(int32_t number)
 				return;
 			status[number] = ThreadStatus::Running;
 			del = tasks.front();
-			tasks.pop();
+			tasks.pop_front();
 		}
-		del->Run();
-		del->Dispose();
+		if (del != nullptr) {
+			del->Run();
+			del->Dispose();
+		}
 	}
 }
 
@@ -102,7 +104,8 @@ size_t TaskController::GetStaticSize(int32_t version)
 	                        + 4                     // version
 	                        + 1                     // terminate
 	                        + 1                     // wait
-	                        + 4;                    // numthreads
+	                        + 4                     // numthreads
+	                        + 8;                    // size of waiting tasks
 	switch (version)
 	{
 	case 0x1:
@@ -114,7 +117,15 @@ size_t TaskController::GetStaticSize(int32_t version)
 
 size_t TaskController::GetDynamicSize()
 {
-	return GetStaticSize(classversion);
+	size_t sz = 0;
+	for (auto task : tasks)
+	{
+		if (task != nullptr)
+		{
+			sz += task->GetLength();
+		}
+	}
+	return GetStaticSize(classversion) + sz;
 }
 
 bool TaskController::WriteData(unsigned char* buffer, size_t& offset)
@@ -124,6 +135,11 @@ bool TaskController::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(terminate, buffer, offset);
 	Buffer::Write(wait, buffer, offset);
 	Buffer::Write(_numthreads, buffer, offset);
+	Buffer::WriteSize(tasks.size(), buffer, offset);
+	for (auto task : tasks)
+	{
+		task->WriteData(buffer, offset);
+	}
 	return true;
 }
 
@@ -137,6 +153,12 @@ bool TaskController::ReadData(unsigned char* buffer, size_t& offset, size_t leng
 			terminate = Buffer::ReadBool(buffer, offset);
 			wait = Buffer::ReadBool(buffer, offset);
 			_numthreads = Buffer::ReadInt32(buffer, offset);
+			size_t num = Buffer::ReadSize(buffer, offset);
+			for (int32_t i = 0; i < (int32_t)num; i++)
+			{
+				Functions::BaseFunction* func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
+				tasks.push_back(func);
+			}
 			Start(_numthreads);
 			return true;
 		}
@@ -164,6 +186,7 @@ void TaskController::Freeze()
 		for (int32_t i = 0; i < (int32_t)status.size(); i++)
 			frozen &= status[i] == ThreadStatus::Waiting;
 	}
+	lock.lock();
 	loginfo("Frozen execution.");
 }
 
@@ -171,6 +194,8 @@ void TaskController::Thaw()
 {
 	loginfo("Thawing execution...");
 	freeze = false;
+	lock.unlock();
 	condition.notify_all();
 	loginfo("Resumed execution.");
 }
+

@@ -48,7 +48,7 @@ namespace Processes
 		}
 	}
 	std::pair<bool, int> fork_exec(std::string app, std::vector<std::string> args, 
-		timelimitsec, std::string outfile)
+		int32_t timelimitsec, std::string outfile)
 	{
 		StartProfilingDebug;
 		std::printf(" [TRACE] <BEFORE FORK> PID of parent process = %d \n", getpid());

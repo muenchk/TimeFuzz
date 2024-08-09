@@ -19,13 +19,15 @@ namespace Functions
 			arr[i] = i;
 		}
 
-		static uint64_t GetType() { return 'TATE'; }
-		bool ReadData(unsigned char*, size_t&, size_t)
+		static uint64_t GetTypeStatic() { return 'TATE'; }
+		uint64_t GetType() override { return 'TATE'; }
+		bool ReadData(unsigned char*, size_t&, size_t, LoadResolver*)
 		{
 			return true;
 		}
-		bool WriteData(unsigned char*, size_t&)
+		bool WriteData(unsigned char* buffer, size_t& offset)
 		{
+			BaseFunction::WriteData(buffer, offset);
 			return true;
 		}
 
@@ -43,7 +45,7 @@ namespace Functions
 
 		size_t GetLength()
 		{
-			return 0;
+			return BaseFunction::GetLength();
 		}
 	};
 }
@@ -54,7 +56,7 @@ int main(/*int argc, char** argv*/)
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	Crash::Install(".");
 #endif
-	Functions::RegisterFactory(Functions::TaskControllerTestCallback::GetType(), Functions::TaskControllerTestCallback::Create);
+	Functions::RegisterFactory(Functions::TaskControllerTestCallback::GetTypeStatic(), Functions::TaskControllerTestCallback::Create);
 	TaskController controller;
 	controller.Start(10);
 	int arr[100];

@@ -282,6 +282,7 @@ void ExecutionHandler::StopTest(std::shared_ptr<Test> test)
 	auto result = _oracle->Evaluate(test);
 	// call callback if test has finished
 	_threadpool->AddTask(test->callback);
+	test->callback->DeletePointers();
 	_currentTests--;
 }
 

@@ -2,6 +2,9 @@
 
 #include <unordered_map>
 #include <functional>
+#include <cstdint>
+
+class LoadResolver;
 
 namespace Functions
 {
@@ -26,19 +29,19 @@ namespace Functions
 		/// <param name="offset"></param>
 		/// <param name="length"></param>
 		/// <returns></returns>
-		virtual bool ReadData(unsigned char* buffer, size_t& offset, size_t length) = 0;
+		virtual bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) = 0;
 		/// <summary>
 		/// Writes the object information to the given buffer
 		/// </summary>
 		/// <param name="buffer"></param>
 		/// <param name="offset"></param>
 		/// <returns></returns>
-		virtual bool WriteData(unsigned char* buffer, size_t& offset) = 0;
+		virtual bool WriteData(unsigned char* buffer, size_t& offset);
 		/// <summary>
 		/// Returns the byte length of this object
 		/// </summary>
 		/// <returns></returns>
-		virtual size_t GetLength() = 0;
+		virtual size_t GetLength();
 		/// <summary>
 		/// Registers a pointer to this object
 		/// </summary>
@@ -49,12 +52,13 @@ namespace Functions
 		/// </summary>
 		void DeletePointers();
 
-		static uint64_t GetType() { return 0; };
+		static uint64_t GetTypeStatic() { return 0; };
+		virtual uint64_t GetType() = 0;
 
 		template <class T, typename = std::enable_if<std::is_base_of<BaseFunction, T>::value>>
 		T* As()
 		{
-			if (T::GetType() == GetType())
+			if (T::GetTypeStatic() == GetType())
 				return dynamic_cast<T*>(this);
 			else
 				return nullptr;
@@ -65,6 +69,8 @@ namespace Functions
 		{
 			return new T();
 		}
+
+		static BaseFunction* Create(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 	};
 
 	void RegisterFactory(uint64_t classid, std::function<BaseFunction*()> factory);

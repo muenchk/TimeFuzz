@@ -1,4 +1,5 @@
 #include "Function.h"
+#include "BufferOperations.h"
 
 namespace Functions
 {
@@ -32,10 +33,30 @@ namespace Functions
 		{
 			*ptr = nullptr;
 		}
+		ptrs.clear();
 	}
 
 	void BaseFunction::Dispose()
 	{
 		DeletePointers();
+	}
+
+	BaseFunction* BaseFunction::Create(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+	{
+		uint64_t type = Buffer::ReadUInt64(buffer, offset);
+		BaseFunction* ptr = FunctionFactory(type);
+		ptr->ReadData(buffer, offset, length, resolver);
+		return ptr;
+	}
+
+	size_t BaseFunction::GetLength()
+	{
+		return 8; // type
+	}
+
+	bool BaseFunction::WriteData(unsigned char* buffer, size_t& offset)
+	{
+		Buffer::Write(GetType(), buffer, offset);
+		return true;
 	}
 }

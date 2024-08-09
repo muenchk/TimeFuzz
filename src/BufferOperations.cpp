@@ -1,5 +1,7 @@
 #include "BufferOperations.h"
 
+#include <cstring>
+
 namespace Buffer
 {
 	void Write(uint32_t value, unsigned char* buffer, size_t& offset)
