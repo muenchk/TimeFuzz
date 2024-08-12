@@ -13,7 +13,7 @@ ExecutionHandler::ExecutionHandler()
 {
 }
 
-void ExecutionHandler::Init(std::shared_ptr<Session> session, std::shared_ptr<Settings> settings, std::shared_ptr<TaskController> threadpool, int32_t maxConcurrentTests, std::shared_ptr<Oracle> oracle, std::function<std::string(std::shared_ptr<Input>)>&& getCommandLineArgs)
+void ExecutionHandler::Init(std::shared_ptr<Session> session, std::shared_ptr<Settings> settings, std::shared_ptr<TaskController> threadpool, int32_t maxConcurrentTests, std::shared_ptr<Oracle> oracle)
 {
 	loginfo("Init execution handler");
 	_maxConcurrentTests = maxConcurrentTests > 0 ? maxConcurrentTests : 1;
@@ -21,7 +21,6 @@ void ExecutionHandler::Init(std::shared_ptr<Session> session, std::shared_ptr<Se
 	_settings = settings;
 	_session = session;
 	_oracle = oracle;
-	getCMDArgs = std::move(getCommandLineArgs);
 }
 
 ExecutionHandler* ExecutionHandler::GetSingleton()
@@ -85,13 +84,35 @@ void ExecutionHandler::Clear()
 	_stopHandler = false;
 	_finishtests = false;
 	_thread = {};
-	getCMDArgs = {};
 }
 
 void ExecutionHandler::SetMaxConcurrentTests(int32_t maxConcurrenttests)
 {
 	loginfo("Set max concurrent tests to {}", maxConcurrenttests);
 	_maxConcurrentTests = maxConcurrenttests > 0 ? maxConcurrenttests : 1;
+}
+
+void ExecutionHandler::StartHandlerAsIs()
+{
+	if (_cleared) {
+		logcritical("Cannot Start Handler on a cleared class.");
+		return;
+	}
+	loginfo("Start execution handler");
+	// check that the handler isn't active already
+	{
+		std::unique_lock<std::mutex> guard(_toplevelsync);
+		if (_active) {
+			logcritical("ExecutionHandler is already running");
+			return;
+		} else {
+			_active = true;
+			loginfo("Started Execution Handler");
+		}
+	}
+	// start thread
+	_thread = std::thread(&ExecutionHandler::InternalLoop, this);
+	_thread.detach();
 }
 
 void ExecutionHandler::StartHandler()
@@ -231,7 +252,7 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 	// give test its first input on startup
 	// if unsuccessful: report error and complete test-case as failed
 	test->starttime = std::chrono::steady_clock::now();
-	if (!Processes::StartPUTProcess(test, _oracle->path().string(), getCMDArgs(test->input.lock())))
+	if (!Processes::StartPUTProcess(test, _oracle->path().string(), _oracle->GetCmdArgs(test)))
 	{
 		test->exitreason = Test::ExitReason::InitError;
 		if (auto ptr = test->input.lock(); ptr) {
@@ -488,7 +509,7 @@ void ExecutionHandler::Freeze()
 {
 	loginfo("Freezing execution...");
 	_freeze = true;
-	while (_frozen == false)
+	while (_frozen == false && _active == true)
 		;
 	loginfo("Frozen execution.");
 }
@@ -520,7 +541,7 @@ size_t ExecutionHandler::GetStaticSize(int32_t version)
 
 size_t ExecutionHandler::GetDynamicSize()
 {
-	return GetStaticSize(classversion) + _stoppingTests.size() * 8 + _runningTests.size() * 8 + _waitingTests.size() * 8;
+	return GetStaticSize(classversion) + 8 /*len of ids*/ + _stoppingTests.size() * 8 + _runningTests.size() * 8 + _waitingTests.size() * 8;
 }
 
 bool ExecutionHandler::WriteData(unsigned char* buffer, size_t& offset)
@@ -535,7 +556,7 @@ bool ExecutionHandler::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(_maxConcurrentTests, buffer, offset);
 	// _waitingtests
 	// save all tests running and waiting as waiting tests, since we cannot solve external programs
-	Buffer::WriteSize(_waitingTests.size() + _runningTests.size() + _waitingTests.size(), buffer, offset);
+	Buffer::WriteSize(_waitingTests.size() + _runningTests.size() + _stoppingTests.size(), buffer, offset);
 	for (auto test : _runningTests) {
 		if (auto ptr = test.lock(); ptr)
 			Buffer::Write(ptr->GetFormID(), buffer, offset);
@@ -580,6 +601,12 @@ bool ExecutionHandler::ReadData(unsigned char* buffer, size_t& offset, size_t le
 					else
 						logcritical("ExecutionHandler::Load cannot resolve test");
 				}
+				_session = resolver->data->CreateForm<Session>();
+				_settings = resolver->data->CreateForm<Settings>();
+				_threadpool = resolver->data->CreateForm<TaskController>();
+				_oracle = resolver->data->CreateForm<Oracle>();
+				if (_active)
+					StartHandlerAsIs();
 			});
 		return true;
 		}

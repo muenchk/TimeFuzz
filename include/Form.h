@@ -99,5 +99,6 @@ struct FormType
 		Test = 'TEST',              // Test
 		TaskController = 'TASK',    // TaskController
 		ExecutionHandler = 'EXEC',  // ExecutionHandler
+		Oracle = 'ORAC', // Oracle
 	};
 };

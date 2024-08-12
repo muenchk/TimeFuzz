@@ -34,6 +34,8 @@ class Data
 	};
 
 private:
+	const uint64_t guid1 = 0xe30db97c4f1e478f;
+	const uint64_t guid2 = 0x8b03f3d9e946dcf3;
 	const int32_t saveversion = 0x1;
 	/// <summary>
 	/// unique name of the save [i.e. "Testing"]
@@ -94,7 +96,7 @@ public:
 		}
 		return ptr;
 	}
-	template<>
+	template <>
 	std::shared_ptr<Session> CreateForm();
 	template <>
 	std::shared_ptr<TaskController> CreateForm();
@@ -108,6 +110,18 @@ public:
 	std::shared_ptr<ExclusionTree> CreateForm();
 	template <>
 	std::shared_ptr<ExecutionHandler> CreateForm();
+
+	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+	bool RegisterForm(std::shared_ptr<T> form)
+	{
+		if (form)
+		{
+			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
+			_hashmap.insert({ form->GetFormID(), dynamic_pointer_cast<Form>(form) });
+			return true;
+		}
+		return false;
+	}
 
 	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 	void DeleteForm(std::shared_ptr<T> form)
@@ -138,6 +152,18 @@ public:
 	/// saves the current state of the program to a savefile
 	/// </summary>
 	void Save();
+
+	/// <summary>
+	/// sets the unique name of the saves
+	/// </summary>
+	/// <param name=""></param>
+	void SetSaveName(std::string name);
+
+	/// <summary>
+	/// Sets the path for savefiles
+	/// </summary>
+	/// <param name="path"></param>
+	void SetSavePath(std::filesystem::path path);
 
 	/// <summary>
 	/// Loads the last savefile with the uniquename [name]
@@ -177,9 +203,11 @@ public:
 	template <class T>
 	std::shared_ptr<T> ResolveFormID(FormID formid)
 	{
-		auto ptr = data->_hashmap.at(formid);
-		if (ptr)
-			return dynamic_pointer_cast<T>(ptr);
+		auto itr = data->_hashmap.find(formid);
+		if (itr != data->_hashmap.end()) {
+			if (itr->second)
+				return dynamic_pointer_cast<T>(itr->second);
+		}
 		return {};
 	}
 

@@ -130,6 +130,7 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMA
 		"${PROJECT_NAME}"
 		PRIVATE
 		fmt::fmt
+		lua
 		CrashHandler
 		${PROJECT_NAME}_lib
 	)
@@ -137,6 +138,7 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMA
 		"${PROJECT_NAME}_lib"
 		PRIVATE
 		fmt::fmt
+		lua
 		CrashHandler
 	)
 else()
@@ -144,6 +146,7 @@ else()
 		"${PROJECT_NAME}"
 		PRIVATE
 		fmt::fmt
+		lua
 		${PROJECT_NAME}_lib
 	)
 	if (LIBEXPLAIN_INCLUDE)
@@ -151,6 +154,7 @@ else()
 		"${PROJECT_NAME}_lib"
 		PRIVATE
 		fmt::fmt
+		lua
 		Threads::Threads
 		pthread
 		explain
@@ -161,6 +165,7 @@ else()
 		"${PROJECT_NAME}_lib"
 		PRIVATE
 		fmt::fmt
+		lua
 		Threads::Threads
 		pthread
 		c

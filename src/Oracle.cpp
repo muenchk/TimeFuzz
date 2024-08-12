@@ -3,6 +3,7 @@
 #include "Utility.h"
 #include "BufferOperations.h"
 
+
 std::string Oracle::TypeString(PUTType type)
 {
 	return type == Oracle::PUTType::CMD                 ? "CommandLine" :
@@ -28,7 +29,13 @@ Oracle::PUTType Oracle::ParseType(std::string str)
 
 Oracle::Oracle()
 {
+	luas = luaL_newstate();
+	luaL_openlibs(luas);
+}
 
+Oracle::~Oracle()
+{
+	lua_close(luas);
 }
 
 void Oracle::Set(PUTType type, std::filesystem::path PUTpath)
@@ -83,10 +90,54 @@ bool Oracle::Validate()
 	return valid;
 }
 
+void Oracle::SetLuaCmdArgs(std::string script)
+{
+	LcmdargsStr = script;
+	// the lua command is saved in a string
+	if (luaL_dostring(luas, LcmdargsStr.c_str()) == LUA_OK) {
+		lua_pop(luas, lua_gettop(luas));
+	}
+}
+
+void Oracle::SetLuaCmdArgs(std::filesystem::path scriptpath)
+{
+	LcmdargsPath = scriptpath;
+
+	// run lua on script
+	if (luaL_dofile(luas, scriptpath.string().c_str()) == LUA_OK) {
+		lua_pop(luas, lua_gettop(luas));
+	}
+}
+
 Oracle::OracleResult Oracle::Evaluate(std::shared_ptr<Test> test)
 {
 	test->input;
 	return Oracle::OracleResult::Passing;
+}
+
+std::string Oracle::GetCmdArgs(std::shared_ptr<Test> test)
+{
+	std::unique_lock<std::mutex> guard(cmdlock);
+	std::string args = "";
+	auto input = test->input.lock();
+	if (input) {
+		lua_getglobal(luas, "GetCmdArgs");
+		//lua_push .....
+		// set function call args
+
+		if (lua_isfunction(luas, -1)) {
+			if (lua_pcall(luas, 0, 1, 0) == LUA_OK)  // execute function with 0 Arguments, 1 return value
+			{
+				if (lua_isstring(luas, -1)) {
+					const char* cmd = lua_tostring(luas, -1);
+					lua_pop(luas, 1);
+					args = std::string(cmd);
+				}
+				lua_pop(luas, lua_gettop(luas));
+			}
+		}
+	}
+	return args;
 }
 
 size_t Oracle::GetStaticSize(int32_t version)

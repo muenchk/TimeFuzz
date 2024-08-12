@@ -104,6 +104,7 @@ size_t TaskController::GetStaticSize(int32_t version)
 	                        + 4                     // version
 	                        + 1                     // terminate
 	                        + 1                     // wait
+	                        + 1                     // active
 	                        + 4                     // numthreads
 	                        + 8;                    // size of waiting tasks
 	switch (version)
@@ -134,6 +135,7 @@ bool TaskController::WriteData(unsigned char* buffer, size_t& offset)
 	Form::WriteData(buffer, offset);
 	Buffer::Write(terminate, buffer, offset);
 	Buffer::Write(wait, buffer, offset);
+	Buffer::Write(threads.size() > 0, buffer, offset);
 	Buffer::Write(_numthreads, buffer, offset);
 	Buffer::WriteSize(tasks.size(), buffer, offset);
 	for (auto task : tasks)
@@ -152,6 +154,7 @@ bool TaskController::ReadData(unsigned char* buffer, size_t& offset, size_t leng
 			Form::ReadData(buffer, offset, length, resolver);
 			terminate = Buffer::ReadBool(buffer, offset);
 			wait = Buffer::ReadBool(buffer, offset);
+			bool active = Buffer::ReadBool(buffer, offset);
 			_numthreads = Buffer::ReadInt32(buffer, offset);
 			size_t num = Buffer::ReadSize(buffer, offset);
 			for (int32_t i = 0; i < (int32_t)num; i++)
@@ -159,7 +162,8 @@ bool TaskController::ReadData(unsigned char* buffer, size_t& offset, size_t leng
 				Functions::BaseFunction* func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
 				tasks.push_back(func);
 			}
-			Start(_numthreads);
+			if (active)
+				Start(_numthreads);
 			return true;
 		}
 		break;
@@ -180,7 +184,7 @@ void TaskController::Freeze()
 	freeze = true;
 	// wait for all threads to freeze
 	bool frozen = false;
-	while (frozen == false)
+	while (frozen == false && threads.size() > 0)
 	{
 		frozen = true;
 		for (int32_t i = 0; i < (int32_t)status.size(); i++)

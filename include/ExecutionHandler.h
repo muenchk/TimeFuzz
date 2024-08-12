@@ -144,8 +144,6 @@ private:
 
 	void InternalLoop();
 
-	std::function<std::string(std::shared_ptr<Input>)> getCMDArgs;
-
 	bool StartTest(std::shared_ptr<Test> test);
 
 	void StopTest(std::shared_ptr<Test> test);
@@ -158,7 +156,7 @@ private:
 public:
 	ExecutionHandler();
 
-	void Init(std::shared_ptr<Session> session, std::shared_ptr<Settings> settings, std::shared_ptr<TaskController> threadpool, int32_t maxConcurrentTests, std::shared_ptr<Oracle> oracle, std::function<std::string(std::shared_ptr<Input>)>&& getCommandLineArgs);
+	void Init(std::shared_ptr<Session> session, std::shared_ptr<Settings> settings, std::shared_ptr<TaskController> threadpool, int32_t maxConcurrentTests, std::shared_ptr<Oracle> oracle);
 
 	static ExecutionHandler* GetSingleton();
 
@@ -184,6 +182,10 @@ public:
 	/// starts the handler
 	/// </summary>
 	void StartHandler();
+	/// <summary>
+	/// starts the handler without invalidating existing tests
+	/// </summary>
+	void StartHandlerAsIs();
 	/// <summary>
 	/// stops the handler after all tests have been completed.
 	/// Controll will not return until the handler stops

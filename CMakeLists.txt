@@ -23,6 +23,7 @@ find_package(frozen REQUIRED CONFIG)
 find_package(magic_enum CONFIG REQUIRED)
 find_package(zycore CONFIG REQUIRED)
 find_package(zydis CONFIG REQUIRED)
+find_package(lua CONFIG REQUIRED)
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
         find_package(Boost

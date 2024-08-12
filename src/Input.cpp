@@ -140,16 +140,6 @@ void Input::Clear()
 	orig_sequence.clear();
 }
 
-uint32_t Input::GetFormID()
-{
-	return _formid;
-}
-
-void Input::SetFormID(uint32_t formid)
-{
-	_formid = formid;
-}
-
 std::string Input::ConvertToPython(bool update)
 {
 	// if we already generated the python commands and aren't forces to update, just return the last one

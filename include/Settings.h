@@ -97,7 +97,7 @@ public:
 		/// <summary>
 		/// the path at which saves are made
 		/// </summary>
-		std::string savepath = ".";
+		std::string savepath = "./saves";
 	};
 
 	General general;

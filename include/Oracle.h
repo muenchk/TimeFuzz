@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <tuple>
+#include <lua.hpp>
 
 #include "ExecutionHandler.h"
 #include "Form.h"
@@ -63,13 +64,26 @@ private:
 	PUTType _type;
 	bool valid = false;
 	const int32_t classversion = 0x1;
+	lua_State* luas = nullptr;
+	std::string LoracleStr = "";
+	std::filesystem::path LoraclePath;
+
+	std::string LcmdargsStr = "";
+	std::filesystem::path LcmdargsPath;
+	std::mutex cmdlock;
 
 public:
 	Oracle();
+	~Oracle();
 	void Set(PUTType type, std::filesystem::path PUTpath);
 	bool Validate();
+	void SetLuaCmdArgs(std::string script);
+	void SetLuaCmdArgs(std::filesystem::path scrippath);
+	void SetLuaOracle(std::string script);
+	void SetLuaOracle(std::filesystem::path scriptpath);
 
 	OracleResult Evaluate(std::shared_ptr<Test> test);
+	std::string GetCmdArgs(std::shared_ptr<Test> test);
 
 	static std::string TypeString(PUTType type);
 	static PUTType ParseType(std::string str);
@@ -84,11 +98,11 @@ public:
 	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 	int32_t GetType() override
 	{
-		return 'ORAC';
+		return FormType::Oracle;
 	}
 	static int32_t GetTypeStatic()
 	{
-		return 'ORAC';
+		return FormType::Oracle;
 	}
 	void Delete(Data* data);
 };

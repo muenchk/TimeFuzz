@@ -138,7 +138,7 @@ void Settings::Save(std::wstring _path)
 
 size_t Settings::GetStaticSize(int32_t version)
 {
-	static size_t size0x1 = Form::GetDynamicSize()  // form base size
+	size_t size0x1 = Form::GetDynamicSize()  // form base size
 	                        + 4                     // version
 	                        + 4                     // oracle
 	                        + 1                     // General::usehardwarethreads

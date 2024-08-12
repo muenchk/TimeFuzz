@@ -15,7 +15,6 @@ class Test;
 class Input : public Form
 {
 	const int32_t classversion = 0x1;
-	uint32_t _formid = 0;
 	#pragma region InheritedForm
 public:
 	size_t GetStaticSize(int32_t version = 0x1) override;
@@ -55,17 +54,6 @@ public:
 	/// resets all internal variables
 	/// </summary>
 	void Clear();
-
-	/// <summary>
-	/// returns the formid of this instance
-	/// </summary>
-	/// <returns></returns>
-	uint32_t GetFormID();
-	/// <summary>
-	/// sets the formid
-	/// </summary>
-	/// <param name="formid"></param>
-	void SetFormID(uint32_t formid);
 
 	/// <summary>
 	/// converts the input to python code

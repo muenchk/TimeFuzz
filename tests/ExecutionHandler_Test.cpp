@@ -56,11 +56,10 @@ namespace Functions
 		}
 	};
 }
-
-std::string ReturnArgs(std::shared_ptr<Input> input)
-{
-	return "";
-}
+std::string lua =
+	"function GetCmdArgs()\n"
+	"return \"\"\n"
+	"end";
 
 int32_t main(/*int32_t argc, char** argv*/)
 {
@@ -81,6 +80,7 @@ int32_t main(/*int32_t argc, char** argv*/)
 	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>();
 	oracle->Set(Oracle::PUTType::STDIN_Dump, std::filesystem::absolute(std::filesystem::path("Test_PUT_General")));
 #endif
+	oracle->SetLuaCmdArgs(lua);
 	// check the oracle for validity
 	if (oracle->Validate() == false) {
 		logcritical("Oracle isn't valid.");
@@ -91,7 +91,7 @@ int32_t main(/*int32_t argc, char** argv*/)
 	logdebug("Created TaskController");
 	controller->Start(1);
 	std::shared_ptr<ExecutionHandler> execution = std::make_shared<ExecutionHandler>();
-	execution->Init(sess, sett, controller, 1, oracle, ReturnArgs);
+	execution->Init(sess, sett, controller, 1, oracle);
 	execution->SetMaxConcurrentTests(50);
 	logdebug("Created executionhandler");
 	execution->StartHandler();
@@ -132,7 +132,7 @@ int32_t main(/*int32_t argc, char** argv*/)
 		exit(1);
 	}
 	execution = std::make_shared<ExecutionHandler>();
-	execution->Init(sess, sett, controller, 1, oracle, ReturnArgs);
+	execution->Init(sess, sett, controller, 1, oracle);
 	logdebug("Set up IO test");
 	sett->tests.use_testtimeout = true;
 	sett->tests.testtimeout = 10000000;

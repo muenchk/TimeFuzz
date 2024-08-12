@@ -10,6 +10,9 @@
       "platform": "windows"
     },
     {
+      "name": "boost-multiprecision"
+    },
+    {
       "name": "boost-container"
     },
     {
@@ -23,6 +26,9 @@
         "d3d"
       ],
       "platform": "windows"
+    },
+    {
+      "name": "lua"
     },
     "magic-enum",
     "rsm-binary-io",

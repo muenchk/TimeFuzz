@@ -25,8 +25,8 @@ public:
 
 	static std::shared_ptr<Session> CreateSeassion();
 
-	static std::shared_ptr<Session> LoadSession(std::string name);
-	static std::shared_ptr<Session> LoadSession(std::string name, int32_t number);
+	static std::shared_ptr<Session> LoadSession(std::string name, std::wstring settingsPath = L"");
+	static std::shared_ptr<Session> LoadSession(std::string name, int32_t number, std::wstring settingsPath = L"");
 
 	~Session();
 

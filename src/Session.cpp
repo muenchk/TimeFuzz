@@ -25,9 +25,12 @@ std::shared_ptr<Session> Session::CreateSeassion()
 	return dat->CreateForm<Session>();
 }
 
-std::shared_ptr<Session> Session::LoadSession(std::string name)
+std::shared_ptr<Session> Session::LoadSession(std::string name, std::wstring settingsPath)
 {
 	Data* dat = new Data();
+	auto sett = dat->CreateForm<Settings>();
+	sett->Load(settingsPath);
+	dat->SetSavePath(sett->general.savepath);
 	dat->Load(name);
 	if (!dat->_loaded) {
 		delete dat;
@@ -36,9 +39,12 @@ std::shared_ptr<Session> Session::LoadSession(std::string name)
 	return dat->CreateForm<Session>();
 }
 
-std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number)
+std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, std::wstring settingsPath)
 {
 	Data* dat = new Data();
+	auto sett = dat->CreateForm<Settings>();
+	sett->Load(settingsPath);
+	dat->SetSavePath(sett->general.savepath);
 	dat->Load(name, number);
 	if (!dat->_loaded) {
 		delete dat;

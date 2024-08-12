@@ -51,7 +51,7 @@ namespace Records
 	/// <param name="length"></param>
 	/// <returns></returns>
 	template<class T>
-	T* ReadRecord(unsigned char* buffer, size_t offset, size_t length, LoadResolver* resolver)
+	std::shared_ptr<T> ReadRecord(unsigned char* buffer, size_t offset, size_t length, LoadResolver* resolver)
 	{
 		size_t off = 0;
 		T* rec = new T();
@@ -60,8 +60,8 @@ namespace Records
 		if (off > length)
 		{
 			delete rec;
-			return nullptr;
+			return {};
 		}
-		return rec;
+		return std::shared_ptr<T>(rec);
 	}
 }

@@ -444,7 +444,8 @@ size_t Test::GetStaticSize(int32_t version)
 	                        + 8                     // lasttime
 	                        + 8                     // identifier
 	                        + 8                     // exitreason
-	                        + 1;                    // valid
+	                        + 1                     // valid
+	                        + 1;                    // has callback
 	switch (version)
 	{
 	case 0x1:
@@ -460,6 +461,8 @@ size_t Test::GetDynamicSize()
 	sz += Buffer::CalcStringLength(lastwritten);
 	sz += Buffer::ListBasic::GetListLength(reactiontime);
 	sz += Buffer::CalcStringLength(output);
+	if (callback)
+		sz += callback->GetLength();
 	return sz;
 }
 
@@ -482,6 +485,9 @@ bool Test::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(identifier, buffer, offset);
 	Buffer::Write(exitreason, buffer, offset);
 	Buffer::Write(valid, buffer, offset);
+	Buffer::Write(callback != nullptr, buffer, offset);
+	if (callback != nullptr)
+		callback->WriteData(buffer, offset);
 	return true;
 }
 
@@ -499,11 +505,13 @@ bool Test::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadRe
 			running = Buffer::ReadBool(buffer, offset);
 			starttime = Buffer::ReadTime(buffer, offset);
 			endtime = Buffer::ReadTime(buffer, offset);
-			uint32_t formid = Buffer::ReadUInt32(buffer, offset);
+			FormID formid = Buffer::ReadUInt64(buffer, offset);
 			resolver->AddTask([this, resolver, formid]() {
 				this->input = resolver->ResolveFormID<Input>(formid);
-				if (auto ptr = this->input.lock(); ptr)
+				if (auto ptr = this->input.lock(); ptr) {
 					this->itr = ptr->begin();
+					this->itrend = ptr->end();
+				}
 			});
 			if (length < offset - initoff + 8 || length < offset - initoff + Buffer::CalcStringLength(buffer, offset))
 				return false;
@@ -518,6 +526,10 @@ bool Test::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadRe
 			identifier = Buffer::ReadUInt64(buffer, offset);
 			exitreason = Buffer::ReadUInt64(buffer, offset);
 			valid = Buffer::ReadBool(buffer, offset);
+			bool hascall = Buffer::ReadBool(buffer, offset);
+			if (hascall)
+				callback = Functions::BaseFunction::Create(buffer, offset, length, resolver);
+			Init();
 			return true;
 		}
 	default:

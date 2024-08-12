@@ -39,7 +39,7 @@ size_t Form::GetStaticSize(int32_t /*version*/)
 
 size_t Form::GetDynamicSize()
 {
-	return GetStaticSize(0);
+	return Form::GetStaticSize(0);
 }
 
 bool Form::WriteData(unsigned char* buffer, size_t &offset)
