@@ -139,11 +139,10 @@ int main(/*int argc, char** argv*/)
 	
 	// build an execution controller and add some testss
 	logdebug("Initialized Settings");
-#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	std::shared_ptr<Oracle> oracle = sess->data->CreateForm<Oracle>();
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	oracle->Set(Oracle::PUTType::Script, "C:/Users/Kai/AppData/Local/Microsoft/WindowsApps/python3.8.exe");
 #else
-	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>();
 	oracle->Set(Oracle::PUTType::Script, "/usr/local/bin/python3.8");
 #endif
 	oracle->SetLuaCmdArgs(lua);

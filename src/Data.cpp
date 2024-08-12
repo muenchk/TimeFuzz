@@ -40,12 +40,15 @@ void Data::SetSavePath(std::filesystem::path path)
 
 void Data::Save()
 {
+	StartProfiling;
 	// saves the current state of the program to disk
 	// saving requires all active operations to cease while the data is collected and written to disk
 	// 
 
 	// create new file on disc
 	std::string name = GetSaveName();
+	if (!std::filesystem::exists(savepath))
+		std::filesystem::create_directories(savepath);
 	std::ofstream save = std::ofstream((savepath / name), std::ios_base::out | std::ios_base::binary);
 	if (save.is_open()) {
 		loginfo("Opened save-file \"{}\"", name);
@@ -72,6 +75,7 @@ void Data::Save()
 		// write session data
 		{
 			std::shared_lock<std::shared_mutex> guard(_hashmaplock);
+			loginfo("Saving {} records...", _hashmap.size());
 			for (auto& [formid, form] : _hashmap) {
 				size_t len = 0;
 				unsigned char* buffer = nullptr;
@@ -79,36 +83,47 @@ void Data::Save()
 				{
 				case FormType::Input:
 					buffer = Records::CreateRecord<Input>(dynamic_pointer_cast<Input>(form), len);
+					//logdebug("Write Record:      Input");
 					break;
 				case FormType::Grammar:
 					buffer = Records::CreateRecord<Grammar>(dynamic_pointer_cast<Grammar>(form), len);
+					//Logdebug("Write Record:      Grammar");
 					break;
 				case FormType::DevTree:
 					buffer = Records::CreateRecord<DerivationTree>(dynamic_pointer_cast<DerivationTree>(form), len);
+					//logdebug("Write Record:      DerivationTree");
 					break;
 				case FormType::ExclTree:
 					buffer = Records::CreateRecord<ExclusionTree>(dynamic_pointer_cast<ExclusionTree>(form), len);
+					//logdebug("Write Record:      ExclusionTree");
 					break;
 				case FormType::Generator:
 					buffer = Records::CreateRecord<Generator>(dynamic_pointer_cast<Generator>(form), len);
+					//logdebug("Write Record:      Generator");
 					break;
 				case FormType::Session:
 					buffer = Records::CreateRecord<Session>(dynamic_pointer_cast<Session>(form), len);
+					//logdebug("Write Record:      Session");
 					break;
 				case FormType::Settings:
 					buffer = Records::CreateRecord<Settings>(dynamic_pointer_cast<Settings>(form), len);
+					//logdebug("Write Record:      Settings");
 					break;
 				case FormType::Test:
 					buffer = Records::CreateRecord<Test>(dynamic_pointer_cast<Test>(form), len);
+					//logdebug("Write Record:      Test");
 					break;
 				case FormType::TaskController:
 					buffer = Records::CreateRecord<TaskController>(dynamic_pointer_cast<TaskController>(form), len);
+					//logdebug("Write Record:      TaskController");
 					break;
 				case FormType::ExecutionHandler:
 					buffer = Records::CreateRecord<ExecutionHandler>(dynamic_pointer_cast<ExecutionHandler>(form), len);
+					//logdebug("Write Record:      ExecutionHandler");
 					break;
 				case FormType::Oracle:
 					buffer = Records::CreateRecord<Oracle>(dynamic_pointer_cast<Oracle>(form), len);
+					//logdebug("Write Record:      Oracle");
 					break;
 				default:
 					logcritical("Trying to save unknown formtype");
@@ -129,11 +144,15 @@ void Data::Save()
 		loginfo("Saved session");
 	} else
 		logcritical("Cannot open new savefile");
+	profile(TimeProfiling, "Saving session");
 }
 
 void Data::Load(std::string name)
 {
+	StartProfiling;
 	std::vector<std::filesystem::path> files;
+	if (!std::filesystem::exists(savepath))
+		std::filesystem::create_directories(savepath);
 	for (const auto& entry : std::filesystem::directory_iterator(savepath)) {
 		if (entry.exists() && !entry.path().empty() && entry.path().extension() == extension.c_str()) {
 			if (auto path = entry.path().string(); path.rfind(name) != std::string::npos) {
@@ -165,6 +184,7 @@ void Data::Load(std::string name)
 			}
 		}
 	}
+	profile(TimeProfiling, "Pre-Load");
 	if (number != 0)
 	{
 		uniquename = name;
@@ -179,8 +199,11 @@ void Data::Load(std::string name)
 
 void Data::Load(std::string name, int32_t number)
 {
+	StartProfiling;
 	// find the appropiate save file to open
 	// additionally find the one with the highest number, so that we can identify the number of the next save
+	if (!std::filesystem::exists(savepath))
+		std::filesystem::create_directories(savepath);
 	std::vector<std::filesystem::path> files;
 	for (const auto& entry : std::filesystem::directory_iterator(savepath)) {
 		if (entry.exists() && !entry.path().empty() && entry.path().extension() == extension.c_str()) {
@@ -213,6 +236,7 @@ void Data::Load(std::string name, int32_t number)
 				highest = num;
 		}
 	}
+	profile(TimeProfiling, "Pre-Load");
 	if (found) {
 		uniquename = name;
 		savenumber = highest + 1;
@@ -225,6 +249,7 @@ void Data::Load(std::string name, int32_t number)
 
 void Data::LoadIntern(std::filesystem::path path)
 {
+	StartProfiling;
 	std::ifstream save = std::ifstream(path, std::ios_base::in | std::ios_base::binary);
 	if (save.is_open()) {
 		loginfo("Opened save-file \"{}\"", path.filename().string());
@@ -331,7 +356,7 @@ void Data::LoadIntern(std::filesystem::path path)
 									{
 										bool res = RegisterForm(Records::ReadRecord<Input>(buf, offset, rlen, _lresolve));
 										if (res) {
-											loginfo("Read Record:      Input");
+											//logdebug("Read Record:      Input");
 										} else {
 											loginfo("Failed Record:    Input");
 										}
@@ -341,7 +366,7 @@ void Data::LoadIntern(std::filesystem::path path)
 									{
 										bool res = RegisterForm(Records::ReadRecord<Grammar>(buf, offset, rlen, _lresolve));
 										if (res) {
-											loginfo("Read Record:      Grammar");
+											logdebug("Read Record:      Grammar");
 										} else {
 											loginfo("Failed Record:    Grammar");
 										}
@@ -351,7 +376,7 @@ void Data::LoadIntern(std::filesystem::path path)
 									{
 										bool res = RegisterForm(Records::ReadRecord<DerivationTree>(buf, offset, rlen, _lresolve));
 										if (res) {
-											loginfo("Read Record:      DerivationTree");
+											//logdebug("Read Record:      DerivationTree");
 										} else {
 											loginfo("Failed Record:    DerivationTree");
 										}
@@ -364,7 +389,7 @@ void Data::LoadIntern(std::filesystem::path path)
 										if (offset > rlen)
 											res = false;
 										if (res) {
-											loginfo("Read Record:      ExclusionTree");
+											//logdebug("Read Record:      ExclusionTree");
 										} else {
 											loginfo("Failed Record:    ExclusionTree");
 										}
@@ -377,7 +402,7 @@ void Data::LoadIntern(std::filesystem::path path)
 										if (offset > rlen)
 											res = false;
 										if (res) {
-											loginfo("Read Record:      Generator");
+											//logdebug("Read Record:      Generator");
 										} else {
 											loginfo("Failed Record:    Generator");
 										}
@@ -390,7 +415,7 @@ void Data::LoadIntern(std::filesystem::path path)
 										if (offset > rlen)
 											res = false;
 										if (res) {
-											loginfo("Read Record:      Session");
+											//logdebug("Read Record:      Session");
 										} else {
 											loginfo("Failed Record:    Session");
 										}
@@ -403,7 +428,7 @@ void Data::LoadIntern(std::filesystem::path path)
 										if (offset > rlen)
 											res = false;
 										if (res) {
-											loginfo("Read Record:      Settings");
+											//logdebug("Read Record:      Settings");
 										} else {
 											loginfo("Failed Record:    Settings");
 										}
@@ -413,7 +438,7 @@ void Data::LoadIntern(std::filesystem::path path)
 									{
 										bool res = RegisterForm(Records::ReadRecord<Test>(buf, offset, rlen, _lresolve));
 										if (res) {
-											loginfo("Read Record:      Test");
+											//logdebug("Read Record:      Test");
 										} else {
 											loginfo("Failed Record:    Test");
 										}
@@ -426,7 +451,7 @@ void Data::LoadIntern(std::filesystem::path path)
 										if (offset > rlen)
 											res = false;
 										if (res) {
-											loginfo("Read Record:      TaskController");
+											//logdebug("Read Record:      TaskController");
 										} else {
 											loginfo("Failed Record:    TaskController");
 										}
@@ -439,7 +464,7 @@ void Data::LoadIntern(std::filesystem::path path)
 										if (offset > rlen)
 											res = false;
 										if (res) {
-											loginfo("Read Record:      ExecutionHandler");
+											//logdebug("Read Record:      ExecutionHandler");
 										} else {
 											loginfo("Failed Record:    ExecutionHandler");
 										}
@@ -452,12 +477,14 @@ void Data::LoadIntern(std::filesystem::path path)
 										if (offset > rlen)
 											res = false;
 										if (res) {
-											loginfo("Read Record:      ExecutionHandler");
+											//logdebug("Read Record:      Oracle");
 										} else {
-											loginfo("Failed Record:    ExecutionHandler");
+											loginfo("Failed Record:    Oracle");
 										}
 									}
 									break;
+								default:
+									loginfo("Trying to read unknown formtype");
 								}
 								if (cbuf)
 									delete[] cbuffer;
@@ -482,6 +509,7 @@ void Data::LoadIntern(std::filesystem::path path)
 		loginfo("Loaded session");
 	} else
 		logcritical("Cannot open savefile");
+	profile(TimeProfiling, "Loading Save");
 }
 
 
@@ -521,6 +549,7 @@ void LoadResolver::SetData(Data* dat)
 
 void LoadResolver::Resolve()
 {
+	StartProfiling;
 	while (!tasks.empty()) {
 		TaskDelegate* del;
 		del = tasks.front();
@@ -528,6 +557,7 @@ void LoadResolver::Resolve()
 		del->Run();
 		del->Dispose();
 	}
+	profile(TimeProfiling, "Performing Post-load operations");
 }
 
 LoadResolver::Task::Task(TaskFn&& a_fn) :

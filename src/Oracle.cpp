@@ -179,7 +179,8 @@ bool Oracle::ReadData(unsigned char* buffer, size_t& offset, size_t length, Load
 			Form::ReadData(buffer, offset, length, resolver);
 			_type = (PUTType)Buffer::ReadInt32(buffer, offset);
 			valid = Buffer::ReadBool(buffer, offset);
-			_path = std::filesystem::path(Buffer::ReadString(buffer, offset));
+			std::string path = Buffer::ReadString(buffer, offset);
+			_path = std::filesystem::path(path);
 			Set(_type, _path);
 			return true;
 		}
