@@ -749,3 +749,27 @@ std::shared_ptr<ExecutionHandler> Data::CreateForm()
 		return ptr;
 	}
 }
+
+std::unordered_map<FormID, std::weak_ptr<Form>> Data::GetWeakHashmapCopy()
+{
+	std::unordered_map<FormID, std::weak_ptr<Form>> hashweak;
+	{
+		std::shared_lock<std::shared_mutex> guard(_hashmaplock);
+		for (auto& [id, form] : _hashmap)
+		{
+			hashweak.insert({ id, std::weak_ptr<Form>(form) });
+		}
+	}
+	return hashweak;
+}
+
+void Data::Clear()
+{
+	std::unique_lock<std::shared_mutex> guard(_hashmaplock);
+	for (auto& [id, form] : _hashmap)
+	{
+		form->SetFormID(0);
+		form->Clear();
+	}
+	_hashmap.clear();
+}

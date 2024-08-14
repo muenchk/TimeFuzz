@@ -10,10 +10,6 @@ private:
 
 public:
 	void Parse(std::string);
-	/// <summary>
-	/// resets all internal variables
-	/// </summary>
-	void Clear();
 
 	#pragma region InheritedForm
 
@@ -28,7 +24,11 @@ public:
 	{
 		return FormType::DevTree;
 	}
-	void Delete(Data* data);
+	void Delete(Data* data) override;
+	/// <summary>
+	/// resets all internal variables
+	/// </summary>
+	void Clear() override;
 
 	#pragma endregion
 };

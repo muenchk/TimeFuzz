@@ -161,12 +161,6 @@ public:
 	static ExecutionHandler* GetSingleton();
 
 	/// <summary>
-	/// clears all internals and releases shared pointers
-	/// DO NOT CALL BEFORE WAITING ON HANDLER!
-	/// </summary>
-	void Clear();
-
-	/// <summary>
 	/// enables execution of test fragments
 	/// </summary>
 	/// <param name="enable"></param>
@@ -212,8 +206,6 @@ public:
 	/// <param name="callback">called after the test has been finished</param>
 	bool AddTest(std::shared_ptr<Input> input, Functions::BaseFunction* callback);
 
-	void Delete(Data*) {}
-
 	/// <summary>
 	/// Freezes test execution
 	/// </summary>
@@ -235,6 +227,13 @@ public:
 	{
 		return FormType::ExecutionHandler;
 	}
+
+	void Delete(Data*) override;
+	/// <summary>
+	/// clears all internals and releases shared pointers
+	/// DO NOT CALL BEFORE WAITING ON HANDLER!
+	/// </summary>
+	void Clear() override;
 
 	friend unsigned char* Records::CreateRecord(ExecutionHandler* value, size_t& length);
 };

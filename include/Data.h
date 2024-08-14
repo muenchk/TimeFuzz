@@ -45,22 +45,50 @@ private:
 	/// save name of the save itself, contains unique name and saveidentifiers
 	/// </summary>
 	std::string savename;
+	/// <summary>
+	/// file extension used by savefiles
+	/// </summary>
 	std::string extension = ".tfsave";
+	/// <summary>
+	/// path to the save files
+	/// </summary>
 	std::filesystem::path savepath = std::filesystem::path(".") / "saves";
 	/// <summary>
 	/// number of the next save
 	/// </summary>
 	int32_t savenumber = 1;
+	/// <summary>
+	/// load resolver, used to resolve forms after loading has been completed
+	/// </summary>
 	LoadResolver* _lresolve;
 
+	/// <summary>
+	/// base form id for dynamic forms
+	/// </summary>
 	const FormID _baseformid = 100;
+	/// <summary>
+	/// id of the next form
+	/// </summary>
 	FormID _nextformid = _baseformid;
+	/// <summary>
+	/// mutex for _nextformid access
+	/// </summary>
 	std::mutex _lockformid;
+	/// <summary>
+	/// hashmap holding all forms
+	/// </summary>
 	std::unordered_map<FormID, std::shared_ptr<Form>> _hashmap;
+	/// <summary>
+	/// mutex for _hashmap access
+	/// </summary>
 	std::shared_mutex _hashmaplock;
 
 	friend LoadResolver;
 
+	/// <summary>
+	/// returns the full name of the next save
+	/// </summary>
+	/// <returns></returns>
 	std::string GetSaveName();
 
 	/// <summary>
@@ -77,8 +105,17 @@ public:
 
 	Data();
 
+	/// <summary>
+	/// Returns a singleton for the Data class
+	/// </summary>
+	/// <returns></returns>
 	static Data* GetSingleton();
 
+	/// <summary>
+	/// Creates a new dynamic form and registers it
+	/// </summary>
+	/// <typeparam name="T">Type of the form to create</typeparam>
+	/// <returns></returns>
 	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 	std::shared_ptr<T> CreateForm()
 	{
@@ -111,6 +148,12 @@ public:
 	template <>
 	std::shared_ptr<ExecutionHandler> CreateForm();
 
+	/// <summary>
+	/// Registers an existing form [used during loading]
+	/// </summary>
+	/// <typeparam name="T">Type of the form to register</typeparam>
+	/// <param name="form">The form to register</param>
+	/// <returns></returns>
 	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 	bool RegisterForm(std::shared_ptr<T> form)
 	{
@@ -123,6 +166,11 @@ public:
 		return false;
 	}
 
+	/// <summary>
+	/// Unregisters/deletes a registered form
+	/// </summary>
+	/// <typeparam name="T">Type of the form to delete</typeparam>
+	/// <param name="form">The form to delete</param>
 	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 	void DeleteForm(std::shared_ptr<T> form)
 	{
@@ -138,6 +186,12 @@ public:
 		}
 	}
 
+	/// <summary>
+	/// Looks up a form by its id
+	/// </summary>
+	/// <typeparam name="T">Type of the form to find</typeparam>
+	/// <param name="formid">The id of the form to find</param>
+	/// <returns></returns>
 	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 	std::shared_ptr<T> LookupFormID(FormID formid)
 	{
@@ -147,6 +201,17 @@ public:
 			return dynamic_pointer_cast<T>(itr->second);
 		return {};
 	}
+
+	/// <summary>
+	/// Returns a copy of the hashmap with weak pointers instead of the shared pointers
+	/// </summary>
+	/// <returns></returns>
+	std::unordered_map<FormID, std::weak_ptr<Form>> GetWeakHashmapCopy();
+
+	/// <summary>
+	/// clears all forms
+	/// </summary>
+	void Clear();
 
 	/// <summary>
 	/// saves the current state of the program to a savefile

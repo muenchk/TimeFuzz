@@ -192,5 +192,15 @@ bool Oracle::ReadData(unsigned char* buffer, size_t& offset, size_t length, Load
 
 void Oracle::Delete(Data*)
 {
+	Clear();
+}
 
+void Oracle::Clear()
+{
+	LoracleStr = "";
+	LoraclePath = "";
+	LcmdargsStr = "";
+	LcmdargsPath = "";
+	valid = false;
+	_path = "";
 }

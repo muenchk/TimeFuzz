@@ -50,5 +50,5 @@ bool Generator::ReadData(unsigned char* buffer, size_t& offset, size_t length, L
 
 void Generator::Delete(Data*)
 {
-
+	Clear();
 }

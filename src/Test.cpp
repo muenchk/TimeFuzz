@@ -539,5 +539,15 @@ bool Test::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadRe
 
 void Test::Delete(Data*)
 {
+	Clear();
+}
 
+void Test::Clear()
+{
+	running = false;
+	input.reset();
+	if (callback)
+	{
+		callback->Dispose();
+	}
 }

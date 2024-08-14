@@ -31,11 +31,6 @@ public:
 	~Session();
 
 	/// <summary>
-	/// clears all internal data
-	/// </summary>
-	void Clear();
-
-	/// <summary>
 	/// Starts the fuzzing session
 	/// </summary>
 	/// <param name="error"></param>
@@ -57,6 +52,8 @@ public:
 	/// <param name="timeout">maximum amount of time in seconds [set to 0 to disable]</param>
 	/// <param name="returnpositives">returns the generated positives as well as the negatives</param>
 	std::vector<std::shared_ptr<Input>> GenerateNegatives(int32_t negatives, bool& error, int32_t maxiterations = 0, int32_t timeout = 0, bool returnpositives = false);
+
+	void StopSession(bool savesession = true);
 
 	Data* data = nullptr;
 
@@ -104,7 +101,7 @@ private:
 	/// <summary>
 	/// the settings for this session
 	/// </summary>
-	std::shared_ptr<Settings> _settings = nullptr;
+	std::shared_ptr<Settings> _settings;
 
 	/// <summary>
 	/// the runtime data of the session
@@ -166,5 +163,10 @@ private:
 	/// </summary>
 	void StartSessionIntern(bool &error);
 
-	void Delete(Data*) {}
+	void Delete(Data*) override;
+
+	/// <summary>
+	/// clears all internal data
+	/// </summary>
+	void Clear() override;
 };

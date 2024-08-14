@@ -23,6 +23,10 @@ public:
 		Waiting
 	};
 
+	/// <summary>
+	/// Returns a singleton for the TaskController class
+	/// </summary>
+	/// <returns></returns>
 	static TaskController* GetSingleton();
 
 	/// <summary>
@@ -73,7 +77,8 @@ public:
 	{
 		return FormType::TaskController;
 	}
-	void Delete(Data* data);
+	void Delete(Data* data) override;
+	void Clear() override;
 
 	#pragma endregion
 	
@@ -82,19 +87,37 @@ private:
 	friend class LoadResolver;
 	friend class LoadResolverGrammar;
 
-
+	/// <summary>
+	/// Parallel function that executes the waiting tasks
+	/// </summary>
+	/// <param name="number"></param>
 	void InternalLoop(int32_t number);
 
+	/// <summary>
+	/// whether to terminate the TaskController
+	/// </summary>
 	bool terminate = false;
+	/// <summary>
+	/// whether to wait for the completion of all tasks
+	/// </summary>
 	bool wait = false;
 	/// <summary>
 	/// freezes thread execution without terminating threads or discarding tasks
 	/// </summary>
 	bool freeze = false;
 	std::condition_variable condition;
+	/// <summary>
+	/// threads that run InternalLoop
+	/// </summary>
 	std::vector<std::thread> threads;
+	/// <summary>
+	/// regular queue, tasks will be handled first come first serve
+	/// </summary>
 	std::deque<Functions::BaseFunction*> tasks;
 	std::mutex lock;
+	/// <summary>
+	/// current thread status
+	/// </summary>
 	std::vector<ThreadStatus> status;
 
 	int32_t _numthreads = 0;

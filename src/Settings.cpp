@@ -283,5 +283,10 @@ bool Settings::ReadData(unsigned char* buffer, size_t& offset, size_t length, Lo
 
 void Settings::Delete(Data*)
 {
+	Clear();
+}
+
+void Settings::Clear()
+{
 
 }

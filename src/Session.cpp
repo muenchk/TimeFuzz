@@ -62,7 +62,7 @@ void Session::Clear()
 {
 	abort = true;
 	if (_sessioncontroller.joinable())
-		_sessioncontroller.join();
+		_sessioncontroller.detach();
 	_sessioncontroller = {};
 	if (_oracle)
 		_oracle.reset();
@@ -91,8 +91,12 @@ void Session::Clear()
 	{
 		throw std::runtime_error("session clear fail");
 	}
+	if (data != nullptr) {
+		auto tmp = data;
+		data = nullptr;
+		tmp->Clear();
+	}
 	LastError = 0;
-	delete data;
 	data = nullptr;
 	running = false;
 }
@@ -105,6 +109,36 @@ void Session::Wait()
 std::vector<std::shared_ptr<Input>> Session::GenerateNegatives(int32_t /*negatives*/, bool& /*error*/, int32_t /*maxiterations*/, int32_t /*timeout*/, bool /*returnpositives*/)
 {
 	return {};
+}
+
+void Session::StopSession(bool savesession)
+{
+	if (savesession)
+		data->Save();
+
+	abort = true;
+	if (_oracle) {
+		_oracle.reset();
+	}
+	if (_controller) {
+		_controller->Stop(false);
+		_controller.reset();
+	}
+	if (_generator) {
+		_generator.reset();
+	}
+	if (_grammar) {
+		_grammar.reset();
+	}
+	if (_settings) {
+		_settings.reset();
+	}
+	sessiondata.Clear();
+	if (data != nullptr) {
+		auto tmp = data;
+		data = nullptr;
+		tmp->Clear();
+	}
 }
 
 void Session::StartSession(bool& error, bool globalTaskController, bool globalExecutionHandler, std::wstring settingsPath)
@@ -229,4 +263,9 @@ bool Session::SetRunning(bool state)
 		logwarn("Trying to set session state has failes. Current state: {}", running);
 		return false;
 	}
+}
+
+void Session::Delete(Data*)
+{
+	Clear();
 }

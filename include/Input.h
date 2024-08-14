@@ -29,6 +29,7 @@ public:
 		return FormType::Input;
 	}
 	void Delete(Data* data);
+	void Clear() override;
 
 	#pragma endregion
 
@@ -49,11 +50,6 @@ public:
 	Input();
 
 	~Input();
-
-	/// <summary>
-	/// resets all internal variables
-	/// </summary>
-	void Clear();
 
 	/// <summary>
 	/// converts the input to python code

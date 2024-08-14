@@ -54,14 +54,11 @@ void ExecutionHandler::SetEnableFragments(bool enable)
 void ExecutionHandler::Clear()
 {
 	_cleared = true;
-	_session.reset();
-	_threadpool.reset();
-	_oracle.reset();
 	while (!_waitingTests.empty())
 	{
 		std::weak_ptr<Test> test = _waitingTests.front();
 		_waitingTests.pop_front();
-		if (auto ptr = test.lock(); ptr)
+		if (auto ptr = test.lock(); ptr && _session->data)
 			_session->data->DeleteForm(ptr);
 	}
 	for (auto test : _runningTests)
@@ -76,6 +73,9 @@ void ExecutionHandler::Clear()
 	{
 		StopTest(test);
 	}
+	_session.reset();
+	_threadpool.reset();
+	_oracle.reset();
 	_stoppingTests.clear();
 	_currentTests = 0;
 	_active = false;
@@ -614,4 +614,10 @@ bool ExecutionHandler::ReadData(unsigned char* buffer, size_t& offset, size_t le
 	default:
 		return false;
 	}
+}
+
+void ExecutionHandler::Delete(Data*)
+{
+	StopHandler();
+	Clear();
 }

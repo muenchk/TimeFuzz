@@ -82,11 +82,35 @@ public:
 	void SetLuaOracle(std::string script);
 	void SetLuaOracle(std::filesystem::path scriptpath);
 
+	/// <summary>
+	/// Evaluates the result of a test
+	/// </summary>
+	/// <param name="test"></param>
+	/// <returns></returns>
 	OracleResult Evaluate(std::shared_ptr<Test> test);
+	/// <summary>
+	/// computes the command line args for a test
+	/// </summary>
+	/// <param name="test"></param>
+	/// <returns></returns>
 	std::string GetCmdArgs(std::shared_ptr<Test> test);
 
+	/// <summary>
+	/// Returns the type of the PUT as a string
+	/// </summary>
+	/// <param name="type"></param>
+	/// <returns></returns>
 	static std::string TypeString(PUTType type);
+	/// <summary>
+	/// Parses the type of the put from a string
+	/// </summary>
+	/// <param name="str"></param>
+	/// <returns></returns>
 	static PUTType ParseType(std::string str);
+	/// <summary>
+	/// returns the path of the PUT
+	/// </summary>
+	/// <returns></returns>
 	inline std::filesystem::path path()
 	{
 		return _path;
@@ -105,4 +129,5 @@ public:
 		return FormType::Oracle;
 	}
 	void Delete(Data* data);
+	void Clear();
 };

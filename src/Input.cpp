@@ -115,6 +115,7 @@ bool Input::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadR
 
 void Input::Delete(Data* data)
 {
+	Clear();
 	data->DeleteForm(derive.lock());
 	data->DeleteForm(test.lock());
 }

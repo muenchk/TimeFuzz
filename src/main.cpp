@@ -53,7 +53,7 @@ int32_t main(int32_t argc, char** argv)
 	Session* sess = new Session();
 	sess->StartSession(error, false, false, settingspath);
 	sess->Wait();
-	sess->Clear();
+	sess->StopSession(false);
 	delete sess;
 
 	return 0;

@@ -41,5 +41,10 @@ bool DerivationTree::ReadData(unsigned char* buffer, size_t& offset, size_t leng
 
 void DerivationTree::Delete(Data*)
 {
+	Clear();
+}
+
+void DerivationTree::Clear()
+{
 
 }

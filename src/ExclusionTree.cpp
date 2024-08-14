@@ -23,10 +23,7 @@ ExclusionTree::ExclusionTree()
 
 ExclusionTree::~ExclusionTree()
 {
-	exclwlock;
-	DeleteChildren(&root);
-	root = TreeNode();
-	root.id = 0;
+	Clear();
 }
 
 void ExclusionTree::AddInput(std::shared_ptr<Input> input)
@@ -95,6 +92,7 @@ void ExclusionTree::DeleteChildrenIntern(TreeNode* node)
 	// delete all children
 	for (int32_t i = 0; i < node->children.size(); i++) {
 		DeleteChildrenIntern(node->children[i]);
+		delete node->children[i];
 	}
 	node->children.clear();
 }
@@ -224,5 +222,14 @@ bool ExclusionTree::ReadData(unsigned char* buffer, size_t& offset, size_t lengt
 
 void ExclusionTree::Delete(Data*)
 {
+	Clear();
+}
 
+
+void ExclusionTree::Clear()
+{
+	exclwlock;
+	DeleteChildren(&root);
+	root = TreeNode();
+	root.id = 0;
 }

@@ -10,10 +10,6 @@ class Generator : public Form
 public:
 	void Generate();
 	/// <summary>
-	/// clears all internal variables
-	/// </summary>
-	void Clear();
-	/// <summary>
 	/// resets all progress made
 	/// </summary>
 	void Clean();
@@ -34,7 +30,8 @@ public:
 	{
 		return FormType::Generator;
 	}
-	void Delete(Data* data);
+	void Delete(Data* data) override;
+	void Clear() override;
 
 	#pragma endregion
 

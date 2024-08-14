@@ -174,7 +174,21 @@ bool TaskController::ReadData(unsigned char* buffer, size_t& offset, size_t leng
 
 void TaskController::Delete(Data*)
 {
+	Clear();
+}
 
+void TaskController::Clear()
+{
+	terminate = true;
+	wait = false;
+	condition.notify_all();
+	for (std::thread& t : threads)
+		t.detach();
+	threads.clear();
+	while (tasks.empty() == false) {
+		tasks.front()->Dispose();
+		tasks.pop_front();
+	}
 }
 
 void TaskController::Freeze()

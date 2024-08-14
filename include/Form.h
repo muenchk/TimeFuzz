@@ -42,6 +42,10 @@ public:
 	/// </summary>
 	virtual void Delete(Data* data) = 0;
 	/// <summary>
+	/// Clears all internals
+	/// </summary>
+	virtual void Clear() = 0;
+	/// <summary>
 	/// Returns the formtype
 	/// </summary>
 	/// <returns></returns>

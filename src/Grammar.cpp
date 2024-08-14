@@ -1019,7 +1019,7 @@ bool Grammar::ReadData(unsigned char* buffer, size_t& offset, size_t length, Loa
 
 void Grammar::Delete(Data*)
 {
-
+	Clear();
 }
 
 

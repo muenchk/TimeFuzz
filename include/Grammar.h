@@ -328,11 +328,6 @@ public:
 	/// <returns></returns>
 	bool IsValid();
 
-	/// <summary>
-	/// Clears all internal variables
-	/// </summary>
-	void Clear();
-
 	~Grammar();
 
 	#pragma region InheritedForm
@@ -349,7 +344,8 @@ public:
 	{
 		return FormType::Grammar;
 	}
-	void Delete(Data* data);
+	void Delete(Data* data) override;
+	void Clear() override;
 
 	#pragma endregion
 

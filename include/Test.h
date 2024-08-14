@@ -212,7 +212,8 @@ public:
 	{
 		return FormType::Test;
 	}
-	void Delete(Data* data);
+	void Delete(Data* data) override;
+	void Clear() override;
 
 
 private:

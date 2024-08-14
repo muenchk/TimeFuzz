@@ -36,6 +36,7 @@ public:
 	bool WriteData(unsigned char* buffer, size_t& offset) override;
 	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 	void Delete(Data* data);
+	void Clear() override;
 	
 	int32_t GetType() override
 	{
