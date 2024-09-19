@@ -52,3 +52,12 @@ void Generator::Delete(Data*)
 {
 	Clear();
 }
+
+
+
+
+
+void SimpleGenerator::Clean()
+{
+
+}

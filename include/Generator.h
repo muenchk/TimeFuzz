@@ -12,9 +12,11 @@ public:
 	/// <summary>
 	/// resets all progress made
 	/// </summary>
-	void Clean();
-	void AddExclusion(std::shared_ptr<Input> input);
-	void AddExclusionPrefix(std::shared_ptr<Input> input);
+	virtual void Clean();
+	/// <summary>
+	/// 
+	/// </summary>
+	/// <param name="input"></param>
 
 	#pragma region InheritedForm
 
@@ -38,17 +40,11 @@ public:
 private:
 
 	const int32_t classversion = 0x1;
-	
-	class ExclusionNode
-	{
+};
 
-	};
-	class ExclusionTree
-	{
-		std::shared_ptr<ExclusionNode> head;
-		size_t max_depth = 0;
-		void Exclude(std::shared_ptr<Input> input);
-		void ExcludePrefix(std::shared_ptr<Input> input);
-		bool CheckExcluded(std::shared_ptr<Input> input);
-	};
+
+
+class SimpleGenerator : public Generator
+{
+	void Clean() override;
 };
