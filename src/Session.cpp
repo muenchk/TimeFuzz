@@ -141,7 +141,7 @@ void Session::StopSession(bool savesession)
 	}
 }
 
-void Session::StartSession(bool& error, bool globalTaskController, bool globalExecutionHandler, std::wstring settingsPath)
+void Session::StartSession(bool& error, bool globalTaskController, bool globalExecutionHandler, std::wstring settingsPath, std::function<void()> callback)
 {
 	// init settings
 	_settings = data->CreateForm<Settings>();
@@ -152,6 +152,7 @@ void Session::StartSession(bool& error, bool globalTaskController, bool globalEx
 	_controller = data->CreateForm<TaskController>();
 	// set executionhandler
 	_exechandler = data->CreateForm<ExecutionHandler>();
+	_callback = callback;
 	// start session
 	StartSessionIntern(error);
 }
@@ -242,6 +243,17 @@ void Session::SessionControl()
 	{
 
 	}
+}
+
+void Session::End()
+{
+	if (_callback != nullptr)
+		_callback();
+}
+
+std::string Session::PrintStats()
+{
+	throw new std::runtime_error("PrintStats is not implemented yet");
 }
 
 bool Session::IsRunning()

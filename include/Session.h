@@ -36,7 +36,9 @@ public:
 	/// <param name="error"></param>
 	/// <param name="globalTaskController"></param>
 	/// <param name="globalExecutionHandler"></param>
-	void StartSession(bool& error, bool globalTaskController = false, bool globalExecutionHandler = false, std::wstring settingsPath = L"");
+	void StartSession(bool& error, bool globalTaskController = false, bool globalExecutionHandler = false, std::wstring settingsPath = L"", std::function<void()> callback = nullptr);
+
+	void StartLoadedSession();
 
 	/// <summary>
 	/// Waits for the session to end
@@ -55,6 +57,18 @@ public:
 
 	void StopSession(bool savesession = true);
 
+	/// <summary>
+	/// Returns true when the session has finished
+	/// </summary>
+	/// <returns></returns>
+	bool Finished();
+
+	/// <summary>
+	/// Returns a string with information about the session
+	/// </summary>
+	/// <returns></returns>
+	std::string PrintStats();
+
 	Data* data = nullptr;
 
 	int32_t GetType() override
@@ -67,6 +81,8 @@ public:
 	}
 
 private:
+
+	std::function<void()> _callback;
 
 	/// <summary>
 	/// The Task used to execute the PUT and retrieve the oracle result
@@ -162,6 +178,11 @@ private:
 	/// Starts the session
 	/// </summary>
 	void StartSessionIntern(bool &error);
+
+	/// <summary>
+	/// Completes cleanup and ends session
+	/// </summary>
+	void End();
 
 	void Delete(Data*) override;
 

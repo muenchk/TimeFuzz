@@ -29,6 +29,20 @@ public:
 	/// whether to enable profiling output
 	/// </summary>
 	static inline bool EnableProfile = true;
+
+	/// <summary>
+	/// whether to write logging messages to stdout
+	/// </summary>
+	static inline bool StdOutLogging = false;
+	/// <summary>
+	/// whether to write warnings to stdout
+	/// </summary>
+	static inline bool StdOutWarn = true;
+	/// <summary>
+	/// whether to write errors to stdout
+	/// </summary>
+	static inline bool StdOutError = true;
+
 	/// <summary>
 	/// the path to store log files
 	/// </summary>
@@ -119,6 +133,8 @@ public:
 #define profile(...)                          \
 	if (Logging::EnableProfile) { static_cast<void>(prof(__func__, __VA_ARGS__)); }
 
+#define logmessage(...) \
+	static_cast<void>(logmes(__func__, __VA_ARGS__)); \
 
 
 class Profile
@@ -252,6 +268,27 @@ public:
 		lock.release();
 	}
 };
+
+template <class... Args>
+struct [[maybe_unused]] logmes
+{
+	logmes() = delete;
+
+	explicit logmes(
+		std::string func,
+		fmt::format_string<Args...> a_fmt,
+		Args&&... a_args,
+		std::source_location a_loc = std::source_location::current())
+	{
+		std::string mes = fmt::format("{:<25} {} {} {:<30}\t{}", std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + "):", "[info]    ", Logging::TimePassed(), "[" + func + "]", fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n");
+		Log::write(mes);
+		std::cout << mes;
+	}
+};
+
+template <class... Args>
+logmes(std::string, fmt::format_string<Args...>, Args&&...) -> logmes<Args...>;
+
 template <class... Args>
 struct [[maybe_unused]] loginf
 {
@@ -265,6 +302,8 @@ struct [[maybe_unused]] loginf
 	{
 		std::string mes = fmt::format("{:<25} {} {} {:<30}\t{}", std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + "):", "[info]    ", Logging::TimePassed(), "[" + func + "]", fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n");
 		Log::write(mes);
+		if (Logging::StdOutLogging)
+			std::cout << mes;
 	}
 };
 
@@ -284,6 +323,8 @@ struct [[maybe_unused]] warn
 	{
 		std::string mes = fmt::format("{:<25} {} {} {:<30}\t{}", std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + "):", "[warning] ", Logging::TimePassed(), "[" + func + "]", fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n");
 		Log::write(mes);
+		if (Logging::StdOutWarn)
+			std::cout << mes;
 	}
 };
 
@@ -303,6 +344,8 @@ struct [[maybe_unused]] crit
 	{
 		std::string mes = fmt::format("{:<25} {} {} {:<30}\t{}", std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + "):", "[critical]", Logging::TimePassed(), "[" + func + "]", fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n");
 		Log::write(mes);
+		if (Logging::StdOutError)
+			std::cout << mes;
 	}
 };
 

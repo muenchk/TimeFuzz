@@ -21,7 +21,7 @@ void Settings::Load(std::wstring path)
 
 	constexpr auto defpath = L"config.ini";
 	if (path == L"")
-		path = std::wstring(defpath);
+		path = (CmdArgs::workdir / std::wstring(defpath)).wstring();
 
 	CSimpleIniA ini;
 
@@ -88,7 +88,7 @@ void Settings::Save(std::wstring _path)
 	std::wstring path;
 	constexpr auto defpath = L"config.ini";
 	if (_path == L"")
-		path = std::wstring(defpath);
+		path = (CmdArgs::workdir / std::wstring(defpath)).wstring();
 	else
 		path = _path;
 #endif

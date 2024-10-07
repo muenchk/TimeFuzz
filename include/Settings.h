@@ -9,6 +9,23 @@
 #define SI_NO_CONVERSION
 #define SI_SUPPORT_IOSTREAMS
 
+class CmdArgs
+{
+public:
+	static inline bool _settings = false;
+	static inline std::wstring _settingspath = L"";
+	static inline bool _load = false;
+	static inline std::string _loadname = "";
+	static inline bool _print = false;
+	static inline bool _num = false;
+	static inline int32_t _number;
+	static inline bool _dry = false;
+	static inline bool _dryi = false;
+	static inline std::string _dryinput = "";
+	static inline bool _responsive = false;
+	static inline std::filesystem::path workdir = L"";
+};
+
 class Settings : public Form
 {
 private:
