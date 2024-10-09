@@ -4,6 +4,8 @@
 #include "Logging.h"
 #include "BufferOperations.h"
 #include "Data.h"
+#include "Session.h"
+#include "SessionFunctions.h"
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
 #	include <fcntl.h>
@@ -549,5 +551,45 @@ void Test::Clear()
 	if (callback)
 	{
 		callback->Dispose();
+	}
+}
+
+
+namespace Functions
+{
+	void TestCallback::Run()
+	{
+		// what happens when a test has finsihed?
+		// 1. Input has been executed
+		//		Check the execution status and decide what to do with the test, i.e. the meaning
+		// 2. Call global management functions
+	}
+
+	bool TestCallback::ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	{
+		// get id of session and resolve link
+		uint64_t sessid = Buffer::ReadUInt64(buffer, offset);
+		resolver->AddTask([this, sessid, resolver]() {
+			this->_session = resolver->ResolveFormID<Session>(sessid);
+		});
+		// get id of saved input and resolve link
+		uint64_t inputid = Buffer::ReadUInt64(buffer, offset);
+		resolver->AddTask([this, inputid, resolver]() {
+			this->_input = resolver->ResolveFormID<Input>(inputid);
+		});
+		return true;
+	}
+
+	bool TestCallback::WriteData(unsigned char* buffer, size_t& offset)
+	{
+		BaseFunction::WriteData(buffer, offset);
+		Buffer::Write(_session->GetFormID(), buffer, offset);  // +8
+		Buffer::Write(_input->GetFormID(), buffer, offset);    // +8
+		return true;
+	}
+
+	size_t TestCallback::GetLength()
+	{
+		return BaseFunction::GetLength() + 16;
 	}
 }

@@ -69,8 +69,10 @@ bool ExclusionTree::HasPrefix(std::shared_ptr<Input> input)
 	auto itr = input->begin();
 	while (itr != input->end()) {
 		if (auto child = node->HasChild(*itr); child != nullptr) {
-			if (child->isLeaf)
+			if (child->isLeaf) {
+				child->visitcount++; // this will lead to races, but as we do not need a precise number, a few races don't matter
 				return true;  // if the child is a leaf, then we have found an excluded prefix
+			}
 			node = child;
 		} else {
 			// there is no matching child, so the input does not have an excluded prefix
@@ -154,6 +156,7 @@ bool ExclusionTree::WriteData(unsigned char* buffer, size_t &offset)
 	{
 		Buffer::Write(id, buffer, offset);
 		Buffer::Write(node->identifier, buffer, offset);
+		Buffer::Write(node->visitcount, buffer, offset);
 		Buffer::WriteSize(node->children.size(), buffer, offset);
 		for (int32_t i = 0; i < (int32_t)node->children.size(); i++)
 			Buffer::Write(node->children[i]->id, buffer, offset);
@@ -186,6 +189,7 @@ bool ExclusionTree::ReadData(unsigned char* buffer, size_t& offset, size_t lengt
 				TreeNode* node = new TreeNode();
 				node->id = Buffer::ReadUInt64(buffer, offset);
 				node->identifier = Buffer::ReadString(buffer, offset);
+				node->visitcount = Buffer::ReadUInt64(buffer, offset);
 				uint64_t sch = Buffer::ReadSize(buffer, offset);
 				for (int32_t c = 0; c < (int32_t)sch; c++)
 					node->childrenids.push_back(Buffer::ReadUInt64(buffer, offset));

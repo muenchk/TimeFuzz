@@ -103,7 +103,20 @@ void Session::Clear()
 
 void Session::Wait()
 {
-	throw std::runtime_error("Not implemented");
+	// get mutex and wait until Finished becomes true, then simply return
+	std::unique_lock<std::mutex> guard(_waitSessionLock);
+	_waitSessionCond.wait(guard, [this] { return Finished(); });
+	return;
+}
+
+bool Session::Wait(std::chrono::duration<std::chrono::nanoseconds> timeout)
+{
+	// get mutex and wait until the timeout is over or we are notified of the sessions ending
+	std::unique_lock<std::mutex> guard(_waitSessionLock);
+	_waitSessionCond.wait_for(guard, timeout);
+	// return whether the session is finished, this also means that the timeout has elapsed if it is not finished yet
+	return Finished();
+
 }
 
 std::vector<std::shared_ptr<Input>> Session::GenerateNegatives(int32_t /*negatives*/, bool& /*error*/, int32_t /*maxiterations*/, int32_t /*timeout*/, bool /*returnpositives*/)
@@ -116,29 +129,29 @@ void Session::StopSession(bool savesession)
 	if (savesession)
 		data->Save();
 
+	// set abort -> session controller should automatically stop
 	abort = true;
-	if (_oracle) {
-		_oracle.reset();
-	}
+	// stop controller
 	if (_controller) {
 		_controller->Stop(false);
-		_controller.reset();
 	}
-	if (_generator) {
-		_generator.reset();
+	// stop executionHandler
+	if (data) {
+		auto exechandler = data->CreateForm<ExecutionHandler>();
+		exechandler->StopHandler();
 	}
-	if (_grammar) {
-		_grammar.reset();
-	}
-	if (_settings) {
-		_settings.reset();
-	}
-	sessiondata.Clear();
-	if (data != nullptr) {
-		auto tmp = data;
-		data = nullptr;
-		tmp->Clear();
-	}
+	
+	// don't clear any data, we may want to use the data for statistics, etc.
+	
+	// notify all threads waiting on the session to end, of the sessions end
+	_hasFinished = true;
+	_waitSessionCond.notify_all();
+}
+
+void Session::DestroySession()
+{
+	// delete everything. If this isn't called the session is likely to persist until the program ends
+	Delete(data);
 }
 
 void Session::StartSession(bool& error, bool globalTaskController, bool globalExecutionHandler, std::wstring settingsPath, std::function<void()> callback)

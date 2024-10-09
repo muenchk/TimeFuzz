@@ -15,6 +15,7 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/Record.cpp"
 	"${SOURCE_DIR}/Session.cpp"
 	"${SOURCE_DIR}/SessionData.cpp"
+	"${SOURCE_DIR}/SessionFunctions.cpp"
 	"${SOURCE_DIR}/Settings.cpp"
 	"${SOURCE_DIR}/TaskController.cpp"
 	"${SOURCE_DIR}/ThreadSafe.cpp"

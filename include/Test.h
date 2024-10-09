@@ -23,6 +23,7 @@ class Settings;
 class TaskController;
 class Input;
 class Oracle;
+class Session;
 
 class Test : public Form
 {
@@ -219,3 +220,24 @@ public:
 private:
 	bool valid = true;
 };
+
+namespace Functions
+{
+	class TestCallback : BaseFunction
+	{
+	private:
+		std::shared_ptr<Session> _session;
+		std::shared_ptr<Input> _input;
+	public:
+		void Run() override;
+		static uint64_t GetTypeStatic() { return 'TEST'; }
+		uint64_t GetType() override { return 'TEST'; }
+
+		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+		bool WriteData(unsigned char* buffer, size_t& offset);
+
+		static BaseFunction* Create() { return new TestCallback(); }
+		void Dispose() { delete this; }
+		size_t GetLength();
+	};
+}

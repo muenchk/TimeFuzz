@@ -186,7 +186,7 @@ int32_t main(int32_t argc, char** argv)
 		}
 		// print stats
 		std::cout << session->PrintStats();
-		// destroy session and exit
+		// stop session, destroy it and exit
 		session->StopSession();
 		session.reset();
 		return 0;

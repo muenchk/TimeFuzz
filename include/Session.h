@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <semaphore>
 
 #include "Generator.h"
 #include "Grammar.h"
@@ -11,6 +12,7 @@
 #include "Form.h"
 
 class Data;
+class SessionFunctions;
 
 class Session : public Form
 {
@@ -46,6 +48,13 @@ public:
 	void Wait();
 
 	/// <summary>
+	/// Waits for the session to end or until the timeut expires
+	/// </summary>
+	/// <param name="waitfor"></param>
+	/// <returns></returns>
+	bool Wait(std::chrono::duration<std::chrono::nanoseconds> timeout);
+
+	/// <summary>
 	/// Starts generation of [negatives] negative inputs, while stopping after [maxiterations] or when [timeout] is exceeded,
 	/// even if the number of generated negatives has not reached [negatives]
 	/// </summary>
@@ -55,13 +64,22 @@ public:
 	/// <param name="returnpositives">returns the generated positives as well as the negatives</param>
 	std::vector<std::shared_ptr<Input>> GenerateNegatives(int32_t negatives, bool& error, int32_t maxiterations = 0, int32_t timeout = 0, bool returnpositives = false);
 
+	/// <summary>
+	/// stops the ongoing session.
+	/// </summary>
+	/// <param name="savesession"></param>
 	void StopSession(bool savesession = true);
+
+	/// <summary>
+	/// Deletes session. [MUST BE CALLED]
+	/// </summary>
+	void DestroySession();
 
 	/// <summary>
 	/// Returns true when the session has finished
 	/// </summary>
 	/// <returns></returns>
-	bool Finished();
+	bool Finished() { return _hasFinished; }
 
 	/// <summary>
 	/// Returns a string with information about the session
@@ -190,4 +208,20 @@ private:
 	/// clears all internal data
 	/// </summary>
 	void Clear() override;
+
+	friend SessionFunctions;
+
+
+	/// <summary>
+	/// whether the session has finished
+	/// </summary>
+	std::atomic_bool _hasFinished = false;
+	/// <summary>
+	/// mutex for waiting on the session
+	/// </summary>
+	std::mutex _waitSessionLock;
+	/// <summary>
+	/// conditional variable that makes waiting for session end possible
+	/// </summary>
+	std::condition_variable _waitSessionCond;
 };

@@ -194,10 +194,11 @@ public:
 	/// </summary>
 	void WaitOnHandler();
 
-	/*Thoughts on test implementation:
-	* What do we need a test function to return:
-	*	The element of the input that failed
-	*/
+	/// <summary>
+	/// Returns the number of currently waiting tests
+	/// </summary>
+	/// <returns></returns>
+	int32_t WaitingTasks() { return _waitingTests.size(); }
 
 	/// <summary>
 	/// Adds a new test to the queue [passes of test handling to external application/script]

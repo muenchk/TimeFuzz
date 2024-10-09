@@ -15,12 +15,36 @@ class ExclusionTree : public Form
 {
 	struct TreeNode
 	{
+		/// <summary>
+		/// identifier of the node
+		/// </summary>
 		std::string identifier;
+		/// <summary>
+		/// tree-id of the node
+		/// </summary>
 		uint64_t id;
+		/// <summary>
+		/// (rough) number of visits to node, exclusion wise, may be used to prune the tree if necessary [race condition]
+		/// </summary>
+		uint64_t visitcount;
+		/// <summary>
+		/// children of the node
+		/// </summary>
 		std::vector<TreeNode*> children;
+		/// <summary>
+		/// childrens ids
+		/// </summary>
 		std::vector<uint64_t> childrenids;
+		/// <summary>
+		/// whether this node is a lead
+		/// </summary>
 		bool isLeaf = false;
 
+		/// <summary>
+		/// Returns the child with the identifier [str] if there is one
+		/// </summary>
+		/// <param name="str"></param>
+		/// <returns></returns>
 		TreeNode* HasChild(std::string str);
 	};
 
