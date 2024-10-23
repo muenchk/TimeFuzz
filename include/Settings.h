@@ -23,6 +23,7 @@ public:
 	static inline bool _dryi = false;
 	static inline std::string _dryinput = "";
 	static inline bool _responsive = false;
+	static inline bool _ui = false;
 	static inline std::filesystem::path workdir = L"";
 };
 

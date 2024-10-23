@@ -35,6 +35,16 @@
     "rsm-binary-io",
     "zycore",
     "zydis",
-    "imgui"
+    { 
+      "name": "imgui", 
+      "features": [
+        "opengl3-binding", 
+        "glfw-binding",
+        "freetype"
+      ] 
+    },
+    "glfw3",
+    "glad",
+    "glm"
   ]
 }

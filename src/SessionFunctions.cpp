@@ -38,7 +38,7 @@ void SessionFunctions::SaveCheck(std::shared_ptr<Session>& session)
 	if (!session->_settings->general.enablesaves)
 		return;
 	static auto autosavetime = std::chrono::steady_clock::now();
-	static uint64_t testnum = 0;
+	static uint64_t testnum = SessionStatistics::TestsExecuted(session);
 	static std::mutex savelock;
 	bool save = false;
 	{
@@ -80,7 +80,7 @@ bool SessionFunctions::EndCheck(std::shared_ptr<Session>& session)
 {
 	// check whether end conditions are met
 	bool end = false;
-	if (session->_settings->conditions.foundnegatives && SessionStatistics::NegativeTestsGenerated(session) >= session->_settings->conditions.foundnegatives)
+	if (session->_settings->conditions.use_foundnegatives && SessionStatistics::NegativeTestsGenerated(session) >= session->_settings->conditions.foundnegatives)
 		end = true;
 	else if (session->_settings->conditions.use_foundpositives && SessionStatistics::PositiveTestsGenerated(session) >= session->_settings->conditions.foundpositives)
 		end = true;

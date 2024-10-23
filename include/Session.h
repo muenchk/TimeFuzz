@@ -18,6 +18,30 @@ class ExclusionTree;
 class Records;
 class Lua;
 
+struct SessionStatus
+{
+	uint64_t overallTests;
+	uint64_t overallTests_goal;
+
+	uint64_t positiveTests;
+	uint64_t positiveTests_goal;
+
+	uint64_t negativeTests;
+	uint64_t negativeTests_goal;
+
+	uint64_t prunedTests;
+
+	std::chrono::nanoseconds runtime;
+	std::chrono::seconds runtime_goal;
+
+	double goverall, gnegative, gpositive, gtime, gsaveload;
+
+	std::string status;
+	bool saveload = false;
+	uint64_t saveload_max = 0;
+	uint64_t saveload_current = 0;
+};
+
 class Session : public Form
 {
 public:
@@ -31,8 +55,8 @@ public:
 
 	static std::shared_ptr<Session> CreateSession();
 
-	static std::shared_ptr<Session> LoadSession(std::string name, std::wstring settingsPath = L"");
-	static std::shared_ptr<Session> LoadSession(std::string name, int32_t number, std::wstring settingsPath = L"");
+	static std::shared_ptr<Session> LoadSession(std::string name, std::wstring settingsPath = L"", SessionStatus* status = nullptr, bool startsession = false);
+	static std::shared_ptr<Session> LoadSession(std::string name, int32_t number, std::wstring settingsPath = L"", SessionStatus* status = nullptr, bool startsession = false);
 
 	~Session();
 
@@ -45,6 +69,8 @@ public:
 	void StartSession(bool& error, bool globalTaskController = false, bool globalExecutionHandler = false, std::wstring settingsPath = L"", std::function<void()> callback = nullptr);
 
 	void StartLoadedSession(bool& error, bool reloadsettings = false, std::wstring settingsPath = L"", std::function<void()> callback = nullptr);
+
+	void SetSessionEndCallback(std::function<void()> callback = nullptr);
 
 	/// <summary>
 	/// Waits for the session to end
@@ -90,15 +116,25 @@ public:
 	/// <returns></returns>
 	bool Finished() { return _hasFinished; }
 
+	bool Loaded() { return loaded; }
+
 	/// <summary>
 	/// Returns a string with information about the session
 	/// </summary>
 	/// <returns></returns>
 	std::string PrintStats();
 
+	void GetStatus(SessionStatus& status);
+
+	void InitStatus(SessionStatus& status);
+
+	inline uint64_t GetLastError() { return LastError; }
+
 	Data* data = nullptr;
 
 private:
+
+	static void InitStatus(SessionStatus* status, std::shared_ptr<Settings> sett);
 
 	/// <summary>
 	/// Function that is called after the session has finished running, 
@@ -161,7 +197,7 @@ private:
 	/// </summary>
 	uint64_t LastError = 0;
 
-	inline uint64_t GetLastError() { return LastError; }
+	bool loaded = false;
 
 	/// <summary>
 	/// whether to abort the current session
@@ -202,6 +238,8 @@ private:
 	/// </summary>
 	void End();
 
+
+	static void LoadSession_Async(Data* dat, std::string name, int32_t number, bool startsession);
 	
 
 	/// <summary>

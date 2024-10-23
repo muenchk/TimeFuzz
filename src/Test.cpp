@@ -36,7 +36,6 @@ void Test::Init(Functions::BaseFunction* a_callback, uint64_t id)
 void Test::Init()
 {
 	StartProfiling;
-	loginfo("Init test");
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
 	if (pipe2(red_output, O_NONBLOCK == -1)) {

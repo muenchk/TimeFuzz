@@ -27,32 +27,47 @@ std::shared_ptr<Session> Session::CreateSession()
 	return dat->CreateForm<Session>();
 }
 
-std::shared_ptr<Session> Session::LoadSession(std::string name, std::wstring settingsPath)
+void Session::LoadSession_Async(Data* dat, std::string name, int32_t number,bool startsession)
 {
-	Data* dat = new Data();
-	auto sett = dat->CreateForm<Settings>();
-	sett->Load(settingsPath);
-	dat->SetSavePath(sett->general.savepath);
-	dat->Load(name);
-	if (!dat->_loaded) {
-		delete dat;
-		return {};
-	}
-	return dat->CreateForm<Session>();
+	if (number == -1)
+		dat->Load(name);
+	else
+		dat->Load(name, number);
+	auto session = dat->CreateForm<Session>();
+	session->loaded = true;
+	bool error = false;
+	if (startsession)
+		session->StartLoadedSession(error);
 }
 
-std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, std::wstring settingsPath)
+std::shared_ptr<Session> Session::LoadSession(std::string name, std::wstring settingsPath, SessionStatus* status, bool startsession)
 {
 	Data* dat = new Data();
 	auto sett = dat->CreateForm<Settings>();
 	sett->Load(settingsPath);
+	InitStatus(status, sett);
+	auto session = dat->CreateForm<Session>();
+	session->_settings = sett;
+	session->data = dat;
 	dat->SetSavePath(sett->general.savepath);
-	dat->Load(name, number);
-	if (!dat->_loaded) {
-		delete dat;
-		return {};
-	}
-	return dat->CreateForm<Session>();
+	std::thread th(LoadSession_Async, dat, name, -1, startsession);
+	th.detach();
+	return session;
+}
+
+std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, std::wstring settingsPath, SessionStatus* status, bool startsession)
+{
+	Data* dat = new Data();
+	auto sett = dat->CreateForm<Settings>();
+	sett->Load(settingsPath);
+	InitStatus(status, sett);
+	auto session = dat->CreateForm<Session>();
+	session->_settings = sett;
+	session->data = dat;
+	dat->SetSavePath(sett->general.savepath);
+	std::thread th(LoadSession_Async, dat, name, number, startsession);
+	th.detach();
+	return session;
 }
 
 Session::~Session()
@@ -172,8 +187,20 @@ void Session::Save()
 		data->Save();
 }
 
+void Session::SetSessionEndCallback(std::function<void()> callback)
+{
+	_callback = callback;
+}
+
 void Session::StartLoadedSession(bool& error, bool reloadsettings, std::wstring settingsPath, std::function<void()> callback)
 {
+	if (loaded == false)
+	{
+		logcritical("Cannot start session before it has been fully loaded.");
+		LastError = ExitCodes::StartupError;
+		error = true;
+		return;
+	}
 	logmessage("Starting loaded session");
 	// as Session itself is a Form and saved with the rest of the session, all internal variables are already set when we
 	// resume the session, so we only have to set the runtime stuff, and potentially reload the settings and verify the oracle
@@ -192,6 +219,7 @@ void Session::StartLoadedSession(bool& error, bool reloadsettings, std::wstring 
 
 void Session::StartSession(bool& error, bool globalTaskController, bool globalExecutionHandler, std::wstring settingsPath, std::function<void()> callback)
 {
+	loaded = true;
 	logmessage("Starting new session");
 	// init settings
 	_settings = data->CreateForm<Settings>();
@@ -278,6 +306,9 @@ void Session::SessionControl()
 	_exechandler->StartHandlerAsIs();
 	_excltree = data->CreateForm<ExclusionTree>();
 
+	running = true;
+	data->StartClock();
+
 	// run master control and kick stuff of
 	// generates inputs, etc.
 	Lua::RegisterThread(_self);
@@ -291,6 +322,7 @@ void Session::End()
 {
 	logmessage("Ending Session...");
 	_hasFinished = true;
+	running = false;
 	_waitSessionCond.notify_all();
 	if (_callback != nullptr) {
 		logmessage("Executing session end callback...");
@@ -307,6 +339,71 @@ std::string Session::PrintStats()
 	output += "Negative Tests:    " + std::to_string(SessionStatistics::NegativeTestsGenerated(_self)) + "\n";
 	output += "Runtime:           " + std::to_string(SessionStatistics::Runtime(_self).count()) + "ns\n";
 	return output;
+}
+
+void Session::InitStatus(SessionStatus& status)
+{
+	InitStatus(&status, _settings);
+}
+
+void Session::InitStatus(SessionStatus* status, std::shared_ptr<Settings> sett)
+{
+	if (sett->conditions.use_overalltests)
+		status->overallTests_goal = sett->conditions.overalltests;
+	else
+		status->overallTests_goal = 0;
+	if (sett->conditions.use_foundnegatives)
+		status->negativeTests_goal = sett->conditions.foundnegatives;
+	else
+		status->negativeTests_goal = 0;
+	if (sett->conditions.use_foundpositives)
+		status->positiveTests_goal = sett->conditions.foundpositives;
+	else
+		status->positiveTests_goal = 0;
+	if (sett->conditions.use_timeout)
+		status->runtime_goal = std::chrono::seconds(sett->conditions.timeout);
+	else
+		status->runtime_goal = std::chrono::seconds(0);
+	status->gnegative = -1.f;
+	status->gpositive = -1.f;
+	status->goverall = -1.f;
+	status->gtime= -1.f;
+	status->gsaveload = -1.f;
+}
+
+void Session::GetStatus(SessionStatus& status)
+{
+	if (loaded && running) {
+		status.overallTests = SessionStatistics::TestsExecuted(_self);
+		status.positiveTests = SessionStatistics::PositiveTestsGenerated(_self);
+		status.negativeTests = SessionStatistics::NegativeTestsGenerated(_self);
+		status.prunedTests = SessionStatistics::TestsPruned(_self);
+		status.runtime = SessionStatistics::Runtime(_self);
+		if (status.overallTests_goal != 0)
+			status.goverall = (double)status.overallTests / (double)(status.overallTests_goal);
+		else
+			status.goverall = -1.0f;
+		if (status.negativeTests_goal != 0)
+			status.gnegative = (double)status.negativeTests / (double)status.negativeTests_goal;
+		else
+			status.gnegative = -1.0f;
+		if (status.positiveTests_goal != 0)
+			status.gpositive = (double)status.positiveTests / (double)status.positiveTests_goal;
+		else
+			status.gpositive = -1.0f;
+		if (status.runtime_goal.count() != 0)
+			status.gtime = (double)(std::chrono::duration_cast<std::chrono::seconds>(status.runtime).count()) / (double)status.runtime_goal.count();
+		else
+			status.gtime = -1;
+	}
+	status.saveload = data->actionloadsave;
+	status.status = data->status;
+	status.saveload_max = data->actionloadsave_max;
+	status.saveload_current = data->actionloadsave_current;
+	if (status.saveload_max != 0)
+		status.gsaveload = (double)status.saveload_current / (double)status.saveload_max;
+	else
+		status.gsaveload = -1.f;
 }
 
 bool Session::IsRunning()

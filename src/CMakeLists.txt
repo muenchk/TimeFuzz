@@ -132,6 +132,10 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMA
 		fmt::fmt
 		lua
 		CrashHandler
+		imgui::imgui
+		glfw
+		glad::glad
+		glm::glm
 		${PROJECT_NAME}_lib
 	)
 	target_link_libraries(
@@ -140,6 +144,10 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMA
 		fmt::fmt
 		lua
 		CrashHandler
+		imgui::imgui
+		glfw
+		glad::glad
+		glm::glm
 	)
 else()
 	target_link_libraries(
@@ -147,6 +155,10 @@ else()
 		PRIVATE
 		fmt::fmt
 		lua
+		imgui::imgui
+		glfw
+		glad::glad
+		glm::glm
 		${PROJECT_NAME}_lib
 	)
 	if (LIBEXPLAIN_INCLUDE)
@@ -159,6 +171,10 @@ else()
 		pthread
 		explain
 		c
+		imgui::imgui
+		glfw
+		glad::glad
+		glm::glm
 	)
 	else()
 	target_link_libraries(
@@ -169,6 +185,10 @@ else()
 		Threads::Threads
 		pthread
 		c
+		imgui::imgui
+		glfw
+		glad::glad
+		glm::glm
 	)
 	endif()
 endif()

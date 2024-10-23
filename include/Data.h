@@ -115,6 +115,11 @@ public:
 
 	Data();
 
+	std::string status;
+	bool actionloadsave = false; 
+	uint64_t actionloadsave_max = 0;
+	uint64_t actionloadsave_current = 0;
+
 	/// <summary>
 	/// Returns a singleton for the Data class
 	/// </summary>

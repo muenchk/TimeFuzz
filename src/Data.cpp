@@ -41,6 +41,10 @@ void Data::SetSavePath(std::filesystem::path path)
 
 void Data::Save()
 {
+	runtime += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - sessionBegin);
+	actionloadsave = true;
+	actionloadsave_max = 0;
+	status = "Beginning save...";
 	StartProfiling;
 	// saves the current state of the program to disk
 	// saving requires all active operations to cease while the data is collected and written to disk
@@ -55,11 +59,13 @@ void Data::Save()
 	if (save.is_open()) {
 		loginfo("Opened save-file \"{}\"", name);
 		// lock access to taskcontroller and executionhandler
+		status = "Freezing controllers...";
 		std::shared_ptr<TaskController> taskcontrol = CreateForm<TaskController>();
 		std::shared_ptr<ExecutionHandler> execcontrol = CreateForm<ExecutionHandler>();
 		execcontrol->Freeze();
 		taskcontrol->Freeze();
 
+		status = "Writing save...";
 		// write main information about savefile: name, savenumber, nextformid, runtime etc.
 		{
 			size_t len = 38;
@@ -71,7 +77,7 @@ void Data::Save()
 			Buffer::Write(_nextformid, buffer, offset);
 			Buffer::Write(_globalTasks, buffer, offset);
 			Buffer::Write(_globalExec, buffer, offset);
-			Buffer::Write(runtime + std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - sessionBegin), buffer, offset);
+			Buffer::Write(runtime, buffer, offset);
 			save.write((char*)buffer, len);
 			delete[] buffer;
 		}
@@ -79,6 +85,8 @@ void Data::Save()
 		{
 			std::shared_lock<std::shared_mutex> guard(_hashmaplock);
 			loginfo("Saving {} records...", _hashmap.size());
+			actionloadsave_max = _hashmap.size();
+			actionloadsave_current = 0;
 			for (auto& [formid, form] : _hashmap) {
 				size_t len = 0;
 				unsigned char* buffer = nullptr;
@@ -135,24 +143,32 @@ void Data::Save()
 				if (buffer != nullptr)
 				{
 					save.write((char*)buffer, len);
-				}else
-					logcritical("record buffer could not be created")
+				} else
+					logcritical("record buffer could not be created");
+				actionloadsave_current++;
 			}
 		}
 		save.flush();
 		save.close();
+		// set proper
+		sessionBegin = std::chrono::steady_clock::now();
 		// unlock taskcontroller and executionhandler
 		taskcontrol->Thaw();
 		execcontrol->Thaw();
 		loginfo("Saved session");
 	} else
 		logcritical("Cannot open new savefile");
+	actionloadsave = false;
+	status = "Running...";
 	profile(TimeProfiling, "Saving session");
 }
 
 void Data::Load(std::string name)
 {
 	StartProfiling;
+	status = "Finding save files...";
+	actionloadsave = true;
+	actionloadsave_max = 0;
 	std::vector<std::filesystem::path> files;
 	if (!std::filesystem::exists(savepath))
 		std::filesystem::create_directories(savepath);
@@ -193,8 +209,9 @@ void Data::Load(std::string name)
 		uniquename = name;
 		savenumber = number + 1;
 		LoadIntern(fullname);
-	}
-	else {
+	} else {
+		actionloadsave = false;
+		status = "No savefiles found.";
 		loginfo("No save files were found with the unique name {}", name);
 		return;
 	}
@@ -203,6 +220,9 @@ void Data::Load(std::string name)
 void Data::Load(std::string name, int32_t number)
 {
 	StartProfiling;
+	status = "Finding save files...";
+	actionloadsave = true;
+	actionloadsave_max = 0;
 	// find the appropiate save file to open
 	// additionally find the one with the highest number, so that we can identify the number of the next save
 	if (!std::filesystem::exists(savepath))
@@ -245,6 +265,8 @@ void Data::Load(std::string name, int32_t number)
 		savenumber = highest + 1;
 		LoadIntern(fullname);
 	} else {
+		actionloadsave = false;
+		status = "No savefiles found.";
 		loginfo("No save file was found with the unique name {} and number {}", name, number);
 		return;
 	}
@@ -252,6 +274,9 @@ void Data::Load(std::string name, int32_t number)
 
 void Data::LoadIntern(std::filesystem::path path)
 {
+	status = "Load save file....";
+	actionloadsave = true;
+	actionloadsave_max = 0;
 	StartProfiling;
 	std::ifstream save = std::ifstream(path, std::ios_base::in | std::ios_base::binary);
 	if (save.is_open()) {
@@ -261,6 +286,7 @@ void Data::LoadIntern(std::filesystem::path path)
 		unsigned char* cbuffer = nullptr;
 		unsigned char* buf = nullptr;
 		size_t flen = std::filesystem::file_size(path);
+		actionloadsave_max = (uint64_t)flen;
 		size_t pos = 0;
 		size_t offset = 0;
 		// get save file version
@@ -303,7 +329,7 @@ void Data::LoadIntern(std::filesystem::path path)
 				}
 				pos += 18;
 			}
-
+			actionloadsave_current = pos;
 			if (!abort) {
 				switch (version) {
 				case 0:  // couldn't get saveversion
@@ -493,6 +519,8 @@ void Data::LoadIntern(std::filesystem::path path)
 								if (cbuf)
 									delete[] cbuffer;
 							}
+							// update progress
+							actionloadsave_current = pos;
 						}
 						_loaded = true;
 						loginfo("Loaded save");
@@ -516,6 +544,8 @@ void Data::LoadIntern(std::filesystem::path path)
 			_lresolve->_oracle = CreateForm<Oracle>();
 		}
 
+		status = "Resolving Records...";
+
 		_lresolve->Resolve();
 
 		// before we resolve late tasks, we need to register ourselves to the lua wrapper, if some of the lambda
@@ -528,6 +558,8 @@ void Data::LoadIntern(std::filesystem::path path)
 		loginfo("Loaded session");
 	} else
 		logcritical("Cannot open savefile");
+	actionloadsave = false;
+	status = "Running...";
 	profile(TimeProfiling, "Loading Save");
 }
 
@@ -822,6 +854,7 @@ std::unordered_map<FormID, std::weak_ptr<Form>> Data::GetWeakHashmapCopy()
 
 void Data::Clear()
 {
+	status = "Clearing hashmap...";
 	std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 	for (auto& [id, form] : _hashmap)
 	{

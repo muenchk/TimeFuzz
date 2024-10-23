@@ -24,6 +24,11 @@ find_package(magic_enum CONFIG REQUIRED)
 find_package(zycore CONFIG REQUIRED)
 find_package(zydis CONFIG REQUIRED)
 find_package(lua CONFIG REQUIRED)
+find_package(Freetype CONFIG REQUIRED)
+find_package(imgui CONFIG REQUIRED)
+find_package(glfw3 CONFIG REQUIRED)
+find_package(glad CONFIG REQUIRED)
+find_package(glm CONFIG REQUIRED)
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
         find_package(Boost

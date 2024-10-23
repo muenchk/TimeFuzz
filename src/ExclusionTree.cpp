@@ -234,7 +234,6 @@ void ExclusionTree::Delete(Data*)
 
 void ExclusionTree::Clear()
 {
-	exclwlock;
 	DeleteChildren(root);
 }
 
