@@ -24,7 +24,7 @@ namespace Functions
 		void Run() override
 		{
 			if (input->Finished())
-				if (auto ptr = input->test.lock(); ptr)
+				if (auto ptr = input->test; ptr)
 					logdebug("TEST: {}, EXITREASON: {}, EXITCODE: {}, EXECTIME: {}ms, OUTPUT: {}", ptr->identifier, ptr->exitreason, input->GetExitCode(), std::chrono::duration_cast<std::chrono::milliseconds>(input->GetExecutionTime()).count(), ptr->output);
 		}
 
@@ -88,8 +88,9 @@ int main(/*int argc, char** argv*/)
 	}
 	logdebug("Created Oracle");
 	std::shared_ptr<TaskController> controller = std::make_shared<TaskController>();
+	controller->SetDisableLua();
 	logdebug("Created TaskController");
-	controller->Start(1);
+	controller->Start(sess, 1);
 	logdebug("Started TaskController with 1 thread");
 	std::shared_ptr<ExecutionHandler> execution = std::make_shared<ExecutionHandler>();
 	execution->Init(sess, sett, controller, 1, oracle);

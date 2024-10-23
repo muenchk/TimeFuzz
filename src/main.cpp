@@ -251,7 +251,7 @@ int32_t main(int32_t argc, char** argv)
 	} else if (CmdArgs::_settings) {
 		CmdArgs::_settingspath = std::filesystem::absolute(CmdArgs::_settingspath);
 	} else
-		CmdArgs::_settingspath = std::filesystem::current_path();
+		CmdArgs::_settingspath = std::filesystem::current_path().wstring();
 
 	// determine the working directory based on the path of the configuration file
 	if (CmdArgs::_settings) {

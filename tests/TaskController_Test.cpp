@@ -5,6 +5,7 @@
 #endif
 
 #include "Function.h"
+#include "Session.h"
 
 namespace Functions
 {
@@ -55,9 +56,11 @@ int main(/*int argc, char** argv*/)
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	Crash::Install(".");
 #endif
+	std::shared_ptr<Session> session = Session::CreateSession();
 	Functions::RegisterFactory(Functions::TaskControllerTestCallback::GetTypeStatic(), Functions::TaskControllerTestCallback::Create);
 	TaskController controller;
-	controller.Start(10);
+	controller.SetDisableLua();
+	controller.Start(session, 10);
 	int arr[100];
 	for (int i = 0; i < 100; i++) {
 		auto task = Functions::BaseFunction::Create<Functions::TaskControllerTestCallback>();

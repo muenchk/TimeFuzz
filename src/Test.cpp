@@ -629,8 +629,10 @@ namespace Functions
 
 	void TestCallback::Dispose()
 	{
-		if (auto shr = _input->test; shr)
-			shr->callback = nullptr;
+		if (_input->test)
+			_input->test->callback = nullptr;
+		_input.reset();
+		_session.reset();
 		delete this;
 	}
 }

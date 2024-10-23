@@ -45,7 +45,8 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, std::wstring set
 	Data* dat = new Data();
 	auto sett = dat->CreateForm<Settings>();
 	sett->Load(settingsPath);
-	InitStatus(status, sett);
+	if (status != nullptr)
+		InitStatus(status, sett);
 	auto session = dat->CreateForm<Session>();
 	session->_settings = sett;
 	session->data = dat;
@@ -60,7 +61,8 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, 
 	Data* dat = new Data();
 	auto sett = dat->CreateForm<Settings>();
 	sett->Load(settingsPath);
-	InitStatus(status, sett);
+	if (status != nullptr)
+		InitStatus(status, sett);
 	auto session = dat->CreateForm<Session>();
 	session->_settings = sett;
 	session->data = dat;
@@ -88,6 +90,11 @@ void Session::Clear()
 		_controller->Stop(false);
 		_controller.reset();
 	}
+	if (_exechandler) {
+		_exechandler->StopHandler();
+		_exechandler->Clear();
+		_exechandler.reset();
+	}
 	if (_generator)
 	{
 		_generator->Clear();
@@ -102,12 +109,17 @@ void Session::Clear()
 	{
 		_settings.reset();
 	}
+	if (_excltree) {
+		_excltree->Clear();
+		_excltree.reset();
+	}
 	try {
 		sessiondata.Clear();
 	} catch (std::exception)
 	{
 		throw std::runtime_error("session clear fail");
 	}
+	Lua::DestroyAll();
 	if (_self)
 		_self.reset();
 	if (data != nullptr) {

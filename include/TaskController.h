@@ -64,6 +64,11 @@ public:
 	/// </summary>
 	void Thaw();
 
+	/// <summary>
+	/// Disables Lua support
+	/// </summary>
+	inline void SetDisableLua() { disableLua = true; }
+
 	#pragma region InheritedForm
 
 	size_t GetDynamicSize() override;
@@ -100,6 +105,11 @@ private:
 	/// shared pointer to session
 	/// </summary>
 	std::shared_ptr<Session> _session;
+
+	/// <summary>
+	/// disables lua support
+	/// </summary>
+	bool disableLua = false;
 
 	/// <summary>
 	/// whether to terminate the TaskController

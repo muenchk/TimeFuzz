@@ -4,7 +4,7 @@
 
 bool Lua::RegisterThread(std::shared_ptr<Session> session)
 {
-	unsigned int threadid = std::this_thread::get_id()._Get_underlying_id();
+	auto threadid = std::this_thread::get_id();
 
 	std::unique_lock<std::shared_mutex> guard(_statesLock);
 	lua_State* luas = nullptr;
@@ -30,7 +30,7 @@ bool Lua::RegisterThread(std::shared_ptr<Session> session)
 
 void Lua::UnregisterThread()
 {
-	unsigned int threadid = std::this_thread::get_id()._Get_underlying_id();
+	auto threadid = std::this_thread::get_id();
 
 	std::unique_lock<std::shared_mutex> guard(_statesLock);
 	lua_State* luas = nullptr;
@@ -47,7 +47,7 @@ void Lua::UnregisterThread()
 
 EnumType Lua::EvaluateOracle(std::function<EnumType(lua_State*, std::shared_ptr<Test>)> func, std::shared_ptr<Test> test, bool& stateerror)
 {
-	unsigned int threadid = std::this_thread::get_id()._Get_underlying_id();
+	auto threadid = std::this_thread::get_id();
 	lua_State* luas = nullptr;
 	std::shared_lock<std::shared_mutex> guard(_statesLock);
 	try {
@@ -65,7 +65,7 @@ EnumType Lua::EvaluateOracle(std::function<EnumType(lua_State*, std::shared_ptr<
 
 std::string Lua::GetCmdArgs(std::function<std::string(lua_State*, Test*)> func, std::shared_ptr<Test> test, bool& stateerror)
 {
-	unsigned int threadid = std::this_thread::get_id()._Get_underlying_id();
+	auto threadid = std::this_thread::get_id();
 	lua_State* luas = nullptr;
 	std::shared_lock<std::shared_mutex> guard(_statesLock);
 	try {
@@ -83,7 +83,7 @@ std::string Lua::GetCmdArgs(std::function<std::string(lua_State*, Test*)> func, 
 
 std::string Lua::GetCmdArgs(std::function<std::string(lua_State*, Test*)> func, Test* test, bool& stateerror)
 {
-	unsigned int threadid = std::this_thread::get_id()._Get_underlying_id();
+	auto threadid = std::this_thread::get_id();
 	lua_State* luas = nullptr;
 	std::shared_lock<std::shared_mutex> guard(_statesLock);
 	try {
@@ -97,4 +97,14 @@ std::string Lua::GetCmdArgs(std::function<std::string(lua_State*, Test*)> func, 
 	}
 	// call the enclosed function
 	return func(luas, test);
+}
+
+void Lua::DestroyAll()
+{
+	std::unique_lock<std::shared_mutex> guard(_statesLock);
+	for (auto [id, luas] : _states)
+	{
+		lua_close(luas);
+	}
+	_states.clear();
 }

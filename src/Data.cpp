@@ -855,9 +855,11 @@ std::unordered_map<FormID, std::weak_ptr<Form>> Data::GetWeakHashmapCopy()
 void Data::Clear()
 {
 	status = "Clearing hashmap...";
+	if (_lresolve != nullptr) {
+		delete _lresolve;
+	}
 	std::unique_lock<std::shared_mutex> guard(_hashmaplock);
-	for (auto& [id, form] : _hashmap)
-	{
+	for (auto& [id, form] : _hashmap) {
 		form->SetFormID(0);
 		form->Clear();
 	}

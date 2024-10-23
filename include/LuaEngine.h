@@ -22,7 +22,9 @@ public:
 	static std::string GetCmdArgs(std::function<std::string(lua_State*, Test*)> func, std::shared_ptr<Test> test, bool& stateerror);
 	static std::string GetCmdArgs(std::function<std::string(lua_State*, Test*)> func, Test* test, bool& stateerror);
 
+	static void DestroyAll();
+
 private:
-	inline static std::unordered_map<unsigned int, lua_State*> _states;
+	inline static std::unordered_map<std::thread::id, lua_State*> _states;
 	inline static std::shared_mutex _statesLock;
 };

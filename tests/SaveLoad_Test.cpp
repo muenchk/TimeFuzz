@@ -26,7 +26,7 @@ namespace Functions
 		void Run() override
 		{
 			if (input->Finished())
-				if (auto ptr = input->test.lock(); ptr)
+				if (auto ptr = input->test; ptr)
 					logdebug("TEST: {}, EXITREASON: {}, EXITCODE: {}, EXECTIME: {}ms, OUTPUT: {}", ptr->identifier, ptr->exitreason, input->GetExitCode(), std::chrono::duration_cast<std::chrono::milliseconds>(input->GetExecutionTime()).count(), ptr->output);
 		}
 
@@ -123,6 +123,7 @@ int main(/*int argc, char** argv*/)
 	Functions::RegisterFactory(Functions::Callback::GetTypeStatic(), Functions::Callback::Create);
 	Functions::RegisterFactory(Functions::TaskControllerTestCallback::GetTypeStatic(), Functions::TaskControllerTestCallback::Create);
 	std::shared_ptr<TaskController> controller = sess->data->CreateForm<TaskController>();
+	controller->SetDisableLua();
 	//controller.Start(10);
 	int arr[100];
 	for (int i = 0; i < 100; i++) {
@@ -183,11 +184,12 @@ int main(/*int argc, char** argv*/)
 	sess = Session::LoadSession("test", L"");
 	execution = sess->data->CreateForm<ExecutionHandler>();
 	controller = sess->data->CreateForm<TaskController>();
+	controller->SetDisableLua();
 	sett = sess->data->CreateForm<Settings>();
 	oracle = sess->data->CreateForm<Oracle>();
 	oracle->SetLuaCmdArgs(lua);
 
-	controller->Start(3);
+	controller->Start(sess, 3);
 	execution->StartHandlerAsIs();
 
 	execution->StopHandlerAfterTestsFinishAndWait();

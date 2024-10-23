@@ -75,6 +75,7 @@ void ExecutionHandler::Clear()
 		StopTest(test);
 	}
 	_session.reset();
+	_settings.reset();
 	_threadpool.reset();
 	_oracle.reset();
 	_stoppingTests.clear();

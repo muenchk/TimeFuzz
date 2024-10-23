@@ -80,7 +80,8 @@ bool TaskController::Busy()
 void TaskController::InternalLoop(int32_t number)
 {
 	// register new lua state for lua functions executed by the thread
-	Lua::RegisterThread(_session);
+	if (!disableLua)
+		Lua::RegisterThread(_session);
 
 	while (true) {
 		Functions::BaseFunction* del;
@@ -102,7 +103,8 @@ void TaskController::InternalLoop(int32_t number)
 	}
 
 	// unregister thread from lua functions
-	Lua::UnregisterThread();
+	if (!disableLua)
+		Lua::UnregisterThread();
 }
 
 size_t TaskController::GetStaticSize(int32_t version)

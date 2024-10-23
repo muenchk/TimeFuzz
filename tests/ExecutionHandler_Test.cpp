@@ -88,8 +88,9 @@ int32_t main(/*int32_t argc, char** argv*/)
 	}
 	logdebug("Created Oracle");
 	std::shared_ptr<TaskController> controller = std::make_shared<TaskController>();
+	controller->SetDisableLua();
 	logdebug("Created TaskController");
-	controller->Start(1);
+	controller->Start(sess, 1);
 	std::shared_ptr<ExecutionHandler> execution = std::make_shared<ExecutionHandler>();
 	execution->Init(sess, sett, controller, 1, oracle);
 	execution->SetMaxConcurrentTests(50);
@@ -110,7 +111,7 @@ int32_t main(/*int32_t argc, char** argv*/)
 	for (int32_t i = 0; i < NUM_TESTS; i++)
 	{
 		if (ls[i]->Finished())
-			if (auto ptr = ls[i]->test.lock(); ptr)
+			if (auto ptr = ls[i]->test; ptr)
 				logdebug("TEST: {}, EXITREASON: {}, EXITCODE: {}, EXECTIME: {}ms, OUTPUT: {}", ptr->identifier, ptr->exitreason, ls[i]->GetExitCode(), std::chrono::duration_cast<std::chrono::milliseconds>(ls[i]->GetExecutionTime()).count(), ptr->output);
 	}
 
@@ -145,7 +146,7 @@ int32_t main(/*int32_t argc, char** argv*/)
 	std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	execution->StopHandlerAfterTestsFinishAndWait();
 	logdebug("Finished execution handler");
-	if (auto ptr = inp->test.lock(); ptr)
+	if (auto ptr = inp->test; ptr)
 		logdebug("TEST: {}, EXITREASON: {}, EXITCODE: {}, EXECTIME: {}ms, OUTPUT: {}", ptr->identifier, ptr->exitreason, inp->GetExitCode(), std::chrono::duration_cast<std::chrono::milliseconds>(inp->GetExecutionTime()).count(), ptr->output);
 
 	execution.reset();

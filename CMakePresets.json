@@ -157,7 +157,7 @@
         "generator-ninja",
         "msvc"
       ],
-      "displayName": "Release",
+      "displayName": "Build",
       "description": "Optimized release build.",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build",
@@ -179,7 +179,7 @@
         "build-tests",
         "msvc"
       ],
-      "displayName": "Release",
+      "displayName": "All",
       "description": "Optimized release build.",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/buildall",
@@ -200,7 +200,7 @@
         "generator-ninja",
         "build-tests"
       ],
-      "displayName": "Release",
+      "displayName": "Linux",
       "description": "Optimized release build.",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/buildLinux",
@@ -216,16 +216,8 @@
       "inherits": [
         "linux"
       ],
-      "displayName": "Release",
+      "displayName": "Kali",
       "binaryDir": "${sourceDir}/buildKali"
-    }
-  ],
-  "buildPresets": [
-    {
-      "name": "release-msvc",
-      "displayName": "Release (MSVC)",
-      "configurePreset": "all",
-      "description": "Optimized release build."
     }
   ]
 }
