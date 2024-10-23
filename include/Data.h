@@ -4,6 +4,7 @@
 #include <queue>
 #include <unordered_map>
 #include <mutex>
+#include <chrono>
 
 #include "TaskController.h"
 #include "Form.h"
@@ -19,6 +20,7 @@ class LoadResolver;
 
 class Data
 {
+public:
 	struct StaticFormIDs
 	{
 		enum StaticFormID
@@ -57,6 +59,14 @@ private:
 	/// number of the next save
 	/// </summary>
 	int32_t savenumber = 1;
+	/// <summary>
+	/// start time of this session
+	/// </summary>
+	std::chrono::steady_clock::time_point sessionBegin = std::chrono::steady_clock::now();
+	/// <summary>
+	/// Overall session runtime
+	/// </summary>
+	std::chrono::nanoseconds runtime = std::chrono::nanoseconds(0);
 	/// <summary>
 	/// load resolver, used to resolve forms after loading has been completed
 	/// </summary>
@@ -112,6 +122,16 @@ public:
 	static Data* GetSingleton();
 
 	/// <summary>
+	/// Sets the session start time to the current time
+	/// </summary>
+	void StartClock();
+	/// <summary>
+	/// Returns the overall session runtime
+	/// </summary>
+	/// <returns></returns>
+	std::chrono::nanoseconds GetRuntime() { return runtime + std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - sessionBegin); }
+
+	/// <summary>
 	/// Creates a new dynamic form and registers it
 	/// </summary>
 	/// <typeparam name="T">Type of the form to create</typeparam>
@@ -120,6 +140,7 @@ public:
 	std::shared_ptr<T> CreateForm()
 	{
 		loginfo("Create Form");
+		T::RegisterFactories();
 		std::shared_ptr<T> ptr = std::make_shared<T>();
 		FormID formid = 0;
 		{
@@ -174,8 +195,7 @@ public:
 	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 	void DeleteForm(std::shared_ptr<T> form)
 	{
-		if (form)
-		{
+		if (form) {
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 			_hashmap.erase(form->GetFormID());
 			form.reset();

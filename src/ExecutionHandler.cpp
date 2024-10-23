@@ -86,6 +86,14 @@ void ExecutionHandler::Clear()
 	_thread = {};
 }
 
+void ExecutionHandler::RegisterFactories()
+{
+	if (!_registeredFactories) {
+		_registeredFactories = !_registeredFactories;
+	}
+}
+
+
 void ExecutionHandler::SetMaxConcurrentTests(int32_t maxConcurrenttests)
 {
 	loginfo("Set max concurrent tests to {}", maxConcurrenttests);
@@ -262,7 +270,6 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 			// give input access to test information
 			ptr->test = test;
 		}
-		test->input.reset();
 		// call callback if test has finished
 		_threadpool->AddTask(test->callback);
 		logdebug("test cannot be started");
@@ -270,10 +277,12 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 		return false;
 	}
 	logdebug("started process");
-	if (_enableFragments)
-		test->WriteNext();
-	else
-		test->WriteAll();
+	if (_oracle->GetOracletype() != Oracle::PUTType::CMD && _oracle->GetOracletype() != Oracle::PUTType::Script) {
+		if (_enableFragments)
+			test->WriteNext();
+		else
+			test->WriteAll();
+	}
 	_currentTests++;
 	_runningTests.push_back(test);
 	logdebug("test started");
@@ -292,15 +301,16 @@ void ExecutionHandler::StopTest(std::shared_ptr<Test> test)
 		ptr->hasfinished = true;
 		ptr->executiontime = std::chrono::duration_cast<std::chrono::nanoseconds>(test->endtime - test->starttime);
 		ptr->exitcode = test->GetExitCode();
+		// evaluate oracle
+		ptr->oracleResult = _oracle->Evaluate(test);
+		// check whether to store output
+		if (!_settings->tests.storePUToutput && (!_settings->tests.storePUToutputSuccessful || _settings->tests.storePUToutputSuccessful && ptr->oracleResult == Oracle::OracleResult::Passing))
+			test->output = "";
 		// give input access to test information
 		ptr->test = test;
 	}
-	// reset pointer to input, otherwise we have a loop
-	test->input.reset();
 	// invalidate so no more functions can be called on the test
 	test->InValidate();
-	// evaluate oracle
-	auto result = _oracle->Evaluate(test);
 	// call callback if test has finished
 	_threadpool->AddTask(test->callback);
 	test->callback = nullptr;
@@ -605,8 +615,9 @@ bool ExecutionHandler::ReadData(unsigned char* buffer, size_t& offset, size_t le
 				_settings = resolver->data->CreateForm<Settings>();
 				_threadpool = resolver->data->CreateForm<TaskController>();
 				_oracle = resolver->data->CreateForm<Oracle>();
-				if (_active)
-					StartHandlerAsIs();
+				if (_active) {
+					_active = false;
+				}
 			});
 		return true;
 		}

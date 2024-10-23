@@ -2,7 +2,7 @@
 #include "Oracle.h"
 #include "Utility.h"
 #include "BufferOperations.h"
-
+#include "Input.h"
 
 std::string Oracle::TypeString(PUTType type)
 {
@@ -15,13 +15,13 @@ std::string Oracle::TypeString(PUTType type)
 
 Oracle::PUTType Oracle::ParseType(std::string str)
 {
-	if (Utility::ToLower(str) == "CommandLine")
+	if (Utility::ToLower(str).find("commandline") != std::string::npos)
 		return Oracle::PUTType::CMD;
-	else if (Utility::ToLower(str) == "Script")
+	else if (Utility::ToLower(str).find("script") != std::string::npos)
 		return Oracle::PUTType::Script;
-	else if (Utility::ToLower(str) == "StdinResponsive")
+	else if (Utility::ToLower(str).find("stdinresponsive") != std::string::npos)
 		return Oracle::PUTType::STDIN_Responsive;
-	else if (Utility::ToLower(str) == "StdinDump")
+	else if (Utility::ToLower(str).find("stdindump") != std::string::npos)
 		return Oracle::PUTType::STDIN_Dump;
 	else
 		return Oracle::PUTType::Undefined;
@@ -109,11 +109,33 @@ void Oracle::SetLuaCmdArgs(std::filesystem::path scriptpath)
 	}
 }
 
+void Oracle::SetLuaOracle(std::string script)
+{
+	LoracleStr = script;
+	// the lua command is saved in a string
+	if (luaL_dostring(luas, LoracleStr.c_str()) == LUA_OK) {
+		lua_pop(luas, lua_gettop(luas));
+	}
+}
+
+void Oracle::SetLuaOracle(std::filesystem::path scriptpath)
+{
+	LoraclePath = scriptpath;
+
+	// run lua on script
+	if (luaL_dofile(luas, scriptpath.string().c_str()) == LUA_OK) {
+		lua_pop(luas, lua_gettop(luas));
+	}
+}
+
 Oracle::OracleResult Oracle::Evaluate(std::shared_ptr<Test> test)
 {
 	test->input;
 	return Oracle::OracleResult::Passing;
 }
+
+
+
 
 std::string Oracle::GetCmdArgs(std::shared_ptr<Test> test)
 {
@@ -121,6 +143,10 @@ std::string Oracle::GetCmdArgs(std::shared_ptr<Test> test)
 	std::string args = "";
 	auto input = test->input.lock();
 	if (input) {
+		lua_register(luas, "ConvertToPython", Input::lua_ConvertToPython);
+		lua_pushlightuserdata(luas, (void*)(input.get()));
+		lua_setglobal(luas, "input");
+
 		lua_getglobal(luas, "GetCmdArgs");
 		//lua_push .....
 		// set function call args
@@ -145,7 +171,11 @@ size_t Oracle::GetStaticSize(int32_t version)
 	static size_t size0x1 = Form::GetDynamicSize()  // form base size
 	                        + 4                     // version
 	                        + 4                     // type
-	                        + 1;                    // valid
+	                        + 1                     // valid
+	                        + 8                     // LoracleStr size
+	                        + 8                     // LoraclePath size
+	                        + 8                     // LcmdargsStr size
+	                        + 8;                    // LcmdargsPath size
 	switch (version)
 	{
 	case 0x1:
@@ -157,7 +187,7 @@ size_t Oracle::GetStaticSize(int32_t version)
 
 size_t Oracle::GetDynamicSize()
 {
-	return GetStaticSize(classversion) + Buffer::CalcStringLength(_path.string());
+	return GetStaticSize(classversion) + Buffer::CalcStringLength(_path.string()) + Buffer::CalcStringLength(LoracleStr) + Buffer::CalcStringLength(LoraclePath.string()) + Buffer::CalcStringLength(LcmdargsStr) + Buffer::CalcStringLength(LcmdargsPath.string());
 }
 
 bool Oracle::WriteData(unsigned char* buffer, size_t& offset)
@@ -167,6 +197,16 @@ bool Oracle::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write((int32_t)_type, buffer, offset);
 	Buffer::Write(valid, buffer, offset);
 	Buffer::Write(_path.string(), buffer, offset);
+	Buffer::Write(LoracleStr, buffer, offset);
+	if (std::filesystem::exists(LoraclePath))
+		Buffer::Write(LoraclePath.string(), buffer, offset);
+	else
+		Buffer::Write(std::string(""), buffer, offset);
+	Buffer::Write(LcmdargsStr, buffer, offset);
+	if (std::filesystem::exists(LcmdargsPath))
+		Buffer::Write(LcmdargsPath.string(), buffer, offset);
+	else
+		Buffer::Write(std::string(""), buffer, offset);
 	return true;
 }
 
@@ -182,6 +222,18 @@ bool Oracle::ReadData(unsigned char* buffer, size_t& offset, size_t length, Load
 			std::string path = Buffer::ReadString(buffer, offset);
 			_path = std::filesystem::path(path);
 			Set(_type, _path);
+			LoracleStr = Buffer::ReadString(buffer, offset);
+			if (LoracleStr.empty() == false)
+				SetLuaOracle(LoracleStr);
+			path = Buffer::ReadString(buffer, offset);
+			if (path.empty() == false)
+				SetLuaOracle(std::filesystem::path(path));
+			LcmdargsStr = Buffer::ReadString(buffer, offset);
+			if (LcmdargsStr.empty() == false)
+				SetLuaCmdArgs(LcmdargsStr);
+			path = Buffer::ReadString(buffer, offset);
+			if (path.empty() == false)
+				SetLuaCmdArgs(std::filesystem::path(path));
 			return true;
 		}
 		break;
@@ -203,4 +255,11 @@ void Oracle::Clear()
 	LcmdargsPath = "";
 	valid = false;
 	_path = "";
+}
+
+void Oracle::RegisterFactories()
+{
+	if (!_registeredFactories) {
+		_registeredFactories = !_registeredFactories;
+	}
 }

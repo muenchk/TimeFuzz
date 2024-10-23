@@ -42,6 +42,10 @@ public:
 	/// whether to write errors to stdout
 	/// </summary>
 	static inline bool StdOutError = true;
+	/// <summary>
+	/// whether to write debug messages to stdout
+	/// </summary>
+	static inline bool StdOutDebug = true;
 
 	/// <summary>
 	/// the path to store log files
@@ -94,7 +98,7 @@ public:
 		return ss.str();
 	}
 
-	static void InitializeLog(std::filesystem::path _path, bool append = false);
+	static void InitializeLog(std::filesystem::path _path, bool append = false, bool timestamp = false);
 };
 
 #ifdef BUILD_DEBUG
@@ -158,6 +162,8 @@ public:
 			_stream = new std::ofstream(Logging::log_directory / (pluginname + "_profile.log"), std::ios_base::out | std::ios_base::trunc);
 		else
 			_stream = new std::ofstream(Logging::log_directory / (pluginname + "_profile.log"), std::ios_base::out | std::ios_base::ate);
+		if (_stream == nullptr || _stream->is_open() == false)
+			std::cout << "Cannot create Profiling Log!\n";
 		lock.release();
 	}
 
@@ -234,6 +240,8 @@ public:
 			_stream = new std::ofstream(Logging::log_directory / (pluginname + ".log"), std::ios_base::out | std::ios_base::trunc);
 		else
 			_stream = new std::ofstream(Logging::log_directory / (pluginname + ".log"), std::ios_base::out | std::ios_base::ate);
+		if (_stream == nullptr || _stream->is_open() == false)
+			std::cout << "Cannot create Log!\n";
 		lock.release();
 	}
 
@@ -365,6 +373,8 @@ struct [[maybe_unused]] debug
 	{
 		std::string mes = fmt::format("{:<25} {} {} {:<30}\t{}", std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + "):", "[debug]   ", Logging::TimePassed(), "[" + func + "]", fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n");
 		Log::write(mes);
+		if (Logging::StdOutDebug)
+			std::cout << mes;
 	}
 };
 

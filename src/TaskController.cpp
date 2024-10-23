@@ -163,7 +163,8 @@ bool TaskController::ReadData(unsigned char* buffer, size_t& offset, size_t leng
 				tasks.push_back(func);
 			}
 			if (active)
-				Start(_numthreads);
+				//Start(_numthreads);
+				active = false;
 			return true;
 		}
 		break;
@@ -190,6 +191,14 @@ void TaskController::Clear()
 		tasks.pop_front();
 	}
 }
+
+void TaskController::RegisterFactories()
+{
+	if (!_registeredFactories) {
+		_registeredFactories = !_registeredFactories;
+	}
+}
+
 
 void TaskController::Freeze()
 {

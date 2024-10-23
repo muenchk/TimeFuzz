@@ -871,6 +871,13 @@ void Grammar::Clear()
 	}
 }
 
+void Grammar::RegisterFactories()
+{
+	if (!_registeredFactories) {
+		_registeredFactories = !_registeredFactories;
+	}
+}
+
 size_t Grammar::GetStaticSize(int32_t version)
 {
 	static size_t size0x1 = Form::GetDynamicSize()  // form base size

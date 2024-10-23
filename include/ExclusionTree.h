@@ -84,13 +84,17 @@ public:
 	}
 	void Delete(Data* data) override;
 	void Clear() override;
+	inline static bool _registeredFactories = false;
+	static void RegisterFactories();
 
 
 
 	#pragma endregion
 
 private:
-	TreeNode root;
+	TreeNode* root;
+
+	std::shared_mutex _lock;
 
 	uint64_t nextid = 1;
 

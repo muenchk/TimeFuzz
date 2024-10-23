@@ -1,6 +1,8 @@
 #include "BufferOperations.h"
+#include "Utility.h"
 
 #include <cstring>
+#include <iostream>
 
 namespace Buffer
 {
@@ -46,6 +48,13 @@ namespace Buffer
 		offset += 4;  // size written
 	}
 
+	void Write(double value, unsigned char* buffer, size_t& offset)
+	{
+		double* ptr = (double*)(buffer + offset);
+		*ptr = value;
+		offset += 8;  // size written
+	}
+
 	void Write(std::string value, unsigned char* buffer, size_t& offset)
 	{
 		size_t length = value.length();
@@ -81,7 +90,7 @@ namespace Buffer
 	void WriteSize(size_t value, unsigned char* buffer, size_t& offset)
 	{
 		uint64_t* ptr = (uint64_t*)(buffer + offset);
-		uint64_t sz = value;
+		uint64_t sz = (uint64_t)value;
 		*ptr = sz;
 		offset += 8;
 	}
@@ -99,6 +108,12 @@ namespace Buffer
 		auto nanodur = nanotp.time_since_epoch();
 		auto nano = std::chrono::duration_cast<std::chrono::nanoseconds>(nanodur);
 		Write(nano, buffer, offset);
+	}
+
+	void Write(unsigned char value, unsigned char* buffer, size_t& offset)
+	{
+		*(buffer + offset) = value;
+		offset++;
 	}
 
 	uint32_t ReadUInt32(unsigned char* buffer, size_t& offset)
@@ -137,6 +152,12 @@ namespace Buffer
 		return *((float*)(buffer + offset - 4));
 	}
 
+	double ReadDouble(unsigned char* buffer, size_t& offset)
+	{
+		offset += 8;  // size read
+		return *((double*)(buffer + offset - 8));
+	}
+
 	std::string ReadString(unsigned char* buffer, size_t& offset)
 	{
 		size_t length = *((size_t*)(buffer + offset));
@@ -160,6 +181,12 @@ namespace Buffer
 	{
 		size_t length = *((size_t*)(buffer + offset));
 		return length;
+	}
+
+	unsigned char ReadUChar(unsigned char* buffer, size_t& offset)
+	{
+		offset++;
+		return *(buffer + offset - 1);
 	}
 
 	std::chrono::nanoseconds ReadNanoSeconds(unsigned char* buffer, size_t& offset)

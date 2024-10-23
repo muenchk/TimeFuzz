@@ -52,6 +52,13 @@ namespace Buffer
 	/// <param name="offset">offset to write at, is updated with the written size</param>
 	void Write(float value, unsigned char* buffer, size_t& offset);
 	/// <summary>
+	/// Writes a Double to the buffer
+	/// </summary>
+	/// <param name="value">value to write</param>
+	/// <param name="buffer">buffer to write to</param>
+	/// <param name="offset">offset to write at, is updated with the written size</param>
+	void Write(double value, unsigned char* buffer, size_t& offset);
+	/// <summary>
 	/// Writes a String to the buffer
 	/// </summary>
 	/// <param name="value">value to write</param>
@@ -100,6 +107,13 @@ namespace Buffer
 	/// <param name="buffer"></param>
 	/// <param name="offset"></param>
 	void Write(std::chrono::steady_clock::time_point value, unsigned char* buffer, size_t& offset);
+	/// <summary>
+	/// Writes an unsigned char to the buffer
+	/// </summary>
+	/// <param name=""></param>
+	/// <param name="buffer"></param>
+	/// <param name="offset"></param>
+	void Write(unsigned char value, unsigned char* buffer, size_t& offset);
 
 	/// <summary>
 	/// Reads a generic basic type from the buffer
@@ -158,12 +172,26 @@ namespace Buffer
 	/// <returns>the read value</returns>
 	float ReadFloat(unsigned char* buffer, size_t& offset);
 	/// <summary>
+	/// Reads a Double from the buffer
+	/// </summary>
+	/// <param name="buffer">buffer to read from</param>
+	/// <param name="offset">Offset to read at, is updated with the read size</param>
+	/// <returns>the read value</returns>
+	double ReadDouble(unsigned char* buffer, size_t& offset);
+	/// <summary>
 	/// Reads a String from the buffer
 	/// </summary>
 	/// <param name="buffer">buffer to read from</param>
 	/// <param name="offset">Offset to read at, is updated with the read size</param>
 	/// <returns>the read value</returns>
 	std::string ReadString(unsigned char* buffer, size_t& offset);
+	/// <summary>
+	/// Reads an unsigned char from the buffer
+	/// </summary>
+	/// <param name="buffer"></param>
+	/// <param name="offset"></param>
+	/// <returns></returns>
+	unsigned char ReadUChar(unsigned char* buffer, size_t& offset);
 
 	/// <summary>
 	/// Reads nanoseconds from the buffer

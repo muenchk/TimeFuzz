@@ -12,6 +12,7 @@
     {
       "name": "boost-multiprecision"
     },
+    "boost-circular-buffer",
     {
       "name": "boost-container"
     },

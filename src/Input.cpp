@@ -49,11 +49,11 @@ bool Input::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(executiontime, buffer, offset);
 	Buffer::Write(exitcode, buffer, offset);
 	Buffer::Write((uint64_t)oracleResult, buffer, offset);
-	if (auto ptr = test.lock(); ptr) {
+	if (auto ptr = test; ptr) {
 		Buffer::Write(ptr->GetFormID(), buffer, offset);
 	} else
 		Buffer::Write((FormID)0, buffer, offset);
-	if (auto ptr = derive.lock(); ptr) {
+	if (auto ptr = derive; ptr) {
 		Buffer::Write(ptr->GetFormID(), buffer, offset);
 	} else
 		Buffer::Write((FormID)0, buffer, offset);
@@ -78,8 +78,6 @@ bool Input::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadR
 			// static init
 			pythonconverted = false;
 			pythonstring = "";
-			test.reset();
-			derive.reset();
 			// end
 			hasfinished = Buffer::ReadBool(buffer, offset);
 			trimmed = Buffer::ReadBool(buffer, offset);
@@ -95,15 +93,15 @@ bool Input::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadR
 				this->derive = resolver->ResolveFormID<DerivationTree>(deriveid);
 			});
 			// get stringrep
-			if (length < offset - initoff + 8 || length < offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
+			if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
 				return false;
 			stringrep = Buffer::ReadString(buffer, offset);
 			// read sequence
-			if (length < offset - initoff + 8 || length < offset - initoff + 8 + Buffer::List::GetListLength(buffer, offset))
+			if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::List::GetListLength(buffer, offset))
 				return false;
 			Buffer::List::ReadList(sequence, buffer, offset);
 			// read orig_sequence
-			if (length < offset - initoff + 8 || length < offset - initoff + 8 + Buffer::List::GetListLength(buffer, offset))
+			if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::List::GetListLength(buffer, offset))
 				return false;
 			Buffer::List::ReadList(orig_sequence, buffer, offset);
 			return true;
@@ -116,8 +114,8 @@ bool Input::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadR
 void Input::Delete(Data* data)
 {
 	Clear();
-	data->DeleteForm(derive.lock());
-	data->DeleteForm(test.lock());
+	data->DeleteForm(derive);
+	data->DeleteForm(test);
 }
 
 #pragma endregion
@@ -141,21 +139,28 @@ void Input::Clear()
 	orig_sequence.clear();
 }
 
+void Input::RegisterFactories()
+{
+	if (!_registeredFactories) {
+		_registeredFactories = !_registeredFactories;
+	}
+}
+
 std::string Input::ConvertToPython(bool update)
 {
 	// if we already generated the python commands and aren't forces to update, just return the last one
 	if (!update && pythonconverted)
 		return pythonstring;
-	pythonstring = "inputs = [ ";
+	pythonstring = "[ ";
 	auto itr = begin();
 	if (itr != end())
 	{
 		// first one doesn't have command
-		pythonstring += "\"" + (*itr) + "\"";
+		pythonstring += (*itr);
 		itr++;
 	}
 	while (itr != end()) {
-		pythonstring += ", \"" + (*itr) + "\"";
+		pythonstring += ", " + (*itr);
 		itr++;
 	}
 	pythonstring += " ]";

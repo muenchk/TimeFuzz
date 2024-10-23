@@ -48,3 +48,10 @@ void DerivationTree::Clear()
 {
 
 }
+
+void DerivationTree::RegisterFactories()
+{
+	if (!_registeredFactories) {
+		_registeredFactories = !_registeredFactories;
+	}
+}

@@ -105,6 +105,19 @@ public:
 		return ss.str();
 	}
 	/// <summary>
+	/// Returns a string showing [buffer] as Hexadecimal
+	/// </summary>
+	/// <param name="buffer"></param>
+	/// <param name="length"></param>
+	/// <returns></returns>
+	static std::string GetHex(unsigned char* buffer, size_t length)
+	{
+		std::stringstream ss;
+		for (size_t i = 0; i < length; i++)
+			ss << std::setw(2) << std::hex << std::setfill('0') << (unsigned short)buffer[i];
+		return ss.str();
+	}
+	/// <summary>
 	/// Returns a string showing [val] as Hexadecimal number with padding
 	/// </summary>
 	/// <param name="val"></param>

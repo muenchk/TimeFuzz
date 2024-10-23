@@ -44,7 +44,8 @@ void Data::Save()
 	// saves the current state of the program to disk
 	// saving requires all active operations to cease while the data is collected and written to disk
 	// 
-
+	
+	std::cout << "hashtable size: " << _hashmap.size() << "\n";
 	// create new file on disc
 	std::string name = GetSaveName();
 	if (!std::filesystem::exists(savepath))
@@ -58,9 +59,9 @@ void Data::Save()
 		execcontrol->Freeze();
 		taskcontrol->Freeze();
 
-		// write main information about savefile: name, savenumber, nextformid, etc.
+		// write main information about savefile: name, savenumber, nextformid, runtime etc.
 		{
-			size_t len = 30;
+			size_t len = 38;
 			size_t offset = 0;
 			unsigned char* buffer = new unsigned char[len];
 			Buffer::Write(saveversion, buffer, offset);
@@ -69,6 +70,7 @@ void Data::Save()
 			Buffer::Write(_nextformid, buffer, offset);
 			Buffer::Write(_globalTasks, buffer, offset);
 			Buffer::Write(_globalExec, buffer, offset);
+			Buffer::Write(runtime + std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - sessionBegin), buffer, offset);
 			save.write((char*)buffer, len);
 			delete[] buffer;
 		}
@@ -285,19 +287,20 @@ void Data::LoadIntern(std::filesystem::path path)
 			// read data stuff
 			if (flen - pos >= 10)
 			{
-				save.read((char*)buffer, 10);
+				save.read((char*)buffer, 18);
 				offset = 0;
-				if (save.gcount() == 10) {
+				if (save.gcount() == 18) {
 					_nextformid = Buffer::ReadUInt64(buffer, offset);
 					_globalTasks = Buffer::ReadBool(buffer, offset);
 					_globalExec = Buffer::ReadBool(buffer, offset);
+					runtime = Buffer::ReadNanoSeconds(buffer, offset);
 				}
 				else
 				{
 					logcritical("Save file does not appear to have the proper format: fail data fields");
 					abort = true;
 				}
-				pos += 10;
+				pos += 18;
 			}
 
 			if (!abort) {
@@ -315,7 +318,7 @@ void Data::LoadIntern(std::filesystem::path path)
 							rtype = 0;
 							// read length of record, type of record
 							if (flen - pos >= 12) {
-								save.read((char*)buffer, 12);
+								save.read(reinterpret_cast<char*>(buffer), 12);
 								offset = 0;
 								if (save.gcount() == 12) {
 									rlen = Buffer::ReadSize(buffer, offset);
@@ -329,7 +332,7 @@ void Data::LoadIntern(std::filesystem::path path)
 									cbuf = false;
 									save.read((char*)buffer, rlen);
 									pos += rlen;
-									if (save.gcount() != (std::streamsize)rlen) {
+									if (save.eof() || save.fail()) {
 										// we haven't read as much as we want, probs end-of-file, so end iteration and continue
 										logwarn("Found unexpected end-of-file");
 										continue;
@@ -340,7 +343,7 @@ void Data::LoadIntern(std::filesystem::path path)
 									cbuffer = new unsigned char[rlen];
 									save.read((char*)cbuffer, rlen);
 									pos += rlen;
-									if (save.gcount() != (std::streamsize)rlen) {
+									if (save.eof() || save.fail()) {
 										// we haven't read as much as we want, probs end-of-file, so end iteration and continue
 										logwarn("Found unexpected end-of-file");
 										delete[] cbuffer;
@@ -505,6 +508,7 @@ void Data::LoadIntern(std::filesystem::path path)
 		}
 		delete[] buffer;
 		save.close();
+		std::cout << "hashtable size: " << _hashmap.size() << "\n";
 		_lresolve->Resolve();
 		loginfo("Loaded session");
 	} else
@@ -527,6 +531,11 @@ LoadResolver::~LoadResolver()
 		tasks.front()->Dispose();
 		tasks.pop();
 	}
+}
+
+void Data::StartClock()
+{
+	sessionBegin = std::chrono::steady_clock::now();
 }
 
 void LoadResolver::AddTask(TaskFn a_task)
@@ -578,6 +587,7 @@ void LoadResolver::Task::Dispose()
 template<>
 std::shared_ptr<Session> Data::CreateForm()
 {
+	Session::RegisterFactories();
 	std::shared_ptr<Session> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
@@ -603,6 +613,7 @@ std::shared_ptr<Session> Data::CreateForm()
 template <>
 std::shared_ptr<TaskController> Data::CreateForm()
 {
+	TaskController::RegisterFactories();
 	std::shared_ptr<TaskController> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
@@ -630,6 +641,7 @@ std::shared_ptr<TaskController> Data::CreateForm()
 template <>
 std::shared_ptr<Settings> Data::CreateForm()
 {
+	Settings::RegisterFactories();
 	std::shared_ptr<Settings> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
@@ -654,6 +666,7 @@ std::shared_ptr<Settings> Data::CreateForm()
 template <>
 std::shared_ptr<Oracle> Data::CreateForm()
 {
+	Oracle::RegisterFactories();
 	std::shared_ptr<Oracle> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
@@ -678,6 +691,7 @@ std::shared_ptr<Oracle> Data::CreateForm()
 template <>
 std::shared_ptr<Generator> Data::CreateForm()
 {
+	Generator::RegisterFactories();
 	std::shared_ptr<Generator> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
@@ -702,6 +716,7 @@ std::shared_ptr<Generator> Data::CreateForm()
 template <>
 std::shared_ptr<ExclusionTree> Data::CreateForm()
 {
+	ExclusionTree::RegisterFactories();
 	std::shared_ptr<ExclusionTree> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
@@ -726,6 +741,7 @@ std::shared_ptr<ExclusionTree> Data::CreateForm()
 template <>
 std::shared_ptr<ExecutionHandler> Data::CreateForm()
 {
+	ExecutionHandler::RegisterFactories();
 	std::shared_ptr<ExecutionHandler> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);

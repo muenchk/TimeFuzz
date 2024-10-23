@@ -61,6 +61,10 @@ public:
 	/// </summary>
 	/// <param name="formid"></param>
 	void SetFormID(FormID formid);
+	/// <summary>
+	/// Registers all factiories necessary for the class
+	/// </summary>
+	static void RegisterFactories();
 
 	/// <summary>
 	/// Acquires a writers lock on the instance

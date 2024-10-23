@@ -29,6 +29,8 @@ public:
 	/// resets all internal variables
 	/// </summary>
 	void Clear() override;
+	inline static bool _registeredFactories = false;
+	static void RegisterFactories();
 
 	#pragma endregion
 };

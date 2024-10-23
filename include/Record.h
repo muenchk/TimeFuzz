@@ -1,20 +1,24 @@
 #pragma once
 
 #include "BufferOperations.h"
+#include "Utility.h"
+
+#include <iostream>
 
 class LoadResolver;
 class ExecutionHandler;
 
-namespace Records
+class Records
 {
+public:
 	/// <summary>
 	/// Creates a new record and returns the length in [length]
 	/// </summary>
 	/// <typeparam name="T"></typeparam>
 	/// <param name="value"></param>
 	/// <returns></returns>
-	template<class T>
-	unsigned char* CreateRecord(T* value, size_t& length)
+	template <class T>
+	static unsigned char* CreateRecord(T* value, size_t& length)
 	{
 		size_t offset = 0;
 		size_t sz = value->GetDynamicSize();
@@ -36,8 +40,8 @@ namespace Records
 	/// <param name="value"></param>
 	/// <param name="length"></param>
 	/// <returns></returns>
-	template<class T>
-	unsigned char* CreateRecord(std::shared_ptr<T> value, size_t& length)
+	template <class T>
+	static unsigned char* CreateRecord(std::shared_ptr<T> value, size_t& length)
 	{
 		return CreateRecord<T>(value.get(), length);
 	}
@@ -50,18 +54,18 @@ namespace Records
 	/// <param name="offset"></param>
 	/// <param name="length"></param>
 	/// <returns></returns>
-	template<class T>
-	std::shared_ptr<T> ReadRecord(unsigned char* buffer, size_t offset, size_t length, LoadResolver* resolver)
+	template <class T>
+	static std::shared_ptr<T> ReadRecord(unsigned char* buffer, size_t offset, size_t length, LoadResolver* resolver)
 	{
+		T::RegisterFactories();
 		size_t off = 0;
 		T* rec = new T();
 		rec->ReadData(buffer + offset, off, length, resolver);
 		// if the offset (that was updated by ReadData) is greater than length, we have read beyond the limits of the buffer
-		if (off > length)
-		{
+		if (off > length) {
 			delete rec;
 			return {};
 		}
 		return std::shared_ptr<T>(rec);
 	}
-}
+};

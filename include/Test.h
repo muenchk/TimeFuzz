@@ -215,20 +215,22 @@ public:
 	}
 	void Delete(Data* data) override;
 	void Clear() override;
+	static void RegisterFactories();
 
 
 private:
+	inline static bool _registeredFactories = false;
 	bool valid = true;
 };
 
 namespace Functions
 {
-	class TestCallback : BaseFunction
+	class TestCallback : public BaseFunction
 	{
-	private:
+	public:
 		std::shared_ptr<Session> _session;
 		std::shared_ptr<Input> _input;
-	public:
+
 		void Run() override;
 		static uint64_t GetTypeStatic() { return 'TEST'; }
 		uint64_t GetType() override { return 'TEST'; }
@@ -237,7 +239,7 @@ namespace Functions
 		bool WriteData(unsigned char* buffer, size_t& offset);
 
 		static BaseFunction* Create() { return new TestCallback(); }
-		void Dispose() { delete this; }
+		void Dispose();
 		size_t GetLength();
 	};
 }

@@ -164,7 +164,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": {
           "type": "STRING",
-          "value": "Release"
+          "value": "Debug"
         }
       }
     },
@@ -182,7 +182,7 @@
       "displayName": "Release",
       "description": "Optimized release build.",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build",
+      "binaryDir": "${sourceDir}/buildall",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": {
           "type": "STRING",

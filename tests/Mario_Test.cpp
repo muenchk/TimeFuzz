@@ -71,7 +71,7 @@ int main(/*int argc, char** argv*/)
 	Functions::RegisterFactory(Functions::Callback::GetTypeStatic(), Functions::Callback::Create);
 	logdebug("Init");
 	std::shared_ptr<Settings> sett = std::make_shared<Settings>();
-	std::shared_ptr<Session> sess = Session::CreateSeassion();
+	std::shared_ptr<Session> sess = Session::CreateSession();
 	logdebug("Initialized Settings");
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>();

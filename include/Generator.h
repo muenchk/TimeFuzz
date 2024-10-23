@@ -8,7 +8,7 @@
 class Generator : public Form
 {
 public:
-	void Generate();
+	void Generate(std::shared_ptr<Input>& input);
 	/// <summary>
 	/// resets all progress made
 	/// </summary>
@@ -34,6 +34,10 @@ public:
 	}
 	void Delete(Data* data) override;
 	void Clear() override;
+	inline static bool _registeredFactories = false;
+	static void RegisterFactories();
+
+	virtual void Init();
 
 	#pragma endregion
 

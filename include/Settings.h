@@ -54,6 +54,8 @@ public:
 	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 	void Delete(Data* data);
 	void Clear() override;
+	inline static bool _registeredFactories = false;
+	static void RegisterFactories();
 	
 	int32_t GetType() override
 	{
@@ -104,18 +106,27 @@ public:
 		/// whether to enable saves
 		/// </summary>
 		bool enablesaves = true;
+		const char* enablesaves_NAME = "EnableSaves";
 		/// <summary>
 		/// automatically saves after x tests [set to 0 to disable]
 		/// </summary>
 		int64_t autosave_every_tests = 1000;
+		const char* autosave_every_tests_NAME = "AutosavePeriodTests";
 		/// <summary>
 		/// automatically saves after x seconds [set to 0 to disable]
 		/// </summary>
 		int64_t autosave_every_seconds = 300;
+		const char* autosave_every_seconds_NAME = "AutosavePeriodSeconds";
 		/// <summary>
 		/// the path at which saves are made
 		/// </summary>
 		std::string savepath = "./saves";
+		const char* savepath_NAME = "SavePath";
+		/// <summary>
+		/// the name of the savefiles
+		/// </summary>
+		std::string savename = "USS Enterprise";
+		const char* savename_NAME = "SaveName";
 	};
 
 	General general;
@@ -169,16 +180,6 @@ public:
 	struct EndConditions
 	{
 		/// <summary>
-		/// whether to stop the execution after a set amount of iterations
-		/// </summary>
-		bool use_maxiterations = true;
-		const char* use_maxiterations_NAME = "UseMaxIterations";
-		/// <summary>
-		/// the number of iterations to run
-		/// </summary>
-		int32_t maxiterations = 10;
-		const char* maxiterations_NAME = "MaxIterations";
-		/// <summary>
 		/// whether to stop the execution after a set amount of failing inputs have been found
 		/// </summary>
 		bool use_foundnegatives = true;
@@ -186,8 +187,18 @@ public:
 		/// <summary>
 		/// the number of failing inputs to generate
 		/// </summary>
-		int64_t foundnegatives = 100;
+		uint64_t foundnegatives = 100;
 		const char* foundnegatives_NAME = "FoundNegatives";
+		/// <summary>
+		/// whether to stop the execution after a set amount of failing inputs have been found
+		/// </summary>
+		bool use_foundpositives = true;
+		const char* use_foundpositives_NAME = "UseFoundPositives";
+		/// <summary>
+		/// the number of failing inputs to generate
+		/// </summary>
+		uint64_t foundpositives = 100;
+		const char* foundpositives_NAME = "FoundPositives";
 		/// <summary>
 		/// whether to stop the execution after a certain time has passed
 		/// </summary>

@@ -13,9 +13,13 @@
 * */
 
 #include <memory>
+#include <exception>
+#include <stdexcept>
+#include <chrono>
 
 // external class definitions
 class Session;
+class Input;
 
 class SessionFunctions
 {
@@ -23,7 +27,7 @@ public:
 	/// <summary>
 	/// This function generates a new input and adds it to the execution queue
 	/// </summary>
-	static void GenerateInput(std::shared_ptr<Session>& session);
+	static std::shared_ptr<Input> GenerateInput(std::shared_ptr<Session>& session);
 
 	/// <summary>
 	/// This function checks whether we need to save the session and performs the save
@@ -40,7 +44,15 @@ public:
 	/// Master function that checks for necessary management actions and executes them
 	/// </summary>
 	/// <param name="session"></param>
-	static void MasterControl(std::shared_ptr<Session>& session);
+	static void MasterControl(std::shared_ptr<Session>& session, bool forceexecute = false);
+
+	/// <summary>
+	/// This function performs data movement and processing associated with the end of a testcase
+	/// </summary>
+	/// <param name="session"></param>
+	/// <param name="input"></param>
+	/// <param name="test"></param>
+	static void TestEnd(std::shared_ptr<Session>& session, std::shared_ptr<Input>& input);
 
 private:
 	/// <summary>
@@ -57,5 +69,9 @@ private:
 class SessionStatistics
 {
 public:
-	static uint64_t TestsExecuted(std::shared_ptr<Session>& session);
+	static uint64_t TestsExecuted(std::shared_ptr<Session>&);
+	static uint64_t PositiveTestsGenerated(std::shared_ptr<Session>&);
+	static uint64_t NegativeTestsGenerated(std::shared_ptr<Session>&);
+	static uint64_t TestsPruned(std::shared_ptr<Session>&);
+	static std::chrono::nanoseconds Runtime(std::shared_ptr<Session>& session);
 };

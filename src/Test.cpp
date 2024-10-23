@@ -463,7 +463,7 @@ size_t Test::GetDynamicSize()
 	sz += Buffer::CalcStringLength(lastwritten);
 	sz += Buffer::ListBasic::GetListLength(reactiontime);
 	sz += Buffer::CalcStringLength(output);
-	if (callback)
+	if (callback != nullptr)
 		sz += callback->GetLength();
 	return sz;
 }
@@ -476,10 +476,13 @@ bool Test::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(starttime, buffer, offset);
 	Buffer::Write(endtime, buffer, offset);
 	// shared ptr
-	if (auto ptr = input.lock(); ptr)
+	if (auto ptr = input.lock(); ptr) {
 		Buffer::Write(ptr->GetFormID(), buffer, offset);
-	else
+		std::cout << "formid: " << ptr->GetFormID() << "\n";
+	} else {
 		Buffer::Write((int32_t)0, buffer, offset);
+		std::cout << "formid: " << 0 << "\n";
+	}
 	Buffer::Write(lastwritten, buffer, offset);
 	Buffer::Write(lasttime, buffer, offset);
 	Buffer::ListBasic::WriteList(reactiontime, buffer, offset);
@@ -509,10 +512,11 @@ bool Test::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadRe
 			endtime = Buffer::ReadTime(buffer, offset);
 			FormID formid = Buffer::ReadUInt64(buffer, offset);
 			resolver->AddTask([this, resolver, formid]() {
-				this->input = resolver->ResolveFormID<Input>(formid);
-				if (auto ptr = this->input.lock(); ptr) {
-					this->itr = ptr->begin();
-					this->itrend = ptr->end();
+				auto input = resolver->ResolveFormID<Input>(formid);
+				if (input) {
+					this->itr = input->begin();
+					this->itrend = input->end();
+					this->input = input;
 				}
 			});
 			if (length < offset - initoff + 8 || length < offset - initoff + Buffer::CalcStringLength(buffer, offset))
@@ -551,6 +555,7 @@ void Test::Clear()
 	if (callback)
 	{
 		callback->Dispose();
+		callback = nullptr;
 	}
 }
 
@@ -563,6 +568,19 @@ namespace Functions
 		// 1. Input has been executed
 		//		Check the execution status and decide what to do with the test, i.e. the meaning
 		// 2. Call global management functions
+
+
+
+
+		// ----- DO SOME NICE INTERNAL COMPUTATION -----
+
+
+
+
+
+		// ----- SESSION STUFF -----
+		SessionFunctions::TestEnd(_session, _input);
+		SessionFunctions::MasterControl(_session);
 	}
 
 	bool TestCallback::ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver* resolver)
@@ -591,5 +609,20 @@ namespace Functions
 	size_t TestCallback::GetLength()
 	{
 		return BaseFunction::GetLength() + 16;
+	}
+
+	void TestCallback::Dispose()
+	{
+		if (auto shr = _input->test; shr)
+			shr->callback = nullptr;
+		delete this;
+	}
+}
+
+void Test::RegisterFactories()
+{
+	if (!_registeredFactories) {
+		_registeredFactories = !_registeredFactories;
+		Functions::RegisterFactory(Functions::TestCallback::GetTypeStatic(), Functions::TestCallback::Create);
 	}
 }

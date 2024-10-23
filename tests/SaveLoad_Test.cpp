@@ -116,7 +116,7 @@ int main(/*int argc, char** argv*/)
 	Crash::Install(".");
 #endif
 
-	std::shared_ptr<Session> sess = Session::CreateSeassion();
+	std::shared_ptr<Session> sess = Session::CreateSession();
 	std::shared_ptr<Settings> sett = sess->data->CreateForm<Settings>();
 
 	//////// build a taskcontroller and add some functions

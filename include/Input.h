@@ -3,6 +3,7 @@
 #include <list>
 #include <filesystem>
 #include <chrono>
+#include <lua.hpp>
 
 #include "DerivationTree.h"
 #include "TaskController.h"
@@ -11,9 +12,14 @@
 
 class ExecutionHandler;
 class Test;
+class SessionFunctions;
+
+struct lua_State;
 
 class Input : public Form
 {
+	friend class SessionFunctions;
+
 	const int32_t classversion = 0x1;
 	#pragma region InheritedForm
 public:
@@ -30,6 +36,8 @@ public:
 	}
 	void Delete(Data* data);
 	void Clear() override;
+	inline static bool _registeredFactories = false;
+	static void RegisterFactories();
 
 	#pragma endregion
 
@@ -46,10 +54,18 @@ private:
 	bool pythonconverted = false;
 
 public:
-	std::weak_ptr<Test> test;
+	std::shared_ptr<Test> test;
 	Input();
 
 	~Input();
+
+	static int lua_ConvertToPython(lua_State* L)
+	{
+		Input* input = (Input*)lua_touserdata(L, 1);
+		input->ConvertToPython();
+		lua_pushstring(L, input->pythonstring.c_str());
+		return 1;
+	}
 
 	/// <summary>
 	/// converts the input to python code
@@ -130,6 +146,15 @@ public:
 	}
 
 	/// <summary>
+	/// Returns the oracle result
+	/// </summary>
+	/// <returns></returns>
+	inline EnumType GetOracleResult()
+	{
+		return oracleResult;
+	}
+
+	/// <summary>
 	/// Parses inputs from a python file.
 	/// [The file should contain a variable name [inputs = ...]
 	/// </summary>
@@ -141,7 +166,7 @@ private:
 	/// <summary>
 	/// derivation/parse tree of the input
 	/// </summary>
-	std::weak_ptr<DerivationTree> derive;
+	std::shared_ptr<DerivationTree> derive;
 	/// <summary>
 	/// the string representation of the input
 	/// </summary>

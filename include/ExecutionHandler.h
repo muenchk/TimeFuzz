@@ -198,7 +198,7 @@ public:
 	/// Returns the number of currently waiting tests
 	/// </summary>
 	/// <returns></returns>
-	int32_t WaitingTasks() { return _waitingTests.size(); }
+	size_t WaitingTasks() { return _waitingTests.size(); }
 
 	/// <summary>
 	/// Adds a new test to the queue [passes of test handling to external application/script]
@@ -228,6 +228,8 @@ public:
 	{
 		return FormType::ExecutionHandler;
 	}
+	inline static bool _registeredFactories = false;
+	static void RegisterFactories();
 
 	void Delete(Data*) override;
 	/// <summary>

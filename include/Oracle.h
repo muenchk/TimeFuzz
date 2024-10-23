@@ -32,6 +32,8 @@ public:
 		/// Any input that has this input as prefix, will produce the same result
 		/// </summary>
 		Prefix = 0b1000000,
+
+		None = 0x8000000000000000,
 	};
 
 	enum class PUTType
@@ -107,6 +109,11 @@ public:
 	/// <param name="str"></param>
 	/// <returns></returns>
 	static PUTType ParseType(std::string str);
+
+	PUTType GetOracletype()
+	{
+		return _type;
+	}
 	/// <summary>
 	/// returns the path of the PUT
 	/// </summary>
@@ -130,4 +137,6 @@ public:
 	}
 	void Delete(Data* data);
 	void Clear();
+	inline static bool _registeredFactories = false;
+	static void RegisterFactories();
 };

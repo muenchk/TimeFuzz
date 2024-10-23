@@ -346,6 +346,8 @@ public:
 	}
 	void Delete(Data* data) override;
 	void Clear() override;
+	inline static bool _registeredFactories = false;
+	static void RegisterFactories();
 
 	#pragma endregion
 

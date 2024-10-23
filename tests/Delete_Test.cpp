@@ -117,7 +117,7 @@ int main(/*int argc, char** argv*/)
 	Crash::Install(".");
 #endif
 
-	std::shared_ptr<Session> sess = Session::CreateSeassion();
+	std::shared_ptr<Session> sess = Session::CreateSession();
 	std::shared_ptr<Settings> sett = sess->data->CreateForm<Settings>();
 
 	//////// build a taskcontroller and add some functions
@@ -194,6 +194,7 @@ int main(/*int argc, char** argv*/)
 
 	auto hashmap = sess->data->GetWeakHashmapCopy();
 	sess->StopSession(false);
+	sess->DestroySession();
 	sess.reset();
 
 	// check wether all the weak_ptr are inaccessible (which means the original object is properly deleted)

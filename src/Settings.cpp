@@ -22,6 +22,11 @@ void Settings::Load(std::wstring path)
 	constexpr auto defpath = L"config.ini";
 	if (path == L"")
 		path = (CmdArgs::workdir / std::wstring(defpath)).wstring();
+	if (path == L".")
+		path = (std::filesystem::path(path) / defpath).wstring();
+	if (std::filesystem::is_directory(path))
+		path = (std::filesystem::path(path) / defpath).wstring();
+
 
 	CSimpleIniA ini;
 
@@ -37,7 +42,7 @@ void Settings::Load(std::wstring path)
 	//oracle
 	oracle = Oracle::ParseType(ini.GetValue("Oracle", oracle_NAME, "PythonScript"));
 	loginfo("{}{} {}", "Oracle:           ", oracle_NAME, Oracle::TypeString(oracle));
-	oraclepath = std::filesystem::path(ini.GetValue("Oracle", oraclepath_NAME, ""));
+	oraclepath = std::filesystem::path(ini.GetValue("Oracle", oraclepath_NAME, "."));
 	loginfo("{}{} {}", "Oracle:           ", oraclepath_NAME, oraclepath.string());
 
 	// general
@@ -45,6 +50,18 @@ void Settings::Load(std::wstring path)
 	loginfo("{}{} {}", "General:          ", general.usehardwarethreads_NAME, general.usehardwarethreads);
 	general.numthreads = ini.GetBoolValue("General", general.numthreads_NAME, general.numthreads);
 	loginfo("{}{} {}", "General:          ", general.numthreads_NAME, general.numthreads);
+	general.numcomputingthreads = (int32_t)ini.GetLongValue("General", general.numcomputingthreads_NAME, general.numcomputingthreads);
+	loginfo("{}{} {}", "General:          ", general.numcomputingthreads_NAME, general.numcomputingthreads);
+	general.concurrenttests = (int32_t)ini.GetLongValue("General", general.concurrenttests_NAME, general.concurrenttests);
+	loginfo("{}{} {}", "General:          ", general.concurrenttests_NAME, general.concurrenttests);
+	general.autosave_every_tests = (int64_t)ini.GetLongValue("General", general.autosave_every_tests_NAME, (long)general.autosave_every_tests);
+	loginfo("{}{} {}", "General:          ", general.autosave_every_tests_NAME, general.autosave_every_tests);
+	general.autosave_every_seconds = (int64_t)ini.GetLongValue("General", general.autosave_every_seconds_NAME, (long)general.autosave_every_seconds);
+	loginfo("{}{} {}", "General:          ", general.autosave_every_seconds_NAME, general.autosave_every_seconds);
+	general.savepath = (std::string)ini.GetValue("General", general.savepath_NAME, general.savepath.c_str());
+	loginfo("{}{} {}", "General:          ", general.savepath_NAME, general.savepath);
+	general.savename = (std::string)ini.GetValue("General", general.savename_NAME, general.savename.c_str());
+	loginfo("{}{} {}", "General:          ", general.savepath_NAME, general.savename);
 
 	// optimization
 	optimization.constructinputsiteratively = ini.GetBoolValue("General", optimization.constructinputsiteratively_NAME, optimization.constructinputsiteratively);
@@ -55,22 +72,48 @@ void Settings::Load(std::wstring path)
 	loginfo("{}{} {}", "Methods:          ", methods.deltadebugging_NAME, methods.deltadebugging);
 
 	// generation
-	generation.generationsize = ini.GetBoolValue("Generation", generation.generationsize_NAME, generation.generationsize);
+	generation.generationsize = (int32_t)ini.GetLongValue("Generation", generation.generationsize_NAME, generation.generationsize);
 	loginfo("{}{} {}", "Generation:       ", generation.generationsize_NAME, generation.generationsize);
-	generation.generationtweakstart = ini.GetBoolValue("Generation", generation.generationtweakstart_NAME, generation.generationtweakstart);
+	generation.generationtweakstart = (float)ini.GetDoubleValue("Generation", generation.generationtweakstart_NAME, generation.generationtweakstart);
 	loginfo("{}{} {}", "Generation:       ", generation.generationtweakstart_NAME, generation.generationtweakstart);
-	generation.generationtweakmax = ini.GetBoolValue("Generation", generation.generationtweakmax_NAME, generation.generationtweakmax);
+	generation.generationtweakmax = (float)ini.GetDoubleValue("Generation", generation.generationtweakmax_NAME, generation.generationtweakmax);
 	loginfo("{}{} {}", "Generation:       ", generation.generationtweakmax_NAME, generation.generationtweakmax);
 
 	// endconditions
-	conditions.use_maxiterations = ini.GetBoolValue("EndConditions", conditions.use_maxiterations_NAME, conditions.use_maxiterations);
-	loginfo("{}{} {}", "EndConditions:    ", conditions.use_maxiterations_NAME, conditions.use_maxiterations);
-	conditions.maxiterations = ini.GetBoolValue("EndConditions", conditions.maxiterations_NAME, conditions.maxiterations);
-	loginfo("{}{} {}", "EndConditions:    ", conditions.maxiterations_NAME, conditions.maxiterations);
 	conditions.use_foundnegatives = ini.GetBoolValue("EndConditions", conditions.use_foundnegatives_NAME, conditions.use_foundnegatives);
 	loginfo("{}{} {}", "EndConditions:    ", conditions.use_foundnegatives_NAME, conditions.use_foundnegatives);
-	conditions.foundnegatives = ini.GetBoolValue("EndConditions", conditions.foundnegatives_NAME, conditions.foundnegatives);
+	conditions.foundnegatives = (uint64_t)ini.GetLongValue("EndConditions", conditions.foundnegatives_NAME, (long)conditions.foundnegatives);
 	loginfo("{}{} {}", "EndConditions:    ", conditions.foundnegatives_NAME, conditions.foundnegatives);
+	conditions.use_foundpositives = ini.GetBoolValue("EndConditions", conditions.use_foundpositives_NAME, conditions.use_foundpositives);
+	loginfo("{}{} {}", "EndConditions:    ", conditions.use_foundpositives_NAME, conditions.use_foundpositives);
+	conditions.foundpositives = (uint64_t)ini.GetLongValue("EndConditions", conditions.foundpositives_NAME, (long)conditions.foundpositives);
+	loginfo("{}{} {}", "EndConditions:    ", conditions.foundpositives_NAME, conditions.foundpositives);
+	conditions.use_timeout = ini.GetBoolValue("EndConditions", conditions.use_timeout_NAME, conditions.use_timeout);
+	loginfo("{}{} {}", "EndConditions:    ", conditions.use_timeout_NAME, conditions.use_timeout);
+	conditions.timeout = ini.GetLongValue("EndConditions", conditions.timeout_NAME, (long)conditions.timeout);
+	loginfo("{}{} {}", "EndConditions:    ", conditions.timeout_NAME, conditions.timeout);
+	conditions.use_overalltests = ini.GetBoolValue("EndConditions", conditions.use_overalltests_NAME, conditions.use_overalltests);
+	loginfo("{}{} {}", "EndConditions:    ", conditions.use_overalltests_NAME, conditions.use_overalltests);
+	conditions.overalltests = (uint64_t)ini.GetLongValue("EndConditions", conditions.overalltests_NAME, (long)conditions.overalltests);
+	loginfo("{}{} {}", "EndConditions:    ", conditions.overalltests_NAME, conditions.overalltests);
+
+	// tests
+	tests.executeFragments = ini.GetBoolValue("Tests", tests.executeFragments_NAME, tests.executeFragments);
+	loginfo("{}{} {}", "Tests:       ", tests.executeFragments_NAME, tests.executeFragments);
+	tests.use_testtimeout = ini.GetBoolValue("Tests", tests.use_testtimeout_NAME, tests.use_testtimeout);
+	loginfo("{}{} {}", "Tests:       ", tests.use_testtimeout_NAME, tests.use_testtimeout);
+	tests.testtimeout = (int64_t)ini.GetLongValue("Tests", tests.testtimeout_NAME, (long)tests.testtimeout);
+	loginfo("{}{} {}", "Tests:       ", tests.testtimeout_NAME, tests.testtimeout);
+	tests.use_fragmenttimeout = ini.GetBoolValue("Tests", tests.use_fragmenttimeout_NAME, tests.use_fragmenttimeout);
+	loginfo("{}{} {}", "Tests:       ", tests.use_fragmenttimeout_NAME, tests.use_fragmenttimeout);
+	tests.fragmenttimeout = (int64_t)ini.GetLongValue("Tests", tests.fragmenttimeout_NAME, (long)tests.fragmenttimeout);
+	loginfo("{}{} {}", "Tests:       ", tests.fragmenttimeout_NAME, tests.fragmenttimeout);
+	tests.storePUToutput = ini.GetBoolValue("Tests", tests.storePUToutput_NAME, tests.storePUToutput);
+	loginfo("{}{} {}", "Tests:       ", tests.storePUToutput_NAME, tests.storePUToutput);
+	tests.storePUToutputSuccessful = ini.GetBoolValue("Tests", tests.storePUToutputSuccessful_NAME, tests.storePUToutputSuccessful);
+	loginfo("{}{} {}", "Tests:       ", tests.storePUToutputSuccessful_NAME, tests.storePUToutputSuccessful);
+	tests.maxUsedMemory = (int64_t)ini.GetLongValue("Tests", tests.maxUsedMemory_NAME, (long)tests.maxUsedMemory);
+	loginfo("{}{} {}", "Tests:       ", tests.maxUsedMemory_NAME, tests.maxUsedMemory);
 
 	loginfo("Finished loading settings.");
 }
@@ -90,48 +133,86 @@ void Settings::Save(std::wstring _path)
 	if (_path == L"")
 		path = (CmdArgs::workdir / std::wstring(defpath)).wstring();
 	else
-		path = _path;
+		path = std::filesystem::path(_path).wstring();
+	if (std::filesystem::is_directory(path))
+		path = (std::filesystem::path(path) / defpath).wstring();
 #endif
-		          
+
 	CSimpleIniA ini;
 
 	ini.SetUnicode();
 
 	// oracle
 	ini.SetValue("Oracle", oracle_NAME, Oracle::TypeString(oracle).c_str(),
-		"\\ Type of oracle used to execute the Program Under Test. \n"
-		"\\	\tCMD\t-\tExecutes an unresponsive program. All Inputs are dumped as cmd arguments\n"
-		"\\	\tScript\t-\tExecutes a script that itself executes the PUT and returns relevant information on STDOUT\n"
-		"\\ \tSTDIN_Responsive\t-\tExecutes a responsive program. One input is given via STDIN at a time, and a response is awaited.\n"
-		"\\ \tSTDIN_Dump\t-\tExecutes an unresponsive program. All Inputs are dumped into the standardinput immediately.");
-	ini.SetValue("Oracle", oraclepath_NAME, oraclepath.string().c_str(), "\\ The path to the oracle.");
+		"\\\\ Type of oracle used to execute the Program Under Test. \n"
+		"\\\\ \tCMD\t-\tExecutes an unresponsive program. All Inputs are dumped as cmd arguments\n"
+		"\\\\ \tScript\t-\tExecutes a script that itself executes the PUT and returns relevant information on STDOUT\n"
+		"\\\\ \tSTDIN_Responsive\t-\tExecutes a responsive program. One input is given via STDIN at a time, and a response is awaited.\n"
+		"\\\\ \tSTDIN_Dump\t-\tExecutes an unresponsive program. All Inputs are dumped into the standardinput immediately.");
+	ini.SetValue("Oracle", oraclepath_NAME, oraclepath.string().c_str(), "\\\\ The path to the oracle.");
 
 	// general
 	ini.SetBoolValue("General", general.usehardwarethreads_NAME, general.usehardwarethreads,
-		"\\ Use the number of available hardware threads for the task scheduler.");
+		"\\\\ Use the number of available hardware threads for the task scheduler.");
 	ini.SetLongValue("General", general.numthreads_NAME, general.numthreads,
-		"\\ The number of threads to use for the task schedular\n"
-		"\\ if UseHardwareThreads is set to false.");
+		"\\\\ The number of threads to use for the task schedular\n"
+		"\\\\ if UseHardwareThreads is set to false.");
+	ini.SetLongValue("General", general.numcomputingthreads_NAME, (long)general.numcomputingthreads,
+		"\\\\ Number of threads used for computational purposes.");
+	ini.SetLongValue("General", general.concurrenttests_NAME, (long)general.concurrenttests,
+		"\\\\ Number of tests to be run concurrently.");
+	ini.SetBoolValue("General", general.enablesaves_NAME, general.enablesaves,
+		"\\\\ Enables automatic saving.");
+	ini.SetLongValue("General", general.autosave_every_tests_NAME, (long)general.autosave_every_tests,
+		"\\\\ Automatically saves after [x] tests have been run.\n"
+		"\\\\ Set to 0 to disable.");
+	ini.SetLongValue("General", general.autosave_every_seconds_NAME, (long)general.autosave_every_seconds,
+		"\\\\ Automatically saves after [x] seconds.\n"
+		"\\\\ Set to 0 to disable.");
+	ini.SetValue("General", general.savepath_NAME, general.savepath.c_str(),
+		"\\\\ The path at which saves will be stored.\n");
+	ini.SetValue("General", general.savename_NAME, general.savename.c_str(),
+		"\\\\ The name of savefiles.\n");
 
 	// optimization
 	ini.SetBoolValue("Optimization", optimization.constructinputsiteratively_NAME, optimization.constructinputsiteratively,
-		"\\ Input sequences or partial input sequences, that do not result in either a bug or a successful run,\n"
-		"\\ may be used as a starting point for generation and may be expanded until a result is produced.\n"
-		"\\ [This should not be used with a PUT that produces undefined oracle results.]");
+		"\\\\ Input sequences or partial input sequences, that do not result in either a bug or a successful run,\n"
+		"\\\\ may be used as a starting point for generation and may be expanded until a result is produced.\n"
+		"\\\\ [This should not be used with a PUT that produces undefined oracle results.]");
 
 	// methods
-	ini.SetBoolValue("Methods", methods.deltadebugging_NAME, methods.deltadebugging, "\\ Applies delta debugging to failing inputs, to reduce them as far as possible.");
+	ini.SetBoolValue("Methods", methods.deltadebugging_NAME, methods.deltadebugging, "\\\\ Applies delta debugging to failing inputs, to reduce them as far as possible.");
 
 	// generation
-	ini.SetLongValue("Generation", generation.generationsize_NAME, generation.generationsize, "\\ Maximum generated inputs per generation cycle");
-	ini.SetDoubleValue("Generation", generation.generationtweakstart_NAME, generation.generationtweakstart, "\\ Starting parameter for automatic generationsize scaling");
-	ini.SetDoubleValue("Generation", generation.generationtweakmax_NAME, generation.generationtweakmax, "\\ Max parameter for automatic generationsize scaling");
+	ini.SetLongValue("Generation", generation.generationsize_NAME, generation.generationsize, "\\\\ Maximum generated inputs per generation cycle.");
+	ini.SetDoubleValue("Generation", generation.generationtweakstart_NAME, generation.generationtweakstart, "\\\\ Starting parameter for automatic generationsize scaling.");
+	ini.SetDoubleValue("Generation", generation.generationtweakmax_NAME, generation.generationtweakmax, "\\\\ Max parameter for automatic generationsize scaling.");
 
 	// endconditions
-	ini.SetBoolValue("EndConditions", conditions.use_maxiterations_NAME, conditions.use_maxiterations, "\\ Stop execution after MaxIterations.");
-	ini.SetLongValue("EndConditions", conditions.maxiterations_NAME, conditions.maxiterations, "\\ The maximum number of iterations to run.");
-	ini.SetBoolValue("EndConditions", conditions.use_foundnegatives_NAME, conditions.use_foundnegatives, "\\ Stop execution after foundnegatives failing inputs have been found");
-	ini.SetLongValue("EndConditions", conditions.foundnegatives_NAME, (long)conditions.foundnegatives, "\\ The number of failing inputs to generate.");
+	ini.SetBoolValue("EndConditions", conditions.use_foundnegatives_NAME, conditions.use_foundnegatives, "\\\\ Stop execution after foundnegatives failing inputs have been found.");
+	ini.SetLongValue("EndConditions", conditions.foundnegatives_NAME, (long)conditions.foundnegatives, "\\\\ The number of failing inputs to generate.");
+	ini.SetBoolValue("EndConditions", conditions.use_foundpositives_NAME, conditions.use_foundpositives, "\\\\ Stop execution after foundpositives positive inputs have been found.");
+	ini.SetLongValue("EndConditions", conditions.foundpositives_NAME, (long)conditions.foundpositives, "\\\\ The number of positive inputs to generate.");
+	ini.SetBoolValue("EndConditions", conditions.use_timeout_NAME, conditions.use_timeout, "\\\\ Stop execution after a certain time period has passed.");
+	ini.SetLongValue("EndConditions", conditions.timeout_NAME, (long)conditions.timeout, "\\\\ The time after which to stop execution. [seconds]");
+	ini.SetBoolValue("EndConditions", conditions.use_overalltests_NAME, conditions.use_overalltests, "\\\\ Stop execution after a certain number of tests have been executed.");
+	ini.SetLongValue("EndConditions", conditions.overalltests_NAME, (long)conditions.overalltests, "\\\\ The number of overall tests to run");
+
+	// tests
+	ini.SetBoolValue("Tests", tests.executeFragments_NAME, tests.executeFragments, "\\\\ Execute tests as fragments.");
+	ini.SetBoolValue("Tests", tests.use_testtimeout_NAME, tests.use_testtimeout, "\\\\ Stop test execution after a certain time has passed.");
+	ini.SetLongValue("Tests", tests.testtimeout_NAME, (long)tests.testtimeout, "\\\\ Stop test execution after [microseconds] have passed.");
+	ini.SetBoolValue("Tests", tests.use_fragmenttimeout_NAME, tests.use_fragmenttimeout, "\\\\ Stop fragment execution after a certain time has passed.");
+	ini.SetLongValue("Tests", tests.fragmenttimeout_NAME, (long)tests.fragmenttimeout, "\\\\ Stop fragment execution after [microseconds] have passed.");
+	ini.SetBoolValue("Tests", tests.storePUToutput_NAME, tests.storePUToutput,
+		"\\\\ Store the output [std::cout, std::cerr] of test runs.\n"
+		"\\\\ [Doesn't disable option below if false.]");
+	ini.SetBoolValue("Tests", tests.storePUToutputSuccessful_NAME, tests.storePUToutputSuccessful,
+		"\\\\ Store the output [std::cout, std::cerr] for successful test runs.\n"
+		"\\\\ [Applies even if option above is false.]");
+	ini.SetLongValue("Tests", tests.maxUsedMemory_NAME, (long)tests.maxUsedMemory,
+		"\\\\ Memory limit for PUT. If PUT goes above this limit it will be killed.\n"
+		"\\\\ Set to 0 to disable.");
 
 	ini.SaveFile(path.c_str());
 }
@@ -139,36 +220,36 @@ void Settings::Save(std::wstring _path)
 size_t Settings::GetStaticSize(int32_t version)
 {
 	size_t size0x1 = Form::GetDynamicSize()  // form base size
-	                        + 4                     // version
-	                        + 4                     // oracle
-	                        + 1                     // General::usehardwarethreads
-	                        + 4                     // General::numthreads
-	                        + 4                     // General::numcomputingthreads
-	                        + 4                     // General::concurrenttests
-	                        + 1                     // General::enablesaves
-	                        + 8                     // General::autosave_every_tests
-	                        + 8                     // General::autosave_every_seconds
-	                        + 1                     // Optimization::constructinputsiteratively
-	                        + 1                     // Methods::deltadebugging
-	                        + 4                     // Generation::generationsize
-	                        + 4                     // Generation::generationtweakstart
-	                        + 4                     // Generation::generationtweakmax
-	                        + 1                     // EndConditions::use_maxiterations
-	                        + 4                     // EndConditions::maxiterations
-	                        + 1                     // EndConditions::use_foundnegatives
-	                        + 8                     // EndConditions::foundnegatives
-	                        + 1                     // EndConditions::use_timeout
-	                        + 8                     // EndConditions::timeout
-	                        + 1                     // EndConditions::use_overalltests
-	                        + 8                     // EndConditions::overalltests
-	                        + 1                     // Tests::executeFragments
-	                        + 1                     // Tests::use_testtimeout
-	                        + 8                     // Tests::testtimeout
-	                        + 1                     // Tests::use_fragmenttimeout
-	                        + 8                     // Tests::fragmenttimeout
-	                        + 1                     // Tests::storePUToutput
-	                        + 1                     // Tests::storePUToutputSuccessful
-	                        + 8;                    // Tests::maxUsedMemory
+	                 + 4                     // version
+	                 + 4                     // oracle
+	                 + 1                     // General::usehardwarethreads
+	                 + 4                     // General::numthreads
+	                 + 4                     // General::numcomputingthreads
+	                 + 4                     // General::concurrenttests
+	                 + 1                     // General::enablesaves
+	                 + 8                     // General::autosave_every_tests
+	                 + 8                     // General::autosave_every_seconds
+	                 + 1                     // Optimization::constructinputsiteratively
+	                 + 1                     // Methods::deltadebugging
+	                 + 4                     // Generation::generationsize
+	                 + 4                     // Generation::generationtweakstart
+	                 + 4                     // Generation::generationtweakmax
+	                 + 1                     // EndConditions::use_foundnegatives
+	                 + 8                     // EndConditions::foundnegatives
+	                 + 1                     // EndConditions::use_foundpositives
+	                 + 8                     // EndConditions::foundpositives
+	                 + 1                     // EndConditions::use_timeout
+	                 + 8                     // EndConditions::timeout
+	                 + 1                     // EndConditions::use_overalltests
+	                 + 8                     // EndConditions::overalltests
+	                 + 1                     // Tests::executeFragments
+	                 + 1                     // Tests::use_testtimeout
+	                 + 8                     // Tests::testtimeout
+	                 + 1                     // Tests::use_fragmenttimeout
+	                 + 8                     // Tests::fragmenttimeout
+	                 + 1                     // Tests::storePUToutput
+	                 + 1                     // Tests::storePUToutputSuccessful
+	                 + 8;                    // Tests::maxUsedMemory
 
 	switch (version) {
 	case 0x1:
@@ -209,10 +290,10 @@ bool Settings::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(generation.generationtweakstart, buffer, offset);
 	Buffer::Write(generation.generationtweakmax, buffer, offset);
 	// endconditions
-	Buffer::Write(conditions.use_maxiterations, buffer, offset);
-	Buffer::Write(conditions.maxiterations, buffer, offset);
 	Buffer::Write(conditions.use_foundnegatives, buffer, offset);
 	Buffer::Write(conditions.foundnegatives, buffer, offset);
+	Buffer::Write(conditions.use_foundpositives, buffer, offset);
+	Buffer::Write(conditions.foundpositives, buffer, offset);
 	Buffer::Write(conditions.use_timeout, buffer, offset);
 	Buffer::Write(conditions.timeout, buffer, offset);
 	Buffer::Write(conditions.use_overalltests, buffer, offset);
@@ -256,12 +337,12 @@ bool Settings::ReadData(unsigned char* buffer, size_t& offset, size_t length, Lo
 			generation.generationtweakstart = Buffer::ReadFloat(buffer, offset);
 			generation.generationtweakmax = Buffer::ReadFloat(buffer, offset);
 			// endconditions
-			conditions.use_maxiterations = Buffer::ReadBool(buffer, offset);
-			conditions.maxiterations = Buffer::ReadInt32(buffer, offset);
 			conditions.use_foundnegatives = Buffer::ReadBool(buffer, offset);
-			conditions.foundnegatives = Buffer::ReadInt64(buffer, offset);
+			conditions.foundnegatives = Buffer::ReadUInt64(buffer, offset);
+			conditions.use_foundpositives = Buffer::ReadBool(buffer, offset);
+			conditions.foundpositives = Buffer::ReadInt64(buffer, offset);
 			conditions.use_timeout = Buffer::ReadBool(buffer, offset);
-			conditions.timeout = Buffer::ReadInt64(buffer, offset);
+			conditions.timeout = Buffer::ReadUInt64(buffer, offset);
 			conditions.use_overalltests = Buffer::ReadBool(buffer, offset);
 			conditions.overalltests = Buffer::ReadUInt64(buffer, offset);
 			// tests
@@ -289,4 +370,11 @@ void Settings::Delete(Data*)
 void Settings::Clear()
 {
 
+}
+
+void Settings::RegisterFactories()
+{
+	if (!_registeredFactories) {
+		_registeredFactories = !_registeredFactories;
+	}
 }

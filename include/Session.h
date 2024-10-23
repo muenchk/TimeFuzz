@@ -13,6 +13,9 @@
 
 class Data;
 class SessionFunctions;
+class SessionStatistics;
+class ExclusionTree;
+class Records;
 
 class Session : public Form
 {
@@ -25,7 +28,7 @@ public:
 
 	Session();
 
-	static std::shared_ptr<Session> CreateSeassion();
+	static std::shared_ptr<Session> CreateSession();
 
 	static std::shared_ptr<Session> LoadSession(std::string name, std::wstring settingsPath = L"");
 	static std::shared_ptr<Session> LoadSession(std::string name, int32_t number, std::wstring settingsPath = L"");
@@ -40,7 +43,7 @@ public:
 	/// <param name="globalExecutionHandler"></param>
 	void StartSession(bool& error, bool globalTaskController = false, bool globalExecutionHandler = false, std::wstring settingsPath = L"", std::function<void()> callback = nullptr);
 
-	void StartLoadedSession();
+	void StartLoadedSession(bool& error, bool reloadsettings = false, std::wstring settingsPath = L"", std::function<void()> callback = nullptr);
 
 	/// <summary>
 	/// Waits for the session to end
@@ -52,7 +55,7 @@ public:
 	/// </summary>
 	/// <param name="waitfor"></param>
 	/// <returns></returns>
-	bool Wait(std::chrono::duration<std::chrono::nanoseconds> timeout);
+	bool Wait(std::chrono::nanoseconds timeout);
 
 	/// <summary>
 	/// Starts generation of [negatives] negative inputs, while stopping after [maxiterations] or when [timeout] is exceeded,
@@ -76,6 +79,11 @@ public:
 	void DestroySession();
 
 	/// <summary>
+	/// Saves the current session status
+	/// </summary>
+	void Save();
+
+	/// <summary>
 	/// Returns true when the session has finished
 	/// </summary>
 	/// <returns></returns>
@@ -89,28 +97,18 @@ public:
 
 	Data* data = nullptr;
 
-	int32_t GetType() override
-	{
-		return FormType::Session;
-	}
-	static int32_t GetTypeStatic()
-	{
-		return FormType::Session;
-	}
-
 private:
 
+	/// <summary>
+	/// Function that is called after the session has finished running, 
+	/// alleviates the need to check whether the session has finished
+	/// </summary>
 	std::function<void()> _callback;
 
 	/// <summary>
 	/// The Task used to execute the PUT and retrieve the oracle result
 	/// </summary>
 	std::shared_ptr<Oracle> _oracle;
-
-	/// <summary>
-	/// the current iteration of the fuzzing main routine
-	/// </summary>
-	int32_t _iteration = 0;
 
 	/// <summary>
 	/// Task controller for the active session
@@ -138,18 +136,19 @@ private:
 	std::shared_ptr<Settings> _settings;
 
 	/// <summary>
+	/// ExclusionTree of the session
+	/// </summary>
+	std::shared_ptr<ExclusionTree> _excltree;
+
+	/// <summary>
+	/// Self
+	/// </summary>
+	std::shared_ptr<Session> _self;
+
+	/// <summary>
 	/// the runtime data of the session
 	/// </summary>
 	SessionData sessiondata;
-
-	/// <summary>
-	/// Does one iteration of the session
-	/// </summary>
-	void Iterate();
-	/// <summary>
-	/// Makes sure no other tasks are currently running on data
-	/// </summary>
-	void Snap();
 
 	/// <summary>
 	/// the controller for the session
@@ -202,14 +201,75 @@ private:
 	/// </summary>
 	void End();
 
+	
+
+	/// <summary>
+	/// class version
+	/// </summary>
+	const int32_t classversion = 0x1;
+
+	/// <summary>
+	/// Returns the size of the classes static members
+	/// </summary>
+	/// <param name="version"></param>
+	/// <returns></returns>
+	size_t GetStaticSize(int32_t version = 0x1) override;
+	/// <summary>
+	/// Returns the overall size of all members to be saved
+	/// </summary>
+	/// <returns></returns>
+	size_t GetDynamicSize() override;
+	/// <summary>
+	/// Writes all class data to the buffer at the given offset
+	/// </summary>
+	/// <param name="buffer"></param>
+	/// <param name="offset"></param>
+	/// <returns></returns>
+	bool WriteData(unsigned char* buffer, size_t& offset) override;
+	/// <summary>
+	/// Reads the class data from the buffer
+	/// </summary>
+	/// <param name="buffer"></param>
+	/// <param name="offset"></param>
+	/// <param name="length"></param>
+	/// <param name="resolver"></param>
+	/// <returns></returns>
+	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+
+	void SetInternals(std::shared_ptr<Oracle> oracle, std::shared_ptr<TaskController> controller, std::shared_ptr<ExecutionHandler> exechandler, std::shared_ptr<Generator> generator, std::shared_ptr<Grammar> grammar, std::shared_ptr<Settings> settings, std::shared_ptr<ExclusionTree> excltree);
+	/// <summary>
+	/// Returns the class type
+	/// </summary>
+	/// <returns></returns>
+	static int32_t GetTypeStatic()
+	{
+		return FormType::Session;
+	}
+	/// <summary>
+	/// Returns the class type
+	/// </summary>
+	/// <returns></returns>
+	int32_t GetType() override
+	{
+		return FormType::Session;
+	}
+	/// <summary>
+	/// Deletes the class data
+	/// </summary>
+	/// <param name=""></param>
 	void Delete(Data*) override;
 
 	/// <summary>
 	/// clears all internal data
 	/// </summary>
 	void Clear() override;
+	inline static bool _registeredFactories = false;
+	static void RegisterFactories();
 
-	friend SessionFunctions;
+	friend class SessionFunctions;
+	friend class Data;
+	friend class Records;
+	friend class SessionStatistics;
 
 
 	/// <summary>
