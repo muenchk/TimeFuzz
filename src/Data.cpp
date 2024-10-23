@@ -2,6 +2,7 @@
 #include "Utility.h"
 #include "TaskController.h"
 #include "ExecutionHandler.h"
+#include "LuaEngine.h"
 
 #include <memory>
 #include <iostream>
@@ -480,7 +481,7 @@ void Data::LoadIntern(std::filesystem::path path)
 										if (offset > rlen)
 											res = false;
 										if (res) {
-											//logdebug("Read Record:      Oracle");
+											_lresolve->_oracle = oracle;
 										} else {
 											loginfo("Failed Record:    Oracle");
 										}
@@ -509,7 +510,21 @@ void Data::LoadIntern(std::filesystem::path path)
 		delete[] buffer;
 		save.close();
 		std::cout << "hashtable size: " << _hashmap.size() << "\n";
+		if (!_lresolve->_oracle)
+		{
+			logcritical("Didn't read oracle, catastrpic fail.");
+			_lresolve->_oracle = CreateForm<Oracle>();
+		}
+
 		_lresolve->Resolve();
+
+		// before we resolve late tasks, we need to register ourselves to the lua wrapper, if some of the lambda
+		// functions want to use lua scripts
+		bool registeredLua = Lua::RegisterThread(CreateForm<Session>());  // session is already fully loaded for the most part, so we can use the command
+		_lresolve->ResolveLate();
+		// unregister ourselves from the lua wrapper if we registered ourselves above
+		if (registeredLua)
+			Lua::UnregisterThread();
 		loginfo("Loaded session");
 	} else
 		logcritical("Cannot open savefile");
@@ -551,6 +566,19 @@ void LoadResolver::AddTask(TaskDelegate* a_task)
 	}
 }
 
+void LoadResolver::AddLateTask(TaskFn a_task)
+{
+	AddLateTask(new Task(std::move(a_task)));
+}
+
+void LoadResolver::AddLateTask(TaskDelegate* a_task)
+{
+	{
+		std::unique_lock<std::mutex> guard(lock);
+		latetasks.push(a_task);
+	}
+}
+
 void LoadResolver::SetData(Data* dat)
 {
 	data = dat;
@@ -563,6 +591,19 @@ void LoadResolver::Resolve()
 		TaskDelegate* del;
 		del = tasks.front();
 		tasks.pop();
+		del->Run();
+		del->Dispose();
+	}
+	profile(TimeProfiling, "Performing Post-load operations");
+}
+
+void LoadResolver::ResolveLate()
+{
+	StartProfiling;
+	while (!latetasks.empty()) {
+		TaskDelegate* del;
+		del = latetasks.front();
+		latetasks.pop();
 		del->Run();
 		del->Dispose();
 	}

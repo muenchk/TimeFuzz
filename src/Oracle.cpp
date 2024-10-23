@@ -29,13 +29,10 @@ Oracle::PUTType Oracle::ParseType(std::string str)
 
 Oracle::Oracle()
 {
-	luas = luaL_newstate();
-	luaL_openlibs(luas);
 }
 
 Oracle::~Oracle()
 {
-	lua_close(luas);
 }
 
 void Oracle::Set(PUTType type, std::filesystem::path PUTpath)
@@ -93,73 +90,79 @@ bool Oracle::Validate()
 void Oracle::SetLuaCmdArgs(std::string script)
 {
 	LcmdargsStr = script;
-	// the lua command is saved in a string
-	if (luaL_dostring(luas, LcmdargsStr.c_str()) == LUA_OK) {
-		lua_pop(luas, lua_gettop(luas));
-	}
 }
 
 void Oracle::SetLuaCmdArgs(std::filesystem::path scriptpath)
 {
 	LcmdargsPath = scriptpath;
-
-	// run lua on script
-	if (luaL_dofile(luas, scriptpath.string().c_str()) == LUA_OK) {
-		lua_pop(luas, lua_gettop(luas));
-	}
 }
 
 void Oracle::SetLuaOracle(std::string script)
 {
 	LoracleStr = script;
-	// the lua command is saved in a string
-	if (luaL_dostring(luas, LoracleStr.c_str()) == LUA_OK) {
-		lua_pop(luas, lua_gettop(luas));
-	}
 }
 
 void Oracle::SetLuaOracle(std::filesystem::path scriptpath)
 {
 	LoraclePath = scriptpath;
+}
 
-	// run lua on script
-	if (luaL_dofile(luas, scriptpath.string().c_str()) == LUA_OK) {
-		lua_pop(luas, lua_gettop(luas));
+void Oracle::ApplyLuaCommands(lua_State* L)
+{
+	if (LcmdargsStr.empty() == false) {
+		// the lua command is saved in a string
+		if (luaL_dostring(L, LcmdargsStr.c_str()) == LUA_OK) {
+			lua_pop(L, lua_gettop(L));
+		}
+	} else {
+		// run lua on script
+		if (luaL_dofile(L, LcmdargsPath.string().c_str()) == LUA_OK) {
+			lua_pop(L, lua_gettop(L));
+		}
+	}
+
+	if (LoracleStr.empty() == false) {
+		// the lua command is saved in a string
+		if (luaL_dostring(L, LoracleStr.c_str()) == LUA_OK) {
+			lua_pop(L, lua_gettop(L));
+		}
+	} else {
+		// run lua on script
+		if (luaL_dofile(L, LoraclePath.string().c_str()) == LUA_OK) {
+			lua_pop(L, lua_gettop(L));
+		}
 	}
 }
 
-Oracle::OracleResult Oracle::Evaluate(std::shared_ptr<Test> test)
+Oracle::OracleResult Oracle::Evaluate(lua_State* , std::shared_ptr<Test> test)
 {
 	test->input;
 	return Oracle::OracleResult::Passing;
 }
 
-
-
-
-std::string Oracle::GetCmdArgs(std::shared_ptr<Test> test)
+std::string Oracle::GetCmdArgs(lua_State* L, Test* test)
 {
 	std::unique_lock<std::mutex> guard(cmdlock);
 	std::string args = "";
 	auto input = test->input.lock();
 	if (input) {
-		lua_register(luas, "ConvertToPython", Input::lua_ConvertToPython);
-		lua_pushlightuserdata(luas, (void*)(input.get()));
-		lua_setglobal(luas, "input");
+		lua_register(L, "ConvertToPython", Input::lua_ConvertToPython);
+		lua_pushlightuserdata(L, (void*)(input.get()));
+		lua_setglobal(L, "input");
 
-		lua_getglobal(luas, "GetCmdArgs");
+		lua_getglobal(L, "GetCmdArgs");
 		//lua_push .....
 		// set function call args
 
-		if (lua_isfunction(luas, -1)) {
-			if (lua_pcall(luas, 0, 1, 0) == LUA_OK)  // execute function with 0 Arguments, 1 return value
+		if (lua_isfunction(L, -1)) {
+			if (lua_pcall(L, 0, 1, 0) == LUA_OK)  // execute function with 0 Arguments, 1 return value
 			{
-				if (lua_isstring(luas, -1)) {
-					const char* cmd = lua_tostring(luas, -1);
-					lua_pop(luas, 1);
+				if (lua_isstring(L, -1)) {
+					const char* cmd = lua_tostring(L, -1);
+					lua_pop(L, 1);
 					args = std::string(cmd);
 				}
-				lua_pop(luas, lua_gettop(luas));
+				lua_pop(L, lua_gettop(L));
 			}
 		}
 	}

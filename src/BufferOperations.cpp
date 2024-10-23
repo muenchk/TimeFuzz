@@ -263,8 +263,11 @@ namespace Buffer
 			// read length (includes the length field itself)
 			size_t len = Buffer::ReadSize(buffer, offset) - 8;
 			size_t read = 0;
+			std::string tmp = "";
 			while (read < len && Buffer::CalcStringLength(buffer, offset) + read <= len) {
-				list.push_back(Buffer::ReadString(buffer, offset));
+				tmp = Buffer::ReadString(buffer, offset);
+				read += Buffer::CalcStringLength(tmp);
+				list.push_back(tmp);
 			}
 		}
 	}

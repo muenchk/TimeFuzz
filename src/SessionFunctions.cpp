@@ -3,6 +3,7 @@
 #include "Data.h"
 #include "SessionData.h"
 #include "Test.h"
+#include "LuaEngine.h"
 
 #include <mutex>
 #include <boost/circular_buffer.hpp>
@@ -238,6 +239,16 @@ MasterControlBegin:
 
 void SessionFunctions::TestEnd(std::shared_ptr<Session>& session, std::shared_ptr<Input>& input)
 {
+	// calculate oracle result
+	bool stateerror = false;
+	input->oracleResult = Lua::EvaluateOracle(std::bind(&Oracle::Evaluate, session->_oracle, std::placeholders::_1, std::placeholders::_2), input->test, stateerror);
+	if (stateerror) {
+		logcritical("Test End functions cannot be completed, as the calling thread lacks a lua context");
+		return;
+	}
+	// check whether output should be stored
+	input->test->storeoutput = session->_settings->tests.storePUToutput || (session->_settings->tests.storePUToutputSuccessful && input->GetOracleResult() == Oracle::OracleResult::Passing);
+
 	// check input result
 	switch (input->GetOracleResult()) {
 	case Oracle::OracleResult::Failing:

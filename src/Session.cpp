@@ -9,6 +9,7 @@
 #include "Session.h"
 #include "Data.h"
 #include "SessionFunctions.h"
+#include "LuaEngine.h"
 
 Session* Session::GetSingleton()
 {
@@ -237,7 +238,7 @@ void Session::StartSessionIntern(bool &error)
 
 		profile(TimeProfiling, "Time taken for session setup.");
 
-		// start iterations
+		// start session controller
 
 		_sessioncontroller = std::thread(&Session::SessionControl, this);
 	}
@@ -271,15 +272,17 @@ void Session::SessionControl()
 		taskthreads = 1;
 	if (execthreads == 0)
 		execthreads = 1;
-	_controller->Start(taskthreads);
 	_self = data->CreateForm<Session>();
+	_controller->Start(_self, taskthreads);
 	_exechandler->Init(_self, _settings, _controller, _settings->general.concurrenttests, _oracle);
 	_exechandler->StartHandlerAsIs();
 	_excltree = data->CreateForm<ExclusionTree>();
 
 	// run master control and kick stuff of
 	// generates inputs, etc.
+	Lua::RegisterThread(_self);
 	SessionFunctions::MasterControl(_self);
+	Lua::UnregisterThread();
 
 	logmessage("Kicked session off.");
 }

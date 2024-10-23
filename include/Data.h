@@ -281,9 +281,13 @@ public:
 	~LoadResolver();
 	void SetData(Data* dat);
 	Data* data = nullptr;
+	std::shared_ptr<Oracle> _oracle;
 
 	void AddTask(TaskFn a_task);
 	void AddTask(TaskDelegate* a_task);
+
+	void AddLateTask(TaskFn a_task);
+	void AddLateTask(TaskDelegate* a_task);
 
 	template <class T>
 	std::shared_ptr<T> ResolveFormID(FormID formid)
@@ -297,9 +301,11 @@ public:
 	}
 
 	void Resolve();
+	void ResolveLate();
 
 private:
 	std::queue<TaskDelegate*> tasks;
+	std::queue<TaskDelegate*> latetasks;
 	std::mutex lock;
 
 	class Task : public TaskDelegate

@@ -11,6 +11,7 @@
 
 class LoadResolver;
 class LoadResolverGrammar;
+class Session;
 
 class TaskController : public Form
 {
@@ -39,7 +40,7 @@ public:
 	/// Starts the TaskController
 	/// </summary>
 	/// <param name="numthreads"></param>
-	void Start(int32_t numthreads = 0);
+	void Start(std::shared_ptr<Session> session, int32_t numthreads = 0);
 	/// <summary>
 	/// Stops the TaskController, optionally waiting for the completion of all tasks
 	/// </summary>
@@ -94,6 +95,11 @@ private:
 	/// </summary>
 	/// <param name="number"></param>
 	void InternalLoop(int32_t number);
+
+	/// <summary>
+	/// shared pointer to session
+	/// </summary>
+	std::shared_ptr<Session> _session;
 
 	/// <summary>
 	/// whether to terminate the TaskController

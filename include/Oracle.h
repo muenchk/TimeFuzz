@@ -66,7 +66,6 @@ private:
 	PUTType _type;
 	bool valid = false;
 	const int32_t classversion = 0x1;
-	lua_State* luas = nullptr;
 	std::string LoracleStr = "";
 	std::filesystem::path LoraclePath;
 
@@ -84,18 +83,20 @@ public:
 	void SetLuaOracle(std::string script);
 	void SetLuaOracle(std::filesystem::path scriptpath);
 
+	void ApplyLuaCommands(lua_State* L);
+
 	/// <summary>
 	/// Evaluates the result of a test
 	/// </summary>
 	/// <param name="test"></param>
 	/// <returns></returns>
-	OracleResult Evaluate(std::shared_ptr<Test> test);
+	OracleResult Evaluate(lua_State* L, std::shared_ptr<Test> test);
 	/// <summary>
 	/// computes the command line args for a test
 	/// </summary>
 	/// <param name="test"></param>
 	/// <returns></returns>
-	std::string GetCmdArgs(std::shared_ptr<Test> test);
+	std::string GetCmdArgs(lua_State* L, Test* test);
 
 	/// <summary>
 	/// Returns the type of the PUT as a string

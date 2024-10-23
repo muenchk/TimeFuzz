@@ -16,6 +16,7 @@ class SessionFunctions;
 class SessionStatistics;
 class ExclusionTree;
 class Records;
+class Lua;
 
 class Session : public Form
 {
@@ -270,6 +271,7 @@ private:
 	friend class Data;
 	friend class Records;
 	friend class SessionStatistics;
+	friend class Lua;
 
 
 	/// <summary>

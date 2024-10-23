@@ -113,11 +113,19 @@ public:
 	/// called after the test has been finished
 	/// </summary>
 	Functions::BaseFunction* callback;
+	/// <summary>
+	/// command line args for the test
+	/// </summary>
+	std::string cmdArgs;
 
 	/// <summary>
 	/// output of the PUT
 	/// </summary>
 	std::string output;
+	/// <summary>
+	/// whether to store the put output
+	/// </summary>
+	bool storeoutput;
 
 	/// <summary>
 	/// unique test identifier

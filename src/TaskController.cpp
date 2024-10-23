@@ -6,6 +6,7 @@
 #include "Threading.h"
 #include "BufferOperations.h"
 #include "Logging.h"
+#include "LuaEngine.h"
 
 TaskController* TaskController::GetSingleton()
 {
@@ -22,8 +23,9 @@ void TaskController::AddTask(Functions::BaseFunction* a_task)
 	condition.notify_one();
 }
 
-void TaskController::Start(int32_t numthreads)
+void TaskController::Start(std::shared_ptr<Session> session, int32_t numthreads)
 {
+	_session = session;
 	if (numthreads == 0)
 		throw std::runtime_error("Cannot start a TaskController with 0 threads.");
 	_numthreads = numthreads;
@@ -77,8 +79,10 @@ bool TaskController::Busy()
 
 void TaskController::InternalLoop(int32_t number)
 {
-	while (true)
-	{
+	// register new lua state for lua functions executed by the thread
+	Lua::RegisterThread(_session);
+
+	while (true) {
 		Functions::BaseFunction* del;
 		{
 			std::unique_lock<std::mutex> guard(lock);
@@ -96,6 +100,9 @@ void TaskController::InternalLoop(int32_t number)
 			del->Dispose();
 		}
 	}
+
+	// unregister thread from lua functions
+	Lua::UnregisterThread();
 }
 
 size_t TaskController::GetStaticSize(int32_t version)

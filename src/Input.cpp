@@ -93,16 +93,16 @@ bool Input::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadR
 				this->derive = resolver->ResolveFormID<DerivationTree>(deriveid);
 			});
 			// get stringrep
-			if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
-				return false;
+			//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
+			//	return false;
 			stringrep = Buffer::ReadString(buffer, offset);
 			// read sequence
-			if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::List::GetListLength(buffer, offset))
-				return false;
+			//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::List::GetListLength(buffer, offset))
+			//	return false;
 			Buffer::List::ReadList(sequence, buffer, offset);
 			// read orig_sequence
-			if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::List::GetListLength(buffer, offset))
-				return false;
+			//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::List::GetListLength(buffer, offset))
+			//	return false;
 			Buffer::List::ReadList(orig_sequence, buffer, offset);
 			return true;
 		}

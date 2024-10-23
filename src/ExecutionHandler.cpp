@@ -7,6 +7,7 @@
 #include "Session.h"
 #include "Data.h"
 #include "BufferOperations.h"
+#include "LuaEngine.h"
 //#include <io.h>
 
 ExecutionHandler::ExecutionHandler()
@@ -242,6 +243,14 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, Functions::BaseFunc
 	test->itrend = test->input.lock()->end();
 	test->reactiontime = {};
 	test->output = "";
+
+	bool stateerror = false;
+	test->cmdArgs = Lua::GetCmdArgs(std::bind(&Oracle::GetCmdArgs, _oracle, std::placeholders::_1, std::placeholders::_2), test, stateerror);
+	if (stateerror) {
+		logcritical("Add Test cannot be completed, as the calling thread lacks a lua context.");
+		_session->data->DeleteForm(test);
+		return false;
+	}
 	{
 		std::unique_lock<std::mutex> guard(_lockqueue);
 		_waitingTests.push_back(test);
@@ -260,7 +269,7 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 	// give test its first input on startup
 	// if unsuccessful: report error and complete test-case as failed
 	test->starttime = std::chrono::steady_clock::now();
-	if (!Processes::StartPUTProcess(test, _oracle->path().string(), _oracle->GetCmdArgs(test)))
+	if (!Processes::StartPUTProcess(test, _oracle->path().string(), test->cmdArgs))
 	{
 		test->exitreason = Test::ExitReason::InitError;
 		if (auto ptr = test->input.lock(); ptr) {
@@ -301,11 +310,6 @@ void ExecutionHandler::StopTest(std::shared_ptr<Test> test)
 		ptr->hasfinished = true;
 		ptr->executiontime = std::chrono::duration_cast<std::chrono::nanoseconds>(test->endtime - test->starttime);
 		ptr->exitcode = test->GetExitCode();
-		// evaluate oracle
-		ptr->oracleResult = _oracle->Evaluate(test);
-		// check whether to store output
-		if (!_settings->tests.storePUToutput && (!_settings->tests.storePUToutputSuccessful || _settings->tests.storePUToutputSuccessful && ptr->oracleResult == Oracle::OracleResult::Passing))
-			test->output = "";
 		// give input access to test information
 		ptr->test = test;
 	}

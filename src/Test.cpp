@@ -6,6 +6,7 @@
 #include "Data.h"
 #include "Session.h"
 #include "SessionFunctions.h"
+#include "LuaEngine.h"
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
 #	include <fcntl.h>
@@ -463,6 +464,7 @@ size_t Test::GetDynamicSize()
 	sz += Buffer::CalcStringLength(lastwritten);
 	sz += Buffer::ListBasic::GetListLength(reactiontime);
 	sz += Buffer::CalcStringLength(output);
+	sz += Buffer::CalcStringLength(cmdArgs);
 	if (callback != nullptr)
 		sz += callback->GetLength();
 	return sz;
@@ -478,15 +480,16 @@ bool Test::WriteData(unsigned char* buffer, size_t& offset)
 	// shared ptr
 	if (auto ptr = input.lock(); ptr) {
 		Buffer::Write(ptr->GetFormID(), buffer, offset);
-		std::cout << "formid: " << ptr->GetFormID() << "\n";
 	} else {
 		Buffer::Write((int32_t)0, buffer, offset);
-		std::cout << "formid: " << 0 << "\n";
 	}
 	Buffer::Write(lastwritten, buffer, offset);
 	Buffer::Write(lasttime, buffer, offset);
 	Buffer::ListBasic::WriteList(reactiontime, buffer, offset);
-	Buffer::Write(output, buffer, offset);
+	if (storeoutput)
+		Buffer::Write(output, buffer, offset);
+	else
+		Buffer::Write(std::string(""), buffer, offset);
 	Buffer::Write(identifier, buffer, offset);
 	Buffer::Write(exitreason, buffer, offset);
 	Buffer::Write(valid, buffer, offset);
@@ -535,6 +538,20 @@ bool Test::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadRe
 			bool hascall = Buffer::ReadBool(buffer, offset);
 			if (hascall)
 				callback = Functions::BaseFunction::Create(buffer, offset, length, resolver);
+			// if this is a valid test that still needs to be run, generate the cmdArgs anew
+			if (valid) {
+				resolver->AddLateTask([this, resolver]() {
+					bool stateerror = false;
+					this->cmdArgs = Lua::GetCmdArgs(std::bind(&Oracle::GetCmdArgs, resolver->_oracle, std::placeholders::_1, std::placeholders::_2), this, stateerror);
+					if (stateerror) {
+						logcritical("Read Test cannot be completed, as the calling thread lacks a lua context.");
+						this->valid = false;
+					}
+				});
+			}
+			// otherwise just leave them as is, we can generate them if we ever need them
+			else
+				cmdArgs = "";
 			Init();
 			return true;
 		}
