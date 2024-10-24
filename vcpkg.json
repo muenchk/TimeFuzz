@@ -45,6 +45,7 @@
     },
     "glfw3",
     "glad",
-    "glm"
+    "glm",
+    "liblzma"
   ]
 }

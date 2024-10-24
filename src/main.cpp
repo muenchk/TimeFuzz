@@ -249,7 +249,7 @@ int32_t main(int32_t argc, char** argv)
 		scanf("%s", buffer);
 		exit(ExitCodes::ArgumentError);
 	} else if (CmdArgs::_settings) {
-		CmdArgs::_settingspath = std::filesystem::absolute(CmdArgs::_settingspath);
+		CmdArgs::_settingspath = std::filesystem::absolute(CmdArgs::_settingspath).wstring();
 	} else
 		CmdArgs::_settingspath = std::filesystem::current_path().wstring();
 

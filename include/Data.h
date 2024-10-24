@@ -35,6 +35,22 @@ public:
 		};
 	};
 
+	struct SaveStats
+	{
+		int64_t _Input = 0;
+		int64_t _Grammar = 0;
+		int64_t _DevTree = 0;
+		int64_t _ExclTree = 0;
+		int64_t _Generator = 0;
+		int64_t _Session = 0;
+		int64_t _Settings = 0;
+		int64_t _Test = 0;
+		int64_t _TaskController = 0;
+		int64_t _ExecutionHandler = 0;
+		int64_t _Oracle = 0;
+		int64_t _Fail = 0;
+	};
+
 private:
 	const uint64_t guid1 = 0xe30db97c4f1e478f;
 	const uint64_t guid2 = 0x8b03f3d9e946dcf3;

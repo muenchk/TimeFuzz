@@ -3,6 +3,7 @@
 #include "TaskController.h"
 #include "ExecutionHandler.h"
 #include "LuaEngine.h"
+#include "LZMAStreamBuf.h"
 
 #include <memory>
 #include <iostream>
@@ -48,16 +49,18 @@ void Data::Save()
 	StartProfiling;
 	// saves the current state of the program to disk
 	// saving requires all active operations to cease while the data is collected and written to disk
-	// 
 	
+	SaveStats stats;
+
+	auto settings = CreateForm<Settings>();
+
 	std::cout << "hashtable size: " << _hashmap.size() << "\n";
 	// create new file on disc
 	std::string name = GetSaveName();
 	if (!std::filesystem::exists(savepath))
 		std::filesystem::create_directories(savepath);
-	std::ofstream save = std::ofstream((savepath / name), std::ios_base::out | std::ios_base::binary);
-	if (save.is_open()) {
-		loginfo("Opened save-file \"{}\"", name);
+	std::ofstream fsave = std::ofstream((savepath / name), std::ios_base::out | std::ios_base::binary);
+	if (fsave.is_open()) {
 		// lock access to taskcontroller and executionhandler
 		status = "Freezing controllers...";
 		std::shared_ptr<TaskController> taskcontrol = CreateForm<TaskController>();
@@ -65,7 +68,6 @@ void Data::Save()
 		execcontrol->Freeze();
 		taskcontrol->Freeze();
 
-		status = "Writing save...";
 		// write main information about savefile: name, savenumber, nextformid, runtime etc.
 		{
 			size_t len = 38;
@@ -78,78 +80,127 @@ void Data::Save()
 			Buffer::Write(_globalTasks, buffer, offset);
 			Buffer::Write(_globalExec, buffer, offset);
 			Buffer::Write(runtime, buffer, offset);
-			save.write((char*)buffer, len);
+			fsave.write((char*)buffer, len);
 			delete[] buffer;
 		}
+		// also write information about the file itself, including compression used and compression level
+		{
+			size_t len = 5;
+			size_t offset = 0;
+			unsigned char* buffer = new unsigned char[len];
+			Buffer::Write(settings->saves.compressionLevel, buffer, offset);
+			Buffer::Write(settings->saves.compressionExtreme, buffer, offset);
+			fsave.write((char*)buffer, len);
+			delete[] buffer;
+		}
+
+		Streambuf* sbuf = nullptr;
+		if (settings->saves.compressionLevel != -1) {
+			sbuf = new LZMAStreambuf(&fsave, settings->saves.compressionLevel, settings->saves.compressionExtreme);
+		} else
+			sbuf = new Streambuf(&fsave);
+		std::ostream save(sbuf);
+		loginfo("Opened save-file \"{}\"", name);
+
+		status = "Writing save...";
 		// write session data
 		{
 			std::shared_lock<std::shared_mutex> guard(_hashmaplock);
 			loginfo("Saving {} records...", _hashmap.size());
 			actionloadsave_max = _hashmap.size();
 			actionloadsave_current = 0;
+			{
+				size_t len = 8;
+				size_t offset = 0;
+				unsigned char* buffer = new unsigned char[len];
+				Buffer::WriteSize(_hashmap.size(), buffer, offset);
+				save.write((char*)buffer, len);
+				delete[] buffer;
+			}
 			for (auto& [formid, form] : _hashmap) {
 				size_t len = 0;
 				unsigned char* buffer = nullptr;
-				switch (form->GetType())
-				{
+				switch (form->GetType()) {
 				case FormType::Input:
 					buffer = Records::CreateRecord<Input>(dynamic_pointer_cast<Input>(form), len);
+					stats._Input++;
 					//logdebug("Write Record:      Input");
 					break;
 				case FormType::Grammar:
 					buffer = Records::CreateRecord<Grammar>(dynamic_pointer_cast<Grammar>(form), len);
+					stats._Grammar++;
 					//Logdebug("Write Record:      Grammar");
 					break;
 				case FormType::DevTree:
 					buffer = Records::CreateRecord<DerivationTree>(dynamic_pointer_cast<DerivationTree>(form), len);
+					stats._DevTree++;
 					//logdebug("Write Record:      DerivationTree");
 					break;
 				case FormType::ExclTree:
 					buffer = Records::CreateRecord<ExclusionTree>(dynamic_pointer_cast<ExclusionTree>(form), len);
+					stats._ExclTree++;
 					//logdebug("Write Record:      ExclusionTree");
 					break;
 				case FormType::Generator:
 					buffer = Records::CreateRecord<Generator>(dynamic_pointer_cast<Generator>(form), len);
+					stats._Generator++;
 					//logdebug("Write Record:      Generator");
 					break;
 				case FormType::Session:
 					buffer = Records::CreateRecord<Session>(dynamic_pointer_cast<Session>(form), len);
+					stats._Session++;
 					//logdebug("Write Record:      Session");
 					break;
 				case FormType::Settings:
 					buffer = Records::CreateRecord<Settings>(dynamic_pointer_cast<Settings>(form), len);
+					stats._Settings++;
 					//logdebug("Write Record:      Settings");
 					break;
 				case FormType::Test:
 					buffer = Records::CreateRecord<Test>(dynamic_pointer_cast<Test>(form), len);
+					stats._Test++;
 					//logdebug("Write Record:      Test");
 					break;
 				case FormType::TaskController:
 					buffer = Records::CreateRecord<TaskController>(dynamic_pointer_cast<TaskController>(form), len);
+					stats._TaskController++;
 					//logdebug("Write Record:      TaskController");
 					break;
 				case FormType::ExecutionHandler:
 					buffer = Records::CreateRecord<ExecutionHandler>(dynamic_pointer_cast<ExecutionHandler>(form), len);
+					stats._ExecutionHandler++;
 					//logdebug("Write Record:      ExecutionHandler");
 					break;
 				case FormType::Oracle:
 					buffer = Records::CreateRecord<Oracle>(dynamic_pointer_cast<Oracle>(form), len);
+					stats._Oracle++;
 					//logdebug("Write Record:      Oracle");
 					break;
 				default:
+					stats._Fail++;
 					logcritical("Trying to save unknown formtype");
 					break;
 				}
-				if (buffer != nullptr)
-				{
+				if (buffer != nullptr) {
 					save.write((char*)buffer, len);
-				} else
+					if (fsave.bad())
+						logcritical("critical error in underlying savefile")
+				} else {
+					stats._Fail++;
 					logcritical("record buffer could not be created");
+				}
 				actionloadsave_current++;
 			}
 		}
+		sbuf->flush();
 		save.flush();
-		save.close();
+		fsave.flush();
+		fsave.close();
+		if (sbuf != nullptr)
+		{
+			delete sbuf;
+			sbuf = nullptr;
+		}
 		// set proper
 		sessionBegin = std::chrono::steady_clock::now();
 		// unlock taskcontroller and executionhandler
@@ -158,6 +209,21 @@ void Data::Save()
 		loginfo("Saved session");
 	} else
 		logcritical("Cannot open new savefile");
+
+	loginfo("Saved Records:");
+	loginfo("Input: {}", stats._Input);
+	loginfo("Grammar: {}", stats._Grammar);
+	loginfo("DerivationTree: {}", stats._DevTree);
+	loginfo("ExclusionTree: {}", stats._ExclTree);
+	loginfo("Generator: {}", stats._Generator);
+	loginfo("Session: {}", stats._Session);
+	loginfo("Settings: {}", stats._Settings);
+	loginfo("Test: {}", stats._Test);
+	loginfo("TaskController: {}", stats._TaskController);
+	loginfo("ExecutionHandler: {}", stats._ExecutionHandler);
+	loginfo("Oracle: {}", stats._Oracle);
+	loginfo("Fails: {}", stats._Fail);
+
 	actionloadsave = false;
 	status = "Running...";
 	profile(TimeProfiling, "Saving session");
@@ -278,8 +344,9 @@ void Data::LoadIntern(std::filesystem::path path)
 	actionloadsave = true;
 	actionloadsave_max = 0;
 	StartProfiling;
-	std::ifstream save = std::ifstream(path, std::ios_base::in | std::ios_base::binary);
-	if (save.is_open()) {
+	SaveStats stats;
+	std::ifstream fsave = std::ifstream(path, std::ios_base::in | std::ios_base::binary);
+	if (fsave.is_open()) {
 		loginfo("Opened save-file \"{}\"", path.filename().string());
 		size_t BUFSIZE = 4096;
 		unsigned char* buffer = new unsigned char[BUFSIZE];
@@ -293,16 +360,19 @@ void Data::LoadIntern(std::filesystem::path path)
 		int32_t version = 0;
 		uint64_t ident1 = 0;
 		uint64_t ident2 = 0;
+		// compression
+		int32_t compressionLevel = -1;
+		bool compressionExtreme = false;
 		if (flen - pos >= 4) {
-			save.read((char*)buffer, 4);
-			if (save.gcount() == 4)
+			fsave.read((char*)buffer, 4);
+			if (fsave.gcount() == 4)
 				version = Buffer::ReadInt32(buffer, offset);
 			pos += 4;
 		}
 		if (flen - pos >= 16) {
-			save.read((char*)buffer, 16);
+			fsave.read((char*)buffer, 16);
 			offset = 0;
-			if (save.gcount() == 16) {
+			if (fsave.gcount() == 16) {
 				ident1 = Buffer::ReadUInt64(buffer, offset);
 				ident2 = Buffer::ReadUInt64(buffer, offset);
 			}
@@ -314,9 +384,9 @@ void Data::LoadIntern(std::filesystem::path path)
 			// read data stuff
 			if (flen - pos >= 10)
 			{
-				save.read((char*)buffer, 18);
+				fsave.read((char*)buffer, 18);
 				offset = 0;
-				if (save.gcount() == 18) {
+				if (fsave.gcount() == 18) {
 					_nextformid = Buffer::ReadUInt64(buffer, offset);
 					_globalTasks = Buffer::ReadBool(buffer, offset);
 					_globalExec = Buffer::ReadBool(buffer, offset);
@@ -329,8 +399,52 @@ void Data::LoadIntern(std::filesystem::path path)
 				}
 				pos += 18;
 			}
+
+			// read information about the file itself, including compression used and compression level
+			{
+				fsave.read((char*)buffer, 5);
+				offset = 0;
+				if (fsave.gcount() == 5) {
+					compressionLevel = Buffer::ReadInt32(buffer, offset);
+					compressionExtreme = Buffer::ReadBool(buffer, offset);
+				}
+				else
+				{
+					logcritical("Save file does not appear to have the proper format: failed to read compression information");
+					abort = true;
+				}
+			}
+
 			actionloadsave_current = pos;
 			if (!abort) {
+				// init compression etc.
+				Streambuf* sbuf = nullptr;
+				if (compressionLevel != -1)
+					sbuf = new LZMAStreambuf(&fsave);
+				else
+					sbuf = new Streambuf(&fsave);
+				std::istream save(sbuf);
+
+				bool fileerror = false;
+				// read hashmap and progress information
+				actionloadsave_max = 0;
+				actionloadsave_current = 0;
+				{
+					save.read(reinterpret_cast<char*>(buffer), 8);
+					if (save.bad())
+					{
+						logcritical("io error");
+						fileerror = true;
+					}
+					offset = 0;
+					if (save.gcount() == 8) {
+						actionloadsave_max = Buffer::ReadSize(buffer, offset);
+					} else {
+						logcritical("Save file does not appear to have the proper format: failed to read hashmap size");
+						fileerror = true;
+					}
+				}
+
 				switch (version) {
 				case 0:  // couldn't get saveversion
 					logcritical("Save file does not appear to have the proper format: fail version");
@@ -340,7 +454,7 @@ void Data::LoadIntern(std::filesystem::path path)
 						size_t rlen = 0;
 						int32_t rtype = 0;
 						bool cbuf = false;
-						while (pos < flen) {
+						while (fileerror == false) {
 							rlen = 0;
 							rtype = 0;
 							// read length of record, type of record
@@ -350,6 +464,13 @@ void Data::LoadIntern(std::filesystem::path path)
 								if (save.gcount() == 12) {
 									rlen = Buffer::ReadSize(buffer, offset);
 									rtype = Buffer::ReadInt32(buffer, offset);
+								}
+								else
+								{
+									// we haven't read as much as we want, probs end-of-file, so end iteration and continue
+									logwarn("Found unexpected end-of-file");
+									fileerror = true;
+									continue;
 								}
 								pos += 12;
 							}
@@ -362,6 +483,7 @@ void Data::LoadIntern(std::filesystem::path path)
 									if (save.eof() || save.fail()) {
 										// we haven't read as much as we want, probs end-of-file, so end iteration and continue
 										logwarn("Found unexpected end-of-file");
+										fileerror = true;
 										continue;
 									}
 									buf = buffer;
@@ -373,6 +495,7 @@ void Data::LoadIntern(std::filesystem::path path)
 									if (save.eof() || save.fail()) {
 										// we haven't read as much as we want, probs end-of-file, so end iteration and continue
 										logwarn("Found unexpected end-of-file");
+										fileerror = true;
 										delete[] cbuffer;
 										cbuffer = nullptr;
 										continue;
@@ -386,8 +509,10 @@ void Data::LoadIntern(std::filesystem::path path)
 									{
 										bool res = RegisterForm(Records::ReadRecord<Input>(buf, offset, rlen, _lresolve));
 										if (res) {
+											stats._Input++;
 											//logdebug("Read Record:      Input");
 										} else {
+											stats._Fail++;
 											loginfo("Failed Record:    Input");
 										}
 									}
@@ -396,8 +521,10 @@ void Data::LoadIntern(std::filesystem::path path)
 									{
 										bool res = RegisterForm(Records::ReadRecord<Grammar>(buf, offset, rlen, _lresolve));
 										if (res) {
-											logdebug("Read Record:      Grammar");
+											stats._Grammar++;
+											//logdebug("Read Record:      Grammar");
 										} else {
+											stats._Fail++;
 											loginfo("Failed Record:    Grammar");
 										}
 									}
@@ -406,8 +533,10 @@ void Data::LoadIntern(std::filesystem::path path)
 									{
 										bool res = RegisterForm(Records::ReadRecord<DerivationTree>(buf, offset, rlen, _lresolve));
 										if (res) {
+											stats._DevTree++;
 											//logdebug("Read Record:      DerivationTree");
 										} else {
+											stats._Fail++;
 											loginfo("Failed Record:    DerivationTree");
 										}
 									}
@@ -419,8 +548,10 @@ void Data::LoadIntern(std::filesystem::path path)
 										if (offset > rlen)
 											res = false;
 										if (res) {
+											stats._ExclTree++;
 											//logdebug("Read Record:      ExclusionTree");
 										} else {
+											stats._Fail++;
 											loginfo("Failed Record:    ExclusionTree");
 										}
 									}
@@ -432,8 +563,10 @@ void Data::LoadIntern(std::filesystem::path path)
 										if (offset > rlen)
 											res = false;
 										if (res) {
+											stats._Generator++;
 											//logdebug("Read Record:      Generator");
 										} else {
+											stats._Fail++;
 											loginfo("Failed Record:    Generator");
 										}
 									}
@@ -445,8 +578,10 @@ void Data::LoadIntern(std::filesystem::path path)
 										if (offset > rlen)
 											res = false;
 										if (res) {
+											stats._Session++;
 											//logdebug("Read Record:      Session");
 										} else {
+											stats._Fail++;
 											loginfo("Failed Record:    Session");
 										}
 									}
@@ -458,8 +593,10 @@ void Data::LoadIntern(std::filesystem::path path)
 										if (offset > rlen)
 											res = false;
 										if (res) {
+											stats._Settings++;
 											//logdebug("Read Record:      Settings");
 										} else {
+											stats._Fail++;
 											loginfo("Failed Record:    Settings");
 										}
 									}
@@ -468,8 +605,10 @@ void Data::LoadIntern(std::filesystem::path path)
 									{
 										bool res = RegisterForm(Records::ReadRecord<Test>(buf, offset, rlen, _lresolve));
 										if (res) {
+											stats._Test++;
 											//logdebug("Read Record:      Test");
 										} else {
+											stats._Fail++;
 											loginfo("Failed Record:    Test");
 										}
 									}
@@ -481,8 +620,10 @@ void Data::LoadIntern(std::filesystem::path path)
 										if (offset > rlen)
 											res = false;
 										if (res) {
+											stats._TaskController++;
 											//logdebug("Read Record:      TaskController");
 										} else {
+											stats._Fail++;
 											loginfo("Failed Record:    TaskController");
 										}
 									}
@@ -494,8 +635,10 @@ void Data::LoadIntern(std::filesystem::path path)
 										if (offset > rlen)
 											res = false;
 										if (res) {
+											stats._ExecutionHandler++;
 											//logdebug("Read Record:      ExecutionHandler");
 										} else {
+											stats._Fail++;
 											loginfo("Failed Record:    ExecutionHandler");
 										}
 									}
@@ -507,20 +650,24 @@ void Data::LoadIntern(std::filesystem::path path)
 										if (offset > rlen)
 											res = false;
 										if (res) {
+											stats._Oracle++;
 											_lresolve->_oracle = oracle;
 										} else {
+											stats._Fail++;
 											loginfo("Failed Record:    Oracle");
 										}
 									}
 									break;
 								default:
+									stats._Fail++;
 									loginfo("Trying to read unknown formtype");
 								}
 								if (cbuf)
 									delete[] cbuffer;
+
 							}
 							// update progress
-							actionloadsave_current = pos;
+							actionloadsave_current++;
 						}
 						_loaded = true;
 						loginfo("Loaded save");
@@ -530,13 +677,17 @@ void Data::LoadIntern(std::filesystem::path path)
 					logcritical("Save file version is unknown");
 					break;
 				}
+				if (sbuf != nullptr) {
+					delete sbuf;
+					sbuf = nullptr;
+				}
 			}
 		} else {
 			// this cannot be our savefile
 			logcritical("Save file does not have the proper format: fail guid");
 		}
 		delete[] buffer;
-		save.close();
+		fsave.close();
 		std::cout << "hashtable size: " << _hashmap.size() << "\n";
 		if (!_lresolve->_oracle)
 		{
@@ -558,6 +709,21 @@ void Data::LoadIntern(std::filesystem::path path)
 		loginfo("Loaded session");
 	} else
 		logcritical("Cannot open savefile");
+
+	loginfo("Loaded Records:");
+	loginfo("Input: {}", stats._Input);
+	loginfo("Grammar: {}", stats._Grammar);
+	loginfo("DerivationTree: {}", stats._DevTree);
+	loginfo("ExclusionTree: {}", stats._ExclTree);
+	loginfo("Generator: {}", stats._Generator);
+	loginfo("Session: {}", stats._Session);
+	loginfo("Settings: {}", stats._Settings);
+	loginfo("Test: {}", stats._Test);
+	loginfo("TaskController: {}", stats._TaskController);
+	loginfo("ExecutionHandler: {}", stats._ExecutionHandler);
+	loginfo("Oracle: {}", stats._Oracle);
+	loginfo("Fails: {}", stats._Fail);
+
 	actionloadsave = false;
 	status = "Running...";
 	profile(TimeProfiling, "Loading Save");

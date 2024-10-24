@@ -148,6 +148,27 @@
       }
     },
     {
+      "name": "buildRelease",
+      "inherits": [
+        "base",
+        "vcpkg",
+        "win32-unicode",
+        "x64",
+        "generator-ninja",
+        "msvc"
+      ],
+      "displayName": "Build (Release)",
+      "description": "Optimized release build.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/buildRelease",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": {
+          "type": "STRING",
+          "value": "Release"
+        }
+      }
+    },
+    {
       "name": "build",
       "inherits": [
         "base",

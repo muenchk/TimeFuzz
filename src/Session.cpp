@@ -45,12 +45,13 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, std::wstring set
 	Data* dat = new Data();
 	auto sett = dat->CreateForm<Settings>();
 	sett->Load(settingsPath);
+	sett->Save(settingsPath);
 	if (status != nullptr)
 		InitStatus(status, sett);
 	auto session = dat->CreateForm<Session>();
 	session->_settings = sett;
 	session->data = dat;
-	dat->SetSavePath(sett->general.savepath);
+	dat->SetSavePath(sett->saves.savepath);
 	std::thread th(LoadSession_Async, dat, name, -1, startsession);
 	th.detach();
 	return session;
@@ -61,12 +62,13 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, 
 	Data* dat = new Data();
 	auto sett = dat->CreateForm<Settings>();
 	sett->Load(settingsPath);
+	sett->Save(settingsPath);
 	if (status != nullptr)
 		InitStatus(status, sett);
 	auto session = dat->CreateForm<Session>();
 	session->_settings = sett;
 	session->data = dat;
-	dat->SetSavePath(sett->general.savepath);
+	dat->SetSavePath(sett->saves.savepath);
 	std::thread th(LoadSession_Async, dat, name, number, startsession);
 	th.detach();
 	return session;
@@ -216,8 +218,10 @@ void Session::StartLoadedSession(bool& error, bool reloadsettings, std::wstring 
 	logmessage("Starting loaded session");
 	// as Session itself is a Form and saved with the rest of the session, all internal variables are already set when we
 	// resume the session, so we only have to set the runtime stuff, and potentially reload the settings and verify the oracle
-	if (reloadsettings)
+	if (reloadsettings) {
 		_settings->Load(settingsPath);
+		_settings->Save(settingsPath);
+	}
 	_callback = callback;
 	if (_oracle->Validate() == false) {
 		logcritical("Oracle isn't valid.");
@@ -236,6 +240,7 @@ void Session::StartSession(bool& error, bool globalTaskController, bool globalEx
 	// init settings
 	_settings = data->CreateForm<Settings>();
 	_settings->Load(settingsPath);
+	_settings->Save(settingsPath);
 	data->_globalTasks = globalTaskController;
 	data->_globalExec = globalExecutionHandler;
 	// set taskcontroller
@@ -244,8 +249,8 @@ void Session::StartSession(bool& error, bool globalTaskController, bool globalEx
 	_exechandler = data->CreateForm<ExecutionHandler>();
 	_callback = callback;
 	// set save path
-	data->SetSavePath(_settings->general.savepath);
-	data->SetSaveName(_settings->general.savename);
+	data->SetSavePath(_settings->saves.savepath);
+	data->SetSaveName(_settings->saves.savename);
 	// start session
 	StartSessionIntern(error);
 }

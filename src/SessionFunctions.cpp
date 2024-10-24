@@ -35,7 +35,7 @@ std::shared_ptr<Input> SessionFunctions::GenerateInput(std::shared_ptr<Session>&
 void SessionFunctions::SaveCheck(std::shared_ptr<Session>& session)
 {
 	// check whether to save at all
-	if (!session->_settings->general.enablesaves)
+	if (!session->_settings->saves.enablesaves)
 		return;
 	static auto autosavetime = std::chrono::steady_clock::now();
 	static uint64_t testnum = SessionStatistics::TestsExecuted(session);
@@ -44,14 +44,14 @@ void SessionFunctions::SaveCheck(std::shared_ptr<Session>& session)
 	{
 		std::unique_lock<std::mutex> guard(savelock);
 		// check whether we should save now
-		if (session->_settings->general.autosave_every_seconds > 0 && std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - autosavetime).count() >= session->_settings->general.autosave_every_seconds) {
+		if (session->_settings->saves.autosave_every_seconds > 0 && std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - autosavetime).count() >= session->_settings->saves.autosave_every_seconds) {
 			// set new last save-time
 			autosavetime = std::chrono::steady_clock::now();
 			save = true;
 		} 
 		if (!save) {
 			auto tn = SessionStatistics::TestsExecuted(session);
-			if (session->_settings->general.autosave_every_tests > 0 && (int64_t)(tn - testnum) > session->_settings->general.autosave_every_tests) {  // set neew last test count
+			if (session->_settings->saves.autosave_every_tests > 0 && (int64_t)(tn - testnum) > session->_settings->saves.autosave_every_tests) {  // set neew last test count
 				testnum = tn;
 				save = true;
 			}

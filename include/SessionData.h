@@ -9,6 +9,7 @@
 #include <mutex>
 #include <atomic>
 #include <set>
+#include <list>
 
 #include "Form.h"
 #include "Utility.h"

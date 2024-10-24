@@ -136,6 +136,7 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMA
 		glfw
 		glad::glad
 		glm::glm
+		liblzma::liblzma
 		${PROJECT_NAME}_lib
 	)
 	target_link_libraries(
@@ -148,6 +149,7 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMA
 		glfw
 		glad::glad
 		glm::glm
+		liblzma::liblzma
 	)
 else()
 	target_link_libraries(
@@ -159,6 +161,8 @@ else()
 		glfw
 		glad::glad
 		glm::glm
+		7zip::7zip
+		liblzma::liblzma
 		${PROJECT_NAME}_lib
 	)
 	if (LIBEXPLAIN_INCLUDE)
@@ -175,6 +179,7 @@ else()
 		glfw
 		glad::glad
 		glm::glm
+		liblzma::liblzma
 	)
 	else()
 	target_link_libraries(
@@ -189,6 +194,7 @@ else()
 		glfw
 		glad::glad
 		glm::glm
+		liblzma::liblzma
 	)
 	endif()
 endif()

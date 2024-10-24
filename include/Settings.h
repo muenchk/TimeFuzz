@@ -102,7 +102,12 @@ public:
 		/// </summary>
 		int32_t concurrenttests = 1;
 		const char* concurrenttests_NAME = "ConcurrentTests";
+	};
 
+	General general;
+
+	struct SaveFiles
+	{
 		/// <summary>
 		/// whether to enable saves
 		/// </summary>
@@ -128,9 +133,22 @@ public:
 		/// </summary>
 		std::string savename = "USS Enterprise";
 		const char* savename_NAME = "SaveName";
+		/// <summary>
+		/// compression level for LZMA compression
+		/// set to -1 to disable compression
+		/// </summary>
+		int32_t compressionLevel = -1;
+		const char* compressionLevel_NAME = "CompressionLevel";
+		/// <summary>
+		/// Whether to use the extreme compression preset for LZMA save file compression.
+		/// Using this reduces save file size but increases the time it takes to save
+		/// drastically.
+		/// </summary>
+		bool compressionExtreme = false;
+		const char* compressionExtreme_NAME = "CompressionExtreme";
 	};
 
-	General general;
+	SaveFiles saves;
 
 	struct Optimization
 	{

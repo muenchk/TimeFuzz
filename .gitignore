@@ -2,6 +2,7 @@ build/
 buildLinux/
 buildKali/
 buildall/
+buildRelease/
 .vs/
 src/.vs/
 src/.vscode

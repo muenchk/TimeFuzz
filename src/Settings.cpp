@@ -54,17 +54,23 @@ void Settings::Load(std::wstring path)
 	loginfo("{}{} {}", "General:          ", general.numcomputingthreads_NAME, general.numcomputingthreads);
 	general.concurrenttests = (int32_t)ini.GetLongValue("General", general.concurrenttests_NAME, general.concurrenttests);
 	loginfo("{}{} {}", "General:          ", general.concurrenttests_NAME, general.concurrenttests);
-	general.autosave_every_tests = (int64_t)ini.GetLongValue("General", general.autosave_every_tests_NAME, (long)general.autosave_every_tests);
-	loginfo("{}{} {}", "General:          ", general.autosave_every_tests_NAME, general.autosave_every_tests);
-	general.autosave_every_seconds = (int64_t)ini.GetLongValue("General", general.autosave_every_seconds_NAME, (long)general.autosave_every_seconds);
-	loginfo("{}{} {}", "General:          ", general.autosave_every_seconds_NAME, general.autosave_every_seconds);
-	general.savepath = (std::string)ini.GetValue("General", general.savepath_NAME, general.savepath.c_str());
-	loginfo("{}{} {}", "General:          ", general.savepath_NAME, general.savepath);
-	general.savename = (std::string)ini.GetValue("General", general.savename_NAME, general.savename.c_str());
-	loginfo("{}{} {}", "General:          ", general.savepath_NAME, general.savename);
+
+	// saves
+	saves.autosave_every_tests = (int64_t)ini.GetLongValue("SaveFiles", saves.autosave_every_tests_NAME, (long)saves.autosave_every_tests);
+	loginfo("{}{} {}", "SaveFiles:          ", saves.autosave_every_tests_NAME, saves.autosave_every_tests);
+	saves.autosave_every_seconds = (int64_t)ini.GetLongValue("SaveFiles", saves.autosave_every_seconds_NAME, (long)saves.autosave_every_seconds);
+	loginfo("{}{} {}", "SaveFiles:          ", saves.autosave_every_seconds_NAME, saves.autosave_every_seconds);
+	saves.savepath = (std::string)ini.GetValue("SaveFiles", saves.savepath_NAME, saves.savepath.c_str());
+	loginfo("{}{} {}", "SaveFiles:          ", saves.savepath_NAME, saves.savepath);
+	saves.savename = (std::string)ini.GetValue("SaveFiles", saves.savename_NAME, saves.savename.c_str());
+	loginfo("{}{} {}", "SaveFiles:          ", saves.savepath_NAME, saves.savename);
+	saves.compressionLevel = (int32_t)ini.GetLongValue("SaveFiles", saves.compressionLevel_NAME, saves.compressionLevel);
+	loginfo("{}{} {}", "SaveFiles:          ", saves.compressionLevel_NAME, saves.compressionLevel);
+	saves.compressionExtreme = ini.GetBoolValue("SaveFiles", saves.compressionExtreme_NAME, saves.compressionExtreme);
+	loginfo("{}{} {}", "SaveFiles:          ", saves.compressionExtreme_NAME, saves.compressionExtreme);
 
 	// optimization
-	optimization.constructinputsiteratively = ini.GetBoolValue("General", optimization.constructinputsiteratively_NAME, optimization.constructinputsiteratively);
+	optimization.constructinputsiteratively = ini.GetBoolValue("Optimization", optimization.constructinputsiteratively_NAME, optimization.constructinputsiteratively);
 	loginfo("{}{} {}", "Optimization:     ", optimization.constructinputsiteratively_NAME, optimization.constructinputsiteratively);
 
 	// methods
@@ -120,6 +126,7 @@ void Settings::Load(std::wstring path)
 
 void Settings::Save(std::wstring _path)
 {
+#ifdef NDEBUG
 #if defined(unix) || defined(__unix__) || defined(__unix)
 	constexpr auto defpath = "config.ini";
 	std::string path;
@@ -161,18 +168,26 @@ void Settings::Save(std::wstring _path)
 		"\\\\ Number of threads used for computational purposes.");
 	ini.SetLongValue("General", general.concurrenttests_NAME, (long)general.concurrenttests,
 		"\\\\ Number of tests to be run concurrently.");
-	ini.SetBoolValue("General", general.enablesaves_NAME, general.enablesaves,
+
+	// saves
+	ini.SetBoolValue("SaveFiles", saves.enablesaves_NAME, saves.enablesaves,
 		"\\\\ Enables automatic saving.");
-	ini.SetLongValue("General", general.autosave_every_tests_NAME, (long)general.autosave_every_tests,
-		"\\\\ Automatically saves after [x] tests have been run.\n"
+	ini.SetLongValue("SaveFiles", saves.autosave_every_tests_NAME, (long)saves.autosave_every_tests,
+		"\\\\ Automatically saves after [x] tests have been run."
 		"\\\\ Set to 0 to disable.");
-	ini.SetLongValue("General", general.autosave_every_seconds_NAME, (long)general.autosave_every_seconds,
-		"\\\\ Automatically saves after [x] seconds.\n"
+	ini.SetLongValue("SaveFiles", saves.autosave_every_seconds_NAME, (long)saves.autosave_every_seconds,
+		"\\\\ Automatically saves after [x] seconds."
 		"\\\\ Set to 0 to disable.");
-	ini.SetValue("General", general.savepath_NAME, general.savepath.c_str(),
-		"\\\\ The path at which saves will be stored.\n");
-	ini.SetValue("General", general.savename_NAME, general.savename.c_str(),
-		"\\\\ The name of savefiles.\n");
+	ini.SetValue("SaveFiles", saves.savepath_NAME, saves.savepath.c_str(),
+		"\\\\ The path at which saves will be stored.");
+	ini.SetValue("SaveFiles", saves.savename_NAME, saves.savename.c_str(),
+		"\\\\ The name of savefiles.");
+	ini.SetLongValue("SaveFiles", saves.compressionLevel_NAME, saves.compressionLevel,
+		"\\\\ CompressionLevel used for LZMA savefile compression\n"
+		"\\\\ Set to -1 to disable compression.");
+	ini.SetBoolValue("SaveFiles", saves.compressionExtreme_NAME, saves.compressionExtreme,
+		"\\\\ Whether to use the extreme compression preset for LZMA save file compression.\n"
+		"\\\\ Using this reduces save file size but increases the time it takes to save drastically.");
 
 	// optimization
 	ini.SetBoolValue("Optimization", optimization.constructinputsiteratively_NAME, optimization.constructinputsiteratively,
@@ -215,6 +230,7 @@ void Settings::Save(std::wstring _path)
 		"\\\\ Set to 0 to disable.");
 
 	ini.SaveFile(path.c_str());
+#endif
 }
 
 size_t Settings::GetStaticSize(int32_t version)
@@ -226,9 +242,11 @@ size_t Settings::GetStaticSize(int32_t version)
 	                 + 4                     // General::numthreads
 	                 + 4                     // General::numcomputingthreads
 	                 + 4                     // General::concurrenttests
-	                 + 1                     // General::enablesaves
-	                 + 8                     // General::autosave_every_tests
-	                 + 8                     // General::autosave_every_seconds
+	                 + 1                     // SaveFiles::enablesaves
+	                 + 8                     // SaveFiles::autosave_every_tests
+	                 + 8                     // SaveFiles::autosave_every_seconds
+	                 + 4                     // SaveFiles::compressionLevel
+	                 + 1                     // SaveFiles::compressionExtreme
 	                 + 1                     // Optimization::constructinputsiteratively
 	                 + 1                     // Methods::deltadebugging
 	                 + 4                     // Generation::generationsize
@@ -263,7 +281,7 @@ size_t Settings::GetDynamicSize()
 {
 	return GetStaticSize()                                  // static size
 	       + Buffer::CalcStringLength(oraclepath.string())  // oraclepath
-	       + Buffer::CalcStringLength(general.savepath);    // General::savepath
+	       + Buffer::CalcStringLength(saves.savepath);    // General::savepath
 }
 
 bool Settings::WriteData(unsigned char* buffer, size_t& offset)
@@ -277,10 +295,13 @@ bool Settings::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(general.numthreads, buffer, offset);
 	Buffer::Write(general.numcomputingthreads, buffer, offset);
 	Buffer::Write(general.concurrenttests, buffer, offset);
-	Buffer::Write(general.enablesaves, buffer, offset);
-	Buffer::Write(general.autosave_every_tests, buffer, offset);
-	Buffer::Write(general.autosave_every_seconds, buffer, offset);
-	Buffer::Write(general.savepath, buffer, offset);
+	// saves
+	Buffer::Write(saves.enablesaves, buffer, offset);
+	Buffer::Write(saves.autosave_every_tests, buffer, offset);
+	Buffer::Write(saves.autosave_every_seconds, buffer, offset);
+	Buffer::Write(saves.savepath, buffer, offset);
+	Buffer::Write(saves.compressionLevel, buffer, offset);
+	Buffer::Write(saves.compressionExtreme, buffer, offset);
 	// optimization
 	Buffer::Write(optimization.constructinputsiteratively, buffer, offset);
 	// methods
@@ -324,10 +345,13 @@ bool Settings::ReadData(unsigned char* buffer, size_t& offset, size_t length, Lo
 			general.numthreads = Buffer::ReadInt32(buffer, offset);
 			general.numcomputingthreads = Buffer::ReadInt32(buffer, offset);
 			general.concurrenttests = Buffer::ReadInt32(buffer, offset);
-			general.enablesaves = Buffer::ReadBool(buffer, offset);
-			general.autosave_every_tests = Buffer::ReadInt64(buffer, offset);
-			general.autosave_every_seconds = Buffer::ReadInt64(buffer, offset);
-			general.savepath = Buffer::ReadString(buffer, offset);
+			// saves
+			saves.enablesaves = Buffer::ReadBool(buffer, offset);
+			saves.autosave_every_tests = Buffer::ReadInt64(buffer, offset);
+			saves.autosave_every_seconds = Buffer::ReadInt64(buffer, offset);
+			saves.savepath = Buffer::ReadString(buffer, offset);
+			saves.compressionLevel = Buffer::ReadInt32(buffer, offset);
+			saves.compressionExtreme = Buffer::ReadBool(buffer, offset);
 			// optimization
 			optimization.constructinputsiteratively = Buffer::ReadBool(buffer, offset);
 			// methods
