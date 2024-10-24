@@ -84,6 +84,49 @@ void Oracle::Set(PUTType type, std::filesystem::path PUTpath)
 
 bool Oracle::Validate()
 {
+	try {
+		if (!std::filesystem::exists(_path)) {
+			logwarn("Oracle cannot be initialised with a non-existent path: {}", _path.string());
+			valid = false;
+			return valid;
+		}
+		if (std::filesystem::is_directory(_path)) {
+			logwarn("Oracle cannot be initialised with a directory: {}", _path.string());
+			valid = false;
+			return valid;
+		}
+		if (std::filesystem::is_symlink(_path)) {
+			logwarn("Oracle cannot be initialsed with a symlink: {}", _path.string());
+			valid = false;
+			return valid;
+		}
+		if (std::filesystem::is_regular_file(_path) == false) {
+			logwarn("Oracle cannot be initialised on an unsupported filetype: {}", _path.string());
+			valid = false;
+			return valid;
+		}
+		if (std::filesystem::is_empty(_path)) {
+			logwarn("Oracle cannot be initialised on an empty file: {}", _path.string());
+			valid = false;
+			return valid;
+		}
+	} catch (std::filesystem::filesystem_error& e) {
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+		// windows when checking certain pathes the files cannot be accessed and throw error, for instance python installation from the store
+		// so we just continue if we get that specific error without outputting any errors and settings us to invalid
+		if (e.code().value() == ERROR_CANT_ACCESS_FILE) {
+			valid = true;
+			return valid;
+		}
+		valid = false;
+		return valid;
+#else
+		// linux file not found, etc... just exit
+		logcritical("Cannot check for Oracle: {}", e.what());
+		valid = false;
+		return valid;
+#endif
+	}
 	return valid;
 }
 
@@ -224,7 +267,6 @@ bool Oracle::ReadData(unsigned char* buffer, size_t& offset, size_t length, Load
 			valid = Buffer::ReadBool(buffer, offset);
 			std::string path = Buffer::ReadString(buffer, offset);
 			_path = std::filesystem::path(path);
-			Set(_type, _path);
 			LoracleStr = Buffer::ReadString(buffer, offset);
 			if (LoracleStr.empty() == false)
 				SetLuaOracle(LoracleStr);

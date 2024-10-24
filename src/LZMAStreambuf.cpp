@@ -109,7 +109,7 @@ LZMAStreambuf::LZMAStreambuf(std::istream* pIn) :
 	_lzmaStream.avail_in = 0;
 }
 
-LZMAStreambuf::LZMAStreambuf(std::ostream* pOut, uint32_t compressionLevel, bool extreme) :
+LZMAStreambuf::LZMAStreambuf(std::ostream* pOut, uint32_t compressionLevel, bool extreme, int32_t threads) :
 	_bufferSize(2097152),  // free to chose
 	_out(pOut),
 	_lzmaStream(LZMA_STREAM_INIT)
@@ -119,8 +119,19 @@ LZMAStreambuf::LZMAStreambuf(std::ostream* pOut, uint32_t compressionLevel, bool
 
 	setp(_decompressedBuffer.get(), _decompressedBuffer.get() + _bufferSize);
 
+	lzma_ret ret = LZMA_OK;
 	// try to open the encoder:
-	lzma_ret ret = lzma_easy_encoder(&_lzmaStream, compressionLevel | (extreme ? LZMA_PRESET_EXTREME : 0), LZMA_CHECK_CRC64);
+	if (threads == 1) {
+		ret = lzma_easy_encoder(&_lzmaStream, compressionLevel | (extreme ? LZMA_PRESET_EXTREME : 0), LZMA_CHECK_CRC64);
+	} else {
+		_lzmaOptions.check = LZMA_CHECK_CRC64;
+		_lzmaOptions.preset = compressionLevel | (extreme ? LZMA_PRESET_EXTREME : 0);
+		_lzmaOptions.timeout = 0;
+		_lzmaOptions.threads = threads;
+		_lzmaOptions.block_size = 2097152;
+		ret = lzma_stream_encoder_mt(&_lzmaStream, &_lzmaOptions);
+	}
+
 	switch (ret) {
 	case LZMA_MEM_ERROR:
 		logcritical("Cannot allocate memory for Easy LZMA encoder.");
@@ -141,7 +152,6 @@ LZMAStreambuf::LZMAStreambuf(std::ostream* pOut, uint32_t compressionLevel, bool
 		throw std::runtime_error("LZMA encoder could not be opened");
 		break;
 	}
-
 	_lzmaStream.avail_in = 0;
 	_lzmaStream.next_out = reinterpret_cast<unsigned char*>(_compressedBuffer.get());
 	_lzmaStream.total_out = 0;

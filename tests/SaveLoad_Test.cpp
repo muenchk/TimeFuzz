@@ -181,7 +181,8 @@ int main(/*int argc, char** argv*/)
 	sett.reset();
 	oracle.reset();
 	sess.reset();
-	sess = Session::LoadSession("test", L"");
+	LoadSessionArgs args;
+	sess = Session::LoadSession("test", args);
 	execution = sess->data->CreateForm<ExecutionHandler>();
 	controller = sess->data->CreateForm<TaskController>();
 	controller->SetDisableLua();

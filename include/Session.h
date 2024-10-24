@@ -18,6 +18,13 @@ class ExclusionTree;
 class Records;
 class Lua;
 
+struct LoadSessionArgs
+{
+	bool startSession = false;
+	bool reloadSettings = false;
+	std::wstring settingsPath = L"";
+};
+
 struct SessionStatus
 {
 	uint64_t overallTests;
@@ -55,8 +62,8 @@ public:
 
 	static std::shared_ptr<Session> CreateSession();
 
-	static std::shared_ptr<Session> LoadSession(std::string name, std::wstring settingsPath = L"", SessionStatus* status = nullptr, bool startsession = false);
-	static std::shared_ptr<Session> LoadSession(std::string name, int32_t number, std::wstring settingsPath = L"", SessionStatus* status = nullptr, bool startsession = false);
+	static std::shared_ptr<Session> LoadSession(std::string name, LoadSessionArgs& loadargs, SessionStatus* status = nullptr);
+	static std::shared_ptr<Session> LoadSession(std::string name, int32_t number, LoadSessionArgs& loadargs, SessionStatus* status = nullptr);
 
 	~Session();
 
@@ -239,7 +246,7 @@ private:
 	void End();
 
 
-	static void LoadSession_Async(Data* dat, std::string name, int32_t number, bool startsession);
+	static void LoadSession_Async(Data* dat, std::string name, int32_t number, LoadSessionArgs* asyncargs);
 	
 
 	/// <summary>

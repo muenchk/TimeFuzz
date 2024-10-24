@@ -42,25 +42,33 @@ void StartSession()
 {
 	// -----Start the session or do whatever-----
 
+	loginfo("Main: Start Session.");
+
 	char buffer[128];
 
+	LoadSessionArgs args;
+	args.reloadSettings = CmdArgs::_reloadConfig;
+	args.settingsPath = CmdArgs::_settingspath;
+
 	if (CmdArgs::_load) {
+		args.startSession = true;
 		// load session
 		if (CmdArgs::_num)
-			session = Session::LoadSession(CmdArgs::_loadname, CmdArgs::_number, CmdArgs::_settingspath, &status, true);
+			session = Session::LoadSession(CmdArgs::_loadname, CmdArgs::_number, args, &status);
 		else
-			session = Session::LoadSession(CmdArgs::_loadname, CmdArgs::_settingspath, &status, true);
+			session = Session::LoadSession(CmdArgs::_loadname, args, &status);
 		if (!session) {
 			logcritical("Session cannot be loaded from savefile:\t{}", CmdArgs::_loadname);
 			scanf("%s", buffer);
 			exit(ExitCodes::StartupError);
 		}
 	} else if (CmdArgs::_print) {
+		args.startSession = false;
 		// load session
 		if (CmdArgs::_num)
-			session = Session::LoadSession(CmdArgs::_loadname, CmdArgs::_number, CmdArgs::_settingspath);
+			session = Session::LoadSession(CmdArgs::_loadname, CmdArgs::_number, args);
 		else
-			session = Session::LoadSession(CmdArgs::_loadname, CmdArgs::_settingspath);
+			session = Session::LoadSession(CmdArgs::_loadname, args);
 		if (!session) {
 			logcritical("Session cannot be loaded from savefile:\t{}", CmdArgs::_loadname);
 			scanf("%s", buffer);
@@ -86,6 +94,8 @@ void StartSession()
 			exit(ExitCodes::StartupError);
 		}
 	}
+
+	loginfo("Main: Started Session.");
 }
 
 int32_t main(int32_t argc, char** argv)
@@ -112,6 +122,7 @@ int32_t main(int32_t argc, char** argv)
 		"    --conf <FILE>              - specifies path to the settings file\n"
 		"    --load <NAME>              - load prior safepoint and resume\n"
 		"    --load-num <NAME> <NUM>    - load specific prior safepoint and resume\n"
+		"    --reloadconfig             - reloads the configuration from config file instead of save\n"
 		"    --print <NAME>             - print statistics from prior safepoint\n"
 		"    --print-num <NAME> <NUM>   - print statistics from specific prior safepoint\n"
 		"    --dry                      - just run PUT once, and display output statistics\n"
@@ -135,6 +146,7 @@ int32_t main(int32_t argc, char** argv)
 			exit(0);
 		} else if (option.find("--load-num") != std::string::npos) {
 			if (i + 2 < argc) {
+				std::cout << "Parameter: --load-num\n";
 				CmdArgs::_num = true;
 				CmdArgs::_loadname = std::string(argv[i + 1]);
 				try {
@@ -151,16 +163,22 @@ int32_t main(int32_t argc, char** argv)
 				scanf("%s", buffer);
 				exit(ExitCodes::ArgumentError);
 			}
+		} else if (option.find("--reloadconfig") != std::string::npos) {
+			std::cout << "Parameter: --reloadconfig\n";
+			CmdArgs::_reloadConfig = true;
 		} else if (option.find("--logtoconsole") != std::string::npos) {
+			std::cout << "Parameter: --logtoconsole\n";
 			Logging::StdOutError = true;
 			Logging::StdOutLogging = true;
 			Logging::StdOutWarn = true;
 			Logging::StdOutDebug = true;
-		} else if (option.find("separatelogfiles") != std::string::npos) {
+		} else if (option.find("--separatelogfiles") != std::string::npos) {
+			std::cout << "Parameter: --separatelogfiles\n";
 			logtimestamps = true;
 			logpath = "logs";
 		} else if (option.find("--load") != std::string::npos) {
 			if (i + 1 < argc) {
+				std::cout << "Parameter: --load\n";
 				CmdArgs::_loadname = std::string(argv[i + 1]);
 				CmdArgs::_load = true;
 				i++;
@@ -171,6 +189,7 @@ int32_t main(int32_t argc, char** argv)
 			}
 		} else if (option.find("--print-num") != std::string::npos) {
 			if (i + 2 < argc) {
+				std::cout << "Parameter: --print-num\n";
 				CmdArgs::_num = true;
 				CmdArgs::_loadname = std::string(argv[i + 1]);
 				try {
@@ -189,6 +208,7 @@ int32_t main(int32_t argc, char** argv)
 			}
 		} else if (option.find("--print") != std::string::npos) {
 			if (i + 1 < argc) {
+				std::cout << "Parameter: --print\n";
 				CmdArgs::_loadname = std::string(argv[i + 1]);
 				CmdArgs::_print = true;
 				i++;
@@ -199,6 +219,7 @@ int32_t main(int32_t argc, char** argv)
 			}
 		} else if (option.find("--dry-i") != std::string::npos) {
 			if (i + 1 < argc) {
+				std::cout << "Parameter: --dry-i\n";
 				CmdArgs::_dryinput = std::string(argv[i + 1]);
 				CmdArgs::_dryi = true;
 				CmdArgs::_dry = true;
@@ -209,13 +230,17 @@ int32_t main(int32_t argc, char** argv)
 				exit(ExitCodes::ArgumentError);
 			}
 		} else if (option.find("--dry") != std::string::npos) {
+			std::cout << "Parameter: --dry\n";
 			CmdArgs::_dry = true;
 		} else if (option.find("--responsive") != std::string::npos) {
+			std::cout << "Parameter: --responsive\n";
 			CmdArgs::_responsive = true;
 		} else if (option.substr(0, 4).find("--ui") != std::string::npos) {
+			std::cout << "Parameter: --ui\n";
 			CmdArgs::_ui = true;
 		} else if (option.find("--create-conf") != std::string::npos) {
 			if (i + 1 < argc) {
+				std::cout << "Parameter: --create-conf\n";
 				CmdArgs::_settingspath = Utility::ConvertToWideString(std::string_view{ argv[i + 1] }).value();
 				//printf("%ls\t%s\t%s\n", Utility::ConvertToWideString(std::string_view{ argv[i + 1] }).value().c_str(), argv[i + 1]);
 				Settings* settings = new Settings();
@@ -229,6 +254,7 @@ int32_t main(int32_t argc, char** argv)
 			}
 		} else if (option.find("--conf") != std::string::npos) {
 			if (i + 1 < argc) {
+				std::cout << "Parameter: --conf\n";
 				CmdArgs::_settingspath = Utility::ConvertToWideString(std::string_view{ argv[i + 1] }).value_or(L"");
 				CmdArgs::_settings = true;
 				i++;
@@ -294,6 +320,7 @@ int32_t main(int32_t argc, char** argv)
 		Logging::StdOutDebug = false;
 		// start session and don't wait for completion
 		StartSession();
+		loginfo("Start UI");
 
 		glfwSetErrorCallback(glfw_error_callback);
 		if (!glfwInit()) {  // if we cannot open GUI, go into responsive mode as a fallback

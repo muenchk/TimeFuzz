@@ -131,9 +131,11 @@ void Settings::Save(std::wstring _path)
 	constexpr auto defpath = "config.ini";
 	std::string path;
 	if (_path == L"")
-		path = std::string(defpath);
+		path = (CmdArgs::workdir / std::string(defpath)).string();
 	else
-		path = Utility::ConvertToString(_path).value();
+		path = std::filesystem::path(_path).string();
+	if (std::filesystem::is_directory(path))
+		path = (std::filesystem::path(path) / defpath).string();
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	std::wstring path;
 	constexpr auto defpath = L"config.ini";

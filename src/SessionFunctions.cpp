@@ -108,6 +108,8 @@ bool SessionFunctions::EndCheck(std::shared_ptr<Session>& session)
 void SessionFunctions::EndSession_Async(std::shared_ptr<Session> session)
 {
 	loginfo("Master End Session");
+	if (session->abort)
+		return;
 	// async function that ends the session itself
 
 	// force save

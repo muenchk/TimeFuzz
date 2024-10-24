@@ -96,7 +96,7 @@ void Data::Save()
 
 		Streambuf* sbuf = nullptr;
 		if (settings->saves.compressionLevel != -1) {
-			sbuf = new LZMAStreambuf(&fsave, settings->saves.compressionLevel, settings->saves.compressionExtreme);
+			sbuf = new LZMAStreambuf(&fsave, settings->saves.compressionLevel, settings->saves.compressionExtreme, settings->general.numcomputingthreads);
 		} else
 			sbuf = new Streambuf(&fsave);
 		std::ostream save(sbuf);

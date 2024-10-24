@@ -8,6 +8,7 @@
 */
 
 #include <iostream>
+#include <memory>
 
 #include <lzma.h>
 
@@ -33,7 +34,7 @@ class LZMAStreambuf : public Streambuf
 {
 public:
 	LZMAStreambuf(std::istream* pIn);
-	LZMAStreambuf(std::ostream* pOut, uint32_t compressionLevel = 9, bool extreme = false);
+	LZMAStreambuf(std::ostream* pOut, uint32_t compressionLevel = 9, bool extreme = false, int32_t threads = 1);
 
 	virtual ~LZMAStreambuf()
 	{
@@ -48,4 +49,5 @@ private:
 	std::unique_ptr<char[]> _compressedBuffer, _decompressedBuffer;
 	const size_t _bufferSize;
 	lzma_stream _lzmaStream;
+	lzma_mt _lzmaOptions;
 };

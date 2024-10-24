@@ -80,10 +80,12 @@ configure_file(
 	@ONLY
 )
 
-add_compile_options("$<$<NOT:$<CONFIG:Debug>>:/Zi>")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
+	add_compile_options("$<$<NOT:$<CONFIG:Debug>>:/Zi>")
 add_link_options("$<$<NOT:$<CONFIG:Debug>>:/DEBUG>")
 add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:REF>")
 add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:ICF>")
+endif()
 
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 
@@ -161,7 +163,6 @@ else()
 		glfw
 		glad::glad
 		glm::glm
-		7zip::7zip
 		liblzma::liblzma
 		${PROJECT_NAME}_lib
 	)

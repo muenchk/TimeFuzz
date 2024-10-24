@@ -27,7 +27,7 @@ std::shared_ptr<Session> Session::CreateSession()
 	return dat->CreateForm<Session>();
 }
 
-void Session::LoadSession_Async(Data* dat, std::string name, int32_t number,bool startsession)
+void Session::LoadSession_Async(Data* dat, std::string name, int32_t number, LoadSessionArgs* args)
 {
 	if (number == -1)
 		dat->Load(name);
@@ -36,41 +36,67 @@ void Session::LoadSession_Async(Data* dat, std::string name, int32_t number,bool
 	auto session = dat->CreateForm<Session>();
 	session->loaded = true;
 	bool error = false;
-	if (startsession)
-		session->StartLoadedSession(error);
+	if (args && args->startSession == true)
+		session->StartLoadedSession(error, args->reloadSettings, args->settingsPath);
+	if (args)
+		delete args;
 }
 
-std::shared_ptr<Session> Session::LoadSession(std::string name, std::wstring settingsPath, SessionStatus* status, bool startsession)
+std::shared_ptr<Session> Session::LoadSession(std::string name, LoadSessionArgs& loadargs, SessionStatus* status)
 {
+	loginfo("Load Session");
 	Data* dat = new Data();
 	auto sett = dat->CreateForm<Settings>();
-	sett->Load(settingsPath);
-	sett->Save(settingsPath);
+	sett->Load(loadargs.settingsPath);
+	sett->Save(loadargs.settingsPath);
+	logdebug("Handled settings");
 	if (status != nullptr)
 		InitStatus(status, sett);
+	logdebug("Initialized status");
 	auto session = dat->CreateForm<Session>();
 	session->_settings = sett;
 	session->data = dat;
 	dat->SetSavePath(sett->saves.savepath);
-	std::thread th(LoadSession_Async, dat, name, -1, startsession);
+	logdebug("Set save path");
+	LoadSessionArgs* asyncargs = nullptr;
+	if (loadargs.startSession) {
+		asyncargs = new LoadSessionArgs;
+		asyncargs->startSession = loadargs.startSession;
+		asyncargs->reloadSettings = loadargs.reloadSettings;
+		asyncargs->settingsPath = loadargs.settingsPath;
+	}
+	std::thread th(LoadSession_Async, dat, name, -1, asyncargs);
 	th.detach();
+	logdebug("Started async loader");
 	return session;
 }
 
-std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, std::wstring settingsPath, SessionStatus* status, bool startsession)
+std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, LoadSessionArgs& loadargs, SessionStatus* status)
 {
+	loginfo("Load Session");
 	Data* dat = new Data();
 	auto sett = dat->CreateForm<Settings>();
-	sett->Load(settingsPath);
-	sett->Save(settingsPath);
+	sett->Load(loadargs.settingsPath);
+	sett->Save(loadargs.settingsPath);
+	logdebug("Handled settings");
 	if (status != nullptr)
 		InitStatus(status, sett);
+	logdebug("Initialized status");
 	auto session = dat->CreateForm<Session>();
 	session->_settings = sett;
 	session->data = dat;
 	dat->SetSavePath(sett->saves.savepath);
-	std::thread th(LoadSession_Async, dat, name, number, startsession);
+	logdebug("Set save path");
+	LoadSessionArgs* asyncargs = nullptr;
+	if (loadargs.startSession) {
+		asyncargs = new LoadSessionArgs;
+		asyncargs->startSession = loadargs.startSession;
+		asyncargs->reloadSettings = loadargs.reloadSettings;
+		asyncargs->settingsPath = loadargs.settingsPath;
+	}
+	std::thread th(LoadSession_Async, dat, name, number, asyncargs);
 	th.detach();
+	logdebug("Started async loader");
 	return session;
 }
 
@@ -221,8 +247,20 @@ void Session::StartLoadedSession(bool& error, bool reloadsettings, std::wstring 
 	if (reloadsettings) {
 		_settings->Load(settingsPath);
 		_settings->Save(settingsPath);
+		// reset oracle after settings reload
+		if (_settings->oracle == Oracle::PUTType::Undefined) {
+			logcritical("The oracle type could not be identified");
+			LastError = ExitCodes::StartupError;
+			error = true;
+			return;
+		}
+		_oracle = data->CreateForm<Oracle>();
+		_oracle->Set(_settings->oracle, _settings->oraclepath);
+		_oracle->SetLuaCmdArgs(CmdArgs::workdir / "CmdArgs.lua");
+		_oracle->SetLuaOracle(CmdArgs::workdir / "Oracle.lua");
 	}
-	_callback = callback;
+	if (callback != nullptr)
+		_callback = callback;
 	if (_oracle->Validate() == false) {
 		logcritical("Oracle isn't valid.");
 		LastError = ExitCodes::StartupError;
@@ -247,7 +285,8 @@ void Session::StartSession(bool& error, bool globalTaskController, bool globalEx
 	_controller = data->CreateForm<TaskController>();
 	// set executionhandler
 	_exechandler = data->CreateForm<ExecutionHandler>();
-	_callback = callback;
+	if (callback != nullptr)
+		_callback = callback;
 	// set save path
 	data->SetSavePath(_settings->saves.savepath);
 	data->SetSaveName(_settings->saves.savename);

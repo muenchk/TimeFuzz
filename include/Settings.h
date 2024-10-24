@@ -24,6 +24,7 @@ public:
 	static inline std::string _dryinput = "";
 	static inline bool _responsive = false;
 	static inline bool _ui = false;
+	static inline bool _reloadConfig = false;
 	static inline std::filesystem::path workdir = L"";
 };
 
