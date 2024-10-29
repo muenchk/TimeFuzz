@@ -87,7 +87,9 @@ public:
 	inline static bool _registeredFactories = false;
 	static void RegisterFactories();
 
-
+	int64_t GetDepth();
+	uint64_t GetNodeCount();
+	uint64_t GetLeafCount();
 
 	#pragma endregion
 
@@ -97,6 +99,10 @@ private:
 	std::shared_mutex _lock;
 
 	uint64_t nextid = 1;
+
+	int64_t depth = 0;
+
+	uint64_t leafcount = 0;
 
 	std::unordered_map<uint64_t, TreeNode*> hashmap;
 

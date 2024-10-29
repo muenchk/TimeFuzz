@@ -19,14 +19,14 @@
 
 #define PIPE_SIZE 65536
 
-Test::Test(Functions::BaseFunction* a_callback, uint64_t id) :
+Test::Test(std::shared_ptr<Functions::BaseFunction> a_callback, uint64_t id) :
 	callback(a_callback)
 {
 	identifier = id;
 	Init();
 }
 
-void Test::Init(Functions::BaseFunction* a_callback, uint64_t id)
+void Test::Init(std::shared_ptr<Functions::BaseFunction> a_callback, uint64_t id)
 {
 	callback = a_callback;
 	identifier = id;
@@ -361,17 +361,7 @@ void Test::TrimInput(int32_t executed)
 	if (executed != -1)
 	{
 		if (auto ptr = input.lock(); ptr) {
-			// we are trimming to a specific length
-			ptr->trimmed = true;
-			int32_t count = 0;
-			auto aitr = ptr->begin();
-			// add as long as we don't reach the end of the sequence and haven't added more than [executed] inputs
-			while (aitr != ptr->end() && count != executed) {
-				ptr->orig_sequence.push_back(*aitr);
-				aitr++;
-				count++;
-			}
-			std::swap(ptr->sequence, ptr->orig_sequence);
+			ptr->TrimInput(executed);
 			logdebug("Test {}: trimmed input to length", identifier);
 		}
 	} else {
@@ -464,7 +454,7 @@ size_t Test::GetDynamicSize()
 	sz += Buffer::ListBasic::GetListLength(reactiontime);
 	sz += Buffer::CalcStringLength(output);
 	sz += Buffer::CalcStringLength(cmdArgs);
-	if (callback != nullptr)
+	if (callback)
 		sz += callback->GetLength();
 	return sz;
 }
@@ -492,8 +482,8 @@ bool Test::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(identifier, buffer, offset);
 	Buffer::Write(exitreason, buffer, offset);
 	Buffer::Write(valid, buffer, offset);
-	Buffer::Write(callback != nullptr, buffer, offset);
-	if (callback != nullptr)
+	Buffer::Write(callback.operator bool(), buffer, offset);
+	if (callback)
 		callback->WriteData(buffer, offset);
 	return true;
 }
@@ -571,7 +561,7 @@ void Test::Clear()
 	if (callback)
 	{
 		callback->Dispose();
-		callback = nullptr;
+		callback.reset();
 	}
 }
 
@@ -589,9 +579,6 @@ namespace Functions
 
 
 		// ----- DO SOME NICE INTERNAL COMPUTATION -----
-
-
-
 
 
 		// ----- SESSION STUFF -----
@@ -629,11 +616,11 @@ namespace Functions
 
 	void TestCallback::Dispose()
 	{
-		if (_input->test)
-			_input->test->callback = nullptr;
+		if (_input)
+			if (_input->test)
+				_input->test->callback.reset();
 		_input.reset();
 		_session.reset();
-		delete this;
 	}
 }
 

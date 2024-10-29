@@ -34,7 +34,7 @@ public:
 	/// Adds a new task to the execution queue
 	/// </summary>
 	/// <param name="a_task"></param>
-	void AddTask(Functions::BaseFunction* a_task);
+	void AddTask(std::shared_ptr<Functions::BaseFunction> a_task);
 
 	/// <summary>
 	/// Starts the TaskController
@@ -68,6 +68,17 @@ public:
 	/// Disables Lua support
 	/// </summary>
 	inline void SetDisableLua() { disableLua = true; }
+
+	/// <summary>
+	/// Returns the number of completed jobs
+	/// </summary>
+	/// <returns></returns>
+	uint64_t GetCompletedJobs();
+	/// <summary>
+	/// Returns the number of waiting jobs
+	/// </summary>
+	/// <returns></returns>
+	int32_t GetWaitingJobs();
 
 	#pragma region InheritedForm
 
@@ -104,7 +115,7 @@ private:
 	/// <summary>
 	/// shared pointer to session
 	/// </summary>
-	std::shared_ptr<Session> _session;
+	std::shared_ptr<Session> _session{};
 
 	/// <summary>
 	/// disables lua support
@@ -131,8 +142,9 @@ private:
 	/// <summary>
 	/// regular queue, tasks will be handled first come first serve
 	/// </summary>
-	std::deque<Functions::BaseFunction*> tasks;
+	std::deque<std::shared_ptr<Functions::BaseFunction>> tasks;
 	std::mutex lock;
+	std::atomic<uint64_t> completedjobs;
 	/// <summary>
 	/// current thread status
 	/// </summary>

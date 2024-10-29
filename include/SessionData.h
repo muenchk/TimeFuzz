@@ -21,6 +21,17 @@ class Settings;
 class SessionFunctions;
 class SessionStatistics;
 
+struct TestExitStats
+{
+	uint64_t natural = 0;
+	uint64_t lastinput = 0;
+	uint64_t terminated = 0;
+	uint64_t timeout = 0;
+	uint64_t fragmenttimeout = 0;
+	uint64_t memory = 0;
+	uint64_t initerror = 0;
+};
+
 template <class Key, class Compare>
 std::set<Key, Compare> make_set(Compare compare)
 {
@@ -31,9 +42,13 @@ std::set<Key, Compare> make_set(Compare compare)
 
 class SessionData
 {
+	TestExitStats exitstats;
+
 	struct InputNode
 	{
 		std::weak_ptr<Input> input;
+		double primary;
+		double secondary;
 		double weight;
 	};
 
@@ -41,7 +56,7 @@ class SessionData
 	{
 		bool operator()(const std::shared_ptr<InputNode>& lhs, const std::shared_ptr<InputNode>& rhs) const
 		{
-			return lhs->weight < rhs->weight;
+			return lhs->primary == rhs->primary ? lhs->secondary < rhs->secondary : lhs->primary < rhs->primary;
 		}
 	};
 
@@ -95,8 +110,7 @@ class SessionData
 	/// </summary>
 	std::shared_mutex _undefinedInputLock;
 
-	void AddInput(std::shared_ptr<Input>& input,EnumType list, double optionalweight = 0.0f);
-
+	void AddInput(std::shared_ptr<Input>& input, EnumType list, double optionalweight = 0.0f);
 
 	/// <summary>
 	/// pointer to the session settings
@@ -107,7 +121,6 @@ class SessionData
 
 	friend class SessionFunctions;
 	friend class SessionStatistics;
-	
 
 	/// <summary>
 	/// the number of retries for single input generations
@@ -135,6 +148,10 @@ class SessionData
 	/// buffer saving results of recent generations
 	/// </summary>
 	boost::circular_buffer<unsigned char> _recentfailes = boost::circular_buffer<unsigned char>(GENERATION_WEIGHT_BUFFER_SIZE, 0);
+	/// <summary>
+	/// generation failure rate
+	/// </summary>
+	double _failureRate = 0.f;
 
 	/// <summary>
 	/// how often overall input generation has failed
@@ -159,6 +176,32 @@ class SessionData
 public:
 	void Clear();
 	~SessionData();
+
+	/// <summary>
+	/// returns the number of attempts that failed at generating any inputs
+	/// </summary>
+	/// <returns></returns>
+	int64_t GetGenerationFails();
+	/// <summary>
+	/// returns the number of overall generated inputs
+	/// </summary>
+	/// <returns></returns>
+	int64_t GetGeneratedInputs();
+	/// <summary>
+	/// returns the number of inputs excluded based on prefix
+	/// </summary>
+	/// <returns></returns>
+	int64_t GetGeneratedPrefix();
+	/// <summary>
+	/// returns the failure rate of input generation
+	/// </summary>
+	/// <returns></returns>
+	double GetGenerationFailureRate();
+	/// <summary>
+	/// returns the testexitstats
+	/// </summary>
+	/// <returns></returns>
+	TestExitStats& GetTestExitStats();
 
 	/// <summary>
 	/// Returns the size of the classes static members

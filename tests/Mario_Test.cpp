@@ -15,7 +15,7 @@
 
 namespace Functions
 {
-	class Callback : BaseFunction
+	class Callback : public BaseFunction
 	{
 	public:
 
@@ -40,14 +40,17 @@ namespace Functions
 			return true;
 		}
 
-		static BaseFunction* Create()
+		static std::shared_ptr<BaseFunction> Create()
 		{
-			return new Callback();
+			return dynamic_pointer_cast<BaseFunction>(std::make_shared<Callback>());
 		}
 
 		void Dispose() override
 		{
-			delete this;
+			if (input)
+				if (input->test)
+					input->test->callback.reset();
+			input.reset();
 		}
 
 		size_t GetLength() override
@@ -105,7 +108,7 @@ int main(/*int argc, char** argv*/)
 
 		auto task = Functions::BaseFunction::Create<Functions::Callback>();
 		task->input = input;
-		execution->AddTest(input, (Functions::BaseFunction*)(task));
+		execution->AddTest(input, dynamic_pointer_cast<Functions::BaseFunction>(task));
 		ls.push_back(input);
 	}
 	//std::shared_ptr<Input> input = std::make_shared<Input>();

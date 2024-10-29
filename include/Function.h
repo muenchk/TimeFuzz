@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <functional>
 #include <cstdint>
+#include <memory>
 
 class LoadResolver;
 
@@ -56,21 +57,21 @@ namespace Functions
 		}
 
 		template <class T, typename = std::enable_if<std::is_base_of<BaseFunction, T>::value>>
-		static T* Create()
+		static std::shared_ptr<T> Create()
 		{
-			return new T();
+			return dynamic_pointer_cast<T>(T::Create());
 		}
 
-		static BaseFunction* Create(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+		static std::shared_ptr<BaseFunction> Create(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 	};
 
-	void RegisterFactory(uint64_t classid, std::function<BaseFunction*()> factory);
+	void RegisterFactory(uint64_t classid, std::function<std::shared_ptr<BaseFunction>()> factory);
 
 	template <class T>
-	T* FunctionFactory()
+	std::shared_ptr<T> FunctionFactory()
 	{
 		return BaseFunction::Create<T>();
 	}
 
-	BaseFunction* FunctionFactory(uint64_t classid);
+	std::shared_ptr<BaseFunction> FunctionFactory(uint64_t classid);
 }

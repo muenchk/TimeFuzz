@@ -69,9 +69,9 @@ public:
 		};
 	};
 
-	Test(Functions::BaseFunction* a_callback, uint64_t id);
+	Test(std::shared_ptr<Functions::BaseFunction> a_callback, uint64_t id);
 	Test() {}
-	void Init(Functions::BaseFunction* a_callback, uint64_t id);
+	void Init(std::shared_ptr<Functions::BaseFunction> a_callback, uint64_t id);
 
 	/// <summary>
 	/// whether test is currently running
@@ -109,10 +109,11 @@ public:
 	/// reaction time for each fragment [on whole test this contains only one element]
 	/// </summary>
 	std::list<uint64_t> reactiontime;
+	std::list<uint64_t>::iterator lua_reactiontime_next;
 	/// <summary>
 	/// called after the test has been finished
 	/// </summary>
-	Functions::BaseFunction* callback;
+	std::shared_ptr<Functions::BaseFunction> callback;
 	/// <summary>
 	/// command line args for the test
 	/// </summary>
@@ -246,7 +247,7 @@ namespace Functions
 		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 		bool WriteData(unsigned char* buffer, size_t& offset);
 
-		static BaseFunction* Create() { return new TestCallback(); }
+		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<TestCallback>()); }
 		void Dispose();
 		size_t GetLength();
 	};

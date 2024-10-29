@@ -33,6 +33,7 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input)
 
 	exclwlock;
 	TreeNode* node = root;
+	int dep = 0;
 	auto itr = input->begin();
 	while (itr != input->end()) {
 		if (auto child = node->HasChild(*itr); child != nullptr) {
@@ -41,6 +42,7 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input)
 			if (child->isLeaf)
 				return;  // the input is already excluded
 			node = child;
+			dep++;
 		} else {
 			// if there is no matching child, create one.
 			TreeNode* newnode = new TreeNode;
@@ -49,6 +51,7 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input)
 			node->children.push_back(newnode);
 			hashmap.insert({ newnode->id, newnode });
 			node = newnode;
+			dep++;
 		}
 		itr++;
 	}
@@ -56,7 +59,11 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input)
 	// it as a prefix yields the same result.
 	// Thus we can remove all children from our current node, as they would yield the same result.
 	node->isLeaf = true;
-	DeleteChildren(node);
+	leafcount++;
+	// adjust depth
+	if (depth < dep)
+		depth = dep;
+	DeleteChildrenIntern(node);
 }
 
 bool ExclusionTree::HasPrefix(std::shared_ptr<Input> input)
@@ -95,6 +102,8 @@ void ExclusionTree::DeleteChildrenIntern(TreeNode* node)
 	// delete all children
 	for (int32_t i = 0; i < node->children.size(); i++) {
 		DeleteChildrenIntern(node->children[i]);
+		if (node->children[i]->isLeaf)
+			leafcount--;
 		delete node->children[i];
 	}
 	node->children.clear();
@@ -112,6 +121,21 @@ void ExclusionTree::DeleteNodeIntern(TreeNode* node)
 	delete node;
 }
 
+int64_t ExclusionTree::GetDepth()
+{
+	return depth;
+}
+
+uint64_t ExclusionTree::GetNodeCount()
+{
+	return hashmap.size();
+}
+
+uint64_t ExclusionTree::GetLeafCount()
+{
+	return leafcount;
+}
+
 size_t ExclusionTree::GetStaticSize(int32_t version)
 {
 	static size_t size0x1 = Form::GetDynamicSize()  // form base size
@@ -119,7 +143,9 @@ size_t ExclusionTree::GetStaticSize(int32_t version)
 	                        + 8                     // nextid
 	                        + 8                     // root children count
 	                        + 1                     // root isLeaf
-	                        + 8;                    // size of hashmap
+	                        + 8                     // size of hashmap
+	                        + 8                     // depth
+	                        + 8;                    // leafcount
 	switch (version)
 	{
 	case 0x1:
@@ -132,10 +158,12 @@ size_t ExclusionTree::GetStaticSize(int32_t version)
 size_t ExclusionTree::GetDynamicSize()
 {
 	size_t sz = GetStaticSize();
+	// root children
+	sz += 8 * root->children.size();
 	for (auto& [id, node] : hashmap)
 	{
-		// id, identifier, children, isLeaf
-		sz += 8 + Buffer::CalcStringLength(node->identifier) + 8 * node->children.size() + 1;
+		// id, identifier, visitcount, children count, children, isLeaf
+		sz += 8 + Buffer::CalcStringLength(node->identifier) + 8 + 8 + 8 * node->children.size() + 1;
 	}
 	return sz;
 }
@@ -164,6 +192,8 @@ bool ExclusionTree::WriteData(unsigned char* buffer, size_t &offset)
 			Buffer::Write(node->children[i]->id, buffer, offset);
 		Buffer::Write(node->isLeaf, buffer, offset);
 	}
+	Buffer::Write(depth, buffer, offset);
+	Buffer::Write(leafcount, buffer, offset);
 	return true;
 }
 
@@ -198,6 +228,9 @@ bool ExclusionTree::ReadData(unsigned char* buffer, size_t& offset, size_t lengt
 				node->isLeaf = Buffer::ReadBool(buffer, offset);
 				hashmap.insert({ node->id, node });
 			}
+			// rest
+			depth = Buffer::ReadInt64(buffer, offset);
+			leafcount = Buffer::ReadUInt64(buffer, offset);
 			// hashmap complete init all the links
 			for (auto& [id, node] : hashmap) {
 				for (int32_t i = 0; i < node->childrenids.size(); i++)

@@ -1,5 +1,6 @@
 #include "BufferOperations.h"
 #include "Utility.h"
+#include "Logging.h"
 
 #include <cstring>
 #include <iostream>
@@ -166,8 +167,9 @@ namespace Buffer
 			std::string tmp = std::string((char*)(buffer + offset), length);
 			offset += (int)length;
 			return tmp;
-		} else
+		} else {
 			return "";
+		}
 	}
 
 	size_t CalcStringLength(std::string value)

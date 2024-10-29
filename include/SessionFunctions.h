@@ -54,6 +54,8 @@ public:
 	/// <param name="test"></param>
 	static void TestEnd(std::shared_ptr<Session>& session, std::shared_ptr<Input>& input);
 
+	static void AddTestExitReason(std::shared_ptr<Session>& session, int32_t reason);
+
 private:
 	/// <summary>
 	/// Async Function that will end the session
@@ -72,6 +74,7 @@ public:
 	static uint64_t TestsExecuted(std::shared_ptr<Session>&);
 	static uint64_t PositiveTestsGenerated(std::shared_ptr<Session>&);
 	static uint64_t NegativeTestsGenerated(std::shared_ptr<Session>&);
+	static uint64_t UnfinishedTestsGenerated(std::shared_ptr<Session>&);
 	static uint64_t TestsPruned(std::shared_ptr<Session>&);
 	static std::chrono::nanoseconds Runtime(std::shared_ptr<Session>& session);
 };

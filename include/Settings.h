@@ -44,7 +44,7 @@ public:
 	/// <summary>
 	/// Loads the settings for the working directory
 	/// </summary>
-	void Load(std::wstring path = L"");
+	void Load(std::wstring path = L"", bool reload = false);
 	/// <summary>
 	/// Saves the settings in the working directory
 	/// </summary>

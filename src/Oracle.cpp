@@ -4,6 +4,7 @@
 #include "BufferOperations.h"
 #include "Input.h"
 
+
 std::string Oracle::TypeString(PUTType type)
 {
 	return type == Oracle::PUTType::CMD                 ? "CommandLine" :
@@ -177,19 +178,44 @@ void Oracle::ApplyLuaCommands(lua_State* L)
 	}
 }
 
-Oracle::OracleResult Oracle::Evaluate(lua_State* , std::shared_ptr<Test> test)
+Oracle::OracleResult Oracle::Evaluate(lua_State* L, std::shared_ptr<Test> test)
 {
-	test->input;
-	return Oracle::OracleResult::Passing;
+	auto input = test->input.lock();
+	Oracle::OracleResult result = Oracle::OracleResult::None;
+	if (input)
+	{
+		lua_pushlightuserdata(L, (void*)(input.get()));
+		lua_setglobal(L, "input");
+
+		lua_getglobal(L, "Oracle");
+
+		if (lua_isfunction(L, -1)) {
+			if (lua_pcall(L, 0, 1, 0) == LUA_OK)  // execute function with 0 Arguments, 1 return value
+			{
+				if (lua_isinteger(L, -1)) {
+					result = (Oracle::OracleResult)luaL_checkinteger(L, -1);
+					lua_pop(L, 1);
+				}
+				lua_pop(L, lua_gettop(L));
+			} else {
+				std::string err = lua_tostring(L, -1);
+				lua_pop(L, 1);
+				logcritical("Lua Error in Oracle: {}", err);
+			}
+		}
+		while (lua_gettop(L) != 0)
+			lua_pop(L, 1);
+	}
+
+	return result;
 }
 
 std::string Oracle::GetCmdArgs(lua_State* L, Test* test)
 {
-	std::unique_lock<std::mutex> guard(cmdlock);
+	//std::unique_lock<std::mutex> guard(cmdlock);
 	std::string args = "";
 	auto input = test->input.lock();
 	if (input) {
-		lua_register(L, "ConvertToPython", Input::lua_ConvertToPython);
 		lua_pushlightuserdata(L, (void*)(input.get()));
 		lua_setglobal(L, "input");
 
@@ -207,7 +233,15 @@ std::string Oracle::GetCmdArgs(lua_State* L, Test* test)
 				}
 				lua_pop(L, lua_gettop(L));
 			}
+			else
+			{
+				std::string err = lua_tostring(L, -1);
+				lua_pop(L, 1);
+				logcritical("Lua Error in GetCmdArgs: {}", err);
+			}
 		}
+		while (lua_gettop(L) != 0)
+			lua_pop(L, 1);
 	}
 	return args;
 }

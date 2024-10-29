@@ -8,7 +8,7 @@
 */
 
 
-#include "LZMAStreambuf.h"
+#include "LZMAStreamBuf.h"
 #include "Logging.h"
 #include <cassert>
 
@@ -121,16 +121,23 @@ LZMAStreambuf::LZMAStreambuf(std::ostream* pOut, uint32_t compressionLevel, bool
 
 	lzma_ret ret = LZMA_OK;
 	// try to open the encoder:
+//#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	if (threads == 1) {
+//#endif
 		ret = lzma_easy_encoder(&_lzmaStream, compressionLevel | (extreme ? LZMA_PRESET_EXTREME : 0), LZMA_CHECK_CRC64);
+//#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	} else {
 		_lzmaOptions.check = LZMA_CHECK_CRC64;
 		_lzmaOptions.preset = compressionLevel | (extreme ? LZMA_PRESET_EXTREME : 0);
 		_lzmaOptions.timeout = 0;
 		_lzmaOptions.threads = threads;
+		_lzmaOptions.filters = nullptr;
 		_lzmaOptions.block_size = 2097152;
+		_lzmaOptions.flags = 0;
+		_lzmaOptions.memlimit_threading = 3221225472;
 		ret = lzma_stream_encoder_mt(&_lzmaStream, &_lzmaOptions);
 	}
+//#endif
 
 	switch (ret) {
 	case LZMA_MEM_ERROR:

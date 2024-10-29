@@ -76,6 +76,10 @@ private:
 	/// </summary>
 	std::deque<std::weak_ptr<Test>> _waitingTests;
 	/// <summary>
+	/// queue for tests waiting to be executed
+	/// </summary>
+	std::deque<std::weak_ptr<Test>> _internalwaitingTests;
+	/// <summary>
 	/// list holding currently active tests
 	/// </summary>
 	std::list<std::weak_ptr<Test>> _runningTests;
@@ -205,7 +209,7 @@ public:
 	/// </summary>
 	/// <param name="input">The input to run the test on</param>
 	/// <param name="callback">called after the test has been finished</param>
-	bool AddTest(std::shared_ptr<Input> input, Functions::BaseFunction* callback);
+	bool AddTest(std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback);
 
 	/// <summary>
 	/// Freezes test execution
@@ -215,6 +219,22 @@ public:
 	/// Resumes test execution
 	/// </summary>
 	void Thaw();
+
+	/// <summary>
+	/// Returns the number of waiting tests
+	/// </summary>
+	/// <returns></returns>
+	int32_t GetWaitingTests();
+	/// <summary>
+	/// Returns the number of waiting tests
+	/// </summary>
+	/// <returns></returns>
+	int32_t GetInternalWaitingTests();
+	/// <summary>
+	/// Returns the number of running tests
+	/// </summary>
+	/// <returns></returns>
+	int32_t GetRunningTests();
 
 	size_t GetStaticSize(int32_t version = 0x1) override;
 	size_t GetDynamicSize() override;

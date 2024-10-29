@@ -1,10 +1,10 @@
 {
-  "version": 2,
-  "cmakeMinimumRequired": {
-    "major": 3,
-    "minor": 21,
-    "patch": 0
-  },
+    "version": 2,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 21,
+        "patch": 0
+    },
   "configurePresets": [
     {
       "name": "base",
@@ -84,8 +84,8 @@
       "name": "clang",
       "hidden": true,
       "cacheVariables": {
-        "CMAKE_C_COMPILER": "clang",
-        "CMAKE_CXX_COMPILER": "clang++"
+        "CMAKE_C_COMPILER": "clang-18",
+        "CMAKE_CXX_COMPILER": "clang++-18"
       },
       "environment": {
         "PROJECT_COMPILER": "clang",
@@ -228,7 +228,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": {
           "type": "STRING",
-          "value": "Release"
+          "value": "Debug"
         }
       }
     },
@@ -239,6 +239,46 @@
       ],
       "displayName": "Kali",
       "binaryDir": "${sourceDir}/buildKali"
+    },
+    {
+      "name": "clang-remote",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "/usr/bin/clang-18",
+        "CMAKE_CXX_COMPILER": "/usr/bin/clang++-18"
+      },
+      "environment": {
+        "PROJECT_COMPILER": "clang",
+        "PROJECT_COMPILER_FLAGS": "-Wno-overloaded-virtual -Wno-delete-non-abstract-non-virtual-dtor -Wno-inconsistent-missing-override -Wno-reinterpret-base-class -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format"
+      }
+    },
+    {
+      "name": "vcpkg-remote",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-linux",
+        "VCPKG_HOST_TRIPLET": "x64-linux",
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake"
+      }
+    },
+    {
+      "binaryDir": "${sourceDir}/buildremote",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_MAKE_PROGRAM": "ninja"
+      },
+      "cmakeExecutable": "cmake",
+      "displayName": "Remote Linux",
+      "generator": "Ninja",
+      "inherits": [
+        "base",
+        "vcpkg-remote",
+        "x64",
+        "clang-remote",
+        "build-tests"
+      ],
+      "name": "remote"
     }
   ]
 }

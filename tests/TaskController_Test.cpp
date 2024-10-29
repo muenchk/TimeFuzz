@@ -7,9 +7,11 @@
 #include "Function.h"
 #include "Session.h"
 
+#include <memory>
+
 namespace Functions
 {
-	class TaskControllerTestCallback : BaseFunction
+	class TaskControllerTestCallback : public BaseFunction
 	{
 	public:
 		int* arr = nullptr;
@@ -32,15 +34,14 @@ namespace Functions
 			return true;
 		}
 
-		static BaseFunction* Create()
+		static std::shared_ptr<BaseFunction> Create()
 		{
-			return new TaskControllerTestCallback();
+			return dynamic_pointer_cast<BaseFunction>(std::make_shared<TaskControllerTestCallback>());
 		}
 
 		void Dispose()
 		{
 			arr = nullptr;
-			delete this;
 		}
 
 		size_t GetLength()
@@ -60,13 +61,13 @@ int main(/*int argc, char** argv*/)
 	Functions::RegisterFactory(Functions::TaskControllerTestCallback::GetTypeStatic(), Functions::TaskControllerTestCallback::Create);
 	TaskController controller;
 	controller.SetDisableLua();
-	controller.Start(session, 10);
+	controller.Start(session, 1);
 	int arr[100];
 	for (int i = 0; i < 100; i++) {
 		auto task = Functions::BaseFunction::Create<Functions::TaskControllerTestCallback>();
 		task->arr = arr;
 		task->i = i;
-		controller.AddTask((Functions::BaseFunction*)(task));
+		controller.AddTask(dynamic_pointer_cast<Functions::BaseFunction>(task));
 	}
 	controller.Stop();
 	for (int i = 0; i < 100; i++) {

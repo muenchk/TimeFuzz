@@ -59,7 +59,9 @@ void Data::Save()
 	std::string name = GetSaveName();
 	if (!std::filesystem::exists(savepath))
 		std::filesystem::create_directories(savepath);
-	std::ofstream fsave = std::ofstream((savepath / name), std::ios_base::out | std::ios_base::binary);
+	logdebug("{}", (savepath / name).string());
+	std::cout << "path: " << (savepath / name).string() << "\n";
+	std::ofstream fsave = std::ofstream((savepath / name), std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
 	if (fsave.is_open()) {
 		// lock access to taskcontroller and executionhandler
 		status = "Freezing controllers...";
@@ -96,7 +98,7 @@ void Data::Save()
 
 		Streambuf* sbuf = nullptr;
 		if (settings->saves.compressionLevel != -1) {
-			sbuf = new LZMAStreambuf(&fsave, settings->saves.compressionLevel, settings->saves.compressionExtreme, settings->general.numcomputingthreads);
+			sbuf = new LZMAStreambuf(&fsave, settings->saves.compressionLevel, settings->saves.compressionExtreme, settings->general.numcomputingthreads + settings->general.concurrenttests -1);
 		} else
 			sbuf = new Streambuf(&fsave);
 		std::ostream save(sbuf);
@@ -207,8 +209,9 @@ void Data::Save()
 		taskcontrol->Thaw();
 		execcontrol->Thaw();
 		loginfo("Saved session");
-	} else
+	} else {
 		logcritical("Cannot open new savefile");
+	}
 
 	loginfo("Saved Records:");
 	loginfo("Input: {}", stats._Input);
@@ -379,6 +382,7 @@ void Data::LoadIntern(std::filesystem::path path)
 			pos += 16;
 		}
 		if (guid1 == ident1 && guid2 == ident2) {
+			logdebug("GUID matches");
 			bool abort = false;
 			// this is our savefile
 			// read data stuff
@@ -417,6 +421,7 @@ void Data::LoadIntern(std::filesystem::path path)
 
 			actionloadsave_current = pos;
 			if (!abort) {
+				logdebug("decide compression");
 				// init compression etc.
 				Streambuf* sbuf = nullptr;
 				if (compressionLevel != -1)
@@ -445,6 +450,8 @@ void Data::LoadIntern(std::filesystem::path path)
 					}
 				}
 
+				logdebug("load {} records.", actionloadsave_max);
+
 				switch (version) {
 				case 0:  // couldn't get saveversion
 					logcritical("Save file does not appear to have the proper format: fail version");
@@ -455,6 +462,11 @@ void Data::LoadIntern(std::filesystem::path path)
 						int32_t rtype = 0;
 						bool cbuf = false;
 						while (fileerror == false) {
+							if (actionloadsave_current < 400)
+								Logging::EnableDebug = false;
+							else
+								Logging::EnableDebug = true;
+							//logdebug("Load record: {}", actionloadsave_current);
 							rlen = 0;
 							rtype = 0;
 							// read length of record, type of record
@@ -502,15 +514,16 @@ void Data::LoadIntern(std::filesystem::path path)
 									}
 									buf = cbuffer;
 								}
+								//logdebug("read record data.");
 								offset = 0;
 								// create the correct record type
 								switch (rtype) {
 								case FormType::Input:
 									{
+										//logdebug("Read Record:      Input");
 										bool res = RegisterForm(Records::ReadRecord<Input>(buf, offset, rlen, _lresolve));
 										if (res) {
 											stats._Input++;
-											//logdebug("Read Record:      Input");
 										} else {
 											stats._Fail++;
 											loginfo("Failed Record:    Input");
@@ -519,10 +532,10 @@ void Data::LoadIntern(std::filesystem::path path)
 									break;
 								case FormType::Grammar:
 									{
+										//logdebug("Read Record:      Grammar");
 										bool res = RegisterForm(Records::ReadRecord<Grammar>(buf, offset, rlen, _lresolve));
 										if (res) {
 											stats._Grammar++;
-											//logdebug("Read Record:      Grammar");
 										} else {
 											stats._Fail++;
 											loginfo("Failed Record:    Grammar");
@@ -531,10 +544,10 @@ void Data::LoadIntern(std::filesystem::path path)
 									break;
 								case FormType::DevTree:
 									{
+										//logdebug("Read Record:      DerivationTree");
 										bool res = RegisterForm(Records::ReadRecord<DerivationTree>(buf, offset, rlen, _lresolve));
 										if (res) {
 											stats._DevTree++;
-											//logdebug("Read Record:      DerivationTree");
 										} else {
 											stats._Fail++;
 											loginfo("Failed Record:    DerivationTree");
@@ -543,13 +556,13 @@ void Data::LoadIntern(std::filesystem::path path)
 									break;
 								case FormType::ExclTree:
 									{
+										//logdebug("Read Record:      ExclusionTree");
 										auto excl = CreateForm<ExclusionTree>();
 										bool res = excl->ReadData(buf, offset, rlen, _lresolve);
 										if (offset > rlen)
 											res = false;
 										if (res) {
 											stats._ExclTree++;
-											//logdebug("Read Record:      ExclusionTree");
 										} else {
 											stats._Fail++;
 											loginfo("Failed Record:    ExclusionTree");
@@ -558,13 +571,13 @@ void Data::LoadIntern(std::filesystem::path path)
 									break;
 								case FormType::Generator:
 									{
+										//logdebug("Read Record:      Generator");
 										auto gen = CreateForm<Generator>();
 										bool res = gen->ReadData(buf, offset, rlen, _lresolve);
 										if (offset > rlen)
 											res = false;
 										if (res) {
 											stats._Generator++;
-											//logdebug("Read Record:      Generator");
 										} else {
 											stats._Fail++;
 											loginfo("Failed Record:    Generator");
@@ -573,13 +586,13 @@ void Data::LoadIntern(std::filesystem::path path)
 									break;
 								case FormType::Session:
 									{
+										//logdebug("Read Record:      Session");
 										auto session = CreateForm<Session>();
 										bool res = session->ReadData(buf, offset, rlen, _lresolve);
 										if (offset > rlen)
 											res = false;
 										if (res) {
 											stats._Session++;
-											//logdebug("Read Record:      Session");
 										} else {
 											stats._Fail++;
 											loginfo("Failed Record:    Session");
@@ -588,13 +601,13 @@ void Data::LoadIntern(std::filesystem::path path)
 									break;
 								case FormType::Settings:
 									{
+										//logdebug("Read Record:      Settings");
 										auto sett = CreateForm<Settings>();
 										bool res = sett->ReadData(buf, offset, rlen, _lresolve);
 										if (offset > rlen)
 											res = false;
 										if (res) {
 											stats._Settings++;
-											//logdebug("Read Record:      Settings");
 										} else {
 											stats._Fail++;
 											loginfo("Failed Record:    Settings");
@@ -603,10 +616,10 @@ void Data::LoadIntern(std::filesystem::path path)
 									break;
 								case FormType::Test:
 									{
+										//logdebug("Read Record:      Test");
 										bool res = RegisterForm(Records::ReadRecord<Test>(buf, offset, rlen, _lresolve));
 										if (res) {
 											stats._Test++;
-											//logdebug("Read Record:      Test");
 										} else {
 											stats._Fail++;
 											loginfo("Failed Record:    Test");
@@ -615,13 +628,13 @@ void Data::LoadIntern(std::filesystem::path path)
 									break;
 								case FormType::TaskController:
 									{
+										//logdebug("Read Record:      TaskController");
 										auto tcontrol = CreateForm<TaskController>();
 										bool res = tcontrol->ReadData(buf, offset, rlen, _lresolve);
 										if (offset > rlen)
 											res = false;
 										if (res) {
 											stats._TaskController++;
-											//logdebug("Read Record:      TaskController");
 										} else {
 											stats._Fail++;
 											loginfo("Failed Record:    TaskController");
@@ -630,13 +643,13 @@ void Data::LoadIntern(std::filesystem::path path)
 									break;
 								case FormType::ExecutionHandler:
 									{
+										//logdebug("Read Record:      ExecutionHandler");
 										auto exec = CreateForm<ExecutionHandler>();
 										bool res = exec->ReadData(buf, offset, rlen, _lresolve);
 										if (offset > rlen)
 											res = false;
 										if (res) {
 											stats._ExecutionHandler++;
-											//logdebug("Read Record:      ExecutionHandler");
 										} else {
 											stats._Fail++;
 											loginfo("Failed Record:    ExecutionHandler");
@@ -645,6 +658,7 @@ void Data::LoadIntern(std::filesystem::path path)
 									break;
 								case FormType::Oracle:
 									{
+										//logdebug("Read Record:      Oracle");
 										auto oracle = CreateForm<Oracle>();
 										bool res = oracle->ReadData(buf, offset, rlen, _lresolve);
 										if (offset > rlen)
@@ -696,8 +710,12 @@ void Data::LoadIntern(std::filesystem::path path)
 		}
 
 		status = "Resolving Records...";
+		loginfo("Resolving records.");
 
 		_lresolve->Resolve();
+
+		loginfo("Resolved records.");
+		loginfo("Resolving late records.");
 
 		// before we resolve late tasks, we need to register ourselves to the lua wrapper, if some of the lambda
 		// functions want to use lua scripts
@@ -706,6 +724,7 @@ void Data::LoadIntern(std::filesystem::path path)
 		// unregister ourselves from the lua wrapper if we registered ourselves above
 		if (registeredLua)
 			Lua::UnregisterThread();
+		loginfo("Resolved late records.");
 		loginfo("Loaded session");
 	} else
 		logcritical("Cannot open savefile");

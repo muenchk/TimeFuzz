@@ -245,7 +245,9 @@ void Session::StartLoadedSession(bool& error, bool reloadsettings, std::wstring 
 	// as Session itself is a Form and saved with the rest of the session, all internal variables are already set when we
 	// resume the session, so we only have to set the runtime stuff, and potentially reload the settings and verify the oracle
 	if (reloadsettings) {
-		_settings->Load(settingsPath);
+		loginfo("Reloading settings...");
+		printf("%ls\n", settingsPath.c_str());
+		_settings->Load(settingsPath, true);
 		_settings->Save(settingsPath);
 		// reset oracle after settings reload
 		if (_settings->oracle == Oracle::PUTType::Undefined) {
@@ -258,7 +260,8 @@ void Session::StartLoadedSession(bool& error, bool reloadsettings, std::wstring 
 		_oracle->Set(_settings->oracle, _settings->oraclepath);
 		_oracle->SetLuaCmdArgs(CmdArgs::workdir / "CmdArgs.lua");
 		_oracle->SetLuaOracle(CmdArgs::workdir / "Oracle.lua");
-	}
+	} else
+		loginfo("Proceeding with settings from savefile.");
 	if (callback != nullptr)
 		_callback = callback;
 	if (_oracle->Validate() == false) {
@@ -404,6 +407,7 @@ void Session::InitStatus(SessionStatus& status)
 
 void Session::InitStatus(SessionStatus* status, std::shared_ptr<Settings> sett)
 {
+	status->sessionname = sett->saves.savename;
 	if (sett->conditions.use_overalltests)
 		status->overallTests_goal = sett->conditions.overalltests;
 	else
@@ -433,6 +437,7 @@ void Session::GetStatus(SessionStatus& status)
 		status.overallTests = SessionStatistics::TestsExecuted(_self);
 		status.positiveTests = SessionStatistics::PositiveTestsGenerated(_self);
 		status.negativeTests = SessionStatistics::NegativeTestsGenerated(_self);
+		status.unfinishedTests = SessionStatistics::UnfinishedTestsGenerated(_self);
 		status.prunedTests = SessionStatistics::TestsPruned(_self);
 		status.runtime = SessionStatistics::Runtime(_self);
 		if (status.overallTests_goal != 0)
@@ -451,6 +456,29 @@ void Session::GetStatus(SessionStatus& status)
 			status.gtime = (double)(std::chrono::duration_cast<std::chrono::seconds>(status.runtime).count()) / (double)status.runtime_goal.count();
 		else
 			status.gtime = -1;
+
+		// ExclusionTree
+		status.excl_depth = _excltree->GetDepth();
+		status.excl_nodecount = _excltree->GetNodeCount();
+		status.excl_leafcount = _excltree->GetLeafCount();
+
+		// TaskController
+		status.task_completed = _controller->GetCompletedJobs();
+		status.task_waiting = _controller->GetWaitingJobs();
+		
+		// ExecutionHandler
+		status.exec_running = _exechandler->GetRunningTests();
+		status.exec_internalwaiting = _exechandler->GetInternalWaitingTests();
+		status.exec_waiting = _exechandler->GetWaitingTests();
+
+		// Generation
+		status.gen_generatedInputs = sessiondata.GetGeneratedInputs();
+		status.gen_generatedWithPrefix = sessiondata.GetGeneratedPrefix();
+		status.gen_generationFails = sessiondata.GetGenerationFails();
+		status.gen_failureRate = sessiondata.GetGenerationFailureRate();
+
+		// Tests
+		status.exitstats = sessiondata.GetTestExitStats();
 	}
 	status.saveload = data->actionloadsave;
 	status.status = data->status;

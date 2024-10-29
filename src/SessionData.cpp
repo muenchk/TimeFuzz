@@ -27,6 +27,8 @@ void SessionData::AddInput(std::shared_ptr<Input>& input, EnumType list, double 
 			std::shared_ptr<InputNode> node = std::make_shared<InputNode>();
 			node->input = input;
 			node->weight = optionalweight;
+			node->primary = input->GetPrimaryScore();
+			node->secondary = input->GetSecondaryScore();
 			std::unique_lock<std::shared_mutex> guard(_negativeInputsLock);
 			_negativeInputs.insert(node);
 		}
@@ -48,6 +50,8 @@ void SessionData::AddInput(std::shared_ptr<Input>& input, EnumType list, double 
 			std::shared_ptr<InputNode> node = std::make_shared<InputNode>();
 			node->input = input;
 			node->weight = optionalweight;
+			node->primary = input->GetPrimaryScore();
+			node->secondary = input->GetSecondaryScore();
 			std::unique_lock<std::shared_mutex> guard(_unfinishedInputsLock);
 			_unfinishedInputs.insert(node);
 			break;
@@ -55,6 +59,31 @@ void SessionData::AddInput(std::shared_ptr<Input>& input, EnumType list, double 
 	default:
 		break;
 	}
+}
+
+int64_t SessionData::GetGenerationFails() 
+{
+	return _generationfails;
+}
+
+int64_t SessionData::GetGeneratedInputs() 
+{
+	return _generatedinputs;
+}
+
+int64_t SessionData::GetGeneratedPrefix() 
+{
+	return _generatedWithPrefix;
+}
+
+double SessionData::GetGenerationFailureRate() 
+{
+	return _failureRate;
+}
+
+TestExitStats& SessionData::GetTestExitStats()
+{
+	return exitstats;
 }
 
 size_t SessionData::GetStaticSize(int32_t version)
@@ -189,6 +218,8 @@ bool SessionData::ReadData(unsigned char* buffer, size_t& offset, size_t /*lengt
 						auto node = std::make_shared<InputNode>();
 						node->input = shared;
 						node->weight = negInp[i].second;
+						node->primary = shared->GetPrimaryScore();
+						node->secondary = shared->GetSecondaryScore();
 						_negInputs.insert(node);
 					}
 				}
@@ -210,6 +241,8 @@ bool SessionData::ReadData(unsigned char* buffer, size_t& offset, size_t /*lengt
 						auto node = std::make_shared<InputNode>();
 						node->input = shared;
 						node->weight = unfInp[i].second;
+						node->primary = shared->GetPrimaryScore();
+						node->secondary = shared->GetSecondaryScore();
 						_unfInputs.insert(node);
 					}
 				}

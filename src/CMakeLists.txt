@@ -98,15 +98,7 @@ add_library(
 	"${ROOT_DIR}/.clang-format"
 	"${ROOT_DIR}/.editorconfig")
 
-add_executable(
-	"${PROJECT_NAME}"
-	"${SOURCE_DIR}/main.cpp" 
-	${SOURCE_FILES}
-	"${VERSION_HEADER}"
-	"${CMAKE_CURRENT_BINARY_DIR}/version.rc"
-	"${ROOT_DIR}/.clang-format"
-	"${ROOT_DIR}/.editorconfig"
-)
+add_executable("${PROJECT_NAME}" "${SOURCE_DIR}/main.cpp" ${SOURCE_FILES} "${VERSION_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/version.rc" "${ROOT_DIR}/.clang-format" "${ROOT_DIR}/.editorconfig")
 
 if(DIASDK_LIBRARIES)
         add_custom_command(TARGET "${PROJECT_NAME}" POST_BUILD
@@ -292,6 +284,15 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMA
 			"$<$<CONFIG:DEBUG>:/INCREMENTAL;/OPT:NOREF;/OPT:NOICF>"
 			"$<$<CONFIG:RELEASE>:/INCREMENTAL:NO;/OPT:REF;/OPT:ICF;/DEBUG:FULL>"
 	)
+#else()
+#	target_compile_options(
+#		"${PROJECT_NAME}"
+#		PRIVATE
+#		"-std=c++23")
+#	target_compile_options(
+#		"${PROJECT_NAME}_lib"
+#		PRIVATE
+#		"-std=c++23")
 endif()
 
 target_include_directories(
@@ -313,3 +314,8 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMA
 		COMPONENT "pdbs"
 	)
 endif()
+
+file(COPY "${ROOT_DIR}/static/background.png" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
+file(COPY "${ROOT_DIR}/static/shader/4.1.texture.fs" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/shader")
+file(COPY "${ROOT_DIR}/static/shader/4.1.texture.vs" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/shader")
+

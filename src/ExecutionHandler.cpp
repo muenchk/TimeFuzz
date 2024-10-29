@@ -8,6 +8,7 @@
 #include "Data.h"
 #include "BufferOperations.h"
 #include "LuaEngine.h"
+#include "SessionFunctions.h"
 //#include <io.h>
 
 ExecutionHandler::ExecutionHandler()
@@ -157,6 +158,7 @@ void ExecutionHandler::StartHandler()
 					ptr->test = test;
 				}
 				test->exitreason = Test::ExitReason::InitError;
+				SessionFunctions::AddTestExitReason(_session, Test::ExitReason::InitError);
 				test->InValidate();
 				test->input.reset();
 				// call callback if test has finished
@@ -172,6 +174,7 @@ void ExecutionHandler::StartHandler()
 					ptr->test = test;
 				}
 				test->exitreason = Test::ExitReason::InitError;
+				SessionFunctions::AddTestExitReason(_session, Test::ExitReason::InitError);
 				test->InValidate();
 				test->input.reset();
 				// call callback if test has finished
@@ -223,7 +226,7 @@ void ExecutionHandler::StopHandlerAfterTestsFinishAndWait()
 	}
 }
 
-bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, Functions::BaseFunction* callback)
+bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback)
 {
 	StartProfilingDebug;
 	loginfo("Adding new test");
@@ -273,6 +276,7 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 	if (!Processes::StartPUTProcess(test, _oracle->path().string(), test->cmdArgs))
 	{
 		test->exitreason = Test::ExitReason::InitError;
+		SessionFunctions::AddTestExitReason(_session, Test::ExitReason::InitError);
 		if (auto ptr = test->input.lock(); ptr) {
 			ptr->hasfinished = true;
 			// invalidate so no more functions can be called on the test
@@ -318,7 +322,6 @@ void ExecutionHandler::StopTest(std::shared_ptr<Test> test)
 	test->InValidate();
 	// call callback if test has finished
 	_threadpool->AddTask(test->callback);
-	test->callback = nullptr;
 	_currentTests--;
 }
 
@@ -360,14 +363,21 @@ void ExecutionHandler::InternalLoop()
 		while (_currentTests < _maxConcurrentTests && _waitingTests.size() > 0 && !_frozen) {
 			test.reset();
 			{
-				std::unique_lock<std::mutex> guard(_lockqueue);
-				if (_waitingTests.size() > 0) {
-					test = _waitingTests.front();
-					_waitingTests.pop_front();
+				if (_internalwaitingTests.size() > 0) {
+					test = _internalwaitingTests.front();
+					_internalwaitingTests.pop_front();
+				} else {
+					std::unique_lock<std::mutex> guard(_lockqueue);
+					if (_waitingTests.size() > 0) {
+						test = _waitingTests.front();
+						_waitingTests.pop_front();
+					}
 				}
 			}
 			if (auto ptr = test.lock(); ptr) {
 				StartTest(ptr);
+				//if (StartTest(ptr) == false)
+				//	_internalwaitingTests.push_back(ptr);
 			}
 		}
 
@@ -412,6 +422,8 @@ void ExecutionHandler::InternalLoop()
 				// check for running
 				if (ptr->IsRunning() == false) {
 					// test has finished. Get exit code and check end conditions
+					ptr->exitreason = Test::ExitReason::Natural;
+					SessionFunctions::AddTestExitReason(_session, Test::ExitReason::Natural);
 					goto TestFinished;
 				}
 				// check for memory consumption
@@ -422,6 +434,7 @@ void ExecutionHandler::InternalLoop()
 						ptr->KillProcess();
 						// process killed, now set flags for oracle
 						ptr->exitreason = Test::ExitReason::Memory;
+						SessionFunctions::AddTestExitReason(_session, Test::ExitReason::Memory);
 						goto TestFinished;
 					}
 				}
@@ -430,6 +443,8 @@ void ExecutionHandler::InternalLoop()
 					// fragment has been completed
 					if (ptr->WriteNext() == false && _settings->tests.use_fragmenttimeout && std::chrono::duration_cast<std::chrono::microseconds>(time - ptr->lasttime).count() > _settings->tests.fragmenttimeout) {
 						ptr->exitreason = Test::ExitReason::Natural | Test::ExitReason::LastInput;
+						SessionFunctions::AddTestExitReason(_session, Test::ExitReason::Natural);
+						SessionFunctions::AddTestExitReason(_session, Test::ExitReason::LastInput);
 						goto TestFinished;
 					}
 				}
@@ -440,6 +455,7 @@ void ExecutionHandler::InternalLoop()
 					if (difffrag.count() > _settings->tests.fragmenttimeout) {
 						ptr->KillProcess();
 						ptr->exitreason = Test::ExitReason::FragmentTimeout;
+						SessionFunctions::AddTestExitReason(_session, Test::ExitReason::FragmentTimeout);
 						goto TestFinished;
 					}
 				}
@@ -448,6 +464,7 @@ void ExecutionHandler::InternalLoop()
 					if (difffrag.count() > _settings->tests.testtimeout) {
 						ptr->KillProcess();
 						ptr->exitreason = Test::ExitReason::Timeout;
+						SessionFunctions::AddTestExitReason(_session, Test::ExitReason::Timeout);
 						goto TestFinished;
 					}
 				}
@@ -536,6 +553,21 @@ void ExecutionHandler::Thaw()
 	loginfo("Resumed execution.");
 }
 
+int32_t ExecutionHandler::GetWaitingTests()
+{
+	return (int32_t)_waitingTests.size();
+}
+
+int32_t ExecutionHandler::GetInternalWaitingTests()
+{
+	return (int32_t)_internalwaitingTests.size();
+}
+
+int32_t ExecutionHandler::GetRunningTests()
+{
+	return (int32_t)_runningTests.size();
+}
+
 size_t ExecutionHandler::GetStaticSize(int32_t version)
 {
 	static size_t size0x1 = Form::GetDynamicSize()  // form base size
@@ -556,7 +588,7 @@ size_t ExecutionHandler::GetStaticSize(int32_t version)
 
 size_t ExecutionHandler::GetDynamicSize()
 {
-	return GetStaticSize(classversion) + 8 /*len of ids*/ + _stoppingTests.size() * 8 + _runningTests.size() * 8 + _waitingTests.size() * 8;
+	return GetStaticSize(classversion) + 8 /*len of ids*/ + _stoppingTests.size() * 8 + _runningTests.size() * 8 + _waitingTests.size() * 8 + _internalwaitingTests.size();
 }
 
 bool ExecutionHandler::WriteData(unsigned char* buffer, size_t& offset)
@@ -582,6 +614,12 @@ bool ExecutionHandler::WriteData(unsigned char* buffer, size_t& offset)
 		Buffer::Write(ptr->GetFormID(), buffer, offset);
 	}
 	for (auto test : _waitingTests) {
+		if (auto ptr = test.lock(); ptr)
+			Buffer::Write(ptr->GetFormID(), buffer, offset);
+		else
+			Buffer::Write((uint64_t)0, buffer, offset);
+	}
+	for (auto test : _internalwaitingTests) {
 		if (auto ptr = test.lock(); ptr)
 			Buffer::Write(ptr->GetFormID(), buffer, offset);
 		else

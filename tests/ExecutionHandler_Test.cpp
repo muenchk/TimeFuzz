@@ -19,7 +19,7 @@
 
 namespace Functions
 {
-	class Callback : BaseFunction
+	class Callback : public BaseFunction
 	{
 	public:
 
@@ -40,14 +40,13 @@ namespace Functions
 			return true;
 		}
 
-		static BaseFunction* Create()
+		static std::shared_ptr<BaseFunction> Create()
 		{
-			return new Callback();
+			return dynamic_pointer_cast<BaseFunction>(std::make_shared<Callback>());
 		}
 
 		void Dispose()
 		{
-			delete this;
 		}
 
 		size_t GetLength()
@@ -101,7 +100,7 @@ int32_t main(/*int32_t argc, char** argv*/)
 	std::vector<std::shared_ptr<Input>> ls;
 	for (int32_t i = 0; i < NUM_TESTS; i++) {
 		std::shared_ptr<Input> input = std::make_shared<Input>();
-		execution->AddTest(input, (Functions::BaseFunction*)(new Functions::Callback()));
+		execution->AddTest(input, dynamic_pointer_cast<Functions::BaseFunction>(Functions::BaseFunction::Create<Functions::Callback>()));
 		ls.push_back(input);
 	}
 	std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -142,7 +141,7 @@ int32_t main(/*int32_t argc, char** argv*/)
 	std::shared_ptr<Input> inp = std::make_shared<Input>();
 	inp->AddEntry("What a wonderful day.");
 	inp->AddEntry(".");
-	execution->AddTest(inp, (Functions::BaseFunction*)(new Functions::Callback()));
+	execution->AddTest(inp, dynamic_pointer_cast<Functions::BaseFunction>(Functions::BaseFunction::Create<Functions::Callback>()));
 	std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	execution->StopHandlerAfterTestsFinishAndWait();
 	logdebug("Finished execution handler");

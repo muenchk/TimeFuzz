@@ -4,6 +4,7 @@ buildKali/
 buildall/
 buildRelease/
 .vs/
+.vscode/
 src/.vs/
 src/.vscode
 src/out

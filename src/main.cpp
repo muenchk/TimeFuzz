@@ -2,12 +2,20 @@
 #include "Logging.h"
 #include "Session.h"
 #include "ExitCodes.h"
+#include "shader/learnopengl_shader_s.h"
 #include <iostream>
 #include <filesystem>
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 #	include "CrashHandler.h"
 #endif
+
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
+// The openGL texture and drawing stuff (the background) are adapted from code published on
+// learnopengl.com by JOEY DE VRIES and is available under
+// the following license: https://creativecommons.org/licenses/by-nc/4.0/legalcode
 
 // The imgui stuff is adapted from the official examples of the repository https://github.com/ocornut/imgui which is available under MIT license 
 // date: [2024/10/23]
@@ -19,9 +27,9 @@
 //#include "GL/GL.h"
 #include <stdio.h>
 #define GL_SILENCE_DEPRECATION
-#if defined(IMGUI_IMPL_OPENGL_ES2)
-#include <GLES2/gl2.h>
-#endif
+//#if defined(IMGUI_IMPL_OPENGL_ES2)
+//#include <GLES2/gl2.h>
+//#endif
 #include <GLFW/glfw3.h> // Will drag system OpenGL headers
 
 static void glfw_error_callback(int error, const char* description)
@@ -32,6 +40,16 @@ static void glfw_error_callback(int error, const char* description)
 void endCallback()
 {
 	fprintf(stdin, "exitinternal");
+}
+
+
+// glfw: whenever the window size changed (by OS or user resize) this callback function executes
+// ---------------------------------------------------------------------------------------------
+void framebuffer_size_callback(GLFWwindow* /*window*/, int width, int height)
+{
+	// make sure the viewport matches the new window dimensions; note that width and
+	// height will be significantly larger than specified on retina displays.
+	glViewport(0, 0, width, height);
 }
 
 std::shared_ptr<Session> session = nullptr;
@@ -135,6 +153,9 @@ int32_t main(int32_t argc, char** argv)
 
 	std::string logpath = "";
 	bool logtimestamps = false;
+
+	std::filesystem::path execpath = std::filesystem::path(argv[0]).parent_path();
+
 
 	for (int32_t i = 1; i < argc; i++) {
 		size_t pos = 0;
@@ -315,6 +336,7 @@ int32_t main(int32_t argc, char** argv)
 
 	bool stop = false;
 
+
 	// -----go into responsive loop-----
 	if (CmdArgs::_ui) {
 		Logging::StdOutDebug = false;
@@ -322,6 +344,7 @@ int32_t main(int32_t argc, char** argv)
 		StartSession();
 		loginfo("Start UI");
 
+		std::string windowtitle = "TimeFuzz: " + status.sessionname;
 		glfwSetErrorCallback(glfw_error_callback);
 		if (!glfwInit()) {  // if we cannot open GUI, go into responsive mode as a fallback
 			logcritical("Cannot open GUI: Falling back into responsive mode.");
@@ -345,14 +368,21 @@ int32_t main(int32_t argc, char** argv)
 		// GL 3.0 + GLSL 130
 		const char* glsl_version = "#version 130";
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-		//glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
 		//glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
 #endif
-		GLFWwindow* window = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+OpenGL3 example", nullptr, nullptr);
+		GLFWwindow* window = glfwCreateWindow(1280, 720, windowtitle.c_str(), nullptr, nullptr);
 		if (window == nullptr)
 			return 1;
 		glfwMakeContextCurrent(window);
+		glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+		if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+			std::cout << "Failed to initialize GLAD" << std::endl;
+			return -1;
+		}
+		glfwSetWindowAspectRatio(window, 16, 9);
+		
 		glfwSwapInterval(1);  // Enable vsync
 
 		// Setup Dear ImGui context
@@ -369,12 +399,80 @@ int32_t main(int32_t argc, char** argv)
 
 		// Setup Platform/Renderer backends
 		ImGui_ImplGlfw_InitForOpenGL(window, true);
-		ImGui_ImplOpenGL3_Init(glsl_version);
+		//ImGui_ImplOpenGL3_Init(glsl_version);
+		ImGui_ImplOpenGL3_Init("#version 330");
+
+		// build and compile our shader zprogram
+		// ------------------------------------
+		Shader ourShader((execpath / "shader" / "4.1.texture.vs").string().c_str(), (execpath / "shader" / "4.1.texture.fs").string().c_str()); 
+
+		
+		float vertices[] = {
+			// positions          // colors           // texture coords
+			1.0f, 1.0f, 0.0f,	1.0f, 0.0f, 0.0f,	1.0f, 1.0f,    // top right
+			1.0f, -1.0f, 0.0f,	0.0f, 1.0f, 0.0f,	1.0f, 0.0f,   // bottom right
+			-1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f,	0.0f, 0.0f,  // bottom left
+			-1.0f, 1.0f, 0.0f,	1.0f, 1.0f, 0.0f,	0.0f, 1.0f    // top left
+		};
+		unsigned int indices[] = {
+			0, 1, 3,  // first triangle
+			1, 2, 3   // second triangle
+		};
+		unsigned int VBO, VAO, EBO;
+		glGenVertexArrays(1, &VAO);
+		glGenBuffers(1, &VBO);
+		glGenBuffers(1, &EBO);
+		
+		glBindVertexArray(VAO);
+
+		glBindBuffer(GL_ARRAY_BUFFER, VBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+		// position attribute
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(0);
+		// color attribute
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+		glEnableVertexAttribArray(1);
+		// texture coord attribute
+		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+		glEnableVertexAttribArray(2);
+
+
+
+		unsigned int texture;
+		glGenTextures(1, &texture);
+		glBindTexture(GL_TEXTURE_2D, texture);
+
+		// set the texture wrapping parameters
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);  // set texture wrapping to GL_REPEAT (default wrapping method)
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		// set texture filtering parameters
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		int iwidth, iheight, inrChannels;
+		stbi_set_flip_vertically_on_load(true);
+		unsigned char* data = stbi_load((execpath / "background.png").string().c_str(), &iwidth, &iheight, &inrChannels, 0);
+		if (data) {
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, iwidth, iheight, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+			glGenerateMipmap(GL_TEXTURE_2D);
+		} else
+			logcritical("Cannot open texture.");
+		stbi_image_free(data);
+
+
+
 
 		// Our state
 		bool show_demo_window = true;
 		bool show_another_window = false;
 		ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+		// runtime vars
+		bool displayadd;
 
 		while (!glfwWindowShouldClose(window) && !stop) {
 
@@ -395,6 +493,10 @@ int32_t main(int32_t argc, char** argv)
 			ImGui_ImplGlfw_NewFrame();
 			ImGui::NewFrame();
 
+			// get session status
+			session->GetStatus(status);
+			displayadd = true;
+
 			// show simple window with stats
 			{
 				static bool wopen = true;
@@ -407,6 +509,7 @@ int32_t main(int32_t argc, char** argv)
 					exit(ExitCodes::Success);
 				}
 				if (session->Loaded() == false && session->GetLastError() == ExitCodes::StartupError) {
+					displayadd = false;
 					ImGui::Text("The Session couldn't be started");
 					ImGui::NewLine();
 					if (ImGui::Button("Close"))
@@ -415,11 +518,11 @@ int32_t main(int32_t argc, char** argv)
 						exit(ExitCodes::Success);
 					}
 				} else {
-					session->GetStatus(status);
 
 					ImGui::Text("Executed Tests:    %llu", status.overallTests);
 					ImGui::Text("Positive Tests:    %llu", status.positiveTests);
 					ImGui::Text("Negative Tests:    %llu", status.negativeTests);
+					ImGui::Text("Unfinished Tests:  %llu", status.unfinishedTests);
 					ImGui::Text("Pruned Tests:      %llu", status.prunedTests);
 					ImGui::Text("Runtime:           %llu s", std::chrono::duration_cast<std::chrono::seconds>(status.runtime).count());
 
@@ -427,7 +530,7 @@ int32_t main(int32_t argc, char** argv)
 					ImGui::Text("Status:    %s", status.status.c_str());
 					ImGui::NewLine();
 					if (status.saveload) {
-						ImGui::Text("Save / Load Progress:                            %.3f", status.gsaveload * 100);
+						ImGui::Text("Save / Load Progress:                            %llu/%llu", status.saveload_current, status.saveload_max);
 						ImGui::ProgressBar((float)status.gsaveload, ImVec2(0.0f, 0.0f));
 					} else {
 						if (status.goverall >= 0.f) {
@@ -470,7 +573,56 @@ int32_t main(int32_t argc, char** argv)
 								std::thread th(std::bind(&Session::StopSession, session, std::placeholders::_1), true);
 								th.detach();
 							}
+							ImGui::SameLine();
+							if (ImGui::Button("Abort")) {
+								std::thread th(std::bind(&Session::StopSession, session, std::placeholders::_1), false);
+								th.detach();
+							}
 						}
+					}
+				}
+				ImGui::End();
+			}
+
+			// show window with advanced stats
+			{
+				static bool wopen = true;
+				ImGui::Begin("Advanced", &wopen);
+				if (wopen)
+				{
+					if (displayadd)
+					{
+						ImGui::SeparatorText("Exclusion Tree");
+						ImGui::Text("Depth:                %lld", status.excl_depth);
+						ImGui::Text("Nodes:                %llu", status.excl_nodecount);
+						ImGui::Text("Leaves:               %llu", status.excl_leafcount);
+
+						ImGui::SeparatorText("Task Controller");
+						ImGui::Text("Waiting:              %d", status.task_waiting);
+						ImGui::Text("Completed:            %llu", status.task_completed);
+
+						ImGui::SeparatorText("Execution Handler");
+						ImGui::Text("Waiting:              %d", status.exec_waiting);
+						ImGui::Text("Internal Waiting:     %d", status.exec_internalwaiting);
+						ImGui::Text("Running:              %d", status.exec_running);
+
+						ImGui::SeparatorText("Generation");
+						ImGui::Text("Generated Inputs:     %lld", status.gen_generatedInputs);
+						ImGui::Text("Excluded with Prefix: %lld", status.gen_generatedWithPrefix);
+						ImGui::Text("Generation Fails:     %lld", status.gen_generationFails);
+						ImGui::Text("Failure Rate:         %llf", status.gen_failureRate);
+						
+						ImGui::SeparatorText("Test exit stats");
+						ImGui::Text("Natural:              %llu", status.exitstats.natural);
+						ImGui::Text("Last Input:           %llu", status.exitstats.lastinput);
+						ImGui::Text("Terminated:           %llu", status.exitstats.terminated);
+						ImGui::Text("Timeout:              %llu", status.exitstats.timeout);
+						ImGui::Text("Fragment Timeout:     %llu", status.exitstats.fragmenttimeout);
+						ImGui::Text("Memory:               %llu", status.exitstats.memory);
+						ImGui::Text("Init error:           %llu", status.exitstats.initerror);
+					}
+					else {
+						ImGui::Text("Not available");
 					}
 				}
 				ImGui::End();
@@ -516,9 +668,17 @@ int32_t main(int32_t argc, char** argv)
 			ImGui::Render();
 			int display_w, display_h;
 			glfwGetFramebufferSize(window, &display_w, &display_h);
-			//glViewport(0, 0, display_w, display_h);
-			//glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
-			//glClear(GL_COLOR_BUFFER_BIT);
+			glViewport(0, 0, display_w, display_h);
+			glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
+			glClear(GL_COLOR_BUFFER_BIT);
+
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, texture);
+			ourShader.use();
+			glBindVertexArray(VAO);
+			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+
 			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 			glfwSwapBuffers(window);
@@ -528,6 +688,10 @@ int32_t main(int32_t argc, char** argv)
 		ImGui_ImplOpenGL3_Shutdown();
 		ImGui_ImplGlfw_Shutdown();
 		ImGui::DestroyContext();
+
+		glDeleteVertexArrays(1, &VAO);
+		glDeleteBuffers(1, &VBO);
+		glDeleteBuffers(1, &EBO);
 
 		glfwDestroyWindow(window);
 		glfwTerminate();

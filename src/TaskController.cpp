@@ -14,7 +14,7 @@ TaskController* TaskController::GetSingleton()
 	return std::addressof(session);
 }
 
-void TaskController::AddTask(Functions::BaseFunction* a_task)
+void TaskController::AddTask(std::shared_ptr<Functions::BaseFunction> a_task)
 {
 	{
 		std::unique_lock<std::mutex> guard(lock);
@@ -84,7 +84,7 @@ void TaskController::InternalLoop(int32_t number)
 		Lua::RegisterThread(_session);
 
 	while (true) {
-		Functions::BaseFunction* del;
+		std::shared_ptr<Functions::BaseFunction> del;
 		{
 			std::unique_lock<std::mutex> guard(lock);
 			status[number] = ThreadStatus::Waiting;
@@ -96,15 +96,26 @@ void TaskController::InternalLoop(int32_t number)
 			del = tasks.front();
 			tasks.pop_front();
 		}
-		if (del != nullptr) {
+		if (del) {
 			del->Run();
 			del->Dispose();
+			completedjobs++;
 		}
 	}
 
 	// unregister thread from lua functions
 	if (!disableLua)
 		Lua::UnregisterThread();
+}
+
+uint64_t TaskController::GetCompletedJobs()
+{
+	return completedjobs;
+}
+
+int32_t TaskController::GetWaitingJobs()
+{
+	return (int32_t)tasks.size();
 }
 
 size_t TaskController::GetStaticSize(int32_t version)
@@ -115,7 +126,8 @@ size_t TaskController::GetStaticSize(int32_t version)
 	                        + 1                     // wait
 	                        + 1                     // active
 	                        + 4                     // numthreads
-	                        + 8;                    // size of waiting tasks
+	                        + 8                     // size of waiting tasks
+	                        + 8;                    // completedjobs
 	switch (version)
 	{
 	case 0x1:
@@ -151,6 +163,7 @@ bool TaskController::WriteData(unsigned char* buffer, size_t& offset)
 	{
 		task->WriteData(buffer, offset);
 	}
+	Buffer::Write((uint64_t)completedjobs.load(), buffer, offset);
 	return true;
 }
 
@@ -168,9 +181,10 @@ bool TaskController::ReadData(unsigned char* buffer, size_t& offset, size_t leng
 			size_t num = Buffer::ReadSize(buffer, offset);
 			for (int32_t i = 0; i < (int32_t)num; i++)
 			{
-				Functions::BaseFunction* func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
+				std::shared_ptr<Functions::BaseFunction> func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
 				tasks.push_back(func);
 			}
+			completedjobs = Buffer::ReadUInt64(buffer, offset);
 			if (active)
 				//Start(_numthreads);
 				active = false;
@@ -196,7 +210,8 @@ void TaskController::Clear()
 		t.detach();
 	threads.clear();
 	while (tasks.empty() == false) {
-		tasks.front()->Dispose();
+		if (tasks.front())
+			tasks.front()->Dispose();
 		tasks.pop_front();
 	}
 }

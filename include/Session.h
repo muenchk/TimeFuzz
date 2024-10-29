@@ -27,6 +27,8 @@ struct LoadSessionArgs
 
 struct SessionStatus
 {
+	std::string sessionname;
+
 	uint64_t overallTests;
 	uint64_t overallTests_goal;
 
@@ -35,6 +37,8 @@ struct SessionStatus
 
 	uint64_t negativeTests;
 	uint64_t negativeTests_goal;
+
+	uint64_t unfinishedTests;
 
 	uint64_t prunedTests;
 
@@ -47,6 +51,29 @@ struct SessionStatus
 	bool saveload = false;
 	uint64_t saveload_max = 0;
 	uint64_t saveload_current = 0;
+
+	// -----ExclusionTree-----
+	int64_t excl_depth = 0;
+	uint64_t excl_nodecount = 0;
+	uint64_t excl_leafcount = 0;
+
+	// -----TaskController-----
+	int32_t task_waiting = 0;
+	uint64_t task_completed = 0;
+
+	// -----ExecutionHandler-----
+	int32_t exec_waiting = 0;
+	int32_t exec_internalwaiting = 0;
+	int32_t exec_running = 0;
+
+	// -----Generation-----
+	int64_t gen_generatedInputs = 0;
+	int64_t gen_generationFails = 0;
+	int64_t gen_generatedWithPrefix = 0;
+	double gen_failureRate = 0.f;
+
+	// -----Tests-----
+	TestExitStats exitstats;
 };
 
 class Session : public Form

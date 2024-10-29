@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "example",
   "version": "1",
   "dependencies": [
@@ -46,6 +46,7 @@
     "glfw3",
     "glad",
     "glm",
-    "liblzma"
+    "liblzma",
+    "stb"
   ]
 }

@@ -12,9 +12,9 @@ Settings* Settings::GetSingleton()
 	return std::addressof(session);
 }
 
-void Settings::Load(std::wstring path)
+void Settings::Load(std::wstring path, bool reload)
 {
-	if (initialized)
+	if (initialized && !reload)
 		return;
 	loginfo("Begin loading settings.");
 	initialized = true;

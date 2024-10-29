@@ -202,7 +202,7 @@ public:
 		if (form)
 		{
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
-			_hashmap.insert({ form->GetFormID(), dynamic_pointer_cast<Form>(form) });
+			_hashmap.insert(std::pair<FormID, std::shared_ptr<Form>>{ form->GetFormID(), dynamic_pointer_cast<Form>(form) });
 			return true;
 		}
 		return false;

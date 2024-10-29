@@ -89,12 +89,20 @@ bool SessionFunctions::EndCheck(std::shared_ptr<Session>& session)
 	else if (session->_settings->conditions.use_overalltests && SessionStatistics::TestsExecuted(session) >= session->_settings->conditions.overalltests)
 		end = true;
 
+	double failureRate = 0.0f;
+
 	// check whether the recent input generation is converging and we should abort the program 
 	if (session->sessiondata._generatedinputs < (int64_t)session->sessiondata.GENERATION_WEIGHT_BUFFER_SIZE) {
-		if ((double)std::accumulate(session->sessiondata._recentfailes.begin(), session->sessiondata._recentfailes.end(), 0) / (double)session->sessiondata._generatedinputs >= session->sessiondata.GENERATION_WEIGHT_LIMIT)
+		failureRate = (double)std::accumulate(session->sessiondata._recentfailes.begin(), session->sessiondata._recentfailes.end(), 0) / (double)session->sessiondata._generatedinputs;
+		if (failureRate >= session->sessiondata.GENERATION_WEIGHT_LIMIT)
 			end = true;
-	} else if ((double)std::accumulate(session->sessiondata._recentfailes.begin(), session->sessiondata._recentfailes.end(), 0) / (double)session->sessiondata.GENERATION_WEIGHT_BUFFER_SIZE >= session->sessiondata.GENERATION_WEIGHT_LIMIT)
-		end = true;
+	} else {
+		failureRate = (double)std::accumulate(session->sessiondata._recentfailes.begin(), session->sessiondata._recentfailes.end(), 0) / (double)session->sessiondata.GENERATION_WEIGHT_BUFFER_SIZE;
+		if (failureRate >= session->sessiondata.GENERATION_WEIGHT_LIMIT)
+			end = true;
+	}
+
+	session->sessiondata._failureRate = failureRate;
 	
 	// if we don't end the session, do nothing
 	if (end == false)
@@ -213,7 +221,7 @@ MasterControlBegin:
 		loginfo("[MasterControl] add test");
 		// add tests to execution handler
 		for (auto inp : inputs) {
-			auto callback = new Functions::TestCallback();
+			auto callback = dynamic_pointer_cast<Functions::TestCallback>(Functions::TestCallback::Create());
 			callback->_session = session;
 			callback->_input = inp;
 			session->_exechandler->AddTest(inp, callback);
@@ -258,6 +266,15 @@ void SessionFunctions::TestEnd(std::shared_ptr<Session>& session, std::shared_pt
 		// -----We have a failing input-----
 			session->sessiondata._negativeInputNumbers++;
 
+			// -----Calculate initial weight for backtracking-----
+			double weight = 0.0f;
+
+			// -----Add input to its list-----
+			session->sessiondata.AddInput(input, Oracle::OracleResult::Passing, weight);
+			
+			// -----Add input to exclusion tree as result is fixed-----
+			session->_excltree->AddInput(input);
+
 
 
 		}
@@ -267,14 +284,11 @@ void SessionFunctions::TestEnd(std::shared_ptr<Session>& session, std::shared_pt
 			// -----We have a passing input-----
 			session->sessiondata._positiveInputNumbers++;
 
-			// -----Calculate initial weight for backtracking-----
-			double weight = 0.0f;
-
-
-
-
 			// -----Add input to its list-----
-			session->sessiondata.AddInput(input, Oracle::OracleResult::Passing, weight);
+			session->sessiondata.AddInput(input, Oracle::OracleResult::Passing);
+
+			// -----Add input to exclusion tree as result is fixed-----
+			session->_excltree->AddInput(input);
 
 
 
@@ -320,9 +334,36 @@ void SessionFunctions::TestEnd(std::shared_ptr<Session>& session, std::shared_pt
 	// ----- DO SOME NICE STUFF -----
 }
 
+void SessionFunctions::AddTestExitReason(std::shared_ptr<Session>& session, int32_t reason)
+{
+	switch (reason) {
+	case Test::ExitReason::Natural:
+		session->sessiondata.exitstats.natural++;
+		break;
+	case Test::ExitReason::LastInput:
+		session->sessiondata.exitstats.lastinput++;
+		break;
+	case Test::ExitReason::Terminated:
+		session->sessiondata.exitstats.terminated++;
+		break;
+	case Test::ExitReason::Timeout:
+		session->sessiondata.exitstats.timeout++;
+		break;
+	case Test::ExitReason::FragmentTimeout:
+		session->sessiondata.exitstats.fragmenttimeout++;
+		break;
+	case Test::ExitReason::Memory:
+		session->sessiondata.exitstats.memory++;
+		break;
+	case Test::ExitReason::InitError:
+		session->sessiondata.exitstats.initerror++;
+		break;
+	}
+}
+
 uint64_t SessionStatistics::TestsExecuted(std::shared_ptr<Session>& session)
 {
-	return (uint64_t)(session->sessiondata._negativeInputNumbers + session->sessiondata._positiveInputNumbers + session->sessiondata._undefinedInputNumbers + session->sessiondata._unfinishedInputNumbers);
+	return (uint64_t)(session->sessiondata._negativeInputNumbers + session->sessiondata._positiveInputNumbers + /*session->sessiondata._undefinedInputNumbers +*/ session->sessiondata._unfinishedInputNumbers);
 }
 
 uint64_t SessionStatistics::PositiveTestsGenerated(std::shared_ptr<Session>& session)
@@ -333,6 +374,11 @@ uint64_t SessionStatistics::PositiveTestsGenerated(std::shared_ptr<Session>& ses
 uint64_t SessionStatistics::NegativeTestsGenerated(std::shared_ptr<Session>& session)
 {
 	return (uint64_t)session->sessiondata._negativeInputNumbers;
+}
+
+uint64_t SessionStatistics::UnfinishedTestsGenerated(std::shared_ptr<Session>& session)
+{
+	return (uint64_t)session->sessiondata._unfinishedInputNumbers;
 }
 
 uint64_t SessionStatistics::TestsPruned(std::shared_ptr<Session>&)

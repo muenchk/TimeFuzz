@@ -20,7 +20,7 @@ class Input : public Form
 {
 	friend class SessionFunctions;
 
-	const int32_t classversion = 0x1;
+	const int32_t classversion = 0x2;
 	#pragma region InheritedForm
 public:
 	size_t GetStaticSize(int32_t version = 0x1) override;
@@ -46,6 +46,8 @@ private:
 	bool trimmed = false;
 	std::chrono::nanoseconds executiontime;
 	int32_t exitcode = 0;
+	double primaryScore = 0.f;
+	double secondaryScore = 0.f;
 
 	friend ExecutionHandler;
 	friend Test;
@@ -59,13 +61,24 @@ public:
 
 	~Input();
 
-	static int lua_ConvertToPython(lua_State* L)
-	{
-		Input* input = (Input*)lua_touserdata(L, 1);
-		input->ConvertToPython();
-		lua_pushstring(L, input->pythonstring.c_str());
-		return 1;
-	}
+	static int lua_ConvertToPython(lua_State* L);
+	static int lua_IsTrimmed(lua_State* L);
+	static int lua_TrimInput(lua_State* L);
+	static int lua_GetExecutionTime(lua_State* L);
+	static int lua_GetExitCode(lua_State* L);
+	static int lua_GetSequenceLength(lua_State* L);
+	static int lua_GetSequenceFirst(lua_State* L);
+	static int lua_GetSequenceNext(lua_State* L);
+	static int lua_GetExitReason(lua_State* L);
+	static int lua_GetCmdArgs(lua_State* L);
+	static int lua_GetOutput(lua_State* L);
+	static int lua_GetReactionTimeLength(lua_State* L);
+	static int lua_GetReactionTimeFirst(lua_State* L);
+	static int lua_GetReactionTimeNext(lua_State* L);
+	static int lua_SetPrimaryScore(lua_State* L);
+	static int lua_SetSecondaryScore(lua_State* L);
+
+	static void RegisterLuaFunctions(lua_State* L);
 
 	/// <summary>
 	/// converts the input to python code
@@ -154,6 +167,18 @@ public:
 		return oracleResult;
 	}
 
+	inline double GetPrimaryScore()
+	{
+		return primaryScore;
+	}
+
+	inline double GetSecondaryScore()
+	{
+		return secondaryScore;
+	}
+
+	void TrimInput(int32_t executed);
+
 	/// <summary>
 	/// Parses inputs from a python file.
 	/// [The file should contain a variable name [inputs = ...]
@@ -180,8 +205,13 @@ private:
 	/// </summary>
 	std::list<std::string> sequence;
 
+	std::list<std::string>::iterator lua_sequence_next;
+
 	/// <summary>
 	/// originally generated sequence [stores sequence after trimming]
 	/// </summary>
 	std::list<std::string> orig_sequence;
+
+	bool ReadData0x1(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+	bool ReadData0x2(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 };
