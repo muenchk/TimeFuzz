@@ -24,6 +24,7 @@ class TaskController;
 class Input;
 class Oracle;
 class Session;
+class SessionData;
 
 class Test : public Form
 {
@@ -208,6 +209,12 @@ public:
 	/// </summary>
 	void InValidate();
 
+	/// <summary>
+	/// returns whether the test is valid and still needs to be run
+	/// </summary>
+	/// <returns></returns>
+	bool IsValid() { return valid; }
+
 	const int32_t classversion = 0x1;
 
 	size_t GetStaticSize(int32_t version = 0x1);
@@ -237,12 +244,14 @@ namespace Functions
 	class TestCallback : public BaseFunction
 	{
 	public:
-		std::shared_ptr<Session> _session;
+		std::shared_ptr<SessionData> _sessiondata;
 		std::shared_ptr<Input> _input;
 
 		void Run() override;
 		static uint64_t GetTypeStatic() { return 'TEST'; }
 		uint64_t GetType() override { return 'TEST'; }
+
+		FunctionType GetFunctionType() override { return FunctionType::Light; }
 
 		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 		bool WriteData(unsigned char* buffer, size_t& offset);

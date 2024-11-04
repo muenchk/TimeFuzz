@@ -44,6 +44,10 @@ private:
 	/// </summary>
 	std::shared_ptr<Session> _session;
 	/// <summary>
+	/// the current sessiondata
+	/// </summary>
+	std::shared_ptr<SessionData> _sessiondata;
+	/// <summary>
 	/// settings of the current session
 	/// </summary>
 	std::shared_ptr<Settings> _settings;
@@ -156,7 +160,7 @@ private:
 public:
 	ExecutionHandler();
 
-	void Init(std::shared_ptr<Session> session, std::shared_ptr<Settings> settings, std::shared_ptr<TaskController> threadpool, int32_t maxConcurrentTests, std::shared_ptr<Oracle> oracle);
+	void Init(std::shared_ptr<Session> session, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Settings> settings, std::shared_ptr<TaskController> threadpool, int32_t maxConcurrentTests, std::shared_ptr<Oracle> oracle);
 
 	static ExecutionHandler* GetSingleton();
 

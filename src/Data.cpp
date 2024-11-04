@@ -4,6 +4,7 @@
 #include "ExecutionHandler.h"
 #include "LuaEngine.h"
 #include "LZMAStreamBuf.h"
+#include "SessionData.h"
 
 #include <memory>
 #include <iostream>
@@ -214,6 +215,14 @@ void Data::Save()
 					}
 					stats._Oracle++;
 					//logdebug("Write Record:      Oracle");
+					break;
+				case FormType::SessionData:
+					buffer = Records::CreateRecord<SessionData>(dynamic_pointer_cast<SessionData>(form), actionrecord_offset, actionrecord_len);
+					if (actionrecord_offset > actionrecord_len) {
+						std::cout << ("Buffer overflow in record: SessionData");
+					}
+					stats._SessionData++;
+					//logdebug("Write Record:      SessionData");
 					break;
 				default:
 					stats._Fail++;
@@ -719,6 +728,21 @@ void Data::LoadIntern(std::filesystem::path path)
 										}
 									}
 									break;
+								case FormType::SessionData:
+									{
+										//logdebug("Read Record:      SessionData");
+										auto sessdata = CreateForm<SessionData>();
+										bool res = sessdata->ReadData(buf, actionrecord_offset, rlen, _lresolve);
+										if (offset > rlen)
+											res = false;
+										if (res) {
+											stats._SessionData++;
+										} else {
+											stats._Fail++;
+											loginfo("Failed Record:    SessionData");
+										}
+									}
+									break;
 								default:
 									stats._Fail++;
 									loginfo("Trying to read unknown formtype");
@@ -766,9 +790,9 @@ void Data::LoadIntern(std::filesystem::path path)
 
 		// before we resolve late tasks, we need to register ourselves to the lua wrapper, if some of the lambda
 		// functions want to use lua scripts
-		auto sess = CreateForm<Session>();
-		sess->_oracle = CreateForm<Oracle>();
-		bool registeredLua = Lua::RegisterThread(sess);  // session is already fully loaded for the most part, so we can use the command
+		auto sessdata = CreateForm<SessionData>();
+		sessdata->_oracle = CreateForm<Oracle>();
+		bool registeredLua = Lua::RegisterThread(sessdata);  // session is already fully loaded for the most part, so we can use the command
 		_lresolve->ResolveLate(actionloadsave_current);
 		// unregister ourselves from the lua wrapper if we registered ourselves above
 		if (registeredLua)
@@ -1075,6 +1099,32 @@ std::shared_ptr<ExecutionHandler> Data::CreateForm()
 	}
 }
 
+template <>
+std::shared_ptr<SessionData> Data::CreateForm()
+{
+	SessionData::RegisterFactories();
+	std::shared_ptr<SessionData> ptr;
+	{
+		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
+		auto itr = _hashmap.find(StaticFormIDs::SessionData);
+		if (itr != _hashmap.end())
+			ptr = dynamic_pointer_cast<SessionData>(itr->second);
+	}
+	if (ptr)
+		return ptr;
+	else {
+		ptr = std::make_shared<SessionData>();
+		ptr->data = this;
+		FormID formid = StaticFormIDs::SessionData;
+		ptr->SetFormID(formid);
+		{
+			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
+			_hashmap.insert({ formid, dynamic_pointer_cast<Form>(ptr) });
+		}
+		return ptr;
+	}
+}
+
 std::unordered_map<FormID, std::weak_ptr<Form>> Data::GetWeakHashmapCopy()
 {
 	std::unordered_map<FormID, std::weak_ptr<Form>> hashweak;
@@ -1086,6 +1136,33 @@ std::unordered_map<FormID, std::weak_ptr<Form>> Data::GetWeakHashmapCopy()
 		}
 	}
 	return hashweak;
+}
+
+void Data::Visit(std::function<VisitAction(std::shared_ptr<Form>)> visitor)
+{
+	bool writelock = false;
+	_hashmaplock.lock_shared();
+	for (auto& [id, form] : _hashmap)
+	{
+		switch (visitor(form))
+		{
+		case VisitAction::None:
+			break;
+		case VisitAction::DeleteForm:
+			if (!writelock)
+			{
+				_hashmaplock.unlock_shared();
+				_hashmaplock.lock();
+				writelock = true;
+			}
+			_hashmap.erase(form->GetFormID());
+			form->Delete(this);
+		}
+	}
+	if (writelock)
+		_hashmaplock.unlock();
+	else
+		_hashmaplock.unlock_shared();
 }
 
 void Data::Clear()

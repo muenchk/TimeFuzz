@@ -6,6 +6,7 @@
 
 #include "Function.h"
 #include "Session.h"
+#include "Data.h"
 
 #include <memory>
 
@@ -24,6 +25,7 @@ namespace Functions
 
 		static uint64_t GetTypeStatic() { return 'TATE'; }
 		uint64_t GetType() override { return 'TATE'; }
+		FunctionType GetFunctionType() override { return FunctionType::Heavy; };
 		bool ReadData(unsigned char*, size_t&, size_t, LoadResolver*)
 		{
 			return true;
@@ -58,10 +60,11 @@ int main(/*int argc, char** argv*/)
 	Crash::Install(".");
 #endif
 	std::shared_ptr<Session> session = Session::CreateSession();
+	std::shared_ptr<SessionData> sessiondata = session->data->CreateForm<SessionData>();
 	Functions::RegisterFactory(Functions::TaskControllerTestCallback::GetTypeStatic(), Functions::TaskControllerTestCallback::Create);
 	TaskController controller;
 	controller.SetDisableLua();
-	controller.Start(session, 1);
+	controller.Start(sessiondata, 1);
 	int arr[100];
 	for (int i = 0; i < 100; i++) {
 		auto task = Functions::BaseFunction::Create<Functions::TaskControllerTestCallback>();

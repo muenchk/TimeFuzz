@@ -10,12 +10,12 @@
 #include "Utility.h"
 
 class Test;
-class Session;
+class SessionData;
 
 class Lua
 {
 public:
-	static bool RegisterThread(std::shared_ptr<Session> session);
+	static bool RegisterThread(std::shared_ptr<SessionData> session);
 	static void UnregisterThread();
 
 	static EnumType EvaluateOracle(std::function<EnumType(lua_State*, std::shared_ptr<Test>)> func, std::shared_ptr<Test> test, bool& stateerror);

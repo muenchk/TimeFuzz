@@ -5,11 +5,15 @@
 #include <string>
 #include <vector>
 #include <list>
+#include <set>
+
 class DerivationTree : public Form
 {
 
 private:
 	const int32_t classversion = 0x2;
+
+	std::mutex _lock;
 
 public:
 	enum class NodeType
@@ -28,7 +32,7 @@ public:
 		std::vector<Node*> children;
 		uint64_t grammarID;
 
-		inline NodeType Type() override { return NodeType::NonTerminal; }
+		NodeType Type() override { return NodeType::NonTerminal; }
 	};
 
 	struct TerminalNode : public Node
@@ -36,12 +40,12 @@ public:
 		uint64_t grammarID;
 		std::string content;
 
-		inline NodeType Type() override { return NodeType::Terminal; }
+		NodeType Type() override { return NodeType::Terminal; }
 	};
 
 	struct SequenceNode : public NonTerminalNode
 	{
-		inline NodeType Type() override { return NodeType::Sequence; }
+		NodeType Type() override { return NodeType::Sequence; }
 	};
 
 	Node* root;
@@ -50,7 +54,7 @@ public:
 	bool regenerate = false;
 	uint32_t seed = 0;
 	int32_t targetlen = 0;
-	std::list<Node*> nodes;
+	std::set<Node*> nodes;
 	int32_t sequenceNodes = 0;
 
 	void Parse(std::string);
@@ -75,6 +79,15 @@ public:
 	void Clear() override;
 	inline static bool _registeredFactories = false;
 	static void RegisterFactories();
+
+	void AcquireLock() {
+		_lock.lock();
+	}
+
+	void ReleaseLock()
+	{
+		_lock.unlock();
+	}
 
 	#pragma endregion
 };

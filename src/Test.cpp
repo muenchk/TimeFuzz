@@ -588,8 +588,11 @@ namespace Functions
 
 
 		// ----- SESSION STUFF -----
-		SessionFunctions::TestEnd(_session, _input);
-		SessionFunctions::MasterControl(_session);
+		SessionFunctions::TestEnd(_sessiondata, _input);
+		// schedule test generation
+		SessionFunctions::GenerateTests(_sessiondata);
+		// perform master checks
+		SessionFunctions::MasterControl(_sessiondata);
 	}
 
 	bool TestCallback::ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver* resolver)
@@ -597,7 +600,7 @@ namespace Functions
 		// get id of session and resolve link
 		uint64_t sessid = Buffer::ReadUInt64(buffer, offset);
 		resolver->AddTask([this, sessid, resolver]() {
-			this->_session = resolver->ResolveFormID<Session>(sessid);
+			this->_sessiondata = resolver->ResolveFormID<SessionData>(sessid);
 		});
 		// get id of saved input and resolve link
 		uint64_t inputid = Buffer::ReadUInt64(buffer, offset);
@@ -610,7 +613,7 @@ namespace Functions
 	bool TestCallback::WriteData(unsigned char* buffer, size_t& offset)
 	{
 		BaseFunction::WriteData(buffer, offset);
-		Buffer::Write(_session->GetFormID(), buffer, offset);  // +8
+		Buffer::Write(_sessiondata->GetFormID(), buffer, offset);  // +8
 		Buffer::Write(_input->GetFormID(), buffer, offset);    // +8
 		return true;
 	}
@@ -626,7 +629,7 @@ namespace Functions
 			if (_input->test)
 				_input->test->callback.reset();
 		_input.reset();
-		_session.reset();
+		_sessiondata.reset();
 	}
 
 	void ReplayTestCallback::Run()
@@ -634,7 +637,7 @@ namespace Functions
 		// this is the run funtion for replaying already run tests, 
 		// thus we don't want to actually save the test and the input,
 		// but delete it instead
-		SessionFunctions::TestEnd(_session, _input, true);
+		SessionFunctions::TestEnd(_sessiondata, _input, true);
 	}
 }
 

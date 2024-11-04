@@ -32,6 +32,7 @@ namespace Functions
 
 		static uint64_t GetTypeStatic() { return 'CALL'; }
 		uint64_t GetType() override { return 'CALL'; }
+		FunctionType GetFunctionType() override { return FunctionType::Heavy; };
 		bool ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver* resolver) override
 		{
 			uint64_t id = Buffer::ReadUInt64(buffer, offset);
@@ -78,6 +79,7 @@ namespace Functions
 
 		static uint64_t GetTypeStatic() { return 'TATE'; }
 		uint64_t GetType() override { return 'TATE'; }
+		FunctionType GetFunctionType() override { return FunctionType::Heavy; };
 		bool ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver*) override
 		{
 			i = Buffer::ReadInt32(buffer, offset);
@@ -120,6 +122,7 @@ int main(/*int argc, char** argv*/)
 
 	std::shared_ptr<Session> sess = Session::CreateSession();
 	std::shared_ptr<Settings> sett = sess->data->CreateForm<Settings>();
+	std::shared_ptr<SessionData> sessdata = sess->data->CreateForm<SessionData>();
 
 	//////// build a taskcontroller and add some functions
 	Functions::RegisterFactory(Functions::Callback::GetTypeStatic(), Functions::Callback::Create);
@@ -156,7 +159,7 @@ int main(/*int argc, char** argv*/)
 	}
 	logdebug("Created Oracle");
 	std::shared_ptr<ExecutionHandler> execution = sess->data->CreateForm<ExecutionHandler>();
-	execution->Init(sess, sett, controller, 1, oracle);
+	execution->Init(sess, sessdata, sett, controller, 1, oracle);
 	execution->SetMaxConcurrentTests(10);
 	logdebug("Created executionhandler");
 	//execution->StartHandler();
@@ -193,6 +196,7 @@ int main(/*int argc, char** argv*/)
 	controller.reset();
 	oracle.reset();
 	sett.reset();
+	sessdata.reset();
 
 	auto hashmap = sess->data->GetWeakHashmapCopy();
 	sess->StopSession(false);

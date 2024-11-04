@@ -67,10 +67,39 @@ void DerivationTree::Delete(Data*)
 
 void DerivationTree::Clear()
 {
-	std::stack<Node*> stack;
+	AcquireLock();
+	valid = false;
 	if (root == nullptr)
 		return;
-	for (auto node : nodes) {
+	auto itr = nodes.begin();
+	int count = 0;
+	while (itr != nodes.end())
+	{
+		switch ((*itr)->Type()) {
+		case NodeType::Terminal:
+			{
+				TerminalNode* n = (TerminalNode*)*itr;
+				delete n;  
+			}
+			break;
+		case NodeType::NonTerminal:
+			{
+				NonTerminalNode* n = (NonTerminalNode*)*itr;
+				delete n;
+			}
+			break;
+		case NodeType::Sequence:
+			{
+				SequenceNode* n = (SequenceNode*)*itr;
+				delete n;
+			}
+			break;
+		}
+		count++;
+		itr++;
+	}
+
+	/* for (auto node : nodes) {
 		switch (node->Type()) {
 		case NodeType::Terminal:
 			{
@@ -91,8 +120,10 @@ void DerivationTree::Clear()
 			}
 			break;
 		}
-	}
+	}*/
+	nodes.clear();
 	root = nullptr;
+	ReleaseLock();
 }
 
 void DerivationTree::RegisterFactories()

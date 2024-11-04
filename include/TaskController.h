@@ -11,7 +11,7 @@
 
 class LoadResolver;
 class LoadResolverGrammar;
-class Session;
+class SessionData;
 
 class TaskController : public Form
 {
@@ -40,7 +40,7 @@ public:
 	/// Starts the TaskController
 	/// </summary>
 	/// <param name="numthreads"></param>
-	void Start(std::shared_ptr<Session> session, int32_t numthreads = 0);
+	void Start(std::shared_ptr<SessionData> session, int32_t numthreads = 0);
 	/// <summary>
 	/// Stops the TaskController, optionally waiting for the completion of all tasks
 	/// </summary>
@@ -79,6 +79,7 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	int32_t GetWaitingJobs();
+	int32_t GetWaitingLightJobs();
 
 	#pragma region InheritedForm
 
@@ -113,9 +114,15 @@ private:
 	void InternalLoop(int32_t number);
 
 	/// <summary>
+	/// Parallel function that executes the waiting tasks
+	/// </summary>
+	/// <param name="number"></param>
+	void InternalLoop_Light(int32_t number);
+
+	/// <summary>
 	/// shared pointer to session
 	/// </summary>
-	std::shared_ptr<Session> _session{};
+	std::shared_ptr<SessionData> _sessiondata{};
 
 	/// <summary>
 	/// disables lua support
@@ -142,6 +149,7 @@ private:
 	/// <summary>
 	/// regular queue, tasks will be handled first come first serve
 	/// </summary>
+	std::deque<std::shared_ptr<Functions::BaseFunction>> tasks_light;
 	std::deque<std::shared_ptr<Functions::BaseFunction>> tasks;
 	std::mutex lock;
 	std::atomic<uint64_t> completedjobs;
@@ -152,4 +160,5 @@ private:
 
 	int32_t _numthreads = 0;
 	const int32_t classversion = 0x1;
+	bool _optimizeFuncExec = false;
 };

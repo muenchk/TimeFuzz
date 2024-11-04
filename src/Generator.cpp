@@ -120,6 +120,7 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 		// this can happen with temporary input forms, that reuse existing
 		// derivation trees, even though the input forms themselves don't have
 		// the derived sequences
+		input->derive->AcquireLock();
 		if (input->derive->valid == false) {
 			if (input->derive && input->derive->regenerate == true) {
 				// we already generated the input some time ago, so we will reuse the past generation parameters to
@@ -184,20 +185,23 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 						}
 					}
 					input->AddEntry(entry);
-					if (input->GetTrimmedLength() != -1 && input->Length() == input->GetTrimmedLength())
+					if (input->GetTrimmedLength() != -1 && (int64_t)input->Length() == input->GetTrimmedLength())
 						break;
 				}
 			}
 			input->SetGenerated();
 			profile(TimeProfiling, "Time taken for input Generation");
-			if ((int32_t)input->Length() != input->derive->sequenceNodes)
+			if ((int32_t)input->Length() != input->derive->sequenceNodes && input->GetTrimmedLength() != -1 && (int32_t)input->Length() != input->GetTrimmedLength())
 				logwarn("The input length is different from the generated sequence. Length: {}, Expected: {}", input->Length(), input->derive->sequenceNodes);
 			if ((int32_t)input->Length() == 0)
 				logwarn("The input length is 0.");
+
+			input->derive->ReleaseLock();
 			return true;
 		} else
 			;
 		profile(TimeProfiling, "Time taken for input Generation");
+		input->derive->ReleaseLock();
 		return false;
 	} else {
 		DummyGenerate(input);

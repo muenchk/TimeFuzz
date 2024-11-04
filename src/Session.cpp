@@ -11,6 +11,8 @@
 #include "Data.h"
 #include "SessionFunctions.h"
 #include "LuaEngine.h"
+#include "SessionData.h"
+#include "ExclusionTree.h"
 
 Session* Session::GetSingleton()
 {
@@ -56,7 +58,8 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, LoadSessionArgs&
 		InitStatus(status, sett);
 	logdebug("Initialized status");
 	auto session = dat->CreateForm<Session>();
-	session->_settings = sett;
+	session->_sessiondata = dat->CreateForm<SessionData>();
+	session->_sessiondata->_settings = sett;
 	session->data = dat;
 	dat->SetSavePath(sett->saves.savepath);
 	logdebug("Set save path");
@@ -87,7 +90,8 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, 
 		InitStatus(status, sett);
 	logdebug("Initialized status");
 	auto session = dat->CreateForm<Session>();
-	session->_settings = sett;
+	session->_sessiondata = dat->CreateForm<SessionData>();
+	session->_sessiondata->_settings = sett;
 	session->data = dat;
 	dat->SetSavePath(sett->saves.savepath);
 	logdebug("Set save path");
@@ -117,41 +121,39 @@ void Session::Clear()
 	if (_sessioncontroller.joinable())
 		_sessioncontroller.detach();
 	_sessioncontroller = {};
-	if (_oracle)
-		_oracle.reset();
-	if (_controller)
-	{
-		_controller->Stop(false);
-		_controller.reset();
-	}
-	if (_exechandler) {
-		_exechandler->StopHandler();
-		_exechandler->Clear();
-		_exechandler.reset();
-	}
-	if (_generator)
-	{
-		_generator->Clear();
-		_generator.reset();
-	}
-	if (_grammar)
-	{
-		_grammar->Clear();
-		_grammar.reset();
-	}
-	if (_settings)
-	{
-		_settings.reset();
-	}
-	if (_excltree) {
-		_excltree->Clear();
-		_excltree.reset();
-	}
-	try {
-		sessiondata.Clear();
-	} catch (std::exception)
-	{
-		throw std::runtime_error("session clear fail");
+	if (_sessiondata) {
+		if (_sessiondata->_oracle)
+			_sessiondata->_oracle.reset();
+		if (_sessiondata->_controller) {
+			_sessiondata->_controller->Stop(false);
+			_sessiondata->_controller.reset();
+		}
+		if (_sessiondata->_exechandler) {
+			_sessiondata->_exechandler->StopHandler();
+			_sessiondata->_exechandler->Clear();
+			_sessiondata->_exechandler.reset();
+		}
+		if (_sessiondata->_generator) {
+			_sessiondata->_generator->Clear();
+			_sessiondata->_generator.reset();
+		}
+		if (_sessiondata->_grammar) {
+			_sessiondata->_grammar->Clear();
+			_sessiondata->_grammar.reset();
+		}
+		if (_sessiondata->_settings) {
+			_sessiondata->_settings.reset();
+		}
+		if (_sessiondata->_excltree) {
+			_sessiondata->_excltree->Clear();
+			_sessiondata->_excltree.reset();
+		}
+		try {
+			_sessiondata->Clear();
+			_sessiondata.reset();
+		} catch (std::exception) {
+			throw std::runtime_error("session clear fail");
+		}
 	}
 	Lua::DestroyAll();
 	if (_self)
@@ -200,19 +202,24 @@ std::vector<std::shared_ptr<Input>> Session::GenerateNegatives(int32_t /*negativ
 
 void Session::StopSession(bool savesession)
 {
+	if (abort == true)
+		return;
 	logmessage("Stopping session.");
 	if (savesession)
 		data->Save();
 
 	// set abort -> session controller should automatically stop
 	abort = true;
-	// stop controller
-	if (_controller) {
-		_controller->Stop(false);
-	}
-	// stop executionHandler
-	if (_exechandler) {
-		_exechandler->StopHandler();
+	if (_sessiondata) {
+		// stop executionhandler first, so no more new tests are started and the 
+		// taskcontroller can catch up if necessary
+		if (_sessiondata->_exechandler) {
+			_sessiondata->_exechandler->StopHandler();
+		}
+		// stop controller
+		if (_sessiondata->_controller) {
+			_sessiondata->_controller->Stop(false);
+		}
 	}
 	
 	// don't clear any data, we may want to use the data for statistics, etc.
@@ -254,19 +261,19 @@ void Session::StartLoadedSession(bool& error, bool reloadsettings, std::wstring 
 	if (reloadsettings) {
 		loginfo("Reloading settings...");
 		printf("%ls\n", settingsPath.c_str());
-		_settings->Load(settingsPath, true);
-		_settings->Save(settingsPath);
+		_sessiondata->_settings->Load(settingsPath, true);
+		_sessiondata->_settings->Save(settingsPath);
 		// reset oracle after settings reload
-		if (_settings->oracle.oracle == Oracle::PUTType::Undefined) {
+		if (_sessiondata->_settings->oracle.oracle == Oracle::PUTType::Undefined) {
 			logcritical("The oracle type could not be identified");
 			LastError = ExitCodes::StartupError;
 			error = true;
 			return;
 		}
-		_oracle = data->CreateForm<Oracle>();
-		_oracle->Set(_settings->oracle.oracle, _settings->oracle.oraclepath);
+		_sessiondata->_oracle = data->CreateForm<Oracle>();
+		_sessiondata->_oracle->Set(_sessiondata->_settings->oracle.oracle, _sessiondata->_settings->oracle.oraclepath);
 		// set lua cmdargs scripts
-		auto path = std::filesystem::path(_settings->oracle.lua_path_cmd);
+		auto path = std::filesystem::path(_sessiondata->_settings->oracle.lua_path_cmd);
 		if (!std::filesystem::exists(path))
 		{
 			logcritical("Lua CmdArgs script cannot be found.");
@@ -274,26 +281,26 @@ void Session::StartLoadedSession(bool& error, bool reloadsettings, std::wstring 
 			error = true;
 			return;
 		}
-		_oracle->SetLuaCmdArgs(path);
+		_sessiondata->_oracle->SetLuaCmdArgs(path);
 		// set lua cmd args replay
-		path = std::filesystem::path(_settings->oracle.lua_path_cmd_replay);
+		path = std::filesystem::path(_sessiondata->_settings->oracle.lua_path_cmd_replay);
 		if (std::filesystem::exists(path)) {
-			_oracle->SetLuaCmdArgsReplay(path);
+			_sessiondata->_oracle->SetLuaCmdArgsReplay(path);
 		}
 		// set lua oracle script
-		path = std::filesystem::path(_settings->oracle.lua_path_oracle);
+		path = std::filesystem::path(_sessiondata->_settings->oracle.lua_path_oracle);
 		if (!std::filesystem::exists(path)) {
 			logcritical("Lua Oracle script cannot be found.");
 			LastError = ExitCodes::StartupError;
 			error = true;
 			return;
 		}
-		_oracle->SetLuaOracle(path);
+		_sessiondata->_oracle->SetLuaOracle(path);
 	} else
 		loginfo("Proceeding with settings from savefile.");
 	if (callback != nullptr)
 		_callback = callback;
-	if (_oracle->Validate() == false) {
+	if (_sessiondata->_oracle->Validate() == false) {
 		logcritical("Oracle isn't valid.");
 		LastError = ExitCodes::StartupError;
 		error = true;
@@ -307,21 +314,24 @@ void Session::StartSession(bool& error, bool globalTaskController, bool globalEx
 {
 	loaded = true;
 	logmessage("Starting new session");
+	// init sessiondata
+	_sessiondata = data->CreateForm<SessionData>();
+	_sessiondata->data = data;
 	// init settings
-	_settings = data->CreateForm<Settings>();
-	_settings->Load(settingsPath);
-	_settings->Save(settingsPath);
+	_sessiondata->_settings = data->CreateForm<Settings>();
+	_sessiondata->_settings->Load(settingsPath);
+	_sessiondata->_settings->Save(settingsPath);
 	data->_globalTasks = globalTaskController;
 	data->_globalExec = globalExecutionHandler;
 	// set taskcontroller
-	_controller = data->CreateForm<TaskController>();
+	_sessiondata->_controller = data->CreateForm<TaskController>();
 	// set executionhandler
-	_exechandler = data->CreateForm<ExecutionHandler>();
+	_sessiondata->_exechandler = data->CreateForm<ExecutionHandler>();
 	if (callback != nullptr)
 		_callback = callback;
 	// set save path
-	data->SetSavePath(_settings->saves.savepath);
-	data->SetSaveName(_settings->saves.savename);
+	data->SetSavePath(_sessiondata->_settings->saves.savepath);
+	data->SetSaveName(_sessiondata->_settings->saves.savename);
 	// start session
 	StartSessionIntern(error);
 }
@@ -331,40 +341,40 @@ void Session::StartSessionIntern(bool &error)
 	try {
 		StartProfiling;
 		// populate the oracle
-		if (_settings->oracle.oracle == Oracle::PUTType::Undefined) {
+		if (_sessiondata->_settings->oracle.oracle == Oracle::PUTType::Undefined) {
 			logcritical("The oracle type could not be identified");
 			LastError = ExitCodes::StartupError;
 			error = true;
 			return;
 		}
-		_oracle = data->CreateForm<Oracle>();
-		_oracle->Set(_settings->oracle.oracle, _settings->oracle.oraclepath);
+		_sessiondata->_oracle = data->CreateForm<Oracle>();
+		_sessiondata->_oracle->Set(_sessiondata->_settings->oracle.oracle, _sessiondata->_settings->oracle.oraclepath);
 		// set lua cmdargs scripts
-		auto path = std::filesystem::path(_settings->oracle.lua_path_cmd);
+		auto path = std::filesystem::path(_sessiondata->_settings->oracle.lua_path_cmd);
 		if (!std::filesystem::exists(path)) {
 			logcritical("Lua CmdArgs script cannot be found.");
 			LastError = ExitCodes::StartupError;
 			error = true;
 			return;
 		}
-		_oracle->SetLuaCmdArgs(path);
+		_sessiondata->_oracle->SetLuaCmdArgs(path);
 		// set lua oracle script
-		path = std::filesystem::path(_settings->oracle.lua_path_oracle);
+		path = std::filesystem::path(_sessiondata->_settings->oracle.lua_path_oracle);
 		if (!std::filesystem::exists(path)) {
 			logcritical("Lua Oracle script cannot be found.");
 			LastError = ExitCodes::StartupError;
 			error = true;
 			return;
 		}
-		_oracle->SetLuaOracle(path);
+		_sessiondata->_oracle->SetLuaOracle(path);
 		// set lua cmd args replay
-		path = std::filesystem::path(_settings->oracle.lua_path_cmd_replay);
+		path = std::filesystem::path(_sessiondata->_settings->oracle.lua_path_cmd_replay);
 		if (std::filesystem::exists(path)) {
-			_oracle->SetLuaCmdArgsReplay(path);
+			_sessiondata->_oracle->SetLuaCmdArgsReplay(path);
 		}
 		// set lua oracle script
 		// check the oracle for validity
-		if (_oracle->Validate() == false) {
+		if (_sessiondata->_oracle->Validate() == false) {
 			logcritical("Oracle isn't valid.");
 			LastError = ExitCodes::StartupError;
 			error = true;
@@ -372,9 +382,9 @@ void Session::StartSessionIntern(bool &error)
 		}
 
 		// load grammar
-		_grammar = data->CreateForm<Grammar>();
-		_grammar->ParseScala(_settings->oracle.grammar_path);
-		if (!_grammar->IsValid()) {
+		_sessiondata->_grammar = data->CreateForm<Grammar>();
+		_sessiondata->_grammar->ParseScala(_sessiondata->_settings->oracle.grammar_path);
+		if (!_sessiondata->_grammar->IsValid()) {
 			logcritical("Grammar isn't valid.");
 			LastError = ExitCodes::StartupError;
 			error = true;
@@ -382,9 +392,9 @@ void Session::StartSessionIntern(bool &error)
 		}
 
 		// set generator
-		_generator = data->CreateForm<Generator>();
-		_generator->Init();
-		_generator->SetGrammar(_grammar);
+		_sessiondata->_generator = data->CreateForm<Generator>();
+		_sessiondata->_generator->Init();
+		_sessiondata->_generator->SetGrammar(_sessiondata->_grammar);
 
 		profile(TimeProfiling, "Time taken for session setup.");
 
@@ -406,10 +416,14 @@ void Session::SessionControl()
 
 	logmessage("Kicking off session...");
 
+	// get session data
+	_sessiondata = data->CreateForm<SessionData>();
+	_sessiondata->data = data;
+
 	// calculate number of threads to use for each controller and start them
-	int32_t taskthreads = _settings->general.numcomputingthreads;
-	int32_t execthreads = _settings->general.concurrenttests;
-	if (_settings->general.usehardwarethreads)
+	int32_t taskthreads = _sessiondata->_settings->general.numcomputingthreads;
+	int32_t execthreads = _sessiondata->_settings->general.concurrenttests;
+	if (_sessiondata->_settings->general.usehardwarethreads)
 	{
 		// don't overshoot over actually available hardware threads
 		int32_t max = (int)std::thread::hardware_concurrency();
@@ -423,18 +437,19 @@ void Session::SessionControl()
 	if (execthreads == 0)
 		execthreads = 1;
 	_self = data->CreateForm<Session>();
-	_controller->Start(_self, taskthreads);
-	_exechandler->Init(_self, _settings, _controller, _settings->general.concurrenttests, _oracle);
-	_exechandler->StartHandlerAsIs();
-	_excltree = data->CreateForm<ExclusionTree>();
+	_sessiondata->_controller->Start(_sessiondata, taskthreads);
+	_sessiondata->_exechandler->Init(_self, _sessiondata, _sessiondata->_settings, _sessiondata->_controller, _sessiondata->_settings->general.concurrenttests, _sessiondata->_oracle);
+	_sessiondata->_exechandler->StartHandlerAsIs();
+	_sessiondata->_excltree = data->CreateForm<ExclusionTree>();
 
 	running = true;
 	data->StartClock();
 
 	// run master control and kick stuff of
 	// generates inputs, etc.
-	Lua::RegisterThread(_self);
-	SessionFunctions::MasterControl(_self);
+	Lua::RegisterThread(_sessiondata);
+	SessionFunctions::MasterControl(_sessiondata);
+	SessionFunctions::GenerateTests(_sessiondata);
 	Lua::UnregisterThread();
 
 	logmessage("Kicked session off.");
@@ -456,16 +471,16 @@ void Session::End()
 std::string Session::PrintStats()
 {
 	std::string output;
-	output += "Tests Executed:    " + std::to_string(SessionStatistics::TestsExecuted(_self)) + "\n";
-	output += "Positive Tests:    " + std::to_string(SessionStatistics::PositiveTestsGenerated(_self)) + "\n";
-	output += "Negative Tests:    " + std::to_string(SessionStatistics::NegativeTestsGenerated(_self)) + "\n";
-	output += "Runtime:           " + std::to_string(SessionStatistics::Runtime(_self).count()) + "ns\n";
+	output += "Tests Executed:    " + std::to_string(SessionStatistics::TestsExecuted(_sessiondata)) + "\n";
+	output += "Positive Tests:    " + std::to_string(SessionStatistics::PositiveTestsGenerated(_sessiondata)) + "\n";
+	output += "Negative Tests:    " + std::to_string(SessionStatistics::NegativeTestsGenerated(_sessiondata)) + "\n";
+	output += "Runtime:           " + std::to_string(SessionStatistics::Runtime(_sessiondata).count()) + "ns\n";
 	return output;
 }
 
 void Session::InitStatus(SessionStatus& status)
 {
-	InitStatus(&status, _settings);
+	InitStatus(&status, _sessiondata->_settings);
 }
 
 void Session::InitStatus(SessionStatus* status, std::shared_ptr<Settings> sett)
@@ -497,12 +512,12 @@ void Session::InitStatus(SessionStatus* status, std::shared_ptr<Settings> sett)
 void Session::GetStatus(SessionStatus& status)
 {
 	if (loaded) {
-		status.overallTests = SessionStatistics::TestsExecuted(_self);
-		status.positiveTests = SessionStatistics::PositiveTestsGenerated(_self);
-		status.negativeTests = SessionStatistics::NegativeTestsGenerated(_self);
-		status.unfinishedTests = SessionStatistics::UnfinishedTestsGenerated(_self);
-		status.prunedTests = SessionStatistics::TestsPruned(_self);
-		status.runtime = SessionStatistics::Runtime(_self);
+		status.overallTests = SessionStatistics::TestsExecuted(_sessiondata);
+		status.positiveTests = SessionStatistics::PositiveTestsGenerated(_sessiondata);
+		status.negativeTests = SessionStatistics::NegativeTestsGenerated(_sessiondata);
+		status.unfinishedTests = SessionStatistics::UnfinishedTestsGenerated(_sessiondata);
+		status.prunedTests = SessionStatistics::TestsPruned(_sessiondata);
+		status.runtime = SessionStatistics::Runtime(_sessiondata);
 		if (status.overallTests_goal != 0)
 			status.goverall = (double)status.overallTests / (double)(status.overallTests_goal);
 		else
@@ -521,28 +536,29 @@ void Session::GetStatus(SessionStatus& status)
 			status.gtime = -1;
 
 		// ExclusionTree
-		status.excl_depth = _excltree->GetDepth();
-		status.excl_nodecount = _excltree->GetNodeCount();
-		status.excl_leafcount = _excltree->GetLeafCount();
+		status.excl_depth = _sessiondata->_excltree->GetDepth();
+		status.excl_nodecount = _sessiondata->_excltree->GetNodeCount();
+		status.excl_leafcount = _sessiondata->_excltree->GetLeafCount();
 
 		// TaskController
-		status.task_completed = _controller->GetCompletedJobs();
-		status.task_waiting = _controller->GetWaitingJobs();
+		status.task_completed = _sessiondata->_controller->GetCompletedJobs();
+		status.task_waiting = _sessiondata->_controller->GetWaitingJobs();
+		status.task_waiting_light = _sessiondata->_controller->GetWaitingLightJobs();
 		
 		// ExecutionHandler
-		status.exec_running = _exechandler->GetRunningTests();
-		status.exec_waiting = _exechandler->GetWaitingTests();
-		status.exec_stopping = _exechandler->GetStoppingTests();
+		status.exec_running = _sessiondata->_exechandler->GetRunningTests();
+		status.exec_waiting = _sessiondata->_exechandler->GetWaitingTests();
+		status.exec_stopping = _sessiondata->_exechandler->GetStoppingTests();
 
 		// Generation
-		status.gen_generatedInputs = sessiondata.GetGeneratedInputs();
-		status.gen_generatedWithPrefix = sessiondata.GetGeneratedPrefix();
-		status.gen_generationFails = sessiondata.GetGenerationFails();
-		status.gen_failureRate = sessiondata.GetGenerationFailureRate();
-		status.gen_addtestfails = sessiondata.GetAddTestFails();
+		status.gen_generatedInputs = _sessiondata->GetGeneratedInputs();
+		status.gen_generatedWithPrefix = _sessiondata->GetGeneratedPrefix();
+		status.gen_generationFails = _sessiondata->GetGenerationFails();
+		status.gen_failureRate = _sessiondata->GetGenerationFailureRate();
+		status.gen_addtestfails = _sessiondata->GetAddTestFails();
 
 		// Tests
-		status.exitstats = sessiondata.GetTestExitStats();
+		status.exitstats = _sessiondata->GetTestExitStats();
 	}
 	status.saveload = data->actionloadsave;
 	status.status = data->status;
@@ -586,15 +602,20 @@ bool Session::SetRunning(bool state)
 
 size_t Session::GetStaticSize(int32_t version)
 {
-	size_t size0x1 = Form::GetDynamicSize()          // form size
-	                 + 4                             // version
-	                 + 8                             // grammar id
-	                 + sessiondata.GetStaticSize();  // session data
+	// size0x1 is inaccurate due to code changes and cannot be reliably used
+	size_t size0x1 = Form::GetDynamicSize()  // form size
+	                 + 4                     // version
+	                 + 8;                    // grammar id
+	                 //+ _sessiondata->GetStaticSize(0x2);  // session data
 
+	size_t size0x2 = Form::GetDynamicSize()  // form size
+	                 + 4;                    // version
 
 	switch (version) {
 	case 0x1:
 		return size0x1;
+	case 0x2:
+		return size0x2;
 	default:
 		return 0;
 	}
@@ -602,18 +623,13 @@ size_t Session::GetStaticSize(int32_t version)
 
 size_t Session::GetDynamicSize()
 {
-	return GetStaticSize() + sessiondata.GetDynamicSize();
+	return GetStaticSize(classversion);
 }
 
 bool Session::WriteData(unsigned char* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
-	if (_grammar)
-		Buffer::Write(_grammar->GetFormID(), buffer, offset);
-	else
-		Buffer::Write((uint64_t)0, buffer, offset);
-	sessiondata.WriteData(buffer, offset);
 	return true;
 }
 
@@ -624,18 +640,15 @@ bool Session::ReadData(unsigned char* buffer, size_t& offset, size_t length, Loa
 	case 0x1:
 		{
 			Form::ReadData(buffer, offset, length, resolver);
-			FormID grammarid = Buffer::ReadUInt64(buffer, offset);
-			sessiondata.ReadData(buffer, offset, length, resolver);
-			resolver->AddTask([this, resolver, grammarid]() {
-				auto oracle = resolver->ResolveFormID<Oracle>(Data::StaticFormIDs::Oracle);
-				auto controller = resolver->ResolveFormID<TaskController>(Data::StaticFormIDs::TaskController);
-				auto exechandler = resolver->ResolveFormID<ExecutionHandler>(Data::StaticFormIDs::ExecutionHandler);
-				auto generator = resolver->ResolveFormID<Generator>(Data::StaticFormIDs::Generator);
-				auto grammar = resolver->ResolveFormID<Grammar>(grammarid);
-				auto settings = resolver->ResolveFormID<Settings>(Data::StaticFormIDs::Settings);
-				auto excltree = resolver->ResolveFormID<ExclusionTree>(Data::StaticFormIDs::ExclusionTree);
-				this->SetInternals(oracle, controller, exechandler, generator, grammar, settings, excltree);
-			});
+			FormID _ = Buffer::ReadUInt64(buffer, offset);
+			_sessiondata = data->CreateForm<SessionData>();
+			_sessiondata->data = data;
+			_sessiondata->ReadData(buffer, offset, length, resolver);
+			return true;
+		}
+	case 0x2:
+		{
+			Form::ReadData(buffer, offset, length, resolver);
 			return true;
 		}
 	default:
@@ -646,13 +659,13 @@ bool Session::ReadData(unsigned char* buffer, size_t& offset, size_t length, Loa
 
 void Session::SetInternals(std::shared_ptr<Oracle> oracle, std::shared_ptr<TaskController> controller, std::shared_ptr<ExecutionHandler> exechandler, std::shared_ptr<Generator> generator, std::shared_ptr<Grammar> grammar, std::shared_ptr<Settings> settings, std::shared_ptr<ExclusionTree> excltree)
 {
-	_oracle = oracle;
-	_controller = controller;
-	_exechandler = exechandler;
-	_generator = generator;
-	_grammar = grammar;
-	_settings = settings;
-	_excltree = excltree;
+	_sessiondata->_oracle = oracle;
+	_sessiondata->_controller = controller;
+	_sessiondata->_exechandler = exechandler;
+	_sessiondata->_generator = generator;
+	_sessiondata->_grammar = grammar;
+	_sessiondata->_settings = settings;
+	_sessiondata->_excltree = excltree;
 }
 
 void Session::Delete(Data*)
@@ -665,13 +678,13 @@ void Session::Replay(FormID inputid)
 {
 	auto input = data->LookupFormID<Input>(inputid);
 	if (input) {
-		bool reg = Lua::RegisterThread(_self);
+		bool reg = Lua::RegisterThread(_sessiondata);
 		auto newinput = data->CreateForm<Input>();
 		input->DeepCopy(newinput);
 		auto callback = dynamic_pointer_cast<Functions::ReplayTestCallback>(Functions::ReplayTestCallback::Create());
-		callback->_session = _self;
+		callback->_sessiondata = _sessiondata;
 		callback->_input = newinput;
-		_exechandler->AddTest(newinput, callback, true, true);
+		_sessiondata->_exechandler->AddTest(newinput, callback, true, true);
 		if (reg)
 			Lua::UnregisterThread();
 	}
@@ -681,7 +694,7 @@ void Session::UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k)
 {
 	if (vector.size() < k)
 		vector.resize(k);
-	auto vec = sessiondata.GetTopK((int32_t)k);
+	auto vec = _sessiondata->GetTopK((int32_t)k);
 	for (int32_t i = 0; i < (int32_t)vec.size(); i++)
 	{
 		vector[i].id = vec[i]->GetFormID();

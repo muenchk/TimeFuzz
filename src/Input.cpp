@@ -479,6 +479,33 @@ void Input::DeepCopy(std::shared_ptr<Input> other)
 	other->hasfinished = hasfinished;
 }
 
+void Input::FreeMemory()
+{
+	// if input is generated AND the test has already been run and the callback has been invalidated
+	// (i.e. we have evaluated oracle and stuff)
+	// we can destroy the derivation tree and clear the sequence to reclaim
+	// memory space
+	if (generatedSequence && test && test->IsValid() == false && !test->callback) {
+		generatedSequence = false;
+
+		if (derive) {
+			// automatically sets derive to invalid
+			if (derive->valid)
+				derive->Clear();
+			else
+				pythonconverted;
+		}
+		sequence.clear();
+		orig_sequence.clear();
+	}
+	// reset python string
+	pythonconverted = false;
+	pythonstring = "";
+	// reset test itr
+	if (test)
+		test->itr = sequence.end();
+}
+
 void Input::TrimInput(int32_t executed)
 {
 	if (executed != -1 && executed != sequence.size()) {

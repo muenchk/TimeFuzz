@@ -32,7 +32,14 @@ public:
 			Generator = 5,
 			ExclusionTree = 6,
 			ExecutionHandler = 7,
+			SessionData = 8,
 		};
+	};
+
+	enum class VisitAction
+	{
+		None,
+		DeleteForm,
 	};
 
 	struct SaveStats
@@ -48,6 +55,7 @@ public:
 		int64_t _TaskController = 0;
 		int64_t _ExecutionHandler = 0;
 		int64_t _Oracle = 0;
+		int64_t _SessionData = 0;
 		int64_t _Fail = 0;
 	};
 
@@ -192,6 +200,8 @@ public:
 	std::shared_ptr<ExclusionTree> CreateForm();
 	template <>
 	std::shared_ptr<ExecutionHandler> CreateForm();
+	template <>
+	std::shared_ptr<SessionData> CreateForm();
 
 	/// <summary>
 	/// Registers an existing form [used during loading]
@@ -222,6 +232,7 @@ public:
 		if (form) {
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 			_hashmap.erase(form->GetFormID());
+			form->Delete(this);
 			form.reset();
 			return;
 		} else {
@@ -245,6 +256,12 @@ public:
 			return dynamic_pointer_cast<T>(itr->second);
 		return {};
 	}
+
+	/// <summary>
+	/// Applies the [visitor] function to all forms in the hashmap
+	/// </summary>
+	/// <param name="visitor"></param>
+	void Visit(std::function<VisitAction(std::shared_ptr<Form>)> visitor);
 
 	/// <summary>
 	/// Returns a copy of the hashmap with weak pointers instead of the shared pointers

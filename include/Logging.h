@@ -11,6 +11,7 @@
 #include <string>
 #include <math.h>
 #include <optional>
+#include <unordered_map>
 
 #include "Utility.h"
 
@@ -135,7 +136,7 @@ public:
 	if (Logging::EnableDebug) { static_cast<void>(debug(__func__, __VA_ARGS__)); }
 
 #define profile(...)                          \
-	if (Logging::EnableProfile) { static_cast<void>(prof(__func__, __VA_ARGS__)); }
+	 static_cast<void>(prof(__func__, __VA_ARGS__));  // we check for enabled in the function itself, so we can save the exectimes itself
 
 #define logmessage(...) \
 	static_cast<void>(logmes(__func__, __VA_ARGS__)); \
@@ -147,6 +148,13 @@ class Profile
 	static inline std::binary_semaphore lock{ 1 };
 
 public:
+
+	/// <summary>
+	/// contains the execution times of the last logged function executions
+	/// exectime, timepoint, name, file, usermes
+	/// </summary>
+	static inline std::unordered_map<std::string, std::tuple<std::chrono::nanoseconds, std::chrono::steady_clock::time_point, std::string, std::string, std::string>> exectimes;
+
 	/// <summary>
 	/// Inits profile log
 	/// </summary>
@@ -181,6 +189,14 @@ public:
 		}
 		lock.release();
 	}
+	static void log(std::string message, std::string func, std::string file, std::chrono::nanoseconds ns, std::chrono::steady_clock::time_point time, std::string usermes)
+	{
+		lock.acquire();
+		if (Logging::EnableProfile)
+			write(message);
+		exectimes.insert_or_assign(file + "::" + func, std::tuple<std::chrono::nanoseconds, std::chrono::steady_clock::time_point, std::string, std::string, std::string>{ ns, time, func, file, usermes });
+		lock.release();
+	}
 
 	/// <summary>
 	/// writes to the profile log
@@ -190,12 +206,10 @@ public:
 	template <class... Args>
 	static void write(std::string message)
 	{
-		lock.acquire();
 		if (_stream) {
 			_stream->write(message.c_str(), message.size());
 			_stream->flush();
 		}
-		lock.release();
 	}
 };
 template <class... Args>
@@ -210,8 +224,13 @@ struct [[maybe_unused]] prof
 		Args&&... a_args,
 		std::source_location a_loc = std::source_location::current())
 	{
-		std::string mes = fmt::format("{:<25} {} {} {:<30} [ExecTime:{:>11}]\t{}", std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + "):", "[prof]", Logging::TimePassed(), "[" + func + "]", Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count()), fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n");
-		Profile::write(mes);
+		auto now = std::chrono::steady_clock::now();
+		std::string file = std::filesystem::path(a_loc.file_name()).filename().string();
+		std::chrono::nanoseconds ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now - begin);
+		std::string usermes = fmt::format(a_fmt, std::forward<Args>(a_args)...);
+		std::string mes = fmt::format("{:<25} {} {} {:<30} [ExecTime:{:>11}]\t{}", file + "(" + std::to_string(static_cast<int>(a_loc.line())) + "):", "[prof]", Logging::TimePassed(), "[" + func + "]", Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(ns).count()), usermes+ "\n");
+
+		Profile::log(mes, func, file, ns, now, usermes);
 	}
 };
 

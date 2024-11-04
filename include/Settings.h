@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <chrono>
 
 #include "Generator.h"
 #include "Oracle.h"
@@ -138,6 +139,25 @@ public:
 		/// </summary>
 		int32_t concurrenttests = 1;
 		const char* concurrenttests_NAME = "ConcurrentTests";
+
+		/// <summary>
+		/// Maximum memory to be used by the host process in MB
+		/// </summary>
+		int64_t memory_limit = 25600;
+		const char* memory_limit_NAME = "MemoryLimit";
+
+		/// <summary>
+		/// If the soft limit for host process memory consumption is exceeded, the program will
+		/// periodically try to free up memory
+		/// </summary>
+		int64_t memory_softlimit = 1024;
+		const char* memory_softlimit_NAME = "MemorySoftLimit";
+
+		/// <summary>
+		/// minimal interval between two sweeps of the memory to reduce consumption
+		/// </summary>
+		std::chrono::milliseconds memory_sweep_period = std::chrono::milliseconds(10000);
+		const char* memory_sweep_period_NAME = "MemorySweepPeriod";
 	};
 
 	General general;
@@ -216,6 +236,8 @@ public:
 		/// </summary>
 		int32_t generationsize = 100;
 		const char* generationsize_NAME = "GenerationSize";
+
+		int32_t generationstep = 10;
 
 		/// <summary>
 		/// starting parameter for automatic generationsize scaling

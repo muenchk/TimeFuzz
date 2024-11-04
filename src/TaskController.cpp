@@ -7,6 +7,7 @@
 #include "BufferOperations.h"
 #include "Logging.h"
 #include "LuaEngine.h"
+#include "SessionData.h"
 
 TaskController* TaskController::GetSingleton()
 {
@@ -16,22 +17,30 @@ TaskController* TaskController::GetSingleton()
 
 void TaskController::AddTask(std::shared_ptr<Functions::BaseFunction> a_task)
 {
-	{
+	if (_optimizeFuncExec && a_task->GetFunctionType() == Functions::FunctionType::Light) {
+		std::unique_lock<std::mutex> guard(lock);
+		tasks_light.push_back(a_task);
+	} else {
 		std::unique_lock<std::mutex> guard(lock);
 		tasks.push_back(a_task);
 	}
 	condition.notify_one();
 }
 
-void TaskController::Start(std::shared_ptr<Session> session, int32_t numthreads)
+void TaskController::Start(std::shared_ptr<SessionData> session, int32_t numthreads)
 {
-	_session = session;
+	_sessiondata = session;
 	if (numthreads == 0)
 		throw std::runtime_error("Cannot start a TaskController with 0 threads.");
+	if (numthreads > 1)
+		_optimizeFuncExec = true;
 	_numthreads = numthreads;
 	for (int32_t i = 0; i < numthreads; i++) {
 		status.push_back(ThreadStatus::Initializing);
-		threads.emplace_back(std::thread(&TaskController::InternalLoop, this, i));
+		if (_optimizeFuncExec && i == 0)
+			threads.emplace_back(std::thread(&TaskController::InternalLoop_Light, this, i));
+		else
+			threads.emplace_back(std::thread(&TaskController::InternalLoop, this, i));
 	}
 }
 
@@ -77,11 +86,47 @@ bool TaskController::Busy()
 	return !tasks.empty() || running;
 }
 
+void TaskController::InternalLoop_Light(int32_t number)
+{
+	// register new lua state for lua functions executed by the thread
+	if (!disableLua)
+		Lua::RegisterThread(_sessiondata);
+
+	while (true) {
+		std::shared_ptr<Functions::BaseFunction> del;
+		{
+			std::unique_lock<std::mutex> guard(lock);
+			status[number] = ThreadStatus::Waiting;
+			// while freeze is [true], this will never return, if freeze is [false] it only returns when [tasks is non-empty], when [terinated and not waiting], or when [terminating and tasks is empty]
+			condition.wait(guard, [this] { return freeze == false && (!tasks_light.empty() || !tasks.empty() || terminate && wait == false || terminate && tasks_light.empty() && tasks.empty()); });
+			if (terminate && wait == false || terminate && tasks_light.empty() && tasks.empty())
+				return;
+			status[number] = ThreadStatus::Running;
+			if (!tasks_light.empty()) {
+				del = tasks_light.front();
+				tasks_light.pop_front();
+			} else if (!tasks.empty()) {
+				del = tasks.front();
+				tasks.pop_front();
+			}
+		}
+		if (del) {
+			del->Run();
+			del->Dispose();
+			completedjobs++;
+		}
+	}
+
+	// unregister thread from lua functions
+	if (!disableLua)
+		Lua::UnregisterThread();
+}
+
 void TaskController::InternalLoop(int32_t number)
 {
 	// register new lua state for lua functions executed by the thread
 	if (!disableLua)
-		Lua::RegisterThread(_session);
+		Lua::RegisterThread(_sessiondata);
 
 	while (true) {
 		std::shared_ptr<Functions::BaseFunction> del;
@@ -115,7 +160,12 @@ uint64_t TaskController::GetCompletedJobs()
 
 int32_t TaskController::GetWaitingJobs()
 {
-	return (int32_t)tasks.size();
+	return (int32_t)tasks.size() + (int32_t)tasks_light.size();
+}
+
+int32_t TaskController::GetWaitingLightJobs()
+{
+	return (int32_t)tasks_light.size();
 }
 
 size_t TaskController::GetStaticSize(int32_t version)

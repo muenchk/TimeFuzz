@@ -12,6 +12,7 @@
 #include "TaskController.h"
 #include "Input.h"
 #include "Session.h"
+#include "Data.h"
 
 #define NUM_TESTS 100
 
@@ -30,6 +31,7 @@ namespace Functions
 
 		static uint64_t GetTypeStatic() { return 'CALL'; }
 		uint64_t GetType() override { return 'CALL'; }
+		FunctionType GetFunctionType() override { return FunctionType::Heavy; };
 		bool ReadData(unsigned char*, size_t&, size_t, LoadResolver*)
 		{
 			return true;
@@ -71,6 +73,7 @@ int32_t main(/*int32_t argc, char** argv*/)
 	logdebug("Started TaskController with 1 thread");
 	std::shared_ptr<Settings> sett = std::make_shared<Settings>();
 	std::shared_ptr<Session> sess = Session::CreateSession();
+	std::shared_ptr<SessionData> sessdata = sess->data->CreateForm<SessionData>();
 	logdebug("Initialized Settings");
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>();
@@ -89,9 +92,9 @@ int32_t main(/*int32_t argc, char** argv*/)
 	std::shared_ptr<TaskController> controller = std::make_shared<TaskController>();
 	controller->SetDisableLua();
 	logdebug("Created TaskController");
-	controller->Start(sess, 1);
+	controller->Start(sessdata, 1);
 	std::shared_ptr<ExecutionHandler> execution = std::make_shared<ExecutionHandler>();
-	execution->Init(sess, sett, controller, 1, oracle);
+	execution->Init(sess, sessdata, sett, controller, 1, oracle);
 	execution->SetMaxConcurrentTests(50);
 	logdebug("Created executionhandler");
 	execution->StartHandler();
@@ -132,7 +135,7 @@ int32_t main(/*int32_t argc, char** argv*/)
 		exit(1);
 	}
 	execution = std::make_shared<ExecutionHandler>();
-	execution->Init(sess, sett, controller, 1, oracle);
+	execution->Init(sess, sessdata, sett, controller, 1, oracle);
 	logdebug("Set up IO test");
 	sett->tests.use_testtimeout = true;
 	sett->tests.testtimeout = 10000000;

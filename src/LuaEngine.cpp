@@ -1,10 +1,10 @@
 #include "LuaEngine.h"
 #include "Oracle.h"
-#include "Session.h"
+#include "SessionData.h"
 #include "Logging.h"
 #include "Input.h"
 
-bool Lua::RegisterThread(std::shared_ptr<Session> session)
+bool Lua::RegisterThread(std::shared_ptr<SessionData> session)
 {
 	logdebug("Register");
 	auto threadid = std::this_thread::get_id();

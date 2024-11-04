@@ -9,6 +9,11 @@ class LoadResolver;
 
 namespace Functions
 {
+	enum class FunctionType
+	{
+		Light,
+		Heavy,
+	};
 
 	class BaseFunction
 	{
@@ -46,6 +51,8 @@ namespace Functions
 
 		static uint64_t GetTypeStatic() { return 0; };
 		virtual uint64_t GetType() = 0;
+		
+		virtual FunctionType GetFunctionType() = 0;
 
 		template <class T, typename = std::enable_if<std::is_base_of<BaseFunction, T>::value>>
 		T* As()

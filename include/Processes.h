@@ -38,7 +38,7 @@ namespace Processes
 
 	bool StartPUTProcess(std::shared_ptr<Test> test, std::string app, std::string args);
 
-	int64_t GetProcessMemory(pid_t pid);
+	uint64_t GetProcessMemory(pid_t pid);
 
 	bool KillProcess(pid_t pid);
 
@@ -50,7 +50,7 @@ namespace Processes
 
 	bool StartPUTProcess(std::shared_ptr<Test> test, std::string app, std::string args);
 
-	int64_t GetProcessMemory(HANDLE pid);
+	uint64_t GetProcessMemory(HANDLE pid);
 
 	bool KillProcess(HANDLE pid);
 

@@ -593,7 +593,8 @@ int32_t main(int32_t argc, char** argv)
 						ImGui::Text("Leaves:               %llu", status.excl_leafcount);
 
 						ImGui::SeparatorText("Task Controller");
-						ImGui::Text("Waiting:              %d", status.task_waiting);
+						ImGui::Text("Waiting [All]:        %d", status.task_waiting);
+						ImGui::Text("Waiting [Light]:      %d", status.task_waiting_light);
 						ImGui::Text("Completed:            %llu", status.task_completed);
 
 						ImGui::SeparatorText("Execution Handler");
@@ -640,13 +641,24 @@ int32_t main(int32_t argc, char** argv)
 						for (int i = 0; i < MAX_ITEMS; i++)
 							imElements[i] = elements[i];
 
+						static char buf[32];
+						ImGui::InputText("Number of rows", buf, 32, ImGuiInputTextFlags_CharsDecimal);
+						static int32_t rownum = 0;
+						try {
+							rownum = std::atoi(buf);
+						}
+						catch (std::exception&)
+						{
+							rownum = 10;
+						}
+
 						// construct table
 						static ImGuiTableFlags flags =
 							ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable | ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_ScrollY;
 						//PushStyleCompact
 						//...
 						//PopStyleCompact
-						if (ImGui::BeginTable("itemtable", 6, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 15), 0.0f))
+						if (ImGui::BeginTable("itemtable", 6, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * rownum), 0.0f))
 						{
 							ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputID);
 							ImGui::TableSetupColumn("Length",  ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputLength);
@@ -690,6 +702,88 @@ int32_t main(int32_t argc, char** argv)
 										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1), item->id);
 										th.detach();
 									}
+									ImGui::PopID();
+								}
+							}
+							ImGui::EndTable();
+						}
+
+					} else {
+						ImGui::Text("Not available");
+					}
+				}
+				ImGui::End();
+			}
+
+			// show window with information about function execution times
+			{
+				static bool wopen = true;
+				ImGui::Begin("Profiling", &wopen);
+				if (wopen) {
+					static int32_t MAX_ITEMS = 100;
+					if (displayadd) {
+						static std::vector<UI::UIExecTime> dimElements(MAX_ITEMS);
+						//if (dimElements.size() == (size_t)0)
+						//	dimElements.resize(MAX_ITEMS);
+						// Get items
+						int32_t count = 0;
+						auto itr = Profile::exectimes.begin();
+						while (count < 100 && itr != Profile::exectimes.end())
+						{
+							dimElements[count].ns = std::get<0>(itr->second);
+							dimElements[count].time = std::get<1>(itr->second);
+							dimElements[count].func = std::get<2>(itr->second);
+							dimElements[count].file = std::get<3>(itr->second);
+							dimElements[count].usermes = std::get<4>(itr->second);
+							dimElements[count].tmpid = count;
+							count++;
+							itr++;
+						}
+
+						static char buf[32];
+						ImGui::InputText("Number of rows", buf, 32, ImGuiInputTextFlags_CharsDecimal);
+						static int32_t rownum = 0;
+						try {
+							rownum = std::atoi(buf);
+						} catch (std::exception&) {
+							rownum = 10;
+						}
+
+						// construct table
+						static ImGuiTableFlags flags =
+							ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable | ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_ScrollY;
+						//PushStyleCompact
+						//...
+						//PopStyleCompact
+						if (ImGui::BeginTable("itemtable", 5, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * rownum), 0.0f)) {
+							ImGui::TableSetupColumn("File", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIExecTime::ColumnID::ExecTimeFile);
+							ImGui::TableSetupColumn("Function", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIExecTime::ColumnID::ExecTimeFunction);
+							ImGui::TableSetupColumn("Exec Time", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIExecTime::ColumnID::ExecTimeNano);
+							ImGui::TableSetupColumn("Last executed", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIExecTime::ColumnID::ExecTimeLast);
+							ImGui::TableSetupColumn("Message", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIExecTime::ColumnID::ExecTimeUserMes);
+							ImGui::TableSetupScrollFreeze(0, 1);
+							ImGui::TableHeadersRow();
+
+							// DO SOME SORTING
+
+							// use clipper for large vertical lists
+							ImGuiListClipper clipper;
+							clipper.Begin(count < (int32_t)dimElements.size() ? count : (int32_t)dimElements.size());
+							while (clipper.Step()) {
+								for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
+									auto item = &dimElements[i];
+									ImGui::PushID((uint32_t)item->tmpid);
+									ImGui::TableNextRow();
+									ImGui::TableNextColumn();
+									ImGui::TextUnformatted(item->file.c_str());
+									ImGui::TableNextColumn();
+									ImGui::TextUnformatted(item->func.c_str());
+									ImGui::TableNextColumn();
+									ImGui::TextUnformatted(Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(item->ns).count()).c_str());
+									ImGui::TableNextColumn();
+									ImGui::TextUnformatted(Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - item->time).count()).c_str());
+									ImGui::TableNextColumn();
+									ImGui::TextUnformatted(item->usermes.c_str());
 									ImGui::PopID();
 								}
 							}

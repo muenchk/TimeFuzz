@@ -88,6 +88,9 @@ void Settings::Load(std::wstring path, bool reload)
 
 	// generation
 	generation.generationsize = (int32_t)ini.GetLongValue("Generation", generation.generationsize_NAME, generation.generationsize);
+	generation.generationstep = (int32_t)std::lround(std::log(generation.generationsize) / std::log(1.3));
+	if (generation.generationstep < 10)
+		generation.generationstep = 10;
 	loginfo("{}{} {}", "Generation:       ", generation.generationsize_NAME, generation.generationsize);
 	generation.generationtweakstart = (float)ini.GetDoubleValue("Generation", generation.generationtweakstart_NAME, generation.generationtweakstart);
 	loginfo("{}{} {}", "Generation:       ", generation.generationtweakstart_NAME, generation.generationtweakstart);
@@ -388,6 +391,9 @@ bool Settings::ReadData(unsigned char* buffer, size_t& offset, size_t length, Lo
 			methods.deltadebugging = Buffer::ReadBool(buffer, offset);
 			// generation
 			generation.generationsize = Buffer::ReadInt32(buffer, offset);
+			generation.generationstep = (int32_t)std::lround(std::log(generation.generationsize) / std::log(1.3));
+			if (generation.generationstep < 10)
+				generation.generationstep = 10;
 			generation.generationtweakstart = Buffer::ReadFloat(buffer, offset);
 			generation.generationtweakmax = Buffer::ReadFloat(buffer, offset);
 			// endconditions
@@ -439,6 +445,9 @@ bool Settings::ReadData(unsigned char* buffer, size_t& offset, size_t length, Lo
 			methods.deltadebugging = Buffer::ReadBool(buffer, offset);
 			// generation
 			generation.generationsize = Buffer::ReadInt32(buffer, offset);
+			generation.generationstep = (int32_t)std::lround(std::log(generation.generationsize) / std::log(1.3));
+			if (generation.generationstep < 10)
+				generation.generationstep = 10;
 			generation.generationtweakstart = Buffer::ReadFloat(buffer, offset);
 			generation.generationtweakmax = Buffer::ReadFloat(buffer, offset);
 			// endconditions

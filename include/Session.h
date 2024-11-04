@@ -63,6 +63,7 @@ struct SessionStatus
 
 	// -----TaskController-----
 	int32_t task_waiting = 0;
+	int32_t task_waiting_light = 0;
 	uint64_t task_completed = 0;
 
 	// -----ExecutionHandler-----
@@ -188,41 +189,6 @@ private:
 	std::function<void()> _callback;
 
 	/// <summary>
-	/// The Task used to execute the PUT and retrieve the oracle result
-	/// </summary>
-	std::shared_ptr<Oracle> _oracle;
-
-	/// <summary>
-	/// Task controller for the active session
-	/// </summary>
-	std::shared_ptr<TaskController> _controller;
-
-	/// <summary>
-	/// Executionhandler for the active session
-	/// </summary>
-	std::shared_ptr<ExecutionHandler> _exechandler;
-
-	/// <summary>
-	/// Generator for fuzzing
-	/// </summary>
-	std::shared_ptr<Generator> _generator;
-
-	/// <summary>
-	/// The grammar for the generation
-	/// </summary>
-	std::shared_ptr<Grammar> _grammar;
-
-	/// <summary>
-	/// the settings for this session
-	/// </summary>
-	std::shared_ptr<Settings> _settings;
-
-	/// <summary>
-	/// ExclusionTree of the session
-	/// </summary>
-	std::shared_ptr<ExclusionTree> _excltree;
-
-	/// <summary>
 	/// Self
 	/// </summary>
 	std::shared_ptr<Session> _self;
@@ -230,7 +196,7 @@ private:
 	/// <summary>
 	/// the runtime data of the session
 	/// </summary>
-	SessionData sessiondata;
+	std::shared_ptr<SessionData> _sessiondata;
 
 	/// <summary>
 	/// the controller for the session
@@ -290,14 +256,14 @@ private:
 	/// <summary>
 	/// class version
 	/// </summary>
-	const int32_t classversion = 0x1;
+	const int32_t classversion = 0x2;
 
 	/// <summary>
 	/// Returns the size of the classes static members
 	/// </summary>
 	/// <param name="version"></param>
 	/// <returns></returns>
-	size_t GetStaticSize(int32_t version = 0x1) override;
+	size_t GetStaticSize(int32_t version) override;
 	/// <summary>
 	/// Returns the overall size of all members to be saved
 	/// </summary>
@@ -353,8 +319,8 @@ private:
 	friend class SessionFunctions;
 	friend class Data;
 	friend class Records;
-	friend class SessionStatistics;
-	friend class Lua;
+	//friend class SessionStatistics;
+	//friend class Lua;
 
 
 	/// <summary>

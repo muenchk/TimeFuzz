@@ -87,7 +87,7 @@ public:
 	template<class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 	T* As()
 	{
-		if (T::GetType() == GetType())
+		if (T::GetTypeStatic() == GetType())
 			return dynamic_cast<T*>(this);
 		else
 			return nullptr;
@@ -108,7 +108,8 @@ struct FormType
 		Test = 'TEST',              // Test
 		TaskController = 'TASK',    // TaskController
 		ExecutionHandler = 'EXEC',  // ExecutionHandler
-		Oracle = 'ORAC', // Oracle
+		Oracle = 'ORAC',            // Oracle
+		SessionData = 'SDAT',       // SessionData
 	};
 
 	static inline std::string ToString(int32_t type)
@@ -137,6 +138,9 @@ struct FormType
 			return "ExecutionHandler";
 		case FormType::Oracle:
 			return "Oracle";
+			break;
+		case FormType::SessionData:
+			return "SessionData";
 			break;
 		default:
 			return "Unknown";

@@ -238,14 +238,14 @@ namespace Processes
 		return i;
 	}
 
-	int64_t GetProcessMemory(pid_t pid)
+	uint64_t GetProcessMemory(pid_t pid)
 	{
 		StartProfilingDebug;
 		char buf[32] = "/proc/";
 		strcat(buf, std::to_string(pid).c_str());
 		strcat(buf, "/status");
 		FILE* file = fopen(buf, "r");
-		int64_t result = -1;
+		uint64_t result = 0;
 		char line[128];
 
 		while (fgets(line, 128, file) != NULL) {
@@ -377,18 +377,18 @@ namespace Processes
 		}
 	}
 
-	int64_t GetProcessMemory(HANDLE pid)
+	uint64_t GetProcessMemory(HANDLE pid)
 	{
 		BOOL success;
 		PROCESS_MEMORY_COUNTERS mc;
 		success = GetProcessMemoryInfo(
 			pid,
 			&mc,
-			sizeof(_PROCESS_MEMORY_COUNTERS_EX));
+			sizeof(_PROCESS_MEMORY_COUNTERS));
 		if (success)
-			return (long)mc.PagefileUsage;
+			return mc.PagefileUsage;
 		else
-			return -1;
+			return 0;
 	}
 
 	bool KillProcess(HANDLE pid)

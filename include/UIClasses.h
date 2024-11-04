@@ -2,6 +2,8 @@
 
 #include "Form.h"
 
+#include <chrono>
+
 namespace UI
 {
 	enum class Result
@@ -38,5 +40,24 @@ namespace UI
 		double primaryScore;
 		double secondaryScore;
 		UI::Result result;
+	};
+
+	class UIExecTime
+	{
+	public:
+		enum ColumnID
+		{
+			ExecTimeFunction,
+			ExecTimeFile,
+			ExecTimeNano,
+			ExecTimeLast,
+			ExecTimeUserMes,
+		};
+		std::string func = "";
+		std::string file = "";
+		std::string usermes = "";
+		std::chrono::nanoseconds ns;
+		std::chrono::steady_clock::time_point time;
+		int32_t tmpid;
 	};
 }

@@ -15,10 +15,11 @@ ExecutionHandler::ExecutionHandler()
 {
 }
 
-void ExecutionHandler::Init(std::shared_ptr<Session> session, std::shared_ptr<Settings> settings, std::shared_ptr<TaskController> threadpool, int32_t maxConcurrentTests, std::shared_ptr<Oracle> oracle)
+void ExecutionHandler::Init(std::shared_ptr<Session> session, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Settings> settings, std::shared_ptr<TaskController> threadpool, int32_t maxConcurrentTests, std::shared_ptr<Oracle> oracle)
 {
 	loginfo("Init execution handler");
 	_maxConcurrentTests = maxConcurrentTests > 0 ? maxConcurrentTests : 1;
+	_sessiondata = sessiondata;
 	_threadpool = threadpool;
 	_settings = settings;
 	_session = session;
@@ -158,7 +159,7 @@ void ExecutionHandler::StartHandler()
 					ptr->test = test;
 				}
 				test->exitreason = Test::ExitReason::InitError;
-				SessionFunctions::AddTestExitReason(_session, Test::ExitReason::InitError);
+				SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::InitError);
 				test->InValidate();
 				test->input.reset();
 				// call callback if test has finished
@@ -174,7 +175,7 @@ void ExecutionHandler::StartHandler()
 					ptr->test = test;
 				}
 				test->exitreason = Test::ExitReason::InitError;
-				SessionFunctions::AddTestExitReason(_session, Test::ExitReason::InitError);
+				SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::InitError);
 				test->InValidate();
 				test->input.reset();
 				// call callback if test has finished
@@ -234,7 +235,7 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 	{
 		// we are trying to add an input that hasn't been generated or regenerated
 		// try the generate it and if it succeeds add the test
-		SessionFunctions::GenerateInput(input, _session);
+		SessionFunctions::GenerateInput(input, _sessiondata);
 		if (input->GetGenerated() == false)
 			return false;
 	}
@@ -243,10 +244,10 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 		std::unique_lock<std::mutex> guard(_lockqueue);
 		id = _nextid++;
 	}
-	std::shared_ptr<Test> test = _session->data->CreateForm<Test>();
+	std::shared_ptr<Test> test = _sessiondata->data->CreateForm<Test>();
 	test->Init(callback, id);
 	if (test->exitreason & Test::ExitReason::InitError) {
-		_session->data->DeleteForm(test);
+		_sessiondata->data->DeleteForm(test);
 		return false;
 	}
 	test->running = false;
@@ -260,7 +261,7 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 	test->cmdArgs = Lua::GetCmdArgs(std::bind(&Oracle::GetCmdArgs, _oracle, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), test, stateerror, replay);
 	if (stateerror) {
 		logcritical("Add Test cannot be completed, as the calling thread lacks a lua context.");
-		_session->data->DeleteForm(test);
+		_sessiondata->data->DeleteForm(test);
 		return false;
 	}
 	{
@@ -287,7 +288,7 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 	if (!Processes::StartPUTProcess(test, _oracle->path().string(), test->cmdArgs))
 	{
 		test->exitreason = Test::ExitReason::InitError;
-		SessionFunctions::AddTestExitReason(_session, Test::ExitReason::InitError);
+		SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::InitError);
 		if (auto ptr = test->input.lock(); ptr) {
 			ptr->hasfinished = true;
 			// invalidate so no more functions can be called on the test
@@ -429,7 +430,7 @@ void ExecutionHandler::InternalLoop()
 				if (ptr->IsRunning() == false) {
 					// test has finished. Get exit code and check end conditions
 					ptr->exitreason = Test::ExitReason::Natural;
-					SessionFunctions::AddTestExitReason(_session, Test::ExitReason::Natural);
+					SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::Natural);
 					goto TestFinished;
 				}
 				// check for memory consumption
@@ -440,7 +441,7 @@ void ExecutionHandler::InternalLoop()
 						ptr->KillProcess();
 						// process killed, now set flags for oracle
 						ptr->exitreason = Test::ExitReason::Memory;
-						SessionFunctions::AddTestExitReason(_session, Test::ExitReason::Memory);
+						SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::Memory);
 						goto TestFinished;
 					}
 				}
@@ -449,8 +450,8 @@ void ExecutionHandler::InternalLoop()
 					// fragment has been completed
 					if (ptr->WriteNext() == false && _settings->tests.use_fragmenttimeout && std::chrono::duration_cast<std::chrono::microseconds>(time - ptr->lasttime).count() > _settings->tests.fragmenttimeout) {
 						ptr->exitreason = Test::ExitReason::Natural | Test::ExitReason::LastInput;
-						SessionFunctions::AddTestExitReason(_session, Test::ExitReason::Natural);
-						SessionFunctions::AddTestExitReason(_session, Test::ExitReason::LastInput);
+						SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::Natural);
+						SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::LastInput);
 						goto TestFinished;
 					}
 				}
@@ -461,7 +462,7 @@ void ExecutionHandler::InternalLoop()
 					if (difffrag.count() > _settings->tests.fragmenttimeout) {
 						ptr->KillProcess();
 						ptr->exitreason = Test::ExitReason::FragmentTimeout;
-						SessionFunctions::AddTestExitReason(_session, Test::ExitReason::FragmentTimeout);
+						SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::FragmentTimeout);
 						goto TestFinished;
 					}
 				}
@@ -470,7 +471,7 @@ void ExecutionHandler::InternalLoop()
 					if (difffrag.count() > _settings->tests.testtimeout) {
 						ptr->KillProcess();
 						ptr->exitreason = Test::ExitReason::Timeout;
-						SessionFunctions::AddTestExitReason(_session, Test::ExitReason::Timeout);
+						SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::Timeout);
 						goto TestFinished;
 					}
 				}
@@ -649,6 +650,7 @@ bool ExecutionHandler::ReadData(unsigned char* buffer, size_t& offset, size_t le
 				ids.push_back(Buffer::ReadUInt64(buffer, offset));
 			resolver->AddLateTask([this, ids, resolver]() {
 				bool stateerror = false;
+				_sessiondata = resolver->data->CreateForm<SessionData>();
 				_session = resolver->data->CreateForm<Session>();
 				_settings = resolver->data->CreateForm<Settings>();
 				_threadpool = resolver->data->CreateForm<TaskController>();
@@ -660,7 +662,7 @@ bool ExecutionHandler::ReadData(unsigned char* buffer, size_t& offset, size_t le
 						// since we found a test we still need to execute, we need to make sure that our input contains a valid input sequence
 						// and regenerate it if not
 						if (auto ptr = test->input.lock(); ptr && ptr->GetGenerated() == false)
-							SessionFunctions::GenerateInput(ptr, this->_session);
+							SessionFunctions::GenerateInput(ptr, this->_sessiondata);
 						test->cmdArgs = Lua::GetCmdArgs(std::bind(&Oracle::GetCmdArgs, _oracle, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), test, stateerror, false);
 						_waitingTests.push_back(test);
 					}

@@ -110,7 +110,7 @@ public:
 	/// <summary>
 	/// Marks the input as containing a valid input sequence
 	/// </summary>
-	void SetGenerated() { generatedSequence = true; }
+	void SetGenerated(bool generated = true) { generatedSequence = generated; }
 	/// <summary>
 	/// Returns whether the input sequence has been generated
 	/// </summary>
@@ -207,6 +207,8 @@ public:
 	std::shared_ptr<DerivationTree> derive;
 
 	void DeepCopy(std::shared_ptr<Input> other);
+
+	void FreeMemory();
 
 private:
 	/// <summary>

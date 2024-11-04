@@ -2,6 +2,7 @@
 #include "Settings.h"
 #include "BufferOperations.h"
 #include "Data.h"
+#include "SessionFunctions.h"
 
 #include <exception>
 #include <stdexcept>
@@ -14,7 +15,8 @@ SessionData::~SessionData()
 
 void SessionData::Clear()
 {
-	//throw std::runtime_error("SessionData::Clear not implemented");
+	// don't clear this class, our main session class will do this,
+	// so we have the opportunity to properly clear up threads etc.
 }
 
 void SessionData::AddInput(std::shared_ptr<Input>& input, EnumType list, double optionalweight)
@@ -117,12 +119,17 @@ size_t SessionData::GetStaticSize(int32_t version)
 	                        + 8      // exitstats.initerror
 	                        + 8      // failureRate
 	                        + 8;     // addTestFails
+	static size_t size0x3 = size0x2                   // size of existing stuff from version 1 and 2
+	                        + Form::GetDynamicSize()  // form size
+	                        + 8;                      // grammar id
 
 	switch (version) {
 	case 0x1:
 		return size0x1;
 	case 0x2:
 		return size0x2;
+	case 0x3:
+		return size0x3;
 	default:
 		return 0;
 	}
@@ -170,6 +177,8 @@ std::vector<std::shared_ptr<Input>> SessionData::GetTopK(int32_t k)
 bool SessionData::WriteData(unsigned char* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
+	Form::WriteData(buffer, offset);
+
 	Buffer::Write(_positiveInputNumbers, buffer, offset);
 	Buffer::Write(_negativeInputNumbers, buffer, offset);
 	Buffer::Write(_unfinishedInputNumbers, buffer, offset);
@@ -237,6 +246,10 @@ bool SessionData::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(exitstats.initerror, buffer, offset);
 	Buffer::Write(_failureRate, buffer, offset);
 	Buffer::Write(_addtestFails, buffer, offset);
+	if (_grammar)
+		Buffer::Write(_grammar->GetFormID(), buffer, offset);
+	else
+		Buffer::Write((uint64_t)0, buffer, offset);
 	return true;
 }
 
@@ -335,8 +348,46 @@ bool SessionData::ReadData(unsigned char* buffer, size_t& offset, size_t length,
 			exitstats.initerror = Buffer::ReadUInt64(buffer, offset);
 			_failureRate = Buffer::ReadDouble(buffer, offset);
 			_addtestFails = Buffer::ReadInt64(buffer, offset);
+			return true;
+		}
+	case 0x3:
+		{
+			Form::ReadData(buffer, offset, length, resolver);
+			bool res = ReadData0x1(buffer, offset, length, resolver);
+			if (!res)
+				return res;
+			exitstats.natural = Buffer::ReadUInt64(buffer, offset);
+			exitstats.lastinput = Buffer::ReadUInt64(buffer, offset);
+			exitstats.terminated = Buffer::ReadUInt64(buffer, offset);
+			exitstats.timeout = Buffer::ReadUInt64(buffer, offset);
+			exitstats.fragmenttimeout = Buffer::ReadUInt64(buffer, offset);
+			exitstats.memory = Buffer::ReadUInt64(buffer, offset);
+			exitstats.initerror = Buffer::ReadUInt64(buffer, offset);
+			_failureRate = Buffer::ReadDouble(buffer, offset);
+			_addtestFails = Buffer::ReadInt64(buffer, offset);
+			FormID grammarid = Buffer::ReadUInt64(buffer, offset);
+			resolver->AddTask([this, resolver, grammarid]() {
+				this->_oracle = resolver->ResolveFormID<Oracle>(Data::StaticFormIDs::Oracle);
+				this->_controller = resolver->ResolveFormID<TaskController>(Data::StaticFormIDs::TaskController);
+				this->_exechandler = resolver->ResolveFormID<ExecutionHandler>(Data::StaticFormIDs::ExecutionHandler);
+				this->_generator = resolver->ResolveFormID<Generator>(Data::StaticFormIDs::Generator);
+				this->_grammar = resolver->ResolveFormID<Grammar>(grammarid);
+				this->_settings = resolver->ResolveFormID<Settings>(Data::StaticFormIDs::Settings);
+				this->_excltree = resolver->ResolveFormID<ExclusionTree>(Data::StaticFormIDs::ExclusionTree);
+				// this is redundant and has already been set
+				this->data = resolver->data;
+			});
+			return true;
 		}
 	default:
 		return false;
+	}
+}
+
+void SessionData::RegisterFactories()
+{
+	if (!_registeredFactories) {
+		_registeredFactories = !_registeredFactories;
+		Functions::RegisterFactory(Functions::MasterGenerationCallback::GetTypeStatic(), Functions::MasterGenerationCallback::Create);
 	}
 }

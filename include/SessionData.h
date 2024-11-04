@@ -20,6 +20,10 @@ class Generator;
 class Settings;
 class SessionFunctions;
 class SessionStatistics;
+class ExclusionTree;
+class TaskController;
+class ExecutionHandler;
+class Oracle;
 
 struct TestExitStats
 {
@@ -40,7 +44,7 @@ std::set<Key, Compare> make_set(Compare compare)
 
 
 
-class SessionData
+class SessionData : public Form
 {
 	TestExitStats exitstats;
 
@@ -115,16 +119,10 @@ class SessionData
 
 	void AddInput(std::shared_ptr<Input>& input, EnumType list, double optionalweight = 0.0f);
 
-	/// <summary>
-	/// pointer to the session settings
-	/// </summary>
-	std::weak_ptr<Settings> _settings;
-
-	void Delete(Data*) {}
-
 	friend class SessionFunctions;
 	friend class SessionStatistics;
 
+public:
 	/// <summary>
 	/// the number of retries for single input generations
 	/// </summary>
@@ -138,6 +136,7 @@ class SessionData
 	/// </summary>
 	const double GENERATION_WEIGHT_LIMIT = 0.9f;
 
+	private:
 	/// <summary>
 	/// the period of end session and save checks are performed
 	/// </summary>
@@ -151,6 +150,7 @@ class SessionData
 	/// buffer saving results of recent generations
 	/// </summary>
 	boost::circular_buffer<unsigned char> _recentfailes = boost::circular_buffer<unsigned char>(GENERATION_WEIGHT_BUFFER_SIZE, 0);
+	std::mutex _lockRecentFails;
 	/// <summary>
 	/// generation failure rate
 	/// </summary>
@@ -159,30 +159,100 @@ class SessionData
 	/// <summary>
 	/// how often overall input generation has failed
 	/// </summary>
-	int64_t _generationfails = 0;
+	std::atomic<int64_t> _generationfails = 0;
 	/// <summary>
 	/// number of inputs generated so far
 	/// </summary>
-	int64_t _generatedinputs = 0;
+	std::atomic<int64_t> _generatedinputs = 0;
 	/// <summary>
 	/// Number of inputs generated that have been excluded via prefixing
 	/// </summary>
-	int64_t _generatedWithPrefix = 0;
+	std::atomic<int64_t> _generatedWithPrefix = 0;
 	/// <summary>
 	/// Number of tests that couldn't be added
 	/// </summary>
-	int64_t _addtestFails = 0;
+	std::atomic<int64_t> _addtestFails = 0;
 
 	/// <summary>
 	/// time_point of the last performed end and saving checks
 	/// </summary>
 	std::chrono::steady_clock::time_point lastchecks;
 
-	const int32_t classversion = 0x2;
+	/// <summary>
+	/// time_point of the last performed memory sweep
+	/// </summary>
+	std::chrono::steady_clock::time_point lastmemorysweep;
+
+	uint64_t memory_mem = 0;
+	bool memory_outofmemory = false;
+	std::chrono::steady_clock::time_point memory_outofmemory_timer;
+	bool memory_ending = false;
+
+	const int32_t classversion = 0x3;
+
+	inline static bool _registeredFactories = false;
 
 public:
 	void Clear();
 	~SessionData();
+
+	Data* data;
+
+	/// <summary>
+	/// The Task used to execute the PUT and retrieve the oracle result
+	/// </summary>
+	std::shared_ptr<Oracle> _oracle;
+
+	/// <summary>
+	/// Task controller for the active session
+	/// </summary>
+	std::shared_ptr<TaskController> _controller;
+
+	/// <summary>
+	/// Executionhandler for the active session
+	/// </summary>
+	std::shared_ptr<ExecutionHandler> _exechandler;
+
+	/// <summary>
+	/// Generator for fuzzing
+	/// </summary>
+	std::shared_ptr<Generator> _generator;
+
+	/// <summary>
+	/// The grammar for the generation
+	/// </summary>
+	std::shared_ptr<Grammar> _grammar;
+
+	/// <summary>
+	/// the settings for this session
+	/// </summary>
+	std::shared_ptr<Settings> _settings;
+
+	/// <summary>
+	/// ExclusionTree of the session
+	/// </summary>
+	std::shared_ptr<ExclusionTree> _excltree;
+
+	void IncGenerationFails() {
+		_generationfails++;
+	}
+	void PushRecenFails(unsigned char value)
+	{
+		std::unique_lock guard(_lockRecentFails);
+		_recentfailes.push_back(value);
+	}
+	void IncAddTestFails()
+	{
+		_addtestFails++;
+	}
+	void IncGeneratedWithPrefix()
+	{
+		_generatedWithPrefix++;
+	}
+	void IncGeneratedInputs()
+	{
+		_generatedinputs++;
+	}
 
 	/// <summary>
 	/// returns the number of attempts that failed at generating any inputs
@@ -217,24 +287,26 @@ public:
 
 	std::vector<std::shared_ptr<Input>> GetTopK(int32_t k);
 
+	#pragma region Form
+
 	/// <summary>
 	/// Returns the size of the classes static members
 	/// </summary>
 	/// <param name="version"></param>
 	/// <returns></returns>
-	size_t GetStaticSize(int32_t version = 0x1);
+	size_t GetStaticSize(int32_t version) override;
 	/// <summary>
 	/// Returns the overall size of all members to be saved
 	/// </summary>
 	/// <returns></returns>
-	size_t GetDynamicSize();
+	size_t GetDynamicSize() override;
 	/// <summary>
 	/// Writes all class data to the buffer at the given offset
 	/// </summary>
 	/// <param name="buffer"></param>
 	/// <param name="offset"></param>
 	/// <returns></returns>
-	bool WriteData(unsigned char* buffer, size_t& offset);
+	bool WriteData(unsigned char* buffer, size_t& offset) override;
 	/// <summary>
 	/// Reads the class data from the buffer
 	/// </summary>
@@ -243,7 +315,19 @@ public:
 	/// <param name="length"></param>
 	/// <param name="resolver"></param>
 	/// <returns></returns>
-	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 
 	bool ReadData0x1(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+	int32_t GetType() override
+	{
+		return FormType::SessionData;
+	}
+	static int32_t GetTypeStatic()
+	{
+		return FormType::SessionData;
+	}
+	void Delete(Data*) override { Clear(); }
+	static void RegisterFactories();
+
+	#pragma endregion
 };
