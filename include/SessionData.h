@@ -56,7 +56,10 @@ class SessionData
 	{
 		bool operator()(const std::shared_ptr<InputNode>& lhs, const std::shared_ptr<InputNode>& rhs) const
 		{
-			return lhs->primary == rhs->primary ? lhs->secondary < rhs->secondary : lhs->primary < rhs->primary;
+			if (lhs->primary == rhs->primary)
+				return lhs->secondary > rhs->secondary;
+			else
+				return lhs->primary > rhs->primary;
 		}
 	};
 
@@ -165,13 +168,17 @@ class SessionData
 	/// Number of inputs generated that have been excluded via prefixing
 	/// </summary>
 	int64_t _generatedWithPrefix = 0;
+	/// <summary>
+	/// Number of tests that couldn't be added
+	/// </summary>
+	int64_t _addtestFails = 0;
 
 	/// <summary>
 	/// time_point of the last performed end and saving checks
 	/// </summary>
 	std::chrono::steady_clock::time_point lastchecks;
 
-	const int32_t classversion = 0x1;
+	const int32_t classversion = 0x2;
 
 public:
 	void Clear();
@@ -193,6 +200,11 @@ public:
 	/// <returns></returns>
 	int64_t GetGeneratedPrefix();
 	/// <summary>
+	/// returns the number of inputs excluded based on prefix
+	/// </summary>
+	/// <returns></returns>
+	int64_t GetAddTestFails();
+	/// <summary>
 	/// returns the failure rate of input generation
 	/// </summary>
 	/// <returns></returns>
@@ -202,6 +214,8 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	TestExitStats& GetTestExitStats();
+
+	std::vector<std::shared_ptr<Input>> GetTopK(int32_t k);
 
 	/// <summary>
 	/// Returns the size of the classes static members
@@ -230,4 +244,6 @@ public:
 	/// <param name="resolver"></param>
 	/// <returns></returns>
 	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+
+	bool ReadData0x1(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 };

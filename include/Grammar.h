@@ -15,6 +15,7 @@
 class GrammarExpansion;
 class Grammar;
 class LoadResolverGrammar;
+class DerivationTree;
 
 class GrammarObject
 {
@@ -162,6 +163,19 @@ public:
 	bool remove = false;
 
 	/// <summary>
+	/// number of non-terminals in the expansion
+	/// </summary>
+	int32_t nonterminals = 0;
+	/// <summary>
+	/// number of sequence non-terminals in the expansion
+	/// </summary>
+	int32_t seqnonterminals = 0;
+	/// <summary>
+	/// number of terminals in the expansion
+	/// </summary>
+	int32_t terminals = 0;
+
+	/// <summary>
 	/// parent of this expansion
 	/// </summary>
 	std::shared_ptr<GrammarNode> parent;
@@ -176,7 +190,7 @@ public:
 	/// returns the size of the expansion in bytes
 	/// </summary>
 	/// <returns></returns>
-	size_t GetDynamicSize();
+	size_t GetDynamicSize(int32_t version);
 	/// <summary>
 	/// Writes the expansion data to the buffer
 	/// </summary>
@@ -184,7 +198,7 @@ public:
 	/// <param name="offset"></param>
 	/// <returns></returns>
 	bool WriteData(unsigned char* buffer, size_t& offset);
-	const int32_t classversion = 0x1;
+	const int32_t classversion = 0x2;
 	/// <summary>
 	/// Reads the expansion data from the buffer
 	/// </summary>
@@ -348,6 +362,8 @@ public:
 	void Clear() override;
 	inline static bool _registeredFactories = false;
 	static void RegisterFactories();
+
+	void Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, uint32_t seed, int32_t maxsteps = 100000);
 
 	#pragma endregion
 

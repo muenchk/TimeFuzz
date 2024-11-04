@@ -20,7 +20,7 @@ class Input : public Form
 {
 	friend class SessionFunctions;
 
-	const int32_t classversion = 0x2;
+	const int32_t classversion = 0x3;
 	#pragma region InheritedForm
 public:
 	size_t GetStaticSize(int32_t version = 0x1) override;
@@ -44,6 +44,7 @@ public:
 private:
 	bool hasfinished = false;
 	bool trimmed = false;
+	int64_t trimmedlength = -1;
 	std::chrono::nanoseconds executiontime;
 	int32_t exitcode = 0;
 	double primaryScore = 0.f;
@@ -54,6 +55,8 @@ private:
 
 	std::string pythonstring;
 	bool pythonconverted = false;
+
+	bool generatedSequence = false;
 
 public:
 	std::shared_ptr<Test> test;
@@ -104,6 +107,15 @@ public:
 	/// </summary>
 	/// <param name="entry"></param>
 	void AddEntry(std::string entry);
+	/// <summary>
+	/// Marks the input as containing a valid input sequence
+	/// </summary>
+	void SetGenerated() { generatedSequence = true; }
+	/// <summary>
+	/// Returns whether the input sequence has been generated
+	/// </summary>
+	/// <returns></returns>
+	bool GetGenerated() { return generatedSequence; }
 	/// <summary>
 	/// converts the input to a string
 	/// </summary>
@@ -179,6 +191,8 @@ public:
 
 	void TrimInput(int32_t executed);
 
+	int64_t GetTrimmedLength() { return trimmedlength; }
+
 	/// <summary>
 	/// Parses inputs from a python file.
 	/// [The file should contain a variable name [inputs = ...]
@@ -187,11 +201,14 @@ public:
 	/// <returns></returns>
 	static std::vector<std::shared_ptr<Input>> ParseInputs(std::filesystem::path path);
 
-private:
 	/// <summary>
 	/// derivation/parse tree of the input
 	/// </summary>
 	std::shared_ptr<DerivationTree> derive;
+
+	void DeepCopy(std::shared_ptr<Input> other);
+
+private:
 	/// <summary>
 	/// the string representation of the input
 	/// </summary>

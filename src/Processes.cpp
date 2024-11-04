@@ -368,6 +368,7 @@ namespace Processes
 		profileDebug(TimeProfilingDebug, "");
 		// close input pipe of redirected output
 		CloseHandle(test->red_output[1]);
+		test->red_output[1] = 0;
 		if (!success) {
 			return false;
 		} else {

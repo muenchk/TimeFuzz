@@ -3,6 +3,8 @@
 #include "BufferOperations.h"
 #include "Logging.h"
 
+#include <stack>
+
 #define exclrlock std::shared_lock<std::shared_mutex> guard(_lock);  //((void)0); 
 #define exclwlock std::unique_lock<std::shared_mutex> guard(_lock);
 
@@ -29,6 +31,8 @@ ExclusionTree::~ExclusionTree()
 void ExclusionTree::AddInput(std::shared_ptr<Input> input)
 {
 	if (input.get() == nullptr)
+		return;
+	if (input->begin() == input->end())
 		return;
 
 	exclwlock;
@@ -99,6 +103,25 @@ void ExclusionTree::DeleteChildren(TreeNode* node)
 
 void ExclusionTree::DeleteChildrenIntern(TreeNode* node)
 {
+	// delete all children
+	// recursion free
+	std::stack<TreeNode*> stack;
+	for (int32_t i = 0; i < node->children.size(); i++)
+		stack.push(node->children[i]);
+	node->children.clear();
+	TreeNode* tmp = nullptr;
+	while (stack.size() > 0)
+	{
+		tmp = stack.top();
+		stack.pop();
+		for (int32_t i = 0; i < tmp->children.size(); i++) {
+			stack.push(tmp->children[i]);
+		}
+		if (tmp->isLeaf)
+			leafcount--;
+		delete tmp;
+	}
+
 	// delete all children
 	for (int32_t i = 0; i < node->children.size(); i++) {
 		DeleteChildrenIntern(node->children[i]);

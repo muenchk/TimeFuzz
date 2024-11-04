@@ -33,13 +33,16 @@ size_t Input::GetStaticSize(int32_t version)
 	                        8 +                     // test
 	                        8 +                     // derivationtree
 	                        8 +                     // primaryScore
-	                        8;                      // secondaryScore
+	                        8 +                     // secondaryScore
+	                        8;                      // trimmedLength
 
 	switch (version)
 	{
 	case 0x1:
 		return size0x1;
 	case 0x2:
+		return size0x2;
+	case 0x3:
 		return size0x2;
 	default:
 		return 0;
@@ -50,8 +53,8 @@ size_t Input::GetDynamicSize()
 {
 	size_t size = GetStaticSize(classversion);
 	size += Buffer::CalcStringLength(stringrep);
-	size += Buffer::List::GetListLength(sequence);
-	size += Buffer::List::GetListLength(orig_sequence);
+	//size += Buffer::List::GetListLength(sequence);
+	//size += Buffer::List::GetListLength(orig_sequence);
 	return size;
 }
 
@@ -73,10 +76,11 @@ bool Input::WriteData(unsigned char* buffer, size_t& offset)
 	} else
 		Buffer::Write((FormID)0, buffer, offset);
 	Buffer::Write(stringrep, buffer, offset);
-	Buffer::List::WriteList(sequence, buffer, offset);
-	Buffer::List::WriteList(orig_sequence, buffer, offset);
+	//Buffer::List::WriteList(sequence, buffer, offset);
+	//Buffer::List::WriteList(orig_sequence, buffer, offset);
 	Buffer::Write(primaryScore, buffer, offset);
 	Buffer::Write(secondaryScore, buffer, offset);
+	Buffer::Write(trimmedlength, buffer, offset);
 
 	return true;
 }
@@ -133,6 +137,7 @@ bool Input::ReadData0x2(unsigned char* buffer, size_t& offset, size_t length, Lo
 		return res;
 	primaryScore = Buffer::ReadDouble(buffer, offset);
 	secondaryScore = Buffer::ReadDouble(buffer, offset);
+	trimmedlength = Buffer::ReadInt64(buffer, offset);
 	return true;
 }
 
@@ -146,6 +151,39 @@ bool Input::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadR
 		return ReadData0x1(buffer, offset, length, resolver);
 	case 0x2:
 		return ReadData0x2(buffer, offset, length, resolver);
+	case 0x3:
+		{
+			if (length < GetStaticSize(0x1))
+				return false;
+			//logdebug("ReadData FormData");
+			Form::ReadData(buffer, offset, length, resolver);
+			//logdebug("ReadData Basic Data");
+			// static init
+			pythonconverted = false;
+			pythonstring = "";
+			// end
+			hasfinished = Buffer::ReadBool(buffer, offset);
+			trimmed = Buffer::ReadBool(buffer, offset);
+			executiontime = Buffer::ReadNanoSeconds(buffer, offset);
+			exitcode = Buffer::ReadInt32(buffer, offset);
+			oracleResult = Buffer::ReadUInt64(buffer, offset);
+			FormID testid = Buffer::ReadUInt64(buffer, offset);
+			resolver->AddTask([this, resolver, testid]() {
+				this->test = resolver->ResolveFormID<Test>(testid);
+			});
+			FormID deriveid = Buffer::ReadUInt64(buffer, offset);
+			resolver->AddTask([this, resolver, deriveid]() {
+				this->derive = resolver->ResolveFormID<DerivationTree>(deriveid);
+			});
+			//logdebug("ReadData string rep");
+			// get stringrep
+			//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
+			//	return false;
+			stringrep = Buffer::ReadString(buffer, offset);
+			primaryScore = Buffer::ReadDouble(buffer, offset);
+			secondaryScore = Buffer::ReadDouble(buffer, offset);
+		}
+		return true;
 	default:
 		return false;
 	}
@@ -210,6 +248,9 @@ std::string Input::ConvertToPython(bool update)
 
 size_t Input::Length()
 {
+	if (sequence.size() == 0)
+		if (derive && derive->regenerate)
+			return derive->targetlen;
 	return sequence.size();
 }
 
@@ -420,6 +461,24 @@ std::vector<std::shared_ptr<Input>> Input::ParseInputs(std::filesystem::path pat
 	}
 }
 
+void Input::DeepCopy(std::shared_ptr<Input> other)
+{
+	other->derive = derive;
+	other->oracleResult = oracleResult;
+	other->sequence = sequence;
+	other->orig_sequence = orig_sequence;
+	other->lua_sequence_next = lua_sequence_next;
+	other->stringrep = stringrep;
+	other->pythonconverted = pythonconverted;
+	other->pythonstring = pythonstring;
+	other->secondaryScore = secondaryScore;
+	other->primaryScore = primaryScore;
+	other->exitcode = exitcode;
+	other->executiontime = executiontime;
+	other->trimmed = trimmed;
+	other->hasfinished = hasfinished;
+}
+
 void Input::TrimInput(int32_t executed)
 {
 	if (executed != -1 && executed != sequence.size()) {
@@ -434,6 +493,7 @@ void Input::TrimInput(int32_t executed)
 			count++;
 		}
 		std::swap(sequence, orig_sequence);
+		trimmedlength = sequence.size();
 	}
 }
 
@@ -484,7 +544,7 @@ int Input::lua_TrimInput(lua_State* L)
 	Input* input = (Input*)lua_touserdata(L, 1);
 	lua_Integer len = luaL_checkinteger(L, 2);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
-	luaL_argcheck(L, 0 <= len && len <= (lua_Integer)input->sequence.size(), 2, "out of range");
+	luaL_argcheck(L, 0 <= len && len <= (lua_Integer)input->sequence.size(), 2, (std::string("out of range, value: ") + std::to_string(len) + std::string(" , max: ") + std::to_string(input->sequence.size())).c_str());
 	input->TrimInput((int)len);
 	return 0;
 }

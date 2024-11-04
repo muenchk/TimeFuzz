@@ -30,6 +30,11 @@ public:
 	static std::shared_ptr<Input> GenerateInput(std::shared_ptr<Session>& session);
 
 	/// <summary>
+	/// This function generates a new input and adds it to the execution queue
+	/// </summary>
+	static void GenerateInput(std::shared_ptr<Input>& input, std::shared_ptr<Session>& session);
+
+	/// <summary>
 	/// This function checks whether we need to save the session and performs the save
 	/// </summary>
 	static void SaveCheck(std::shared_ptr<Session>& session);
@@ -52,7 +57,7 @@ public:
 	/// <param name="session"></param>
 	/// <param name="input"></param>
 	/// <param name="test"></param>
-	static void TestEnd(std::shared_ptr<Session>& session, std::shared_ptr<Input>& input);
+	static void TestEnd(std::shared_ptr<Session>& session, std::shared_ptr<Input> input, bool replay = false);
 
 	static void AddTestExitReason(std::shared_ptr<Session>& session, int32_t reason);
 

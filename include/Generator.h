@@ -5,10 +5,12 @@
 #include "Input.h"
 #include "Form.h"
 
+class Grammar;
+
 class Generator : public Form
 {
 public:
-	void Generate(std::shared_ptr<Input>& input);
+	bool Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar> grammar = {});
 	/// <summary>
 	/// resets all progress made
 	/// </summary>
@@ -20,7 +22,7 @@ public:
 
 	#pragma region InheritedForm
 
-	size_t GetStaticSize(int32_t version = 0x1) override;
+	size_t GetStaticSize(int32_t version = 0x2) override;
 	size_t GetDynamicSize() override;
 	virtual bool WriteData(unsigned char* buffer, size_t& offset) override;
 	virtual bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
@@ -39,11 +41,17 @@ public:
 
 	virtual void Init();
 
+	virtual void SetGrammar(std::shared_ptr<Grammar> grammar);
+
+	virtual std::shared_ptr<Grammar> GetGrammar() { return _grammar; }
+
 	#pragma endregion
 
 private:
 
-	const int32_t classversion = 0x1;
+	const int32_t classversion = 0x2;
+
+	std::shared_ptr<Grammar> _grammar;
 };
 
 

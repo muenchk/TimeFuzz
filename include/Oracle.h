@@ -71,6 +71,7 @@ private:
 
 	std::string LcmdargsStr = "";
 	std::filesystem::path LcmdargsPath;
+	std::filesystem::path LcmdargsPathReplay;
 	std::mutex cmdlock;
 
 public:
@@ -80,6 +81,7 @@ public:
 	bool Validate();
 	void SetLuaCmdArgs(std::string script);
 	void SetLuaCmdArgs(std::filesystem::path scrippath);
+	void SetLuaCmdArgsReplay(std::filesystem::path scrippath);
 	void SetLuaOracle(std::string script);
 	void SetLuaOracle(std::filesystem::path scriptpath);
 
@@ -96,7 +98,7 @@ public:
 	/// </summary>
 	/// <param name="test"></param>
 	/// <returns></returns>
-	std::string GetCmdArgs(lua_State* L, Test* test);
+	std::string GetCmdArgs(lua_State* L, Test* test, bool replay);
 
 	/// <summary>
 	/// Returns the type of the PUT as a string

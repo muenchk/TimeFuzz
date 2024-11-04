@@ -3,6 +3,7 @@
 #include <string>
 #include <mutex>
 #include <exception>
+#include <set>
 
 #include "ExitCodes.h"
 #include "Logging.h"
@@ -34,6 +35,7 @@ void Session::LoadSession_Async(Data* dat, std::string name, int32_t number, Loa
 	else
 		dat->Load(name, number);
 	auto session = dat->CreateForm<Session>();
+	session->_self = session;
 	session->loaded = true;
 	bool error = false;
 	if (args && args->startSession == true)
@@ -64,6 +66,8 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, LoadSessionArgs&
 		asyncargs->startSession = loadargs.startSession;
 		asyncargs->reloadSettings = loadargs.reloadSettings;
 		asyncargs->settingsPath = loadargs.settingsPath;
+		if (loadargs.reloadSettings)
+			sett->SkipRead();
 	}
 	std::thread th(LoadSession_Async, dat, name, -1, asyncargs);
 	th.detach();
@@ -93,6 +97,8 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, 
 		asyncargs->startSession = loadargs.startSession;
 		asyncargs->reloadSettings = loadargs.reloadSettings;
 		asyncargs->settingsPath = loadargs.settingsPath;
+		if (loadargs.reloadSettings)
+			sett->SkipRead();
 	}
 	std::thread th(LoadSession_Async, dat, name, number, asyncargs);
 	th.detach();
@@ -218,6 +224,7 @@ void Session::StopSession(bool savesession)
 void Session::DestroySession()
 {
 	// delete everything. If this isn't called the session is likely to persist until the program ends
+	loaded = false;
 	Delete(data);
 }
 
@@ -250,16 +257,38 @@ void Session::StartLoadedSession(bool& error, bool reloadsettings, std::wstring 
 		_settings->Load(settingsPath, true);
 		_settings->Save(settingsPath);
 		// reset oracle after settings reload
-		if (_settings->oracle == Oracle::PUTType::Undefined) {
+		if (_settings->oracle.oracle == Oracle::PUTType::Undefined) {
 			logcritical("The oracle type could not be identified");
 			LastError = ExitCodes::StartupError;
 			error = true;
 			return;
 		}
 		_oracle = data->CreateForm<Oracle>();
-		_oracle->Set(_settings->oracle, _settings->oraclepath);
-		_oracle->SetLuaCmdArgs(CmdArgs::workdir / "CmdArgs.lua");
-		_oracle->SetLuaOracle(CmdArgs::workdir / "Oracle.lua");
+		_oracle->Set(_settings->oracle.oracle, _settings->oracle.oraclepath);
+		// set lua cmdargs scripts
+		auto path = std::filesystem::path(_settings->oracle.lua_path_cmd);
+		if (!std::filesystem::exists(path))
+		{
+			logcritical("Lua CmdArgs script cannot be found.");
+			LastError = ExitCodes::StartupError;
+			error = true;
+			return;
+		}
+		_oracle->SetLuaCmdArgs(path);
+		// set lua cmd args replay
+		path = std::filesystem::path(_settings->oracle.lua_path_cmd_replay);
+		if (std::filesystem::exists(path)) {
+			_oracle->SetLuaCmdArgsReplay(path);
+		}
+		// set lua oracle script
+		path = std::filesystem::path(_settings->oracle.lua_path_oracle);
+		if (!std::filesystem::exists(path)) {
+			logcritical("Lua Oracle script cannot be found.");
+			LastError = ExitCodes::StartupError;
+			error = true;
+			return;
+		}
+		_oracle->SetLuaOracle(path);
 	} else
 		loginfo("Proceeding with settings from savefile.");
 	if (callback != nullptr)
@@ -302,16 +331,38 @@ void Session::StartSessionIntern(bool &error)
 	try {
 		StartProfiling;
 		// populate the oracle
-		if (_settings->oracle == Oracle::PUTType::Undefined) {
+		if (_settings->oracle.oracle == Oracle::PUTType::Undefined) {
 			logcritical("The oracle type could not be identified");
 			LastError = ExitCodes::StartupError;
 			error = true;
 			return;
 		}
 		_oracle = data->CreateForm<Oracle>();
-		_oracle->Set(_settings->oracle, _settings->oraclepath);
-		_oracle->SetLuaCmdArgs(CmdArgs::workdir / "CmdArgs.lua");
-		_oracle->SetLuaOracle(CmdArgs::workdir / "Oracle.lua");
+		_oracle->Set(_settings->oracle.oracle, _settings->oracle.oraclepath);
+		// set lua cmdargs scripts
+		auto path = std::filesystem::path(_settings->oracle.lua_path_cmd);
+		if (!std::filesystem::exists(path)) {
+			logcritical("Lua CmdArgs script cannot be found.");
+			LastError = ExitCodes::StartupError;
+			error = true;
+			return;
+		}
+		_oracle->SetLuaCmdArgs(path);
+		// set lua oracle script
+		path = std::filesystem::path(_settings->oracle.lua_path_oracle);
+		if (!std::filesystem::exists(path)) {
+			logcritical("Lua Oracle script cannot be found.");
+			LastError = ExitCodes::StartupError;
+			error = true;
+			return;
+		}
+		_oracle->SetLuaOracle(path);
+		// set lua cmd args replay
+		path = std::filesystem::path(_settings->oracle.lua_path_cmd_replay);
+		if (std::filesystem::exists(path)) {
+			_oracle->SetLuaCmdArgsReplay(path);
+		}
+		// set lua oracle script
 		// check the oracle for validity
 		if (_oracle->Validate() == false) {
 			logcritical("Oracle isn't valid.");
@@ -319,9 +370,21 @@ void Session::StartSessionIntern(bool &error)
 			error = true;
 			return;
 		}
+
+		// load grammar
+		_grammar = data->CreateForm<Grammar>();
+		_grammar->ParseScala(_settings->oracle.grammar_path);
+		if (!_grammar->IsValid()) {
+			logcritical("Grammar isn't valid.");
+			LastError = ExitCodes::StartupError;
+			error = true;
+			return;
+		}
+
 		// set generator
 		_generator = data->CreateForm<Generator>();
 		_generator->Init();
+		_generator->SetGrammar(_grammar);
 
 		profile(TimeProfiling, "Time taken for session setup.");
 
@@ -433,7 +496,7 @@ void Session::InitStatus(SessionStatus* status, std::shared_ptr<Settings> sett)
 
 void Session::GetStatus(SessionStatus& status)
 {
-	if (loaded && running) {
+	if (loaded) {
 		status.overallTests = SessionStatistics::TestsExecuted(_self);
 		status.positiveTests = SessionStatistics::PositiveTestsGenerated(_self);
 		status.negativeTests = SessionStatistics::NegativeTestsGenerated(_self);
@@ -468,26 +531,35 @@ void Session::GetStatus(SessionStatus& status)
 		
 		// ExecutionHandler
 		status.exec_running = _exechandler->GetRunningTests();
-		status.exec_internalwaiting = _exechandler->GetInternalWaitingTests();
 		status.exec_waiting = _exechandler->GetWaitingTests();
+		status.exec_stopping = _exechandler->GetStoppingTests();
 
 		// Generation
 		status.gen_generatedInputs = sessiondata.GetGeneratedInputs();
 		status.gen_generatedWithPrefix = sessiondata.GetGeneratedPrefix();
 		status.gen_generationFails = sessiondata.GetGenerationFails();
 		status.gen_failureRate = sessiondata.GetGenerationFailureRate();
+		status.gen_addtestfails = sessiondata.GetAddTestFails();
 
 		// Tests
 		status.exitstats = sessiondata.GetTestExitStats();
 	}
 	status.saveload = data->actionloadsave;
 	status.status = data->status;
+	status.record = data->record;
 	status.saveload_max = data->actionloadsave_max;
 	status.saveload_current = data->actionloadsave_current;
+	status.saveload_record_len = data->actionrecord_len;
+	status.saveload_record_current = data->actionrecord_offset;
 	if (status.saveload_max != 0)
 		status.gsaveload = (double)status.saveload_current / (double)status.saveload_max;
 	else
 		status.gsaveload = -1.f;
+
+	if (status.saveload_record_len != 0)
+		status.grecord = (double)status.saveload_record_current / (double)status.saveload_record_len;
+	else
+		status.grecord = -1.f;
 }
 
 bool Session::IsRunning()
@@ -586,4 +658,36 @@ void Session::SetInternals(std::shared_ptr<Oracle> oracle, std::shared_ptr<TaskC
 void Session::Delete(Data*)
 {
 	Clear();
+}
+
+
+void Session::Replay(FormID inputid)
+{
+	auto input = data->LookupFormID<Input>(inputid);
+	if (input) {
+		bool reg = Lua::RegisterThread(_self);
+		auto newinput = data->CreateForm<Input>();
+		input->DeepCopy(newinput);
+		auto callback = dynamic_pointer_cast<Functions::ReplayTestCallback>(Functions::ReplayTestCallback::Create());
+		callback->_session = _self;
+		callback->_input = newinput;
+		_exechandler->AddTest(newinput, callback, true, true);
+		if (reg)
+			Lua::UnregisterThread();
+	}
+}
+
+void Session::UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k)
+{
+	if (vector.size() < k)
+		vector.resize(k);
+	auto vec = sessiondata.GetTopK((int32_t)k);
+	for (int32_t i = 0; i < (int32_t)vec.size(); i++)
+	{
+		vector[i].id = vec[i]->GetFormID();
+		vector[i].length = vec[i]->Length();
+		vector[i].primaryScore = vec[i]->GetPrimaryScore();
+		vector[i].secondaryScore = vec[i]->GetSecondaryScore();
+		vector[i].result = (UI::Result)vec[i]->GetOracleResult();
+	}
 }

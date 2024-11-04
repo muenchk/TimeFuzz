@@ -3,6 +3,7 @@
 #include "Utility.h"
 #include "BufferOperations.h"
 #include "Input.h"
+#include "Data.h"
 
 
 std::string Oracle::TypeString(PUTType type)
@@ -141,6 +142,11 @@ void Oracle::SetLuaCmdArgs(std::filesystem::path scriptpath)
 	LcmdargsPath = scriptpath;
 }
 
+void Oracle::SetLuaCmdArgsReplay(std::filesystem::path scriptpath)
+{
+	LcmdargsPathReplay = scriptpath;
+}
+
 void Oracle::SetLuaOracle(std::string script)
 {
 	LoracleStr = script;
@@ -176,6 +182,11 @@ void Oracle::ApplyLuaCommands(lua_State* L)
 			lua_pop(L, lua_gettop(L));
 		}
 	}
+
+	if (std::filesystem::exists(LcmdargsPathReplay))
+		if (luaL_dofile(L, LcmdargsPathReplay.string().c_str()) == LUA_OK) {
+			lua_pop(L, lua_gettop(L));
+		}
 }
 
 Oracle::OracleResult Oracle::Evaluate(lua_State* L, std::shared_ptr<Test> test)
@@ -210,7 +221,7 @@ Oracle::OracleResult Oracle::Evaluate(lua_State* L, std::shared_ptr<Test> test)
 	return result;
 }
 
-std::string Oracle::GetCmdArgs(lua_State* L, Test* test)
+std::string Oracle::GetCmdArgs(lua_State* L, Test* test, bool replay)
 {
 	//std::unique_lock<std::mutex> guard(cmdlock);
 	std::string args = "";
@@ -218,8 +229,10 @@ std::string Oracle::GetCmdArgs(lua_State* L, Test* test)
 	if (input) {
 		lua_pushlightuserdata(L, (void*)(input.get()));
 		lua_setglobal(L, "input");
-
-		lua_getglobal(L, "GetCmdArgs");
+		if (replay)
+			lua_getglobal(L, "GetCmdArgsReplay");
+		else
+			lua_getglobal(L, "GetCmdArgs");
 		//lua_push .....
 		// set function call args
 
@@ -313,6 +326,20 @@ bool Oracle::ReadData(unsigned char* buffer, size_t& offset, size_t length, Load
 			path = Buffer::ReadString(buffer, offset);
 			if (path.empty() == false)
 				SetLuaCmdArgs(std::filesystem::path(path));
+			// init lua from settings to support cross-platform stuff out of the boc
+			resolver->AddTask([this, resolver]() {
+				auto sett = resolver->ResolveFormID<Settings>(Data::StaticFormIDs::Settings);
+				auto path = std::filesystem::path(sett->oracle.lua_path_cmd);
+				if (!std::filesystem::exists(path)) {
+					logcritical("Lua CmdArgs script cannot be found.");
+				}
+				SetLuaCmdArgs(path);
+				path = std::filesystem::path(sett->oracle.lua_path_oracle);
+				if (!std::filesystem::exists(path)) {
+					logcritical("Lua Oracle script cannot be found.");
+				}
+				SetLuaOracle(path);
+			});
 			return true;
 		}
 		break;

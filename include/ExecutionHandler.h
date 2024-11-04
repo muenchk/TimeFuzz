@@ -31,7 +31,7 @@ class Session;
 * The two main modes are Fragments execution and Whole execution.
 *	Fragment execution: executes small fragments and regularly checks whether the fragment
 *		has finished executing. If it hasn't, a timeout will be aplied and the test aborted if
-*		it has been exceeded. The test will also be aborted once a general tiemout is exceeded
+*		it has been exceeded. The test will also be aborted once a general timeout is exceeded
 *	Whole Execution: Executes the test in one go, and applies an overall timeout
 */
 
@@ -75,10 +75,6 @@ private:
 	/// queue for tests waiting to be executed
 	/// </summary>
 	std::deque<std::weak_ptr<Test>> _waitingTests;
-	/// <summary>
-	/// queue for tests waiting to be executed
-	/// </summary>
-	std::deque<std::weak_ptr<Test>> _internalwaitingTests;
 	/// <summary>
 	/// list holding currently active tests
 	/// </summary>
@@ -209,7 +205,8 @@ public:
 	/// </summary>
 	/// <param name="input">The input to run the test on</param>
 	/// <param name="callback">called after the test has been finished</param>
-	bool AddTest(std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback);
+	/// <param name="bypass">Bypass queue and start as soon as possible</param>
+	bool AddTest(std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback, bool bypass = false, bool replay = false);
 
 	/// <summary>
 	/// Freezes test execution
@@ -226,15 +223,15 @@ public:
 	/// <returns></returns>
 	int32_t GetWaitingTests();
 	/// <summary>
-	/// Returns the number of waiting tests
-	/// </summary>
-	/// <returns></returns>
-	int32_t GetInternalWaitingTests();
-	/// <summary>
 	/// Returns the number of running tests
 	/// </summary>
 	/// <returns></returns>
 	int32_t GetRunningTests();
+	/// <summary>
+	/// Returns the number of stopping tests
+	/// </summary>
+	/// <returns></returns>
+	int32_t GetStoppingTests();
 
 	size_t GetStaticSize(int32_t version = 0x1) override;
 	size_t GetDynamicSize() override;
@@ -258,5 +255,5 @@ public:
 	/// </summary>
 	void Clear() override;
 
-	friend unsigned char* Records::CreateRecord(ExecutionHandler* value, size_t& length);
+	friend unsigned char* Records::CreateRecord(ExecutionHandler* value, size_t& offset, size_t& length);
 };

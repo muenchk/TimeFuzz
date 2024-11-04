@@ -10,6 +10,7 @@
 #include "SessionData.h"
 #include "TaskController.h"
 #include "Form.h"
+#include "UIClasses.h"
 
 class Data;
 class SessionFunctions;
@@ -45,12 +46,15 @@ struct SessionStatus
 	std::chrono::nanoseconds runtime;
 	std::chrono::seconds runtime_goal;
 
-	double goverall, gnegative, gpositive, gtime, gsaveload;
+	double goverall, gnegative, gpositive, gtime, gsaveload, grecord;
 
 	std::string status;
+	int32_t record;
 	bool saveload = false;
 	uint64_t saveload_max = 0;
 	uint64_t saveload_current = 0;
+	uint64_t saveload_record_len = 0;
+	uint64_t saveload_record_current = 0;
 
 	// -----ExclusionTree-----
 	int64_t excl_depth = 0;
@@ -63,13 +67,14 @@ struct SessionStatus
 
 	// -----ExecutionHandler-----
 	int32_t exec_waiting = 0;
-	int32_t exec_internalwaiting = 0;
 	int32_t exec_running = 0;
+	int32_t exec_stopping = 0;
 
 	// -----Generation-----
 	int64_t gen_generatedInputs = 0;
 	int64_t gen_generationFails = 0;
 	int64_t gen_generatedWithPrefix = 0;
+	int64_t gen_addtestfails = 0;
 	double gen_failureRate = 0.f;
 
 	// -----Tests-----
@@ -151,6 +156,12 @@ public:
 	bool Finished() { return _hasFinished; }
 
 	bool Loaded() { return loaded; }
+
+	bool Running() { return running; }
+
+	void Replay(FormID inputid);
+
+	void UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k);
 
 	/// <summary>
 	/// Returns a string with information about the session

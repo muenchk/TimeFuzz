@@ -30,6 +30,7 @@ void Test::Init(std::shared_ptr<Functions::BaseFunction> a_callback, uint64_t id
 {
 	callback = a_callback;
 	identifier = id;
+	valid = true;
 	Init();
 }
 
@@ -374,6 +375,7 @@ void Test::TrimInput(int32_t executed)
 				aitr++;
 			}
 			std::swap(ptr->sequence, ptr->orig_sequence);
+			ptr->trimmedlength = ptr->sequence.size();
 			profileDebug(TimeProfilingDebug, "");
 			logdebug("Test {}: trimmed input to iterator", identifier);
 		}
@@ -404,6 +406,7 @@ void Test::InValidate()
 	red_input[1] = -1;
 	close(red_output[0]);
 	red_output[0] = -1;
+	close(red_output[1]);
 	red_output[1] = -1;
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	CloseHandle(red_input[0]);
@@ -412,6 +415,7 @@ void Test::InValidate()
 	red_input[1] = nullptr;
 	CloseHandle(red_output[0]);
 	red_output[0] = nullptr;
+	CloseHandle(red_output[1]);
 	red_output[1] = nullptr;
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
@@ -453,7 +457,7 @@ size_t Test::GetDynamicSize()
 	sz += Buffer::CalcStringLength(lastwritten);
 	sz += Buffer::ListBasic::GetListLength(reactiontime);
 	sz += Buffer::CalcStringLength(output);
-	sz += Buffer::CalcStringLength(cmdArgs);
+	//sz += Buffer::CalcStringLength(cmdArgs);
 	if (callback)
 		sz += callback->GetLength();
 	return sz;
@@ -528,20 +532,21 @@ bool Test::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadRe
 			if (hascall)
 				callback = Functions::BaseFunction::Create(buffer, offset, length, resolver);
 			// if this is a valid test that still needs to be run, generate the cmdArgs anew
-			if (valid) {
-				resolver->AddLateTask([this, resolver]() {
-					bool stateerror = false;
-					this->cmdArgs = Lua::GetCmdArgs(std::bind(&Oracle::GetCmdArgs, resolver->_oracle, std::placeholders::_1, std::placeholders::_2), this, stateerror);
-					if (stateerror) {
-						logcritical("Read Test cannot be completed, as the calling thread lacks a lua context.");
-						this->valid = false;
-					}
-				});
-			}
+			//if (valid) {
+			//	resolver->AddLateTask([this, resolver]() {
+			//		bool stateerror = false;
+			//		this->cmdArgs = Lua::GetCmdArgs(std::bind(&Oracle::GetCmdArgs, resolver->_oracle, std::placeholders::_1, std::placeholders::_2), this, stateerror);
+			//		if (stateerror) {
+			//			logcritical("Read Test cannot be completed, as the calling thread lacks a lua context.");
+			//			this->valid = false;
+			//		}
+			//	});
+			//}
 			// otherwise just leave them as is, we can generate them if we ever need them
-			else
+			//else
 				cmdArgs = "";
-			Init();
+			// do not init here, or we create an insane amount of useless file pointers
+			//Init();
 			return true;
 		}
 	default:
@@ -558,6 +563,7 @@ void Test::Clear()
 {
 	running = false;
 	input.reset();
+	InValidate();
 	if (callback)
 	{
 		callback->Dispose();
@@ -621,6 +627,14 @@ namespace Functions
 				_input->test->callback.reset();
 		_input.reset();
 		_session.reset();
+	}
+
+	void ReplayTestCallback::Run()
+	{
+		// this is the run funtion for replaying already run tests, 
+		// thus we don't want to actually save the test and the input,
+		// but delete it instead
+		SessionFunctions::TestEnd(_session, _input, true);
 	}
 }
 

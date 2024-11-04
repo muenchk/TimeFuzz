@@ -40,10 +40,19 @@ void Settings::Load(std::wstring path, bool reload)
 #endif
 
 	//oracle
-	oracle = Oracle::ParseType(ini.GetValue("Oracle", oracle_NAME, "PythonScript"));
-	loginfo("{}{} {}", "Oracle:           ", oracle_NAME, Oracle::TypeString(oracle));
-	oraclepath = std::filesystem::path(ini.GetValue("Oracle", oraclepath_NAME, "."));
-	loginfo("{}{} {}", "Oracle:           ", oraclepath_NAME, oraclepath.string());
+	oracle.oracle = ::Oracle::ParseType(ini.GetValue("Oracle", oracle.oracle_NAME, "Script"));
+	loginfo("{}{} {}", "Oracle:           ", oracle.oracle_NAME, ::Oracle::TypeString(oracle.oracle));
+	oracle.oraclepath = std::filesystem::path(ini.GetValue("Oracle", oracle.oraclepath_NAME, "."));
+	loginfo("{}{} {}", "Oracle:           ", oracle.oraclepath_NAME, oracle.oraclepath.string());
+	oracle.lua_path_cmd = std::string(ini.GetValue("Oracle", oracle.lua_path_cmd_NAME, oracle.lua_path_cmd.c_str()));
+	loginfo("{}{} {}", "Oracle:           ", oracle.lua_path_cmd_NAME, oracle.lua_path_cmd);
+	oracle.lua_path_cmd_replay = std::string(ini.GetValue("Oracle", oracle.lua_path_cmd_replay_NAME, oracle.lua_path_cmd_replay.c_str()));
+	loginfo("{}{} {}", "Oracle:           ", oracle.lua_path_cmd_replay_NAME, oracle.lua_path_cmd_replay);
+	oracle.lua_path_oracle = std::string(ini.GetValue("Oracle", oracle.lua_path_oracle_NAME, oracle.lua_path_oracle.c_str()));
+	loginfo("{}{} {}", "Oracle:           ", oracle.lua_path_oracle_NAME, oracle.lua_path_oracle);
+	oracle.grammar_path = std::string(ini.GetValue("Oracle", oracle.grammar_path_NAME, oracle.grammar_path.c_str()));
+	loginfo("{}{} {}", "Oracle:           ", oracle.grammar_path_NAME, oracle.grammar_path);
+
 
 	// general
 	general.usehardwarethreads = ini.GetBoolValue("General", general.usehardwarethreads_NAME, general.usehardwarethreads);
@@ -152,13 +161,17 @@ void Settings::Save(std::wstring _path)
 	ini.SetUnicode();
 
 	// oracle
-	ini.SetValue("Oracle", oracle_NAME, Oracle::TypeString(oracle).c_str(),
+	ini.SetValue("Oracle", oracle.oracle_NAME, ::Oracle::TypeString(oracle.oracle).c_str(),
 		"\\\\ Type of oracle used to execute the Program Under Test. \n"
 		"\\\\ \tCMD\t-\tExecutes an unresponsive program. All Inputs are dumped as cmd arguments\n"
 		"\\\\ \tScript\t-\tExecutes a script that itself executes the PUT and returns relevant information on STDOUT\n"
 		"\\\\ \tSTDIN_Responsive\t-\tExecutes a responsive program. One input is given via STDIN at a time, and a response is awaited.\n"
 		"\\\\ \tSTDIN_Dump\t-\tExecutes an unresponsive program. All Inputs are dumped into the standardinput immediately.");
-	ini.SetValue("Oracle", oraclepath_NAME, oraclepath.string().c_str(), "\\\\ The path to the oracle.");
+	ini.SetValue("Oracle", oracle.oraclepath_NAME, oracle.oraclepath.string().c_str(), "\\\\ The path to the oracle.");
+	ini.SetValue("Oracle", oracle.lua_path_cmd_NAME, oracle.lua_path_cmd.c_str(), "\\\\ The lua script containing the cmdargs function.");
+	ini.SetValue("Oracle", oracle.lua_path_cmd_replay_NAME, oracle.lua_path_cmd_replay.c_str(), "\\\\ The lua script containing the cmdargs function for replay inputs.");
+	ini.SetValue("Oracle", oracle.lua_path_oracle_NAME, oracle.lua_path_oracle.c_str(), "\\\\ The lua script containing the oracle function.");
+	ini.SetValue("Oracle", oracle.grammar_path_NAME, oracle.grammar_path.c_str(), "\\\\ Path to the Grammar.");
 
 	// general
 	ini.SetBoolValue("General", general.usehardwarethreads_NAME, general.usehardwarethreads,
@@ -270,10 +283,13 @@ size_t Settings::GetStaticSize(int32_t version)
 	                 + 1                     // Tests::storePUToutput
 	                 + 1                     // Tests::storePUToutputSuccessful
 	                 + 8;                    // Tests::maxUsedMemory
+	size_t size0x2 = size0x1;                // prior version size
 
 	switch (version) {
 	case 0x1:
 		return size0x1;
+	case 0x2:
+		return size0x2;
 	default:
 		return 0;
 	}
@@ -281,18 +297,27 @@ size_t Settings::GetStaticSize(int32_t version)
 
 size_t Settings::GetDynamicSize()
 {
-	return GetStaticSize()                                  // static size
-	       + Buffer::CalcStringLength(oraclepath.string())  // oraclepath
-	       + Buffer::CalcStringLength(saves.savepath);    // General::savepath
+	return GetStaticSize(classversion)                             // static size
+	       + Buffer::CalcStringLength(oracle.oraclepath.string())  // oraclepath
+	       + Buffer::CalcStringLength(saves.savepath)              // General::savepath
+	       + Buffer::CalcStringLength(oracle.lua_path_cmd)         // Oracle::lua_path_cmd
+	       + Buffer::CalcStringLength(oracle.lua_path_cmd_replay)  // Oracle::lua_path_cmd_replay
+	       + Buffer::CalcStringLength(oracle.lua_path_oracle)      // Oracle::lua_path_oracle
+	       + Buffer::CalcStringLength(oracle.grammar_path);     // Oracle::grammar_path
 }
 
 bool Settings::WriteData(unsigned char* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
-	Buffer::Write((int32_t)oracle, buffer, offset);
+	// oracle
+	Buffer::Write((int32_t)oracle.oracle, buffer, offset);
+	Buffer::Write(oracle.oraclepath.string(), buffer, offset);
+	Buffer::Write(oracle.lua_path_cmd, buffer, offset);
+	Buffer::Write(oracle.lua_path_cmd_replay, buffer, offset);
+	Buffer::Write(oracle.lua_path_oracle, buffer, offset);
+	Buffer::Write(oracle.grammar_path, buffer, offset);
 	// general
-	Buffer::Write(oraclepath.string(), buffer, offset);
 	Buffer::Write(general.usehardwarethreads, buffer, offset);
 	Buffer::Write(general.numthreads, buffer, offset);
 	Buffer::Write(general.numcomputingthreads, buffer, offset);
@@ -335,13 +360,67 @@ bool Settings::WriteData(unsigned char* buffer, size_t& offset)
 
 bool Settings::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
+	if (_skipread)
+		return true;
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
 	case 0x1:
 		{
 			Form::ReadData(buffer, offset, length, resolver);
-			oracle = (Oracle::PUTType)Buffer::ReadInt32(buffer, offset);
-			oraclepath = std::filesystem::path(Buffer::ReadString(buffer, offset));
+			// oracle
+			oracle.oracle = (::Oracle::PUTType)Buffer::ReadInt32(buffer, offset);
+			oracle.oraclepath = std::filesystem::path(Buffer::ReadString(buffer, offset));
+			// general
+			general.usehardwarethreads = Buffer::ReadBool(buffer, offset);
+			general.numthreads = Buffer::ReadInt32(buffer, offset);
+			general.numcomputingthreads = Buffer::ReadInt32(buffer, offset);
+			general.concurrenttests = Buffer::ReadInt32(buffer, offset);
+			// saves
+			saves.enablesaves = Buffer::ReadBool(buffer, offset);
+			saves.autosave_every_tests = Buffer::ReadInt64(buffer, offset);
+			saves.autosave_every_seconds = Buffer::ReadInt64(buffer, offset);
+			saves.savepath = Buffer::ReadString(buffer, offset);
+			saves.compressionLevel = Buffer::ReadInt32(buffer, offset);
+			saves.compressionExtreme = Buffer::ReadBool(buffer, offset);
+			// optimization
+			optimization.constructinputsiteratively = Buffer::ReadBool(buffer, offset);
+			// methods
+			methods.deltadebugging = Buffer::ReadBool(buffer, offset);
+			// generation
+			generation.generationsize = Buffer::ReadInt32(buffer, offset);
+			generation.generationtweakstart = Buffer::ReadFloat(buffer, offset);
+			generation.generationtweakmax = Buffer::ReadFloat(buffer, offset);
+			// endconditions
+			conditions.use_foundnegatives = Buffer::ReadBool(buffer, offset);
+			conditions.foundnegatives = Buffer::ReadUInt64(buffer, offset);
+			conditions.use_foundpositives = Buffer::ReadBool(buffer, offset);
+			conditions.foundpositives = Buffer::ReadInt64(buffer, offset);
+			conditions.use_timeout = Buffer::ReadBool(buffer, offset);
+			conditions.timeout = Buffer::ReadUInt64(buffer, offset);
+			conditions.use_overalltests = Buffer::ReadBool(buffer, offset);
+			conditions.overalltests = Buffer::ReadUInt64(buffer, offset);
+			// tests
+			tests.executeFragments = Buffer::ReadBool(buffer, offset);
+			tests.use_testtimeout = Buffer::ReadBool(buffer, offset);
+			tests.testtimeout = Buffer::ReadInt64(buffer, offset);
+			tests.use_fragmenttimeout = Buffer::ReadBool(buffer, offset);
+			tests.fragmenttimeout = Buffer::ReadInt64(buffer, offset);
+			tests.storePUToutput = Buffer::ReadBool(buffer, offset);
+			tests.storePUToutputSuccessful = Buffer::ReadBool(buffer, offset);
+			tests.maxUsedMemory = Buffer::ReadInt64(buffer, offset);
+			return true;
+		}
+		break;
+	case 0x2:
+		{
+			Form::ReadData(buffer, offset, length, resolver);
+			// oracle
+			oracle.oracle = (::Oracle::PUTType)Buffer::ReadInt32(buffer, offset);
+			oracle.oraclepath = std::filesystem::path(Buffer::ReadString(buffer, offset));
+			oracle.lua_path_cmd = Buffer::ReadString(buffer, offset);
+			oracle.lua_path_cmd_replay = Buffer::ReadString(buffer, offset);
+			oracle.lua_path_oracle = Buffer::ReadString(buffer, offset);
+			oracle.grammar_path = Buffer::ReadString(buffer, offset);
 			// general
 			general.usehardwarethreads = Buffer::ReadBool(buffer, offset);
 			general.numthreads = Buffer::ReadInt32(buffer, offset);

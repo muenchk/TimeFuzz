@@ -132,9 +132,12 @@ public:
 	Data();
 
 	std::string status;
+	int32_t record;
 	bool actionloadsave = false; 
 	uint64_t actionloadsave_max = 0;
 	uint64_t actionloadsave_current = 0;
+	size_t actionrecord_len = 0;
+	size_t actionrecord_offset = 0;
 
 	/// <summary>
 	/// Returns a singleton for the Data class
@@ -321,8 +324,10 @@ public:
 		return {};
 	}
 
-	void Resolve();
-	void ResolveLate();
+	void Resolve(uint64_t& progress);
+	void ResolveLate(uint64_t& progress);
+
+	size_t TaskCount() { return tasks.size() + latetasks.size(); }
 
 private:
 	std::queue<TaskDelegate*> tasks;

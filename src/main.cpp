@@ -2,6 +2,7 @@
 #include "Logging.h"
 #include "Session.h"
 #include "ExitCodes.h"
+#include "UIClasses.h"
 #include "shader/learnopengl_shader_s.h"
 #include <iostream>
 #include <filesystem>
@@ -84,22 +85,14 @@ void StartSession()
 		args.startSession = false;
 		// load session
 		if (CmdArgs::_num)
-			session = Session::LoadSession(CmdArgs::_loadname, CmdArgs::_number, args);
+			session = Session::LoadSession(CmdArgs::_loadname, CmdArgs::_number, args, &status);
 		else
-			session = Session::LoadSession(CmdArgs::_loadname, args);
+			session = Session::LoadSession(CmdArgs::_loadname, args, &status);
 		if (!session) {
 			logcritical("Session cannot be loaded from savefile:\t{}", CmdArgs::_loadname);
 			scanf("%s", buffer);
 			exit(ExitCodes::StartupError);
 		}
-		// print stats
-		std::cout << session->PrintStats();
-		// stop session, destroy it and exit
-		session->StopSession();
-		session.reset();
-		exit(ExitCodes::Success);
-	} else if (CmdArgs::_dry) {
-		throw new std::runtime_error("Dry runs aren't implemented yet");
 	} else {
 		// create sessions and start it
 		session = Session::CreateSession();
@@ -149,13 +142,13 @@ int32_t main(int32_t argc, char** argv)
 		"    --ui				        - Starts the program in GUI mode\n"
 		"    --logtoconsole             - Writes all logging output to the console\n"
 		"    --separatelogfiles         - Writes logfiles to \"/logs\" and uses timestamps in the logname\n"
-		"    --create-conf <PATH>       - Writes a default configuration file to the current folder\n";
+		"    --create-conf <PATH>       - Writes a default configuration file to the current folder\n"
+		"    --debug                    - Enable debug logging\n";
 
 	std::string logpath = "";
 	bool logtimestamps = false;
 
 	std::filesystem::path execpath = std::filesystem::path(argv[0]).parent_path();
-
 
 	for (int32_t i = 1; i < argc; i++) {
 		size_t pos = 0;
@@ -259,6 +252,9 @@ int32_t main(int32_t argc, char** argv)
 		} else if (option.substr(0, 4).find("--ui") != std::string::npos) {
 			std::cout << "Parameter: --ui\n";
 			CmdArgs::_ui = true;
+		} else if (option.substr(0, 4).find("--debug") != std::string::npos) {
+			std::cout << "Parameter: --debug\n";
+			CmdArgs::_debug = true;
 		} else if (option.find("--create-conf") != std::string::npos) {
 			if (i + 1 < argc) {
 				std::cout << "Parameter: --create-conf\n";
@@ -336,6 +332,8 @@ int32_t main(int32_t argc, char** argv)
 
 	bool stop = false;
 
+	// set debugging
+	Logging::EnableDebug = CmdArgs::_debug;
 
 	// -----go into responsive loop-----
 	if (CmdArgs::_ui) {
@@ -370,9 +368,9 @@ int32_t main(int32_t argc, char** argv)
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
-		//glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
+																		//glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
 #endif
-		GLFWwindow* window = glfwCreateWindow(1280, 720, windowtitle.c_str(), nullptr, nullptr);
+		GLFWwindow* window = glfwCreateWindow(1280, 1280, windowtitle.c_str(), nullptr, nullptr);
 		if (window == nullptr)
 			return 1;
 		glfwMakeContextCurrent(window);
@@ -381,8 +379,8 @@ int32_t main(int32_t argc, char** argv)
 			std::cout << "Failed to initialize GLAD" << std::endl;
 			return -1;
 		}
-		glfwSetWindowAspectRatio(window, 16, 9);
-		
+		//glfwSetWindowAspectRatio(window, 16, 9);
+
 		glfwSwapInterval(1);  // Enable vsync
 
 		// Setup Dear ImGui context
@@ -404,15 +402,14 @@ int32_t main(int32_t argc, char** argv)
 
 		// build and compile our shader zprogram
 		// ------------------------------------
-		Shader ourShader((execpath / "shader" / "4.1.texture.vs").string().c_str(), (execpath / "shader" / "4.1.texture.fs").string().c_str()); 
+		Shader ourShader((execpath / "shader" / "4.1.texture.vs").string().c_str(), (execpath / "shader" / "4.1.texture.fs").string().c_str());
 
-		
 		float vertices[] = {
 			// positions          // colors           // texture coords
-			1.0f, 1.0f, 0.0f,	1.0f, 0.0f, 0.0f,	1.0f, 1.0f,    // top right
-			1.0f, -1.0f, 0.0f,	0.0f, 1.0f, 0.0f,	1.0f, 0.0f,   // bottom right
-			-1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f,	0.0f, 0.0f,  // bottom left
-			-1.0f, 1.0f, 0.0f,	1.0f, 1.0f, 0.0f,	0.0f, 1.0f    // top left
+			1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,    // top right
+			1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,   // bottom right
+			-1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,  // bottom left
+			-1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f    // top left
 		};
 		unsigned int indices[] = {
 			0, 1, 3,  // first triangle
@@ -422,7 +419,7 @@ int32_t main(int32_t argc, char** argv)
 		glGenVertexArrays(1, &VAO);
 		glGenBuffers(1, &VBO);
 		glGenBuffers(1, &EBO);
-		
+
 		glBindVertexArray(VAO);
 
 		glBindBuffer(GL_ARRAY_BUFFER, VBO);
@@ -440,8 +437,6 @@ int32_t main(int32_t argc, char** argv)
 		// texture coord attribute
 		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
 		glEnableVertexAttribArray(2);
-
-
 
 		unsigned int texture;
 		glGenTextures(1, &texture);
@@ -463,9 +458,6 @@ int32_t main(int32_t argc, char** argv)
 			logcritical("Cannot open texture.");
 		stbi_image_free(data);
 
-
-
-
 		// Our state
 		bool show_demo_window = true;
 		bool show_another_window = false;
@@ -475,7 +467,6 @@ int32_t main(int32_t argc, char** argv)
 		bool displayadd;
 
 		while (!glfwWindowShouldClose(window) && !stop) {
-
 			// Poll and handle events (inputs, window resize, etc.)
 			// You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
 			// - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or clear/overwrite your copy of the mouse data.
@@ -501,8 +492,7 @@ int32_t main(int32_t argc, char** argv)
 			{
 				static bool wopen = true;
 				ImGui::Begin("Status", &wopen);
-				if (!wopen)
-				{
+				if (!wopen) {
 					loginfo("UI window has been closed, exiting application.");
 					if (session->Finished() == false && session->Loaded() == true)
 						session->StopSession(false);
@@ -512,13 +502,11 @@ int32_t main(int32_t argc, char** argv)
 					displayadd = false;
 					ImGui::Text("The Session couldn't be started");
 					ImGui::NewLine();
-					if (ImGui::Button("Close"))
-					{
+					if (ImGui::Button("Close")) {
 						loginfo("UI window has been closed, exiting application.");
 						exit(ExitCodes::Success);
 					}
 				} else {
-
 					ImGui::Text("Executed Tests:    %llu", status.overallTests);
 					ImGui::Text("Positive Tests:    %llu", status.positiveTests);
 					ImGui::Text("Negative Tests:    %llu", status.negativeTests);
@@ -532,6 +520,8 @@ int32_t main(int32_t argc, char** argv)
 					if (status.saveload) {
 						ImGui::Text("Save / Load Progress:                            %llu/%llu", status.saveload_current, status.saveload_max);
 						ImGui::ProgressBar((float)status.gsaveload, ImVec2(0.0f, 0.0f));
+						ImGui::Text("Record: %20s                 %llu/%llu", FormType::ToString(status.record).c_str(), status.saveload_record_current, status.saveload_record_len);
+						ImGui::ProgressBar((float)status.grecord, ImVec2(0.0f, 0.0f));
 					} else {
 						if (status.goverall >= 0.f) {
 							ImGui::Text("Progress towards overall generated tests:    %.3f%%", status.goverall * 100);
@@ -550,20 +540,27 @@ int32_t main(int32_t argc, char** argv)
 							ImGui::ProgressBar((float)status.gtime, ImVec2(0.0f, 0.0f));
 						}
 
-						
+						ImGui::NewLine();
+						ImGui::NewLine();
 
 						if (session->Finished()) {
-							ImGui::NewLine();
-							ImGui::NewLine();
 							ImGui::Text("The Session has ended");
 							ImGui::NewLine();
 							if (ImGui::Button("Close")) {
 								loginfo("UI window has been closed, exiting application.");
 								exit(ExitCodes::Success);
 							}
+						} else if (session->Loaded() && session->Running() == false && session->Finished() == false) {
+							if (ImGui::Button("Close")) {
+								loginfo("UI window has been closed, exiting application.");
+								exit(ExitCodes::Success);
+							}
+							ImGui::SameLine();
+							if (ImGui::Button("Start")) {
+								bool error = false;
+								session->StartLoadedSession(error, CmdArgs::_reloadConfig, CmdArgs::_settingspath, nullptr);
+							}
 						} else {
-							ImGui::NewLine();
-							ImGui::NewLine();
 							if (ImGui::Button("Save")) {
 								std::thread th(std::bind(&Session::Save, session));
 								th.detach();
@@ -588,10 +585,8 @@ int32_t main(int32_t argc, char** argv)
 			{
 				static bool wopen = true;
 				ImGui::Begin("Advanced", &wopen);
-				if (wopen)
-				{
-					if (displayadd)
-					{
+				if (wopen) {
+					if (displayadd) {
 						ImGui::SeparatorText("Exclusion Tree");
 						ImGui::Text("Depth:                %lld", status.excl_depth);
 						ImGui::Text("Nodes:                %llu", status.excl_nodecount);
@@ -603,15 +598,16 @@ int32_t main(int32_t argc, char** argv)
 
 						ImGui::SeparatorText("Execution Handler");
 						ImGui::Text("Waiting:              %d", status.exec_waiting);
-						ImGui::Text("Internal Waiting:     %d", status.exec_internalwaiting);
 						ImGui::Text("Running:              %d", status.exec_running);
+						ImGui::Text("Stopping:             %d", status.exec_stopping);
 
 						ImGui::SeparatorText("Generation");
 						ImGui::Text("Generated Inputs:     %lld", status.gen_generatedInputs);
 						ImGui::Text("Excluded with Prefix: %lld", status.gen_generatedWithPrefix);
 						ImGui::Text("Generation Fails:     %lld", status.gen_generationFails);
+						ImGui::Text("Add Test Fails:       %lld", status.gen_addtestfails);
 						ImGui::Text("Failure Rate:         %llf", status.gen_failureRate);
-						
+
 						ImGui::SeparatorText("Test exit stats");
 						ImGui::Text("Natural:              %llu", status.exitstats.natural);
 						ImGui::Text("Last Input:           %llu", status.exitstats.lastinput);
@@ -620,8 +616,87 @@ int32_t main(int32_t argc, char** argv)
 						ImGui::Text("Fragment Timeout:     %llu", status.exitstats.fragmenttimeout);
 						ImGui::Text("Memory:               %llu", status.exitstats.memory);
 						ImGui::Text("Init error:           %llu", status.exitstats.initerror);
+					} else {
+						ImGui::Text("Not available");
 					}
-					else {
+				}
+				ImGui::End();
+			}
+
+			// show window with information about the best generated inputs
+			{
+				static bool wopen = true;
+				ImGui::Begin("Inputs", &wopen);
+				if (wopen) {
+					static int32_t MAX_ITEMS = 100;
+					if (displayadd) {
+						static ImVector<UI::UIInput> imElements;
+						static std::vector<UI::UIInput> elements;
+						if (imElements.Size == 0)
+							imElements.resize(MAX_ITEMS);
+						// GET ITEMS FROM SESSION
+						session->UI_GetTopK(elements, MAX_ITEMS);
+
+						for (int i = 0; i < MAX_ITEMS; i++)
+							imElements[i] = elements[i];
+
+						// construct table
+						static ImGuiTableFlags flags =
+							ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable | ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_ScrollY;
+						//PushStyleCompact
+						//...
+						//PopStyleCompact
+						if (ImGui::BeginTable("itemtable", 6, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 15), 0.0f))
+						{
+							ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputID);
+							ImGui::TableSetupColumn("Length",  ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputLength);
+							ImGui::TableSetupColumn("Primary Score",  ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputPrimaryScore);
+							ImGui::TableSetupColumn("Secondary Score", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputSecondaryScore);
+							ImGui::TableSetupColumn("Result", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputResult);
+							ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputAction);
+							ImGui::TableSetupScrollFreeze(0, 1);
+							ImGui::TableHeadersRow();
+
+							// DO SOME SORTING
+
+							// use clipper for large vertical lists
+							ImGuiListClipper clipper;
+							clipper.Begin(imElements.size());
+							while (clipper.Step())
+							{
+								for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
+								{
+									auto item = &imElements[i];
+									ImGui::PushID((uint32_t)item->id);
+									ImGui::TableNextRow();
+									ImGui::TableNextColumn();
+									ImGui::Text("%8llx", item->id);
+									ImGui::TableNextColumn();
+									ImGui::Text("%10lu", item->length);
+									ImGui::TableNextColumn();
+									ImGui::Text("%8.2f", item->primaryScore);
+									ImGui::TableNextColumn();
+									ImGui::Text("%8.2f", item->secondaryScore);
+									ImGui::TableNextColumn();
+									if (item->result == UI::Result::Failing)
+										ImGui::Text("Failing");
+									else if (item->result == UI::Result::Passing)
+										ImGui::Text("Passing");
+									else
+										ImGui::Text("Unfinished");
+									ImGui::TableNextColumn();
+									if (ImGui::SmallButton("Replay"))
+									{
+										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1), item->id);
+										th.detach();
+									}
+									ImGui::PopID();
+								}
+							}
+							ImGui::EndTable();
+						}
+
+					} else {
 						ImGui::Text("Not available");
 					}
 				}
@@ -677,7 +752,6 @@ int32_t main(int32_t argc, char** argv)
 			ourShader.use();
 			glBindVertexArray(VAO);
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
 
 			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 

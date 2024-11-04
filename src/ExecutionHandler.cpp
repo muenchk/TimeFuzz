@@ -226,10 +226,18 @@ void ExecutionHandler::StopHandlerAfterTestsFinishAndWait()
 	}
 }
 
-bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback)
+bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback, bool bypass, bool replay)
 {
 	StartProfilingDebug;
 	loginfo("Adding new test");
+	if (input->GetGenerated() == false)
+	{
+		// we are trying to add an input that hasn't been generated or regenerated
+		// try the generate it and if it succeeds add the test
+		SessionFunctions::GenerateInput(input, _session);
+		if (input->GetGenerated() == false)
+			return false;
+	}
 	uint64_t id = 0;
 	{
 		std::unique_lock<std::mutex> guard(_lockqueue);
@@ -249,7 +257,7 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 	test->output = "";
 
 	bool stateerror = false;
-	test->cmdArgs = Lua::GetCmdArgs(std::bind(&Oracle::GetCmdArgs, _oracle, std::placeholders::_1, std::placeholders::_2), test, stateerror);
+	test->cmdArgs = Lua::GetCmdArgs(std::bind(&Oracle::GetCmdArgs, _oracle, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), test, stateerror, replay);
 	if (stateerror) {
 		logcritical("Add Test cannot be completed, as the calling thread lacks a lua context.");
 		_session->data->DeleteForm(test);
@@ -257,7 +265,10 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 	}
 	{
 		std::unique_lock<std::mutex> guard(_lockqueue);
-		_waitingTests.push_back(test);
+		if (bypass)
+			_waitingTests.push_front(test);
+		else
+			_waitingTests.push_back(test);
 	}
 	_waitforjob.notify_one();
 	profileDebug(TimeProfilingDebug, "");
@@ -363,15 +374,10 @@ void ExecutionHandler::InternalLoop()
 		while (_currentTests < _maxConcurrentTests && _waitingTests.size() > 0 && !_frozen) {
 			test.reset();
 			{
-				if (_internalwaitingTests.size() > 0) {
-					test = _internalwaitingTests.front();
-					_internalwaitingTests.pop_front();
-				} else {
-					std::unique_lock<std::mutex> guard(_lockqueue);
-					if (_waitingTests.size() > 0) {
-						test = _waitingTests.front();
-						_waitingTests.pop_front();
-					}
+				std::unique_lock<std::mutex> guard(_lockqueue);
+				if (_waitingTests.size() > 0) {
+					test = _waitingTests.front();
+					_waitingTests.pop_front();
 				}
 			}
 			if (auto ptr = test.lock(); ptr) {
@@ -558,14 +564,14 @@ int32_t ExecutionHandler::GetWaitingTests()
 	return (int32_t)_waitingTests.size();
 }
 
-int32_t ExecutionHandler::GetInternalWaitingTests()
-{
-	return (int32_t)_internalwaitingTests.size();
-}
-
 int32_t ExecutionHandler::GetRunningTests()
 {
 	return (int32_t)_runningTests.size();
+}
+
+int32_t ExecutionHandler::GetStoppingTests()
+{
+	return (int32_t)_stoppingTests.size();
 }
 
 size_t ExecutionHandler::GetStaticSize(int32_t version)
@@ -588,7 +594,7 @@ size_t ExecutionHandler::GetStaticSize(int32_t version)
 
 size_t ExecutionHandler::GetDynamicSize()
 {
-	return GetStaticSize(classversion) + 8 /*len of ids*/ + _stoppingTests.size() * 8 + _runningTests.size() * 8 + _waitingTests.size() * 8 + _internalwaitingTests.size();
+	return GetStaticSize(classversion) + 8 /*len of ids*/ + _stoppingTests.size() * 8 + _runningTests.size() * 8 + _waitingTests.size() * 8;
 }
 
 bool ExecutionHandler::WriteData(unsigned char* buffer, size_t& offset)
@@ -619,12 +625,6 @@ bool ExecutionHandler::WriteData(unsigned char* buffer, size_t& offset)
 		else
 			Buffer::Write((uint64_t)0, buffer, offset);
 	}
-	for (auto test : _internalwaitingTests) {
-		if (auto ptr = test.lock(); ptr)
-			Buffer::Write(ptr->GetFormID(), buffer, offset);
-		else
-			Buffer::Write((uint64_t)0, buffer, offset);
-	}
 	return true;
 }
 
@@ -647,17 +647,26 @@ bool ExecutionHandler::ReadData(unsigned char* buffer, size_t& offset, size_t le
 			std::vector<FormID> ids;
 			for (int32_t i = 0; i < (int32_t)len; i++)
 				ids.push_back(Buffer::ReadUInt64(buffer, offset));
-			resolver->AddTask([this, ids, resolver]() {
-				for (int32_t i = 0; i < (int32_t)ids.size(); i++) {
-					if (ids[i] != 0)
-						_waitingTests.push_back(resolver->ResolveFormID<Test>(ids[i]));
-					else
-						logcritical("ExecutionHandler::Load cannot resolve test");
-				}
+			resolver->AddLateTask([this, ids, resolver]() {
+				bool stateerror = false;
 				_session = resolver->data->CreateForm<Session>();
 				_settings = resolver->data->CreateForm<Settings>();
 				_threadpool = resolver->data->CreateForm<TaskController>();
 				_oracle = resolver->data->CreateForm<Oracle>();
+				for (int32_t i = 0; i < (int32_t)ids.size(); i++) {
+					if (ids[i] != 0) {
+						auto test = resolver->ResolveFormID<Test>(ids[i]);
+						test->Init(test->callback, test->identifier);
+						// since we found a test we still need to execute, we need to make sure that our input contains a valid input sequence
+						// and regenerate it if not
+						if (auto ptr = test->input.lock(); ptr && ptr->GetGenerated() == false)
+							SessionFunctions::GenerateInput(ptr, this->_session);
+						test->cmdArgs = Lua::GetCmdArgs(std::bind(&Oracle::GetCmdArgs, _oracle, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), test, stateerror, false);
+						_waitingTests.push_back(test);
+					}
+					else
+						logcritical("ExecutionHandler::Load cannot resolve test");
+				}
 				if (_active) {
 					_active = false;
 				}

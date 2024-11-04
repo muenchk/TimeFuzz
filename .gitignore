@@ -18,6 +18,9 @@ countlines.bat
 Testing
 FormatExamples/__pycache__
 
+# background images
+static/background_*
+
 # Prerequisites
 *.d
 

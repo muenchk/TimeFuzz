@@ -251,4 +251,13 @@ namespace Functions
 		void Dispose();
 		size_t GetLength();
 	};
+
+	class ReplayTestCallback : public TestCallback
+	{
+	public:
+		void Run() override;
+		static uint64_t GetTypeStatic() { return 'RTES'; }
+		uint64_t GetType() override { return 'RTES'; }
+		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<ReplayTestCallback>()); }
+	};
 }

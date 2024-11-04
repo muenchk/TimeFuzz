@@ -161,6 +161,38 @@ public:
 	/// <param name="escapesymbol">symbol that marks escaped sequences, sequences need to be surrounded by this symbol</param>
 	/// <returns></returns>
 	static std::vector<std::string> SplitString(std::string str, std::string delimiter, bool removeEmpty, bool escape = false, char escapesymbol = '\"');
+
+	/// <summary>
+	/// Evaluates whether the char at position [position] is escaped
+	/// </summary>
+	/// <param name="str">input to search</param>
+	/// <param name="escapesymbol">symbol that marks escaped sequences, sequences need to be surrounded by this symbol</param>
+	/// <param name="position">the position to check</param>
+	/// <returns></returns>
+	static bool IsEscaped(std::string str, int32_t position, char escapesymbol = '\"')
+	{
+		bool escaped = false;
+		int32_t count = 0;
+		for (char c : str) {
+			//logdebug("Char: {}\t Window: {}\t Wsize: {}\t Wmaxsize: {}\t tmp: {}", c, slide.GetWindow(), slide.size, slide.maxsize, tmp);
+			if (escaped == true) {
+				// escaped sequence.
+				if (c == escapesymbol) {
+					escaped = !escaped;
+				}
+			} else {
+				if (c == escapesymbol) {
+					// we are at the beginning of an escaped sequence
+					escaped = !escaped;
+				}
+			}
+			if (count == position)
+				return escaped;
+			count++;
+		}
+		return false;
+	}
+
 	/// <summary>
 	/// Removes whitespace from an input in-place, optionally respects escaped sequences
 	/// </summary>

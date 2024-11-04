@@ -80,7 +80,7 @@ EnumType Lua::EvaluateOracle(std::function<EnumType(lua_State*, std::shared_ptr<
 	return func(luas, test);
 }
 
-std::string Lua::GetCmdArgs(std::function<std::string(lua_State*, Test*)> func, std::shared_ptr<Test> test, bool& stateerror)
+std::string Lua::GetCmdArgs(std::function<std::string(lua_State*, Test*, bool)> func, std::shared_ptr<Test> test, bool& stateerror, bool replay)
 {
 	auto threadid = std::this_thread::get_id();
 	lua_State* luas = nullptr;
@@ -95,10 +95,10 @@ std::string Lua::GetCmdArgs(std::function<std::string(lua_State*, Test*)> func, 
 		return "";
 	}
 	// call the enclosed function
-	return func(luas, test.get());
+	return func(luas, test.get(), replay);
 }
 
-std::string Lua::GetCmdArgs(std::function<std::string(lua_State*, Test*)> func, Test* test, bool& stateerror)
+std::string Lua::GetCmdArgs(std::function<std::string(lua_State*, Test*, bool)> func, Test* test, bool& stateerror, bool replay)
 {
 	auto threadid = std::this_thread::get_id();
 	lua_State* luas = nullptr;
@@ -113,7 +113,7 @@ std::string Lua::GetCmdArgs(std::function<std::string(lua_State*, Test*)> func, 
 		return "";
 	}
 	// call the enclosed function
-	return func(luas, test);
+	return func(luas, test, replay);
 }
 
 void Lua::DestroyAll()

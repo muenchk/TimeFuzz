@@ -3,12 +3,56 @@
 #include "Form.h"
 
 #include <string>
+#include <vector>
+#include <list>
 class DerivationTree : public Form
 {
+
 private:
-	const int32_t classversion = 0x1;
+	const int32_t classversion = 0x2;
 
 public:
+	enum class NodeType
+	{
+		Terminal = 0,
+		NonTerminal = 1,
+		Sequence = 2,
+	};
+	struct Node
+	{
+		virtual NodeType Type() = 0;
+	};
+	
+	struct NonTerminalNode : public Node
+	{
+		std::vector<Node*> children;
+		uint64_t grammarID;
+
+		inline NodeType Type() override { return NodeType::NonTerminal; }
+	};
+
+	struct TerminalNode : public Node
+	{
+		uint64_t grammarID;
+		std::string content;
+
+		inline NodeType Type() override { return NodeType::Terminal; }
+	};
+
+	struct SequenceNode : public NonTerminalNode
+	{
+		inline NodeType Type() override { return NodeType::Sequence; }
+	};
+
+	Node* root;
+	FormID grammarID;
+	bool valid = false;
+	bool regenerate = false;
+	uint32_t seed = 0;
+	int32_t targetlen = 0;
+	std::list<Node*> nodes;
+	int32_t sequenceNodes = 0;
+
 	void Parse(std::string);
 
 	#pragma region InheritedForm

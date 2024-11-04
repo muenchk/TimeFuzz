@@ -4,6 +4,7 @@
 #include "SessionData.h"
 #include "Test.h"
 #include "LuaEngine.h"
+#include "DerivationTree.h"
 
 #include <mutex>
 #include <boost/circular_buffer.hpp>
@@ -16,8 +17,15 @@ std::shared_ptr<Input> SessionFunctions::GenerateInput(std::shared_ptr<Session>&
 	loginfo("[GenerateInput] create form");
 	// generate a new input
 	std::shared_ptr<Input> input = session->data->CreateForm<Input>();
+	input->derive = session->data->CreateForm<DerivationTree>();
 	loginfo("[GenerateInput] generate");
-	session->_generator->Generate(input);
+	if (session->_generator->Generate(input) == false)
+	{
+		session->data->DeleteForm(input->derive);
+		input->derive.reset();
+		session->data->DeleteForm(input);
+		return {};
+	}
 	loginfo("[GenerateInput] setup");
 	// setup input class
 	input->hasfinished = false;
@@ -30,6 +38,43 @@ std::shared_ptr<Input> SessionFunctions::GenerateInput(std::shared_ptr<Session>&
 	input->oracleResult = Oracle::OracleResult::None;
 
 	return input;
+}
+
+void SessionFunctions::GenerateInput(std::shared_ptr<Input>& input, std::shared_ptr<Session>& session)
+{
+	// if we already generated the input: skip
+	if (input->GetGenerated())
+		return;
+	if (input) {
+		// generate a new input
+		if (!input->derive)
+			input->derive = session->data->CreateForm<DerivationTree>();
+		loginfo("[GenerateInput] generate");
+		if (session->_generator->GetGrammar() && session->_generator->GetGrammar()->GetFormID() == input->derive->grammarID) {
+			if (session->_generator->Generate(input) == false) {
+				session->data->DeleteForm(input->derive);
+				input->derive.reset();
+				session->data->DeleteForm(input);
+			}
+		} else {
+			auto grammar = session->data->LookupFormID<Grammar>(input->derive->grammarID);
+			if (grammar) {
+				session->_generator->Generate(input, grammar);
+				return;
+			}
+		}
+		loginfo("[GenerateInput] setup");
+		// setup input class
+		input->hasfinished = false;
+		input->trimmed = false;
+		input->executiontime = std::chrono::nanoseconds(0);
+		input->exitcode = 0;
+		input->pythonstring = "";
+		input->pythonconverted = false;
+		input->stringrep = "";
+		input->oracleResult = Oracle::OracleResult::None;
+	} else
+		input = GenerateInput(session);
 }
 
 void SessionFunctions::SaveCheck(std::shared_ptr<Session>& session)
@@ -144,6 +189,8 @@ void SessionFunctions::MasterControl(std::shared_ptr<Session>& session, bool for
 		return;
 	}
 
+	StartProfiling;
+
 	bool forceendcheck = false;
 	std::chrono::nanoseconds timediff = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - session->sessiondata.lastchecks);
 
@@ -155,6 +202,7 @@ MasterControlBegin:
 	if (forceendcheck || timediff >= session->sessiondata._checkperiod)
 		if (EndCheck(session) == true) {
 			session->sessiondata._sessionFunctionLock.release();
+			profile(TimeProfiling, "Time taken for MasterControl");
 			return;
 		}
 
@@ -167,13 +215,13 @@ MasterControlBegin:
 	// waiting tests against the parameters
 
 	// number of new tests we need to generate
-	size_t generate = session->_settings->generation.generationsize - session->_exechandler->WaitingTasks();
+	int64_t generate = session->_settings->generation.generationsize - (int64_t)session->_exechandler->WaitingTasks();
 
 	int32_t generated = 0;
 
 	std::shared_ptr<Input> input;
 	std::vector<std::shared_ptr<Input>> inputs;
-	for (int64_t i = 0; i < (int64_t)generate; i++) {
+	for (int64_t i = 0; i < generate; i++) {
 		loginfo("[MasterControl] outer loop");
 		int64_t count = 0;
 		// try to generate new inputs for a maximum of 1000 times
@@ -183,17 +231,19 @@ MasterControlBegin:
 			loginfo("[MasterControl] inner loop");
 			count++;
 			input = GenerateInput(session);
-			loginfo("[MasterControl] prefix tree");
-			if (session->_excltree->HasPrefix(input) == false) {
-				// we found one that isn't a prefix
-				session->sessiondata._generatedinputs++;
-				inputs.push_back(input);
-				generated++;
-				break;
+			if (input) {
+				loginfo("[MasterControl] prefix tree");
+				if (session->_excltree->HasPrefix(input) == false) {
+					// we found one that isn't a prefix
+					session->sessiondata._generatedinputs++;
+					inputs.push_back(input);
+					generated++;
+					break;
+				}
+				// else continue with loop
+				else
+					session->sessiondata._generatedWithPrefix++;
 			}
-			// else continue with loop
-			else
-				session->sessiondata._generatedWithPrefix++;
 			loginfo("[MasterControl] inner loop end");
 		}
 		// if count is GENERATION_RETRIES update fails
@@ -205,7 +255,7 @@ MasterControlBegin:
 			session->sessiondata._recentfailes.push_back(0);
 	}
 
-	if (generated == 0 && generate == (size_t)session->_settings->generation.generationsize)
+	if (generated == 0 && generate == session->_settings->generation.generationsize)
 	{
 		// if we could not generate any new inputs and the number we needed to generate is equal to the maximum generation size
 		// we may be in a state where we cannot progress without a new test if there are no tests left currently executed
@@ -224,7 +274,11 @@ MasterControlBegin:
 			auto callback = dynamic_pointer_cast<Functions::TestCallback>(Functions::TestCallback::Create());
 			callback->_session = session;
 			callback->_input = inp;
-			session->_exechandler->AddTest(inp, callback);
+			if (session->_exechandler->AddTest(inp, callback) == false) {
+				session->sessiondata._addtestFails++;
+				session->data->DeleteForm(inp);
+				callback->Dispose();
+			}
 		}
 	}
 
@@ -244,11 +298,19 @@ MasterControlBegin:
 
 	loginfo("[Mastercontrol] end");
 	session->sessiondata._sessionFunctionLock.release();
-	//throw new std::runtime_error("not implemented");
+
+	profile(TimeProfiling, "Time taken for MasterControl");
+	return;
 }
 
-void SessionFunctions::TestEnd(std::shared_ptr<Session>& session, std::shared_ptr<Input>& input)
+void SessionFunctions::TestEnd(std::shared_ptr<Session>& session, std::shared_ptr<Input> input, bool replay)
 {
+	if (replay == true)
+	{
+		// if this was only to replay, we just delete it
+		session->data->DeleteForm(input->test);
+		session->data->DeleteForm(input);
+	}
 	// calculate oracle result
 	bool stateerror = false;
 	input->oracleResult = Lua::EvaluateOracle(std::bind(&Oracle::Evaluate, session->_oracle, std::placeholders::_1, std::placeholders::_2), input->test, stateerror);
@@ -270,7 +332,7 @@ void SessionFunctions::TestEnd(std::shared_ptr<Session>& session, std::shared_pt
 			double weight = 0.0f;
 
 			// -----Add input to its list-----
-			session->sessiondata.AddInput(input, Oracle::OracleResult::Passing, weight);
+			session->sessiondata.AddInput(input, Oracle::OracleResult::Failing, weight);
 			
 			// -----Add input to exclusion tree as result is fixed-----
 			session->_excltree->AddInput(input);
@@ -313,7 +375,7 @@ void SessionFunctions::TestEnd(std::shared_ptr<Session>& session, std::shared_pt
 
 
 			// -----Add input to its list-----
-			session->sessiondata.AddInput(input, Oracle::OracleResult::Passing, weight);
+			session->sessiondata.AddInput(input, Oracle::OracleResult::Unfinished, weight);
 
 
 

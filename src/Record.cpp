@@ -2,10 +2,10 @@
 #include "ExecutionHandler.h"
 
 template <>
-unsigned char* Records::CreateRecord(ExecutionHandler* value, size_t& length)
+unsigned char* Records::CreateRecord(ExecutionHandler* value, size_t& offset, size_t& length)
 {
 	std::unique_lock<std::mutex> guard(value->_freezelock);
-	size_t offset = 0;
+	offset = 0;
 	size_t sz = value->GetDynamicSize();
 	// record length + uint64_t record length + int32_t record type
 	length = sz + 8 + 4;

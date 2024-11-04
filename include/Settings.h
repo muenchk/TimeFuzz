@@ -26,13 +26,18 @@ public:
 	static inline bool _ui = false;
 	static inline bool _reloadConfig = false;
 	static inline std::filesystem::path workdir = L"";
+	static inline bool _debug = false;
 };
 
 class Settings : public Form
 {
 private:
 	bool initialized = false;
-	const int32_t classversion = 0x1;
+	const int32_t classversion = 0x2;
+	/// <summary>
+	/// skip reading from savefile
+	/// </summary>
+	bool _skipread = false;
 
 public:
 	/// <summary>
@@ -50,7 +55,7 @@ public:
 	/// </summary>
 	void Save(std::wstring path = L"");
 
-	size_t GetStaticSize(int32_t version = 0x1) override;
+	size_t GetStaticSize(int32_t version) override;
 	size_t GetDynamicSize() override;
 	bool WriteData(unsigned char* buffer, size_t& offset) override;
 	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
@@ -68,16 +73,46 @@ public:
 		return FormType::Settings;
 	}
 
-	/// <summary>
-	/// Type of the oracle that is executed
-	/// </summary>
-	Oracle::PUTType oracle = Oracle::PUTType::Undefined;
-	const char * oracle_NAME = "PUTType";
-	/// <summary>
-	/// path the the oracle executing program/script OR the PUT itself
-	/// </summary>
-	std::filesystem::path oraclepath;
-	const char* oraclepath_NAME = "Path";
+	void SkipRead()
+	{
+		_skipread = true;
+	}
+
+	struct Oracle
+	{
+		/// <summary>
+		/// Type of the oracle that is executed
+		/// </summary>
+		::Oracle::PUTType oracle = ::Oracle::PUTType::Undefined;
+		const char* oracle_NAME = "PUTType";
+		/// <summary>
+		/// path the the oracle executing program/script OR the PUT itself
+		/// </summary>
+		std::filesystem::path oraclepath;
+		const char* oraclepath_NAME = "Path";
+		/// <summary>
+		/// path to the lua script containing the cmd Args
+		/// </summary>
+		std::string lua_path_cmd = "LuaCmdArgs.lua";
+		const char* lua_path_cmd_NAME = "LuaCmdScript";
+		/// <summary>
+		/// path to the lua script containing the cmd Args
+		/// </summary>
+		std::string lua_path_cmd_replay = "LuaCmdArgsReplay.lua";
+		const char* lua_path_cmd_replay_NAME = "LuaCmdScriptReplay";
+		/// <summary>
+		/// path to the lua script containing the lua functions
+		/// </summary>
+		std::string lua_path_oracle = "LuaOracle.lua";
+		const char* lua_path_oracle_NAME = "LuaOracleScript";
+		/// <summary>
+		/// path to the grammar
+		/// </summary>
+		std::string grammar_path = "Grammar.scala";
+		const char* grammar_path_NAME = "Grammar";
+	};
+
+	Settings::Oracle oracle;
 
 	struct General
 	{

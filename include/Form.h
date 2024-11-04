@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <shared_mutex>
+#include <string>
 
 typedef uint64_t FormID;
 
@@ -109,4 +110,36 @@ struct FormType
 		ExecutionHandler = 'EXEC',  // ExecutionHandler
 		Oracle = 'ORAC', // Oracle
 	};
+
+	static inline std::string ToString(int32_t type)
+	{
+		switch (type)
+		{
+		case FormType::Input:
+			return "Input";
+		case FormType::Grammar:
+			return "Grammar";
+		case FormType::DevTree:
+			return "DevTree";
+		case FormType::ExclTree:
+			return "ExclTree";
+		case FormType::Generator:
+			return "Generator";
+		case FormType::Session:
+			return "Session";
+		case FormType::Settings:
+			return "Settings";
+		case FormType::Test:
+			return "Test";
+		case FormType::TaskController:
+			return "TaskController";
+		case FormType::ExecutionHandler:
+			return "ExecutionHandler";
+		case FormType::Oracle:
+			return "Oracle";
+			break;
+		default:
+			return "Unknown";
+		}
+	}
 };
