@@ -153,6 +153,11 @@ public:
 #endif
 
 	/// <summary>
+	/// this is a flag indicating that this test was already run and no oracle is necessary
+	/// </summary>
+	bool skipOracle = false;
+
+	/// <summary>
 	/// Returns whether the test is still running
 	/// </summary>
 	/// <returns></returns>
@@ -208,12 +213,18 @@ public:
 	/// invalidates the test [functions cannot be called anymore]
 	/// </summary>
 	void InValidate();
+	/// <summary>
+	/// invalidates the test [functions cannot be called anymore]
+	/// </summary>
+	void InValidatePreExec();
 
 	/// <summary>
 	/// returns whether the test is valid and still needs to be run
 	/// </summary>
 	/// <returns></returns>
 	bool IsValid() { return valid; }
+
+	void DeepCopy(std::shared_ptr<Test> other);
 
 	const int32_t classversion = 0x1;
 

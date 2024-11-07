@@ -18,6 +18,7 @@
 #include <chrono>
 
 #include "Function.h"
+#include "DeltaDebugging.h"
 
 // external class definitions
 class Session;
@@ -90,9 +91,25 @@ public:
 	/// <param name="test"></param>
 	static void TestEnd(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input, bool replay = false);
 
+	/// <summary>
+	/// Updates test exit statistics
+	/// </summary>
+	/// <param name="sessiondata"></param>
+	/// <param name="reason"></param>
 	static void AddTestExitReason(std::shared_ptr<SessionData>& sessiondata, int32_t reason);
 
+	/// <summary>
+	/// Generates new tests for execution
+	/// </summary>
+	/// <param name="sessiondata"></param>
 	static void GenerateTests(std::shared_ptr<SessionData>& sessiondata);
+
+	/// <summary>
+	/// Begins delta debuggin (i.e. minimizing) the given input
+	/// </summary>
+	/// <param name="sessiondata"></param>
+	/// <param name="input"></param>
+	static std::shared_ptr<DeltaDebugging::DeltaController> BeginDeltaDebugging(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input);
 
 private:
 	/// <summary>
@@ -109,10 +126,40 @@ private:
 class SessionStatistics
 {
 public:
+	/// <summary>
+	/// Returns the overall number of tests successfully executed
+	/// </summary>
+	/// <param name=""></param>
+	/// <returns></returns>
 	static uint64_t TestsExecuted(std::shared_ptr<SessionData>&);
+	/// <summary>
+	/// Returns the number of positive tests generated
+	/// </summary>
+	/// <param name=""></param>
+	/// <returns></returns>
 	static uint64_t PositiveTestsGenerated(std::shared_ptr<SessionData>&);
+	/// <summary>
+	/// Returns the number of negative tests generated
+	/// </summary>
+	/// <param name=""></param>
+	/// <returns></returns>
 	static uint64_t NegativeTestsGenerated(std::shared_ptr<SessionData>&);
+	/// <summary>
+	/// returns the number of unfinished tests generated
+	/// </summary>
+	/// <param name=""></param>
+	/// <returns></returns>
 	static uint64_t UnfinishedTestsGenerated(std::shared_ptr<SessionData>&);
+	/// <summary>
+	/// returns the number of test pruned from memory
+	/// </summary>
+	/// <param name=""></param>
+	/// <returns></returns>
 	static uint64_t TestsPruned(std::shared_ptr<SessionData>&);
+	/// <summary>
+	/// returns the overall runtime of the session without organisatorial tasks such as saving and loading
+	/// </summary>
+	/// <param name="sessiondata"></param>
+	/// <returns></returns>
 	static std::chrono::nanoseconds Runtime(std::shared_ptr<SessionData>& sessiondata);
 };

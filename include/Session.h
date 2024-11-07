@@ -164,6 +164,9 @@ public:
 
 	void UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k);
 
+	UI::UIDeltaDebugging UI_StartDeltaDebugging();
+	UI::UIDeltaDebugging UI_FindDeltaDebugging();
+
 	/// <summary>
 	/// Returns a string with information about the session
 	/// </summary>

@@ -692,6 +692,8 @@ void Session::Replay(FormID inputid)
 
 void Session::UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k)
 {
+	if (!loaded)
+		return;
 	if (vector.size() < k)
 		vector.resize(k);
 	auto vec = _sessiondata->GetTopK((int32_t)k);
@@ -703,4 +705,35 @@ void Session::UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k)
 		vector[i].secondaryScore = vec[i]->GetSecondaryScore();
 		vector[i].result = (UI::Result)vec[i]->GetOracleResult();
 	}
+}
+
+UI::UIDeltaDebugging Session::UI_StartDeltaDebugging()
+{
+	if (!loaded)
+		return {};
+	bool reg = Lua::RegisterThread(_sessiondata);
+	auto vec = _sessiondata->GetTopK_Unfinished((int32_t)1);
+	UI::UIDeltaDebugging dd;
+	
+	if (vec.size() > 0)
+	{
+		dd.SetDeltaController(SessionFunctions::BeginDeltaDebugging(_sessiondata, vec[0]));
+	}
+	if (reg)
+		Lua::UnregisterThread();
+	return dd;
+}
+
+
+UI::UIDeltaDebugging Session::UI_FindDeltaDebugging()
+{
+	if (!loaded)
+		return {};
+	auto vec = _sessiondata->data->GetFormArray<DeltaDebugging::DeltaController>();
+	if (vec.size() > 0) {
+		UI::UIDeltaDebugging dd;
+		dd.SetDeltaController(vec[0]);
+		return dd;
+	} else
+		return {};
 }

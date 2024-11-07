@@ -7,6 +7,9 @@
 
 #include "Input.h"
 #include "Form.h"
+#include "Utility.h"
+
+enum OracleResult : EnumType;
 
 /// <summary>
 /// this class holds information about prefixes that are excluded
@@ -40,6 +43,9 @@ class ExclusionTree : public Form
 		/// </summary>
 		bool isLeaf = false;
 
+		OracleResult result;
+		FormID InputID = 0;
+
 		/// <summary>
 		/// Returns the child with the identifier [str] if there is one
 		/// </summary>
@@ -55,7 +61,7 @@ public:
 	/// adds a new input to the tree
 	/// </summary>
 	/// <param name="input"></param>
-	void AddInput(std::shared_ptr<Input> input);
+	void AddInput(std::shared_ptr<Input> input, OracleResult result);
 
 	/// <summary>
 	/// checks if the input has a prefix that is in the tree
@@ -64,9 +70,16 @@ public:
 	/// <returns></returns>
 	bool HasPrefix(std::shared_ptr<Input> input);
 
+	/// <summary>
+	/// checks if the input has a prefix that is in the tree, and return the formID of the corresponding test
+	/// </summary>
+	/// <param name="input"></param>
+	/// <returns></returns>
+	bool HasPrefix(std::shared_ptr<Input> input, FormID& prefixID);
+
 	~ExclusionTree();
 
-	const int32_t classversion = 0x1;
+	const int32_t classversion = 0x2;
 
 	#pragma region InheritedForm
 

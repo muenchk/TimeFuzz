@@ -2,6 +2,7 @@
 #include "Input.h"
 #include "BufferOperations.h"
 #include "Logging.h"
+#include "Oracle.h"
 
 #include <stack>
 
@@ -20,6 +21,7 @@ ExclusionTree::TreeNode* ExclusionTree::TreeNode::HasChild(std::string str)
 ExclusionTree::ExclusionTree()
 {
 	root = new TreeNode();
+	root->result = OracleResult::Undefined;
 	root->id = 0;
 }
 
@@ -28,7 +30,7 @@ ExclusionTree::~ExclusionTree()
 	Clear();
 }
 
-void ExclusionTree::AddInput(std::shared_ptr<Input> input)
+void ExclusionTree::AddInput(std::shared_ptr<Input> input, OracleResult result)
 {
 	if (input.get() == nullptr)
 		return;
@@ -43,46 +45,66 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input)
 		if (auto child = node->HasChild(*itr); child != nullptr) {
 			// if the current node already has the required child,
 			// choose it as our node and go to the next input entry
-			if (child->isLeaf)
-				return;  // the input is already excluded
+			if (child->isLeaf) {
+				// check the result to determine whether the input is excluded or if its just unfinished
+				if (child->result == OracleResult::Passing || child->result == OracleResult::Failing)
+					return;  // the input is already excluded
+			}
 			node = child;
-			dep++;
 		} else {
 			// if there is no matching child, create one.
 			TreeNode* newnode = new TreeNode;
+			newnode->result = OracleResult::Undefined;
 			newnode->id = nextid++;
 			newnode->identifier = *itr;
 			node->children.push_back(newnode);
 			hashmap.insert({ newnode->id, newnode });
 			node = newnode;
-			dep++;
 		}
+		dep++;
 		itr++;
 	}
 	// The result of the inputs saved to this tree is fixed and any input that contains
 	// it as a prefix yields the same result.
 	// Thus we can remove all children from our current node, as they would yield the same result.
-	node->isLeaf = true;
-	leafcount++;
+	if (result == OracleResult::Passing || result == OracleResult::Failing) {
+		node->result = result;
+		node->isLeaf = true;
+		node->InputID = input->GetFormID();
+		leafcount++;
+		DeleteChildrenIntern(node);
+	} else {
+		node->result = result;
+		node->InputID = input->GetFormID();
+	}
 	// adjust depth
 	if (depth < dep)
 		depth = dep;
-	DeleteChildrenIntern(node);
 }
 
 bool ExclusionTree::HasPrefix(std::shared_ptr<Input> input)
+{
+	static FormID prefixID;
+	return HasPrefix(input, prefixID);
+}
+
+bool ExclusionTree::HasPrefix(std::shared_ptr<Input> input, FormID& prefixID)
 {
 	if (input.get() == nullptr)
 		return false;
 
 	//std::shared_lock<std::shared_mutex> guard(_lock);
 
+	prefixID = 0;
+
 	TreeNode* node = root;
 	auto itr = input->begin();
+	size_t count = 0;
 	while (itr != input->end()) {
 		if (auto child = node->HasChild(*itr); child != nullptr) {
 			if (child->isLeaf) {
 				child->visitcount++; // this will lead to races, but as we do not need a precise number, a few races don't matter
+				prefixID = child->InputID;
 				return true;  // if the child is a leaf, then we have found an excluded prefix
 			}
 			node = child;
@@ -91,6 +113,16 @@ bool ExclusionTree::HasPrefix(std::shared_ptr<Input> input)
 			return false;
 		}
 		itr++;
+		count++;
+		// do this here because the loop will exit
+		if (count == input->Length()) {
+			// if the current depth is identical to our length and the result is unfinished
+			// we are trying to run a test a second time
+			if (node->result == OracleResult::Unfinished) {
+				prefixID = node->InputID;
+				return true;
+			}
+		}
 	}
 	return false;
 }
@@ -173,6 +205,8 @@ size_t ExclusionTree::GetStaticSize(int32_t version)
 	{
 	case 0x1:
 		return size0x1;
+	case 0x2:
+		return size0x1;
 	default:
 		return 0;
 	}
@@ -185,8 +219,8 @@ size_t ExclusionTree::GetDynamicSize()
 	sz += 8 * root->children.size();
 	for (auto& [id, node] : hashmap)
 	{
-		// id, identifier, visitcount, children count, children, isLeaf
-		sz += 8 + Buffer::CalcStringLength(node->identifier) + 8 + 8 + 8 * node->children.size() + 1;
+		// id, identifier, visitcount, children count, children, isLeaf, result, InputID
+		sz += 8 + Buffer::CalcStringLength(node->identifier) + 8 + 8 + 8 * node->children.size() + 1 + 4 + 8;
 	}
 	return sz;
 }
@@ -214,6 +248,8 @@ bool ExclusionTree::WriteData(unsigned char* buffer, size_t &offset)
 		for (int32_t i = 0; i < (int32_t)node->children.size(); i++)
 			Buffer::Write(node->children[i]->id, buffer, offset);
 		Buffer::Write(node->isLeaf, buffer, offset);
+		Buffer::Write((int32_t)node->result, buffer, offset);
+		Buffer::Write(node->InputID, buffer, offset);
 	}
 	Buffer::Write(depth, buffer, offset);
 	Buffer::Write(leafcount, buffer, offset);
@@ -268,6 +304,58 @@ bool ExclusionTree::ReadData(unsigned char* buffer, size_t& offset, size_t lengt
 			}
 			for (int32_t i = 0; i < rchid.size(); i++)
 			{
+				TreeNode* node = hashmap.at(rchid[i]);
+				if (node) {
+					root->children.push_back(node);
+				} else
+					logcritical("cannot resolve nodeid {}", rchid[i]);
+			}
+			return true;
+		}
+	case 0x2:
+		{
+			Form::ReadData(buffer, offset, length, resolver);
+			nextid = Buffer::ReadUInt64(buffer, offset);
+			size_t rch = Buffer::ReadSize(buffer, offset);
+			// root
+			root->id = 0;
+			std::vector<uint64_t> rchid;
+			for (int32_t i = 0; i < (int32_t)rch; i++)
+				rchid.push_back(Buffer::ReadUInt64(buffer, offset));
+			root->isLeaf = Buffer::ReadBool(buffer, offset);
+			// hashmap
+			hashmap.clear();
+			size_t smap = Buffer::ReadSize(buffer, offset);
+			for (int64_t i = 0; i < (int64_t)smap; i++) {
+				if (offset > length)
+					return false;
+				TreeNode* node = new TreeNode();
+				node->id = Buffer::ReadUInt64(buffer, offset);
+				node->identifier = Buffer::ReadString(buffer, offset);
+				node->visitcount = Buffer::ReadUInt64(buffer, offset);
+				uint64_t sch = Buffer::ReadSize(buffer, offset);
+				for (int32_t c = 0; c < (int32_t)sch; c++)
+					node->childrenids.push_back(Buffer::ReadUInt64(buffer, offset));
+				node->isLeaf = Buffer::ReadBool(buffer, offset);
+				node->result = (OracleResult)Buffer::ReadInt32(buffer, offset);
+				node->InputID = Buffer::ReadUInt64(buffer, offset);
+				hashmap.insert({ node->id, node });
+			}
+			// rest
+			depth = Buffer::ReadInt64(buffer, offset);
+			leafcount = Buffer::ReadUInt64(buffer, offset);
+			// hashmap complete init all the links
+			for (auto& [id, node] : hashmap) {
+				for (int32_t i = 0; i < node->childrenids.size(); i++) {
+					TreeNode* nnode = hashmap.at(node->childrenids[i]);
+					if (nnode) {
+						node->children.push_back(nnode);
+					} else
+						logcritical("cannot resolve nodeid {}", node->childrenids[i]);
+				}
+				node->childrenids.clear();
+			}
+			for (int32_t i = 0; i < rchid.size(); i++) {
 				TreeNode* node = hashmap.at(rchid[i]);
 				if (node) {
 					root->children.push_back(node);

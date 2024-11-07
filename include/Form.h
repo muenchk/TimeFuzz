@@ -3,11 +3,22 @@
 #include <cstdint>
 #include <shared_mutex>
 #include <string>
+#include <memory>
 
 typedef uint64_t FormID;
 
 class LoadResolver;
 class Data;
+class Form;
+
+template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+struct FormIDLess
+{
+	bool operator()(const std::shared_ptr<T>& lhs, const std::shared_ptr<T>& rhs) const
+	{
+		return lhs->GetFormID() < rhs->GetFormID();
+	}
+};
 
 class Form
 {
@@ -110,6 +121,7 @@ struct FormType
 		ExecutionHandler = 'EXEC',  // ExecutionHandler
 		Oracle = 'ORAC',            // Oracle
 		SessionData = 'SDAT',       // SessionData
+		DeltaController = 'DDCR',   // DeltaController
 	};
 
 	static inline std::string ToString(int32_t type)
@@ -138,10 +150,10 @@ struct FormType
 			return "ExecutionHandler";
 		case FormType::Oracle:
 			return "Oracle";
-			break;
 		case FormType::SessionData:
 			return "SessionData";
-			break;
+		case FormType::DeltaController:
+			return "DeltaController";
 		default:
 			return "Unknown";
 		}

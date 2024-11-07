@@ -24,7 +24,7 @@ void SessionData::AddInput(std::shared_ptr<Input>& input, EnumType list, double 
 	if (!input)
 		return;
 	switch (list) {
-	case Oracle::OracleResult::Failing:
+	case OracleResult::Failing:
 		{
 			std::shared_ptr<InputNode> node = std::make_shared<InputNode>();
 			node->input = input;
@@ -35,19 +35,19 @@ void SessionData::AddInput(std::shared_ptr<Input>& input, EnumType list, double 
 			_negativeInputs.insert(node);
 		}
 		break;
-	case Oracle::OracleResult::Passing:
+	case OracleResult::Passing:
 		{
 			std::unique_lock<std::shared_mutex> guard(_positiveInputsLock);
 			_positiveInputs.push_back(input->GetFormID());
 		}
 		break;
-	case Oracle::OracleResult::Undefined:
+	case OracleResult::Undefined:
 		{
 			std::unique_lock<std::shared_mutex> guard(_undefinedInputLock);
 			_undefinedInputs.push_back(input->GetFormID());
 		}
 		break;
-	case Oracle::OracleResult::Unfinished:
+	case OracleResult::Unfinished:
 		{
 			std::shared_ptr<InputNode> node = std::make_shared<InputNode>();
 			node->input = input;
@@ -167,6 +167,19 @@ std::vector<std::shared_ptr<Input>> SessionData::GetTopK(int32_t k)
 	count = 0;
 	itr = set.begin();
 	while (count < k && itr != set.end()) {
+		ret.push_back((*itr)->input.lock());
+		itr++;
+		count++;
+	}
+	return ret;
+}
+
+std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Unfinished(int32_t k)
+{
+	std::vector<std::shared_ptr<Input>> ret;
+	int32_t count = 0;
+	auto itr = _unfinishedInputs.begin();
+	while (count < k && itr != _unfinishedInputs.end()) {
 		ret.push_back((*itr)->input.lock());
 		itr++;
 		count++;

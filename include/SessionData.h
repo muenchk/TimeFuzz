@@ -286,6 +286,7 @@ public:
 	TestExitStats& GetTestExitStats();
 
 	std::vector<std::shared_ptr<Input>> GetTopK(int32_t k);
+	std::vector<std::shared_ptr<Input>> GetTopK_Unfinished(int32_t k);
 
 	#pragma region Form
 

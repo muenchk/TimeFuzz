@@ -7,34 +7,38 @@
 #include "ExecutionHandler.h"
 #include "Form.h"
 
+enum OracleResult : EnumType
+{
+	/// <summary>
+	/// Program has not finished
+	/// </summary>
+	Unfinished = 0b0,
+	/// <summary>
+	/// The result is passing
+	/// </summary>
+	Passing = 0b1,
+	/// <summary>
+	/// The result is failing
+	/// </summary>
+	Failing = 0b10,
+	/// <summary>
+	/// The result cannot be identified
+	/// </summary>
+	Undefined = 0b100,
+	/// <summary>
+	/// Any input that has this input as prefix, will produce the same result
+	/// </summary>
+	Prefix = 0b1000000,
+	/// <summary>
+	/// The result is still pending execution
+	/// </summary>
+	Running = 0x4000000000000000,
+	None = 0x8000000000000000,
+};
+
 class Oracle : public Form
 {
 public:
-	enum OracleResult : EnumType
-	{
-		/// <summary>
-		/// Program has not finished
-		/// </summary>
-		Unfinished = 0b0,
-		/// <summary>
-		/// The result is passing
-		/// </summary>
-		Passing = 0b1,
-		/// <summary>
-		/// The result is failing
-		/// </summary>
-		Failing = 0b10,
-		/// <summary>
-		/// The result cannot be identified
-		/// </summary>
-		Undefined = 0b100,
-		/// <summary>
-		/// Any input that has this input as prefix, will produce the same result
-		/// </summary>
-		Prefix = 0b1000000,
-
-		None = 0x8000000000000000,
-	};
 
 	enum class PUTType
 	{

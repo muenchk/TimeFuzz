@@ -5,6 +5,7 @@
 #include "SimpleIni.h"
 #include "Utility.h"
 #include "BufferOperations.h"
+#include "DeltaDebugging.h"
 
 Settings* Settings::GetSingleton()
 {
@@ -63,6 +64,12 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "General:          ", general.numcomputingthreads_NAME, general.numcomputingthreads);
 	general.concurrenttests = (int32_t)ini.GetLongValue("General", general.concurrenttests_NAME, general.concurrenttests);
 	loginfo("{}{} {}", "General:          ", general.concurrenttests_NAME, general.concurrenttests);
+	general.memory_limit = (int64_t)ini.GetLongValue("General", general.memory_limit_NAME, (long)general.memory_limit);
+	loginfo("{}{} {}", "General:          ", general.memory_limit_NAME, general.memory_limit);
+	general.memory_softlimit = (int64_t)ini.GetLongValue("General", general.memory_softlimit_NAME, (long)general.memory_softlimit);
+	loginfo("{}{} {}", "General:          ", general.memory_softlimit_NAME, general.memory_softlimit);
+	general.memory_sweep_period = std::chrono::milliseconds((int64_t)ini.GetLongValue("General", general.memory_sweep_period_NAME, (long)general.memory_sweep_period.count()));
+	loginfo("{}{} {}", "General:          ", general.memory_sweep_period_NAME, general.memory_sweep_period.count());
 
 	// saves
 	saves.autosave_every_tests = (int64_t)ini.GetLongValue("SaveFiles", saves.autosave_every_tests_NAME, (long)saves.autosave_every_tests);
@@ -82,9 +89,17 @@ void Settings::Load(std::wstring path, bool reload)
 	optimization.constructinputsiteratively = ini.GetBoolValue("Optimization", optimization.constructinputsiteratively_NAME, optimization.constructinputsiteratively);
 	loginfo("{}{} {}", "Optimization:     ", optimization.constructinputsiteratively_NAME, optimization.constructinputsiteratively);
 
-	// methods
-	methods.deltadebugging = ini.GetBoolValue("Methods", methods.deltadebugging_NAME, methods.deltadebugging);
-	loginfo("{}{} {}", "Methods:          ", methods.deltadebugging_NAME, methods.deltadebugging);
+	// delta debugging
+	dd.deltadebugging = ini.GetBoolValue("DeltaDebugging", dd.deltadebugging_NAME, dd.deltadebugging);
+	loginfo("{}{} {}", "DeltaDebugging:          ", dd.deltadebugging_NAME, dd.deltadebugging);
+	dd.executeAboveLength = ini.GetLongValue("DeltaDebugging", dd.executeAboveLength_NAME, (long)dd.executeAboveLength);
+	loginfo("{}{} {}", "DeltaDebugging:          ", dd.executeAboveLength_NAME, dd.executeAboveLength);
+	dd.mode = (::DeltaDebugging::DDMode)ini.GetLongValue("DeltaDebugging", dd.mode_NAME, (long)dd.mode);
+	loginfo("{}{} {}", "DeltaDebugging:          ", dd.mode_NAME, (long)dd.mode);
+	dd.allowScoreOptimization = ini.GetBoolValue("DeltaDebugging", dd.allowScoreOptimization_NAME, dd.allowScoreOptimization);
+	loginfo("{}{} {}", "DeltaDebugging:          ", dd.allowScoreOptimization_NAME, dd.allowScoreOptimization);
+	dd.optimizationLossThreshold = ini.GetDoubleValue("DeltaDebugging", dd.optimizationLossThreshold_NAME, dd.optimizationLossThreshold);
+	loginfo("{}{} {}", "DeltaDebugging:          ", dd.optimizationLossThreshold_NAME, dd.optimizationLossThreshold);
 
 	// generation
 	generation.generationsize = (int32_t)ini.GetLongValue("Generation", generation.generationsize_NAME, generation.generationsize);
@@ -186,6 +201,12 @@ void Settings::Save(std::wstring _path)
 		"\\\\ Number of threads used for computational purposes.");
 	ini.SetLongValue("General", general.concurrenttests_NAME, (long)general.concurrenttests,
 		"\\\\ Number of tests to be run concurrently.");
+	ini.SetLongValue("General", general.memory_limit_NAME, (long)general.memory_limit,
+		"\\\\ Maximum memory to be used by the application. [in MB]");
+	ini.SetLongValue("General", general.memory_softlimit_NAME, (long)general.memory_softlimit,
+		"\\\\ When memory consumption exceeds the soft limit, the application will periodically free used memory. [in MB]");
+	ini.SetLongValue("General", general.memory_sweep_period_NAME, (long)general.memory_sweep_period.count(),
+		"\\\\ The period of memory sweeps trying to the free up space. [in milliseconds]");
 
 	// saves
 	ini.SetBoolValue("SaveFiles", saves.enablesaves_NAME, saves.enablesaves,
@@ -213,8 +234,15 @@ void Settings::Save(std::wstring _path)
 		"\\\\ may be used as a starting point for generation and may be expanded until a result is produced.\n"
 		"\\\\ [This should not be used with a PUT that produces undefined oracle results.]");
 
-	// methods
-	ini.SetBoolValue("Methods", methods.deltadebugging_NAME, methods.deltadebugging, "\\\\ Applies delta debugging to failing inputs, to reduce them as far as possible.");
+	// delta debugging
+	ini.SetBoolValue("DeltaDebugging", dd.deltadebugging_NAME, dd.deltadebugging, "\\\\ Applies delta debugging to passing inputs, to reduce them as far as possible.");
+	ini.SetLongValue("DeltaDebugging", dd.executeAboveLength_NAME, (long)dd.executeAboveLength, "\\\\ Only executes subsets that are longer than this value to save on the number of tests executed.");
+	ini.SetLongValue("DeltaDebugging", dd.mode_NAME, (long)dd.mode,
+		"\\\\ Algorithm to use for delta debugging.\n"
+		"0 = Standard - DDmin developed by Andreas Zeller executing subsets and their complements");
+	ini.SetBoolValue("DeltaDebugging", dd.allowScoreOptimization_NAME, (long)dd.allowScoreOptimization, "\\\\ Allows the application of Delta debugging to reduce generated inputs while optimizing their score instead of reproducing their result.");
+	ini.SetDoubleValue("DeltaDebugging", dd.optimizationLossThreshold_NAME, dd.optimizationLossThreshold , "\\\\ The maximum loss when optimizing score to be considered a success.");
+
 
 	// generation
 	ini.SetLongValue("Generation", generation.generationsize_NAME, generation.generationsize, "\\\\ Maximum generated inputs per generation cycle.");
@@ -260,6 +288,9 @@ size_t Settings::GetStaticSize(int32_t version)
 	                 + 4                     // General::numthreads
 	                 + 4                     // General::numcomputingthreads
 	                 + 4                     // General::concurrenttests
+	                 + 8                     // General::memory_limit
+	                 + 8                     // General::memory_softlimit
+	                 + 8                     // General::memory_sweep_period
 	                 + 1                     // SaveFiles::enablesaves
 	                 + 8                     // SaveFiles::autosave_every_tests
 	                 + 8                     // SaveFiles::autosave_every_seconds
@@ -287,12 +318,20 @@ size_t Settings::GetStaticSize(int32_t version)
 	                 + 1                     // Tests::storePUToutputSuccessful
 	                 + 8;                    // Tests::maxUsedMemory
 	size_t size0x2 = size0x1;                // prior version size
+	size_t size0x3 = size0x2                 // prior version size
+	                 // + 1 // DeltaDebugging::deltadebugging - is already included
+	                 + 8   // DeltaDebugging::executeAboveLength
+	                 + 4   // DeltaDebugging::mode
+	                 + 1   // DeltaDebugging::allowScoreOptimization
+	                 + 8;  // DeltaDebugging::optimizationLossThreshold
 
 	switch (version) {
 	case 0x1:
 		return size0x1;
 	case 0x2:
 		return size0x2;
+	case 0x3:
+		return size0x3;
 	default:
 		return 0;
 	}
@@ -325,6 +364,9 @@ bool Settings::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(general.numthreads, buffer, offset);
 	Buffer::Write(general.numcomputingthreads, buffer, offset);
 	Buffer::Write(general.concurrenttests, buffer, offset);
+	Buffer::Write(general.memory_limit, buffer, offset);
+	Buffer::Write(general.memory_softlimit, buffer, offset);
+	Buffer::Write((int64_t)general.memory_sweep_period.count(), buffer, offset);
 	// saves
 	Buffer::Write(saves.enablesaves, buffer, offset);
 	Buffer::Write(saves.autosave_every_tests, buffer, offset);
@@ -334,8 +376,12 @@ bool Settings::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(saves.compressionExtreme, buffer, offset);
 	// optimization
 	Buffer::Write(optimization.constructinputsiteratively, buffer, offset);
-	// methods
-	Buffer::Write(methods.deltadebugging, buffer, offset);
+	// deltadebugging
+	Buffer::Write(dd.deltadebugging, buffer, offset);
+	Buffer::Write(dd.executeAboveLength, buffer, offset);
+	Buffer::Write((int32_t)dd.mode, buffer, offset);
+	Buffer::Write(dd.allowScoreOptimization, buffer, offset);
+	Buffer::Write(dd.optimizationLossThreshold, buffer, offset);
 	// generation
 	Buffer::Write(generation.generationsize, buffer, offset);
 	Buffer::Write(generation.generationtweakstart, buffer, offset);
@@ -368,6 +414,7 @@ bool Settings::ReadData(unsigned char* buffer, size_t& offset, size_t length, Lo
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
 	case 0x1:
+	case 0x2:
 		{
 			Form::ReadData(buffer, offset, length, resolver);
 			// oracle
@@ -388,7 +435,7 @@ bool Settings::ReadData(unsigned char* buffer, size_t& offset, size_t length, Lo
 			// optimization
 			optimization.constructinputsiteratively = Buffer::ReadBool(buffer, offset);
 			// methods
-			methods.deltadebugging = Buffer::ReadBool(buffer, offset);
+			dd.deltadebugging = Buffer::ReadBool(buffer, offset);
 			// generation
 			generation.generationsize = Buffer::ReadInt32(buffer, offset);
 			generation.generationstep = (int32_t)std::lround(std::log(generation.generationsize) / std::log(1.3));
@@ -417,7 +464,7 @@ bool Settings::ReadData(unsigned char* buffer, size_t& offset, size_t length, Lo
 			return true;
 		}
 		break;
-	case 0x2:
+	case 0x3:
 		{
 			Form::ReadData(buffer, offset, length, resolver);
 			// oracle
@@ -432,6 +479,9 @@ bool Settings::ReadData(unsigned char* buffer, size_t& offset, size_t length, Lo
 			general.numthreads = Buffer::ReadInt32(buffer, offset);
 			general.numcomputingthreads = Buffer::ReadInt32(buffer, offset);
 			general.concurrenttests = Buffer::ReadInt32(buffer, offset);
+			general.memory_limit = Buffer::ReadInt64(buffer, offset);
+			general.memory_softlimit = Buffer::ReadInt64(buffer, offset);
+			general.memory_sweep_period = std::chrono::milliseconds(Buffer::ReadInt64(buffer, offset));
 			// saves
 			saves.enablesaves = Buffer::ReadBool(buffer, offset);
 			saves.autosave_every_tests = Buffer::ReadInt64(buffer, offset);
@@ -441,8 +491,12 @@ bool Settings::ReadData(unsigned char* buffer, size_t& offset, size_t length, Lo
 			saves.compressionExtreme = Buffer::ReadBool(buffer, offset);
 			// optimization
 			optimization.constructinputsiteratively = Buffer::ReadBool(buffer, offset);
-			// methods
-			methods.deltadebugging = Buffer::ReadBool(buffer, offset);
+			// delta debugging
+			dd.deltadebugging = Buffer::ReadBool(buffer, offset);
+			dd.executeAboveLength = Buffer::ReadInt64(buffer, offset);
+			dd.mode = (::DeltaDebugging::DDMode)Buffer::ReadInt32(buffer, offset);
+			dd.allowScoreOptimization = Buffer::ReadBool(buffer, offset);
+			dd.optimizationLossThreshold = Buffer::ReadDouble(buffer, offset);
 			// generation
 			generation.generationsize = Buffer::ReadInt32(buffer, offset);
 			generation.generationstep = (int32_t)std::lround(std::log(generation.generationsize) / std::log(1.3));

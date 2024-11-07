@@ -10,6 +10,13 @@
 #define SI_NO_CONVERSION
 #define SI_SUPPORT_IOSTREAMS
 
+
+namespace DeltaDebugging
+{
+
+	enum class DDMode;
+}
+
 class CmdArgs
 {
 public:
@@ -34,7 +41,7 @@ class Settings : public Form
 {
 private:
 	bool initialized = false;
-	const int32_t classversion = 0x2;
+	const int32_t classversion = 0x3;
 	/// <summary>
 	/// skip reading from savefile
 	/// </summary>
@@ -220,14 +227,44 @@ public:
 
 	struct Methods
 	{
+	};
+
+	Methods methods;
+
+	struct DeltaDebugging
+	{
 		/// <summary>
 		/// whether to use delta debugging
 		/// </summary>
 		bool deltadebugging = true;
 		const char* deltadebugging_NAME = "DeltaDebugging";
+
+		/// <summary>
+		/// only executes generates subsets above this length
+		/// </summary>
+		int64_t executeAboveLength = 10;
+		const char* executeAboveLength_NAME = "ExecuteAboveLength";
+
+		/// <summary>
+		/// the delta debugging algorithm to use
+		/// </summary>
+		::DeltaDebugging::DDMode mode;
+		const char* mode_NAME = "DDMode";
+
+		/// <summary>
+		/// Wether delta debugging may be run with the goal of score optimization
+		/// </summary>
+		bool allowScoreOptimization = true;
+		const char* allowScoreOptimization_NAME = "AllowScoreOptimization";
+
+		/// <summary>
+		/// loss threshold under which inputs are considered acceptable 
+		/// </summary>
+		double optimizationLossThreshold = 0.05f;
+		const char* optimizationLossThreshold_NAME = "OptmizationLossThreshold";
 	};
 
-	Methods methods;
+	DeltaDebugging dd;
 
 	struct Generation
 	{

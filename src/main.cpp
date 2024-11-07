@@ -465,6 +465,11 @@ int32_t main(int32_t argc, char** argv)
 
 		// runtime vars
 		bool displayadd;
+		bool showStatusWindow = true;
+		bool showAdvancedWindow = true;
+		bool showTopK = true;
+		bool showProfiling = true;
+		bool showDeltaDebugging = true;
 
 		while (!glfwWindowShouldClose(window) && !stop) {
 			// Poll and handle events (inputs, window resize, etc.)
@@ -488,8 +493,22 @@ int32_t main(int32_t argc, char** argv)
 			session->GetStatus(status);
 			displayadd = true;
 
-			// show simple window with stats
+			// show control window
 			{
+				static bool wopen = true;
+				ImGui::Begin("Control", &wopen);
+				if (wopen) {
+					ImGui::Checkbox("Status window", &showStatusWindow);
+					ImGui::Checkbox("Avanced status window", &showAdvancedWindow);
+					ImGui::Checkbox("Top K inputs window", &showTopK);
+					ImGui::Checkbox("Profiling window", &showProfiling);
+					ImGui::Checkbox("Delta Debugging window", &showDeltaDebugging);
+				}
+				ImGui::End();
+			}
+
+			// show simple window with stats
+			if (showStatusWindow) {
 				static bool wopen = true;
 				ImGui::Begin("Status", &wopen);
 				if (!wopen) {
@@ -582,7 +601,7 @@ int32_t main(int32_t argc, char** argv)
 			}
 
 			// show window with advanced stats
-			{
+			if (showAdvancedWindow) {
 				static bool wopen = true;
 				ImGui::Begin("Advanced", &wopen);
 				if (wopen) {
@@ -625,7 +644,7 @@ int32_t main(int32_t argc, char** argv)
 			}
 
 			// show window with information about the best generated inputs
-			{
+			if (showTopK) {
 				static bool wopen = true;
 				ImGui::Begin("Inputs", &wopen);
 				if (wopen) {
@@ -646,9 +665,7 @@ int32_t main(int32_t argc, char** argv)
 						static int32_t rownum = 0;
 						try {
 							rownum = std::atoi(buf);
-						}
-						catch (std::exception&)
-						{
+						} catch (std::exception&) {
 							rownum = 10;
 						}
 
@@ -658,11 +675,10 @@ int32_t main(int32_t argc, char** argv)
 						//PushStyleCompact
 						//...
 						//PopStyleCompact
-						if (ImGui::BeginTable("itemtable", 6, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * rownum), 0.0f))
-						{
+						if (ImGui::BeginTable("itemtable", 6, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * rownum), 0.0f)) {
 							ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputID);
-							ImGui::TableSetupColumn("Length",  ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputLength);
-							ImGui::TableSetupColumn("Primary Score",  ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputPrimaryScore);
+							ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputLength);
+							ImGui::TableSetupColumn("Primary Score", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputPrimaryScore);
 							ImGui::TableSetupColumn("Secondary Score", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputSecondaryScore);
 							ImGui::TableSetupColumn("Result", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputResult);
 							ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputAction);
@@ -674,10 +690,8 @@ int32_t main(int32_t argc, char** argv)
 							// use clipper for large vertical lists
 							ImGuiListClipper clipper;
 							clipper.Begin(imElements.size());
-							while (clipper.Step())
-							{
-								for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
-								{
+							while (clipper.Step()) {
+								for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
 									auto item = &imElements[i];
 									ImGui::PushID((uint32_t)item->id);
 									ImGui::TableNextRow();
@@ -694,11 +708,12 @@ int32_t main(int32_t argc, char** argv)
 										ImGui::Text("Failing");
 									else if (item->result == UI::Result::Passing)
 										ImGui::Text("Passing");
+									else if (item->result == UI::Result::Running)
+										ImGui::Text("Running");
 									else
 										ImGui::Text("Unfinished");
 									ImGui::TableNextColumn();
-									if (ImGui::SmallButton("Replay"))
-									{
+									if (ImGui::SmallButton("Replay")) {
 										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1), item->id);
 										th.detach();
 									}
@@ -716,7 +731,7 @@ int32_t main(int32_t argc, char** argv)
 			}
 
 			// show window with information about function execution times
-			{
+			if (showProfiling) {
 				static bool wopen = true;
 				ImGui::Begin("Profiling", &wopen);
 				if (wopen) {
@@ -728,8 +743,7 @@ int32_t main(int32_t argc, char** argv)
 						// Get items
 						int32_t count = 0;
 						auto itr = Profile::exectimes.begin();
-						while (count < 100 && itr != Profile::exectimes.end())
-						{
+						while (count < 100 && itr != Profile::exectimes.end()) {
 							dimElements[count].ns = std::get<0>(itr->second);
 							dimElements[count].time = std::get<1>(itr->second);
 							dimElements[count].func = std::get<2>(itr->second);
@@ -792,6 +806,167 @@ int32_t main(int32_t argc, char** argv)
 
 					} else {
 						ImGui::Text("Not available");
+					}
+				}
+				ImGui::End();
+			}
+
+			// delta debugging
+			if (showDeltaDebugging) {
+				static bool wopen = true;
+				ImGui::Begin("Delta Debugging", &wopen);
+				if (wopen)
+				{
+					static int32_t ITEMS = 100;
+					static std::vector<UI::UIInput> inputs(ITEMS);
+					static size_t numinputs;
+					static std::vector<UI::UIDDResult> results(ITEMS);
+					static size_t numresults;
+					static UI::UIInput input;
+					static UI::UIInput origInput;
+					static UI::UIDeltaDebugging dd;
+					// try to find active deltadebugging
+					if (dd.Initialized() == false)
+					{
+						dd = session->UI_FindDeltaDebugging();
+					}
+
+					if (dd.Initialized())
+					{
+						// update stuff
+						dd.GetInput(input);
+						dd.GetOriginalInput(origInput);
+						dd.GetActiveInputs(inputs, numinputs);
+						dd.GetResults(results, numresults);
+
+						// build ui
+						ImGui::Text("Finished: %s", dd.Finished() ? "True" : "False");
+						ImGui::Text("Goal:  %s", dd.GetGoal().c_str());
+						ImGui::SameLine(300);
+						ImGui::Text("Mode:  %s", dd.GetMode().c_str());
+						ImGui::Text("Level: %d", dd.GetLevel());
+						ImGui::SameLine(300);
+						ImGui::Text("Total Tests: %d", dd.GetTotalTests());
+						ImGui::Text("Tests done: %d", dd.GetTests());
+						ImGui::SameLine(300);
+						ImGui::Text("Tests Remaining: %d", dd.GetTestsRemaining());
+						// do something with original input
+						// do something with currrent input
+						// results table
+						static ImGuiTableFlags flags =
+							ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable | ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_ScrollY;
+						if (ImGui::BeginTable("Results", 8, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 10), 0.0f)) {
+							ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 30.f, UI::UIDDResult::ColumnID::InputID);
+							ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthFixed, 30.f, UI::UIDDResult::ColumnID::InputLength);
+							ImGui::TableSetupColumn("Primary Score", ImGuiTableColumnFlags_WidthFixed, 30.f, UI::UIDDResult::ColumnID::InputPrimaryScore);
+							ImGui::TableSetupColumn("Secondary Score", ImGuiTableColumnFlags_WidthFixed, 30.f, UI::UIDDResult::ColumnID::InputSecondaryScore);
+							ImGui::TableSetupColumn("Result", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIDDResult::ColumnID::InputResult);
+							ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIDDResult::ColumnID::InputAction);
+							ImGui::TableSetupColumn("Level", ImGuiTableColumnFlags_WidthFixed, 30.f, UI::UIDDResult::ColumnID::InputLoss);
+							ImGui::TableSetupColumn("Loss to prior level", ImGuiTableColumnFlags_WidthFixed, 30.f, UI::UIDDResult::ColumnID::InputLevel);
+							ImGui::TableSetupScrollFreeze(0, 1);
+							ImGui::TableHeadersRow();
+
+							// DO SOME SORTING
+
+							// use clipper for large vertical lists
+							ImGuiListClipper clipper;
+							clipper.Begin((int32_t)(numresults < results.size() ? numresults : results.size()));
+							while (clipper.Step()) {
+								for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
+									auto item = &results[i];
+									ImGui::PushID((uint32_t)item->id);
+									ImGui::TableNextRow();
+									ImGui::TableNextColumn();
+									ImGui::Text("%8llx", item->id);
+									ImGui::TableNextColumn();
+									ImGui::Text("%10lu", item->length);
+									ImGui::TableNextColumn();
+									ImGui::Text("%8.2f", item->primaryScore);
+									ImGui::TableNextColumn();
+									ImGui::Text("%8.2f", item->secondaryScore);
+									ImGui::TableNextColumn();
+									if (item->result == UI::Result::Failing)
+										ImGui::Text("Failing");
+									else if (item->result == UI::Result::Passing)
+										ImGui::Text("Passing");
+									else if (item->result == UI::Result::Running)
+										ImGui::Text("Running");
+									else
+										ImGui::Text("Unfinished");
+									ImGui::TableNextColumn();
+									if (ImGui::SmallButton("Replay")) {
+										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1), item->id);
+										th.detach();
+									}
+									ImGui::TableNextColumn();
+									ImGui::Text("%8d", item->level);
+									ImGui::TableNextColumn();
+									ImGui::Text("%2.4f", item->loss);
+									ImGui::PopID();
+								}
+							}
+							ImGui::EndTable();
+						}
+
+						// active inputs table
+						if (ImGui::BeginTable("Active Inputs", 6, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 10), 0.0f)) {
+							ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 30.f, UI::UIInput::ColumnID::InputID);
+							ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthFixed, 30.f, UI::UIInput::ColumnID::InputLength);
+							ImGui::TableSetupColumn("Primary Score", ImGuiTableColumnFlags_WidthFixed, 30.f, UI::UIInput::ColumnID::InputPrimaryScore);
+							ImGui::TableSetupColumn("Secondary Score", ImGuiTableColumnFlags_WidthFixed, 30.f, UI::UIInput::ColumnID::InputSecondaryScore);
+							ImGui::TableSetupColumn("Result", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputResult);
+							ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputAction);
+							ImGui::TableSetupScrollFreeze(0, 1);
+							ImGui::TableHeadersRow();
+
+							// DO SOME SORTING
+
+							// use clipper for large vertical lists
+							ImGuiListClipper clipper;
+							clipper.Begin((int32_t)(numinputs < inputs.size() ? numinputs : inputs.size()));
+							while (clipper.Step()) {
+								for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
+									auto item = &inputs[i];
+									ImGui::PushID((uint32_t)item->id);
+									ImGui::TableNextRow();
+									ImGui::TableNextColumn();
+									ImGui::Text("%8llx", item->id);
+									ImGui::TableNextColumn();
+									ImGui::Text("%10lu", item->length);
+									ImGui::TableNextColumn();
+									ImGui::Text("%8.2f", item->primaryScore);
+									ImGui::TableNextColumn();
+									ImGui::Text("%8.2f", item->secondaryScore);
+									ImGui::TableNextColumn();
+									if (item->result == UI::Result::Failing)
+										ImGui::Text("Failing");
+									else if (item->result == UI::Result::Passing)
+										ImGui::Text("Passing");
+									else if (item->result == UI::Result::Running)
+										ImGui::Text("Running");
+									else
+										ImGui::Text("Unfinished");
+									ImGui::TableNextColumn();
+									if (ImGui::SmallButton("Replay")) {
+										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1), item->id);
+										th.detach();
+									}
+									ImGui::PopID();
+								}
+							}
+							ImGui::EndTable();
+						}
+					}
+					else
+					{
+						ImGui::Text("No delta debugging active.");
+						if (ImGui::Button("Delta Debug best unfinished input"))
+						{
+							// ignore return value, since we will find the delta debugging instance by scouring the session
+							std::thread th(std::bind(&Session::UI_StartDeltaDebugging, session));
+							th.detach();
+						}
 					}
 				}
 				ImGui::End();

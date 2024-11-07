@@ -238,7 +238,13 @@
         "linux"
       ],
       "displayName": "Kali",
-      "binaryDir": "${sourceDir}/buildKali"
+      "binaryDir": "${sourceDir}/buildKali",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": {
+          "type": "STRING",
+          "value": "Debug"
+        }
+      }
     },
     {
       "name": "clang-remote",

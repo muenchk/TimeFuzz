@@ -189,10 +189,10 @@ void Oracle::ApplyLuaCommands(lua_State* L)
 		}
 }
 
-Oracle::OracleResult Oracle::Evaluate(lua_State* L, std::shared_ptr<Test> test)
+OracleResult Oracle::Evaluate(lua_State* L, std::shared_ptr<Test> test)
 {
 	auto input = test->input.lock();
-	Oracle::OracleResult result = Oracle::OracleResult::None;
+	OracleResult result = OracleResult::None;
 	if (input)
 	{
 		lua_pushlightuserdata(L, (void*)(input.get()));
@@ -204,7 +204,7 @@ Oracle::OracleResult Oracle::Evaluate(lua_State* L, std::shared_ptr<Test> test)
 			if (lua_pcall(L, 0, 1, 0) == LUA_OK)  // execute function with 0 Arguments, 1 return value
 			{
 				if (lua_isinteger(L, -1)) {
-					result = (Oracle::OracleResult)luaL_checkinteger(L, -1);
+					result = (OracleResult)luaL_checkinteger(L, -1);
 					lua_pop(L, 1);
 				}
 				lua_pop(L, lua_gettop(L));

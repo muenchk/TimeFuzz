@@ -117,6 +117,12 @@ namespace Buffer
 		offset++;
 	}
 
+	void Write(unsigned char* value, unsigned char* buffer, size_t& offset, size_t count)
+	{
+		memcpy(buffer + offset, value, count);
+		offset += count;
+	}
+
 	uint32_t ReadUInt32(unsigned char* buffer, size_t& offset)
 	{
 		offset += 4;  // size read
@@ -189,6 +195,14 @@ namespace Buffer
 	{
 		offset++;
 		return *(buffer + offset - 1);
+	}
+	unsigned char* ReadBuffer(unsigned char* buffer, size_t& offset, size_t count)
+	{
+
+		unsigned char* value = new unsigned char[count];
+		memcpy(value, buffer + offset, count);
+		offset += count;
+		return value;
 	}
 
 	std::chrono::nanoseconds ReadNanoSeconds(unsigned char* buffer, size_t& offset)

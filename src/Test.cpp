@@ -429,6 +429,38 @@ void Test::InValidate()
 	itr = {};
 }
 
+void Test::InValidatePreExec()
+{
+	valid = false;
+#if defined(unix) || defined(__unix__) || defined(__unix)
+	processid = 0;
+	close(red_input[0]);
+	red_input[0] = -1;
+	close(red_input[1]);
+	red_input[1] = -1;
+	close(red_output[0]);
+	red_output[0] = -1;
+	close(red_output[1]);
+	red_output[1] = -1;
+#elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+	CloseHandle(red_input[0]);
+	red_input[0] = nullptr;
+	CloseHandle(red_input[1]);
+	red_input[1] = nullptr;
+	CloseHandle(red_output[0]);
+	red_output[0] = nullptr;
+	CloseHandle(red_output[1]);
+	red_output[1] = nullptr;
+	pi.hProcess = nullptr;
+	pi.hThread = nullptr;
+	pi.dwProcessId = 0;
+	pi.dwThreadId = 0;
+	pi = {};
+	si = {};
+#endif
+	itr = {};
+}
+
 size_t Test::GetStaticSize(int32_t version)
 {
 	static size_t size0x1 = Form::GetDynamicSize()  // form base size
@@ -441,7 +473,8 @@ size_t Test::GetStaticSize(int32_t version)
 	                        + 8                     // identifier
 	                        + 8                     // exitreason
 	                        + 1                     // valid
-	                        + 1;                    // has callback
+	                        + 1                     // has callback
+	                        + 1;                    // skipOracle
 	switch (version)
 	{
 	case 0x1:
@@ -489,6 +522,7 @@ bool Test::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(callback.operator bool(), buffer, offset);
 	if (callback)
 		callback->WriteData(buffer, offset);
+	Buffer::Write(skipOracle, buffer, offset);
 	return true;
 }
 
@@ -531,6 +565,7 @@ bool Test::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadRe
 			bool hascall = Buffer::ReadBool(buffer, offset);
 			if (hascall)
 				callback = Functions::BaseFunction::Create(buffer, offset, length, resolver);
+			skipOracle = Buffer::ReadBool(buffer, offset);
 			// if this is a valid test that still needs to be run, generate the cmdArgs anew
 			//if (valid) {
 			//	resolver->AddLateTask([this, resolver]() {
@@ -570,6 +605,25 @@ void Test::Clear()
 		callback.reset();
 	}
 }
+
+void Test::DeepCopy(std::shared_ptr<Test> other)
+{
+	other->valid = valid;
+	other->exitreason = exitreason;
+	other->identifier = identifier;
+	other->storeoutput = storeoutput;
+	other->output = output;
+	other->cmdArgs = cmdArgs;
+	other->reactiontime = reactiontime;
+	other->lasttime = lasttime;
+	other->lastwritten = lastwritten;
+	other->itrend = itrend;
+	other->itr = itr;
+	other->endtime = endtime;
+	other->starttime = starttime;
+	other->running = running;
+}
+
 
 
 namespace Functions

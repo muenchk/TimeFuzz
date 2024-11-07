@@ -20,7 +20,7 @@ class Input : public Form
 {
 	friend class SessionFunctions;
 
-	const int32_t classversion = 0x3;
+	const int32_t classversion = 0x4;
 	#pragma region InheritedForm
 public:
 	size_t GetStaticSize(int32_t version = 0x1) override;
@@ -59,6 +59,25 @@ private:
 	bool generatedSequence = false;
 
 public:
+	struct Flags
+	{
+		enum Flag : EnumType
+		{
+			/// <summary>
+			/// No flags
+			/// </summary>
+			None = 0 << 0,
+			/// <summary>
+			/// This input cannot be derived from a derivation tree
+			/// </summary>
+			NoDerivation = 1 << 0,
+			/// <summary>
+			/// Do not free memory allocated by this instance
+			/// </summary>
+			DoNotFree = 1 << 1,
+		};
+	};
+
 	std::shared_ptr<Test> test;
 	Input();
 
@@ -210,6 +229,20 @@ public:
 
 	void FreeMemory();
 
+	void SetFlag(Flags::Flag flag)
+	{
+		_flags |= flag;
+	}
+	void UnsetFlag(Flags::Flag flag)
+	{
+		_flags = _flags & (0xFFFFFFFFFFFFFFFF xor flag);
+	}
+
+	bool HasFlag(Flags::Flag flag)
+	{
+		return _flags & flag;
+	}
+
 private:
 	/// <summary>
 	/// the string representation of the input
@@ -225,6 +258,11 @@ private:
 	std::list<std::string> sequence;
 
 	std::list<std::string>::iterator lua_sequence_next;
+
+	/// <summary>
+	/// instance flags
+	/// </summary>
+	EnumType _flags = Flags::None;
 
 	/// <summary>
 	/// originally generated sequence [stores sequence after trimming]

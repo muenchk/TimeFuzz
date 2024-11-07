@@ -114,6 +114,14 @@ namespace Buffer
 	/// <param name="buffer"></param>
 	/// <param name="offset"></param>
 	void Write(unsigned char value, unsigned char* buffer, size_t& offset);
+	/// <summary>
+	/// Writes a buffer to the buffer
+	/// </summary>
+	/// <param name="value"></param>
+	/// <param name="buffer"></param>
+	/// <param name="offset"></param>
+	/// <param name="count"></param>
+	void Write(unsigned char* value, unsigned char* buffer, size_t& offset, size_t count);
 
 	/// <summary>
 	/// Reads a generic basic type from the buffer
@@ -192,6 +200,10 @@ namespace Buffer
 	/// <param name="offset"></param>
 	/// <returns></returns>
 	unsigned char ReadUChar(unsigned char* buffer, size_t& offset);
+	/// <summary>
+	/// Reads a buffer from the buffer
+	/// </summary>
+	unsigned char* ReadBuffer(unsigned char* buffer, size_t& offset, size_t count);
 
 	/// <summary>
 	/// Reads nanoseconds from the buffer

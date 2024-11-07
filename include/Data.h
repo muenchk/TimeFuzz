@@ -57,6 +57,7 @@ public:
 		int64_t _Oracle = 0;
 		int64_t _SessionData = 0;
 		int64_t _Fail = 0;
+		int64_t _DeltaController = 0;
 	};
 
 private:
@@ -232,7 +233,7 @@ public:
 		if (form) {
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 			_hashmap.erase(form->GetFormID());
-			form->Delete(this);
+			//form->Delete(this);
 			form.reset();
 			return;
 		} else {
@@ -255,6 +256,19 @@ public:
 		if (itr != _hashmap.end())
 			return dynamic_pointer_cast<T>(itr->second);
 		return {};
+	}
+
+	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+	std::vector<std::shared_ptr<T>> GetFormArray()
+	{
+		std::vector<std::shared_ptr<T>> results;
+		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
+		for (auto& [_, form] : _hashmap)
+		{
+			if (form->GetType() == T::GetTypeStatic())
+				results.push_back(dynamic_pointer_cast<T>(form));
+		}
+		return results;
 	}
 
 	/// <summary>

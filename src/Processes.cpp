@@ -256,7 +256,8 @@ namespace Processes
 		}
 		fclose(file);
 		profileDebug(TimeProfilingDebug, "");
-		return result;
+		// stuff is in KB but we want to have it in byte
+		return result * 1024;
 	}
 
 	#pragma endregion
@@ -337,7 +338,8 @@ namespace Processes
 		test->si.hStdError = test->red_output[1];   // set to write end
 		test->si.hStdOutput = test->red_output[1];  // set to wrte end
 		test->si.hStdInput = test->red_input[0];    // set to read end
-		test->si.dwFlags |= STARTF_USESTDHANDLES;
+		test->si.dwFlags |= STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
+		test->si.wShowWindow = SW_SHOWNOACTIVATE;
 
 		auto wstr = Utility::ConvertToWideString(std::string_view{ app });
 		std::wstring _app;

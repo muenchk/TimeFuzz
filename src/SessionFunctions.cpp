@@ -6,6 +6,7 @@
 #include "LuaEngine.h"
 #include "DerivationTree.h"
 #include "Processes.h"
+#include "DeltaDebugging.h"
 
 #include <mutex>
 #include <boost/circular_buffer.hpp>
@@ -36,7 +37,7 @@ std::shared_ptr<Input> SessionFunctions::GenerateInput(std::shared_ptr<SessionDa
 	input->pythonstring = "";
 	input->pythonconverted = false;
 	input->stringrep = "";
-	input->oracleResult = Oracle::OracleResult::None;
+	input->oracleResult = OracleResult::None;
 
 	return input;
 }
@@ -73,7 +74,7 @@ void SessionFunctions::GenerateInput(std::shared_ptr<Input>& input, std::shared_
 		input->pythonstring = "";
 		input->pythonconverted = false;
 		input->stringrep = "";
-		input->oracleResult = Oracle::OracleResult::None;
+		input->oracleResult = OracleResult::None;
 	} else
 		input = GenerateInput(sessiondata);
 }
@@ -292,9 +293,23 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 	if (replay == true)
 	{
 		// if this was only to replay, we just delete it
+		if (!sessiondata)
+			std::cout << "No sessiondata\n";
+		if (sessiondata->data == nullptr)
+			std::cout << "No sessiondata->data\n";
+		if (!input)
+			std::cout << "No input\n";
+		if (!input->test)
+			std::cout << "No input->test\n";
+
+		std::cout << "Delete Test\n";
 		sessiondata->data->DeleteForm(input->test);
+		std::cout << "Delete Input\n";
 		sessiondata->data->DeleteForm(input);
+		std::cout << "Delete Done\n";
 	}
+	if (input->test->skipOracle)
+		return;
 	// calculate oracle result
 	bool stateerror = false;
 	input->oracleResult = Lua::EvaluateOracle(std::bind(&Oracle::Evaluate, sessiondata->_oracle, std::placeholders::_1, std::placeholders::_2), input->test, stateerror);
@@ -303,11 +318,11 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 		return;
 	}
 	// check whether output should be stored
-	input->test->storeoutput = sessiondata->_settings->tests.storePUToutput || (sessiondata->_settings->tests.storePUToutputSuccessful && input->GetOracleResult() == Oracle::OracleResult::Passing);
+	input->test->storeoutput = sessiondata->_settings->tests.storePUToutput || (sessiondata->_settings->tests.storePUToutputSuccessful && input->GetOracleResult() == OracleResult::Passing);
 
 	// check input result
 	switch (input->GetOracleResult()) {
-	case Oracle::OracleResult::Failing:
+	case OracleResult::Failing:
 		{
 		// -----We have a failing input-----
 			sessiondata->_negativeInputNumbers++;
@@ -316,39 +331,39 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 			double weight = 0.0f;
 
 			// -----Add input to its list-----
-			sessiondata->AddInput(input, Oracle::OracleResult::Failing, weight);
+			sessiondata->AddInput(input, OracleResult::Failing, weight);
 			
 			// -----Add input to exclusion tree as result is fixed-----
-			sessiondata->_excltree->AddInput(input);
+			sessiondata->_excltree->AddInput(input, OracleResult::Failing);
 
 
 
 		}
 		break;
-	case Oracle::OracleResult::Passing:
+	case OracleResult::Passing:
 		{
 			// -----We have a passing input-----
 			sessiondata->_positiveInputNumbers++;
 
 			// -----Add input to its list-----
-			sessiondata->AddInput(input, Oracle::OracleResult::Passing);
+			sessiondata->AddInput(input, OracleResult::Passing);
 
 			// -----Add input to exclusion tree as result is fixed-----
-			sessiondata->_excltree->AddInput(input);
+			sessiondata->_excltree->AddInput(input, OracleResult::Passing);
 
 
 
 		}
 		break;
-	case Oracle::OracleResult::Prefix:
+	case OracleResult::Prefix:
 		{
 			// -----The input has a prefix that has already been decided-----
-			sessiondata->AddInput(input, Oracle::OracleResult::Prefix);
+			sessiondata->AddInput(input, OracleResult::Prefix);
 			// inputs which's value is determined by a prefix cannot get here, as they 
 			// are caught on generation, so everything here is just for show
 		}
 		break;
-	case Oracle::OracleResult::Unfinished:
+	case OracleResult::Unfinished:
 		{
 			// -----We have an unfinished input-----
 			sessiondata->_unfinishedInputNumbers++;
@@ -359,17 +374,20 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 
 
 			// -----Add input to its list-----
-			sessiondata->AddInput(input, Oracle::OracleResult::Unfinished, weight);
+			sessiondata->AddInput(input, OracleResult::Unfinished, weight);
+
+			// -----Add input to exclusion tree to avoid duplicate execution-----
+			sessiondata->_excltree->AddInput(input, OracleResult::Unfinished);
 
 
 
 		}
 		break;
-	case Oracle::OracleResult::Undefined:
+	case OracleResult::Undefined:
 		{
 			// -----We have an undefined result-----
 			sessiondata->_undefinedInputNumbers++;
-			sessiondata->AddInput(input, Oracle::OracleResult::Undefined);
+			sessiondata->AddInput(input, OracleResult::Undefined);
 			// we don't really have anything else to do, since we cannot really use
 			// tests with an undefined result as we simply do not know what it is
 		}
@@ -412,6 +430,47 @@ void SessionFunctions::GenerateTests(std::shared_ptr<SessionData>& sessiondata)
 	auto callback = dynamic_pointer_cast<Functions::MasterGenerationCallback>(Functions::MasterGenerationCallback::Create());
 	callback->_sessiondata = sessiondata;
 	sessiondata->_controller->AddTask(callback);
+}
+
+std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDebugging(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input)
+{
+	DeltaDebugging::DDGoal goal = DeltaDebugging::DDGoal::MaximizePrimaryScore;
+	DeltaDebugging::DDMode mode = sessiondata->_settings->dd.mode;
+	DeltaDebugging::DDParameters* params = nullptr;
+	switch (goal)
+	{
+	case DeltaDebugging::DDGoal::MaximizePrimaryScore:
+		{
+			DeltaDebugging::MaximizePrimaryScore* par = new DeltaDebugging::MaximizePrimaryScore;
+			par->acceptableLoss = (float)sessiondata->_settings->dd.optimizationLossThreshold;
+			params = par;
+		}
+		break;
+	case DeltaDebugging::DDGoal::MaximizeSecondaryScore:
+		{
+			DeltaDebugging::MaximizeSecondaryScore* par = new DeltaDebugging::MaximizeSecondaryScore;
+			par->acceptableLossPrimary = (float)sessiondata->_settings->dd.optimizationLossThreshold;
+			par->acceptableLossSecondary = (float)sessiondata->_settings->dd.optimizationLossThreshold;
+			params = par;
+		}
+		break;
+	case DeltaDebugging::DDGoal::ReproduceResult:
+		{
+			DeltaDebugging::ReproduceResult* par = new DeltaDebugging::ReproduceResult;
+			params = par;
+		}
+		break;
+	}
+	auto control = sessiondata->data->CreateForm<DeltaDebugging::DeltaController>();
+	if (control->Start(params, sessiondata, input))
+	{
+		return control;
+	}
+	else
+	{
+		sessiondata->data->DeleteForm(control);
+		return {};
+	}
 }
 
 uint64_t SessionStatistics::TestsExecuted(std::shared_ptr<SessionData>& sessiondata)

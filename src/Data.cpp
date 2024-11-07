@@ -5,6 +5,7 @@
 #include "LuaEngine.h"
 #include "LZMAStreamBuf.h"
 #include "SessionData.h"
+#include "DeltaDebugging.h"
 
 #include <memory>
 #include <iostream>
@@ -223,6 +224,14 @@ void Data::Save()
 					}
 					stats._SessionData++;
 					//logdebug("Write Record:      SessionData");
+					break;
+				case FormType::DeltaController:
+					buffer = Records::CreateRecord<DeltaDebugging::DeltaController>(dynamic_pointer_cast<DeltaDebugging::DeltaController>(form), actionrecord_offset, actionrecord_len);
+					if (actionrecord_offset > actionrecord_len) {
+						std::cout << ("Buffer overflow in record: DeltaController");
+					}
+					stats._DeltaController++;
+					//logdebug("Write Record:      DeltaController");
 					break;
 				default:
 					stats._Fail++;
@@ -740,6 +749,18 @@ void Data::LoadIntern(std::filesystem::path path)
 										} else {
 											stats._Fail++;
 											loginfo("Failed Record:    SessionData");
+										}
+									}
+									break;
+								case FormType::DeltaController:
+									{
+										//logdebug("Read Record:      Test");
+										bool res = RegisterForm(Records::ReadRecord<DeltaDebugging::DeltaController>(buf, offset, actionrecord_offset, rlen, _lresolve));
+										if (res) {
+											stats._DeltaController++;
+										} else {
+											stats._Fail++;
+											loginfo("Failed Record:    DeltaController");
 										}
 									}
 									break;

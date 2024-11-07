@@ -231,7 +231,7 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 {
 	StartProfilingDebug;
 	loginfo("Adding new test");
-	if (input->GetGenerated() == false)
+	if (input->GetGenerated() == false && !input->HasFlag(Input::Flags::NoDerivation))
 	{
 		// we are trying to add an input that hasn't been generated or regenerated
 		// try the generate it and if it succeeds add the test
@@ -239,6 +239,8 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 		if (input->GetGenerated() == false)
 			return false;
 	}
+	if (input->Length() == 0)
+		return false;
 	uint64_t id = 0;
 	{
 		std::unique_lock<std::mutex> guard(_lockqueue);
@@ -279,6 +281,31 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 {
 	StartProfilingDebug;
+	// everything that has less than 50 list entries is very likely to be already run when for 
+	// for instance using delta debugging, so just check again to be sure we haven't run it already
+	if (auto ptr = test->input.lock(); ptr && ptr->Length() <= 50)
+	{
+		FormID prefixID = 0;
+		if (_sessiondata->_excltree->HasPrefix(ptr, prefixID) && prefixID != 0)
+		{
+			auto prefix = _sessiondata->data->LookupFormID<Input>(prefixID);
+			if (prefix)
+			{
+				prefix->DeepCopy(ptr);
+				auto callback = test->callback;
+				test->InValidatePreExec();
+				prefix->test->DeepCopy(test);
+				test->callback = callback;
+				test->skipOracle = true;
+				_threadpool->AddTask(test->callback);
+				logdebug("test is duplicate");
+				profileDebug(TimeProfilingDebug, "");
+				_sessiondata->IncGeneratedWithPrefix();
+				return false;
+			}
+		}
+	}
+
 	logdebug("start test {}", uintptr_t(test.get()));
 	// start test
 	// if successful: add test to list of active tests and update _currentTests

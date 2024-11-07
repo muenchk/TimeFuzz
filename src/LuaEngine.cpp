@@ -74,7 +74,7 @@ EnumType Lua::EvaluateOracle(std::function<EnumType(lua_State*, std::shared_ptr<
 	}
 	if (luas == nullptr) {
 		stateerror = true;
-		return Oracle::OracleResult::None;
+		return OracleResult::None;
 	}
 	// call the enclosed function
 	return func(luas, test);

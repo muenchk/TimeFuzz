@@ -35,6 +35,8 @@ size_t Input::GetStaticSize(int32_t version)
 	                        8 +                     // primaryScore
 	                        8 +                     // secondaryScore
 	                        8;                      // trimmedLength
+	static size_t size0x4 = size0x2                 // prior version size
+	                        + 8;                    // _flags
 
 	switch (version)
 	{
@@ -44,6 +46,8 @@ size_t Input::GetStaticSize(int32_t version)
 		return size0x2;
 	case 0x3:
 		return size0x2;
+	case 0x4:
+		return size0x4;
 	default:
 		return 0;
 	}
@@ -53,8 +57,10 @@ size_t Input::GetDynamicSize()
 {
 	size_t size = GetStaticSize(classversion);
 	size += Buffer::CalcStringLength(stringrep);
-	//size += Buffer::List::GetListLength(sequence);
-	//size += Buffer::List::GetListLength(orig_sequence);
+	if (HasFlag(Flags::NoDerivation)) {
+		size += Buffer::List::GetListLength(sequence);
+		size += Buffer::List::GetListLength(orig_sequence);
+	}
 	return size;
 }
 
@@ -62,6 +68,7 @@ bool Input::WriteData(unsigned char* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
+	Buffer::Write(_flags, buffer, offset);
 	Buffer::Write(hasfinished, buffer, offset);
 	Buffer::Write(trimmed, buffer, offset);
 	Buffer::Write(executiontime, buffer, offset);
@@ -76,8 +83,10 @@ bool Input::WriteData(unsigned char* buffer, size_t& offset)
 	} else
 		Buffer::Write((FormID)0, buffer, offset);
 	Buffer::Write(stringrep, buffer, offset);
-	//Buffer::List::WriteList(sequence, buffer, offset);
-	//Buffer::List::WriteList(orig_sequence, buffer, offset);
+	if (HasFlag(Flags::NoDerivation)) {
+		Buffer::List::WriteList(sequence, buffer, offset);
+		Buffer::List::WriteList(orig_sequence, buffer, offset);
+	}
 	Buffer::Write(primaryScore, buffer, offset);
 	Buffer::Write(secondaryScore, buffer, offset);
 	Buffer::Write(trimmedlength, buffer, offset);
@@ -184,23 +193,57 @@ bool Input::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadR
 			secondaryScore = Buffer::ReadDouble(buffer, offset);
 		}
 		return true;
+	case 0x4:
+		{
+			if (length < GetStaticSize(0x1))
+				return false;
+			Form::ReadData(buffer, offset, length, resolver);
+			_flags = Buffer::ReadUInt64(buffer, offset);
+			// static init
+			pythonconverted = false;
+			pythonstring = "";
+			// end
+			hasfinished = Buffer::ReadBool(buffer, offset);
+			trimmed = Buffer::ReadBool(buffer, offset);
+			executiontime = Buffer::ReadNanoSeconds(buffer, offset);
+			exitcode = Buffer::ReadInt32(buffer, offset);
+			oracleResult = Buffer::ReadUInt64(buffer, offset);
+			FormID testid = Buffer::ReadUInt64(buffer, offset);
+			resolver->AddTask([this, resolver, testid]() {
+				this->test = resolver->ResolveFormID<Test>(testid);
+			});
+			FormID deriveid = Buffer::ReadUInt64(buffer, offset);
+			resolver->AddTask([this, resolver, deriveid]() {
+				this->derive = resolver->ResolveFormID<DerivationTree>(deriveid);
+			});
+			//logdebug("ReadData string rep");
+			// get stringrep
+			//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
+			//	return false;
+			stringrep = Buffer::ReadString(buffer, offset);
+			if (HasFlag(Flags::NoDerivation)) {
+				Buffer::List::ReadList(sequence, buffer, offset);
+				Buffer::List::ReadList(orig_sequence, buffer, offset);
+			}
+			primaryScore = Buffer::ReadDouble(buffer, offset);
+			secondaryScore = Buffer::ReadDouble(buffer, offset);
+		}
+		return true;
 	default:
 		return false;
 	}
 }
 
-void Input::Delete(Data* data)
+void Input::Delete(Data* /*data*/)
 {
 	Clear();
-	data->DeleteForm(derive);
-	data->DeleteForm(test);
 }
 
 #pragma endregion
 
 Input::Input()
 {
-
+	oracleResult = OracleResult::Running;
 }
 
 Input::~Input()
@@ -481,22 +524,28 @@ void Input::DeepCopy(std::shared_ptr<Input> other)
 
 void Input::FreeMemory()
 {
-	// if input is generated AND the test has already been run and the callback has been invalidated
-	// (i.e. we have evaluated oracle and stuff)
-	// we can destroy the derivation tree and clear the sequence to reclaim
-	// memory space
-	if (generatedSequence && test && test->IsValid() == false && !test->callback) {
-		generatedSequence = false;
+	// return if the DoNotFree flag is set
+	if (HasFlag(Flags::DoNotFree))
+		return;
+	// only clear sequence and derivation tree if the input is actually derived from a derivation tree
+	if (!HasFlag(Flags::NoDerivation)) {
+		// if input is generated AND the test has already been run and the callback has been invalidated
+		// (i.e. we have evaluated oracle and stuff)
+		// we can destroy the derivation tree and clear the sequence to reclaim
+		// memory space
+		if (generatedSequence && test && test->IsValid() == false && !test->callback) {
+			generatedSequence = false;
 
-		if (derive) {
-			// automatically sets derive to invalid
-			if (derive->valid)
-				derive->Clear();
-			else
-				pythonconverted;
+			if (derive) {
+				// automatically sets derive to invalid
+				if (derive->valid)
+					derive->Clear();
+				else
+					pythonconverted;
+			}
+			sequence.clear();
+			orig_sequence.clear();
 		}
-		sequence.clear();
-		orig_sequence.clear();
 	}
 	// reset python string
 	pythonconverted = false;
