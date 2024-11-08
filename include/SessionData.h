@@ -176,17 +176,17 @@ public:
 	/// <summary>
 	/// time_point of the last performed end and saving checks
 	/// </summary>
-	std::chrono::steady_clock::time_point lastchecks;
+	std::chrono::steady_clock::time_point _lastchecks;
 
 	/// <summary>
 	/// time_point of the last performed memory sweep
 	/// </summary>
-	std::chrono::steady_clock::time_point lastmemorysweep;
+	std::chrono::steady_clock::time_point _lastMemorySweep;
 
-	uint64_t memory_mem = 0;
-	bool memory_outofmemory = false;
-	std::chrono::steady_clock::time_point memory_outofmemory_timer;
-	bool memory_ending = false;
+	uint64_t _memory_mem = 0;
+	bool _memory_outofmemory = false;
+	std::chrono::steady_clock::time_point _memory_outofmemory_timer;
+	bool _memory_ending = false;
 
 	const int32_t classversion = 0x3;
 

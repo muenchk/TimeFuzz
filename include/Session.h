@@ -156,9 +156,9 @@ public:
 	/// <returns></returns>
 	bool Finished() { return _hasFinished; }
 
-	bool Loaded() { return loaded; }
+	bool Loaded() { return _loaded; }
 
-	bool Running() { return running; }
+	bool Running() { return _running; }
 
 	void Replay(FormID inputid);
 
@@ -177,7 +177,7 @@ public:
 
 	void InitStatus(SessionStatus& status);
 
-	inline uint64_t GetLastError() { return LastError; }
+	inline uint64_t GetLastError() { return _lastError; }
 
 	Data* data = nullptr;
 
@@ -209,20 +209,20 @@ private:
 	/// <summary>
 	/// The last error encountered in the session
 	/// </summary>
-	uint64_t LastError = 0;
+	uint64_t _lastError = 0;
 
-	bool loaded = false;
+	bool _loaded = false;
 
 	/// <summary>
 	/// whether to abort the current session
 	/// </summary>
-	bool abort = false;
+	bool _abort = false;
 
 	/// <summary>
 	/// whether a session is currently running
 	/// </summary>
-	bool running = false;
-	std::mutex runninglock;
+	bool _running = false;
+	std::mutex _runninglock;
 
 	/// <summary>
 	/// returns whether the session is running

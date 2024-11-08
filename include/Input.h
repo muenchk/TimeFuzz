@@ -42,21 +42,21 @@ public:
 	#pragma endregion
 
 private:
-	bool hasfinished = false;
-	bool trimmed = false;
-	int64_t trimmedlength = -1;
-	std::chrono::nanoseconds executiontime;
-	int32_t exitcode = 0;
-	double primaryScore = 0.f;
-	double secondaryScore = 0.f;
+	bool _hasfinished = false;
+	bool _trimmed = false;
+	int64_t _trimmedlength = -1;
+	std::chrono::nanoseconds _executiontime;
+	int32_t _exitcode = 0;
+	double _primaryScore = 0.f;
+	double _secondaryScore = 0.f;
 
 	friend ExecutionHandler;
 	friend Test;
 
-	std::string pythonstring;
-	bool pythonconverted = false;
+	std::string _pythonstring;
+	bool _pythonconverted = false;
 
-	bool generatedSequence = false;
+	bool _generatedSequence = false;
 
 public:
 	struct Flags
@@ -129,12 +129,12 @@ public:
 	/// <summary>
 	/// Marks the input as containing a valid input sequence
 	/// </summary>
-	void SetGenerated(bool generated = true) { generatedSequence = generated; }
+	void SetGenerated(bool generated = true) { _generatedSequence = generated; }
 	/// <summary>
 	/// Returns whether the input sequence has been generated
 	/// </summary>
 	/// <returns></returns>
-	bool GetGenerated() { return generatedSequence; }
+	bool GetGenerated() { return _generatedSequence; }
 	/// <summary>
 	/// converts the input to a string
 	/// </summary>
@@ -162,8 +162,8 @@ public:
 	/// <returns></returns>
 	inline std::chrono::nanoseconds GetExecutionTime()
 	{
-		if (hasfinished)
-			return executiontime;
+		if (_hasfinished)
+			return _executiontime;
 		else
 			return std::chrono::nanoseconds(-1);
 	}
@@ -174,8 +174,8 @@ public:
 	/// <returns></returns>
 	inline int32_t GetExitCode()
 	{
-		if (hasfinished)
-			return exitcode;
+		if (_hasfinished)
+			return _exitcode;
 		else
 			return -1;
 	}
@@ -186,7 +186,7 @@ public:
 	/// <returns></returns>
 	inline bool Finished()
 	{
-		return hasfinished;
+		return _hasfinished;
 	}
 
 	/// <summary>
@@ -195,22 +195,22 @@ public:
 	/// <returns></returns>
 	inline EnumType GetOracleResult()
 	{
-		return oracleResult;
+		return _oracleResult;
 	}
 
 	inline double GetPrimaryScore()
 	{
-		return primaryScore;
+		return _primaryScore;
 	}
 
 	inline double GetSecondaryScore()
 	{
-		return secondaryScore;
+		return _secondaryScore;
 	}
 
 	void TrimInput(int32_t executed);
 
-	int64_t GetTrimmedLength() { return trimmedlength; }
+	int64_t GetTrimmedLength() { return _trimmedlength; }
 
 	/// <summary>
 	/// Parses inputs from a python file.
@@ -247,17 +247,17 @@ private:
 	/// <summary>
 	/// the string representation of the input
 	/// </summary>
-	std::string stringrep;
+	std::string _stringrep;
 	/// <summary>
 	/// the oracle result of the input
 	/// </summary>
-	EnumType oracleResult;
+	EnumType _oracleResult;
 	/// <summary>
 	/// the underlying representation of the input sequence
 	/// </summary>
-	std::list<std::string> sequence;
+	std::list<std::string> _sequence;
 
-	std::list<std::string>::iterator lua_sequence_next;
+	std::list<std::string>::iterator _lua_sequence_next;
 
 	/// <summary>
 	/// instance flags
@@ -267,7 +267,7 @@ private:
 	/// <summary>
 	/// originally generated sequence [stores sequence after trimming]
 	/// </summary>
-	std::list<std::string> orig_sequence;
+	std::list<std::string> _orig_sequence;
 
 	bool ReadData0x1(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 	bool ReadData0x2(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);

@@ -33,10 +33,10 @@ bool DerivationTree::WriteData(unsigned char* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
-	Buffer::Write(grammarID, buffer, offset);
-	Buffer::Write(regenerate, buffer, offset);
-	Buffer::Write(seed, buffer, offset);
-	Buffer::Write(targetlen, buffer, offset);
+	Buffer::Write(_grammarID, buffer, offset);
+	Buffer::Write(_regenerate, buffer, offset);
+	Buffer::Write(_seed, buffer, offset);
+	Buffer::Write(_targetlen, buffer, offset);
 	return true;
 }
 
@@ -50,10 +50,10 @@ bool DerivationTree::ReadData(unsigned char* buffer, size_t& offset, size_t leng
 		return true;
 	case 0x2:
 		Form::ReadData(buffer, offset, length, resolver);
-		grammarID = Buffer::ReadUInt64(buffer, offset);
-		regenerate = Buffer::ReadBool(buffer, offset);
-		seed = Buffer::ReadUInt32(buffer, offset);
-		targetlen = Buffer::ReadInt32(buffer, offset);
+		_grammarID = Buffer::ReadUInt64(buffer, offset);
+		_regenerate = Buffer::ReadBool(buffer, offset);
+		_seed = Buffer::ReadUInt32(buffer, offset);
+		_targetlen = Buffer::ReadInt32(buffer, offset);
 		return true;
 	default:
 		return false;
@@ -67,13 +67,13 @@ void DerivationTree::Delete(Data*)
 
 void DerivationTree::Clear()
 {
-	AcquireLock();
-	valid = false;
-	if (root == nullptr)
+	Lock();
+	_valid = false;
+	if (_root == nullptr)
 		return;
-	auto itr = nodes.begin();
+	auto itr = _nodes.begin();
 	int count = 0;
-	while (itr != nodes.end())
+	while (itr != _nodes.end())
 	{
 		switch ((*itr)->Type()) {
 		case NodeType::Terminal:
@@ -121,9 +121,9 @@ void DerivationTree::Clear()
 			break;
 		}
 	}*/
-	nodes.clear();
-	root = nullptr;
-	ReleaseLock();
+	_nodes.clear();
+	_root = nullptr;
+	Unlock();
 }
 
 void DerivationTree::RegisterFactories()

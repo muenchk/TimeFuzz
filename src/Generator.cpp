@@ -117,34 +117,34 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 		gram = grammar;
 	if (gram) {
 		// we only need to generate a new tree if there isn't a valid one
-		// this can happen with temporary input forms, that reuse existing
-		// derivation trees, even though the input forms themselves don't have
+		// this can happen with temporary _input forms, that reuse existing
+		// derivation trees, even though the _input forms themselves don't have
 		// the derived sequences
-		input->derive->AcquireLock();
-		if (input->derive->valid == false) {
-			if (input->derive && input->derive->regenerate == true) {
-				// we already generated the input some time ago, so we will reuse the past generation parameters to
+		input->derive->Lock();
+		if (input->derive->_valid == false) {
+			if (input->derive && input->derive->_regenerate == true) {
+				// we already generated the _input some time ago, so we will reuse the past generation parameters to
 				// regenerate the same derivation tree
-				int32_t sequencelen = input->derive->targetlen;
-				uint32_t seed = input->derive->seed;
+				int32_t sequencelen = input->derive->_targetlen;
+				uint32_t seed = input->derive->_seed;
 				gram->Derive(input->derive, sequencelen, seed);
 			} else {
 				std::uniform_int_distribution<signed> dist(1000, 10000);
 				int32_t sequencelen = dist(randan);
 				// derive a derivation tree from the grammar
 				gram->Derive(input->derive, sequencelen, (unsigned int)(std::chrono::system_clock::now().time_since_epoch().count()));
-				// gather the complete input sequence
+				// gather the complete _input sequence
 			}
 		}
-		// get the input sequence from the derivationtree
-		if (input->derive->valid) {
-			if (input->derive->root->Type() == DerivationTree::NodeType::Terminal) {
-				input->AddEntry(((DerivationTree::TerminalNode*)(input->derive->root))->content);
+		// get the _input sequence from the derivationtree
+		if (input->derive->_valid) {
+			if (input->derive->_root->Type() == DerivationTree::NodeType::Terminal) {
+				input->AddEntry(((DerivationTree::TerminalNode*)(input->derive->_root))->_content);
 			} else {
 				std::vector<DerivationTree::SequenceNode*> seqnodes;
 
 				std::stack<DerivationTree::NonTerminalNode*> stack;
-				stack.push((DerivationTree::NonTerminalNode*)(input->derive->root));
+				stack.push((DerivationTree::NonTerminalNode*)(input->derive->_root));
 				DerivationTree::NonTerminalNode* tmp = nullptr;
 				DerivationTree::Node* ntmp = nullptr;
 
@@ -155,32 +155,32 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 						seqnodes.push_back((DerivationTree::SequenceNode*)tmp);
 					// push children in reverse order to stack: We explore from left to right
 					// skip terminal children, they cannot produce sequences
-					for (int32_t i = (int32_t)tmp->children.size() - 1; i >= 0; i--) {
-						if (tmp->children[i]->Type() != DerivationTree::NodeType::Terminal)
-							stack.push((DerivationTree::NonTerminalNode*)(tmp->children[i]));
+					for (int32_t i = (int32_t)tmp->_children.size() - 1; i >= 0; i--) {
+						if (tmp->_children[i]->Type() != DerivationTree::NodeType::Terminal)
+							stack.push((DerivationTree::NonTerminalNode*)(tmp->_children[i]));
 					}
 				}
 				// we have found all sequence nodes
 				// now traverse each one from left to right with depth first search and patch together
-				// the individual input sequences
+				// the individual _input sequences
 				std::stack<DerivationTree::Node*> nstack;
 				for (int32_t c = 0; c < (int32_t)seqnodes.size(); c++) {
 					std::string entry = "";
 					// push root node to stack
 					nstack.push(seqnodes[c]);
-					// gather input fragments
+					// gather _input fragments
 					while (nstack.size() > 0) {
 						ntmp = nstack.top();
 						nstack.pop();
 						// if the current child is terminal, it has to be left-most child in the remaining tree
 						// and gets added to the entry
 						if (ntmp->Type() == DerivationTree::NodeType::Terminal)
-							entry += ((DerivationTree::TerminalNode*)ntmp)->content;
+							entry += ((DerivationTree::TerminalNode*)ntmp)->_content;
 						else {
 							tmp = (DerivationTree::NonTerminalNode*)ntmp;
 							// push children in reverse order: we traverse from left to right
-							for (int32_t i = (int32_t)tmp->children.size() - 1; i >= 0; i--) {
-								nstack.push((tmp->children[i]));
+							for (int32_t i = (int32_t)tmp->_children.size() - 1; i >= 0; i--) {
+								nstack.push((tmp->_children[i]));
 							}
 						}
 					}
@@ -191,25 +191,25 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 			}
 			input->SetGenerated();
 			profile(TimeProfiling, "Time taken for input Generation");
-			if ((int32_t)input->Length() != input->derive->sequenceNodes && input->GetTrimmedLength() != -1 && (int32_t)input->Length() != input->GetTrimmedLength())
-				logwarn("The input length is different from the generated sequence. Length: {}, Expected: {}", input->Length(), input->derive->sequenceNodes);
+			if ((int32_t)input->Length() != input->derive->_sequenceNodes && input->GetTrimmedLength() != -1 && (int32_t)input->Length() != input->GetTrimmedLength())
+				logwarn("The input length is different from the generated sequence. Length: {}, Expected: {}", input->Length(), input->derive->_sequenceNodes);
 			if ((int32_t)input->Length() == 0)
 				logwarn("The input length is 0.");
 
-			input->derive->ReleaseLock();
+			input->derive->Unlock();
 			return true;
 		} else
 			;
 		profile(TimeProfiling, "Time taken for input Generation");
-		input->derive->ReleaseLock();
+		input->derive->Unlock();
 		return false;
 	} else {
 		DummyGenerate(input);
 		input->SetGenerated();
 	}
 	profile(TimeProfiling, "Time taken for input Generation");
-	if ((int32_t)input->Length() != input->derive->sequenceNodes)
-		logwarn("The input length is different from the generated sequence. Length: {}, Expected: {}", input->Length(), input->derive->sequenceNodes);
+	if ((int32_t)input->Length() != input->derive->_sequenceNodes)
+		logwarn("The input length is different from the generated sequence. Length: {}, Expected: {}", input->Length(), input->derive->_sequenceNodes);
 	return true;
 }
 

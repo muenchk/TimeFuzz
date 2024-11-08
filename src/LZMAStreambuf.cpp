@@ -244,7 +244,7 @@ int LZMAStreambuf::overflow(int c)
 	lzma_ret ret = LZMA_OK;
 
 	static std::unique_ptr<char[]> inBuffer = std::make_unique<char[]>(_bufferSize * 2);
-	// buffer for temporary storage of intermediate input data
+	// buffer for temporary storage of intermediate _input data
 	static std::unique_ptr<char[]> tmpBuffer = std::make_unique<char[]>(_bufferSize * 2);
 	int64_t tmpPtr = 0;
 
@@ -255,7 +255,7 @@ int LZMAStreambuf::overflow(int c)
 			// if we haven't read those bytes at all, no need to copy them
 			avail = _lzmaStream.avail_in;
 		else {
-			// there are still bytes remaining in the input.
+			// there are still bytes remaining in the _input.
 			avail = _lzmaStream.avail_in;
 			memcpy(tmpBuffer.get(), inBuffer.get() + _lzmaStream.total_in, avail);
 			memcpy(inBuffer.get(), tmpBuffer.get(), avail);
@@ -263,14 +263,14 @@ int LZMAStreambuf::overflow(int c)
 	}
 	// if there is stuff available that needs to be compressed we need to copy it to the in Buffer
 	if (pptr() != pbase()) {
-		// copy from public input buffer _decompressedBuffer to our inBuffer for lzma
+		// copy from public _input buffer _decompressedBuffer to our inBuffer for lzma
 		// copy the number of bytes available
 		memcpy(inBuffer.get() + avail, _decompressedBuffer.get(), pptr() - pbase());
 		avail += pptr() - pbase();
-		// set output buffer pointers
+		// set _output buffer pointers
 		setp(_decompressedBuffer.get(), _decompressedBuffer.get() + _bufferSize);
 	}
-	// set the input buffer for lzma
+	// set the _input buffer for lzma
 	_lzmaStream.next_in = reinterpret_cast<unsigned char*>(inBuffer.get());
 	_lzmaStream.total_in = 0;
 	_lzmaStream.avail_in = avail;
@@ -314,8 +314,8 @@ int LZMAStreambuf::overflow(int c)
 			}
 			// check if there is data to write back
 			if (_lzmaStream.total_out > 0) {
-				// buf error just means that theres either not enough input, which can be fixed on the next call
-				// or it means that not enough output space is available which can be fixed by writing off data
+				// buf error just means that theres either not enough _input, which can be fixed on the next call
+				// or it means that not enough _output space is available which can be fixed by writing off data
 				_out->write(_compressedBuffer.get(), _lzmaStream.total_out);
 				_lzmaStream.next_out = reinterpret_cast<unsigned char*>(_compressedBuffer.get());
 				_lzmaStream.total_out = 0;

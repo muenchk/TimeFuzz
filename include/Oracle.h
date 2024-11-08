@@ -68,15 +68,15 @@ public:
 private:
 	std::filesystem::path _path;
 	PUTType _type;
-	bool valid = false;
+	bool _valid = false;
 	const int32_t classversion = 0x1;
-	std::string LoracleStr = "";
-	std::filesystem::path LoraclePath;
+	std::string _luaOracleStr = "";
+	std::filesystem::path _luaOraclePath;
 
-	std::string LcmdargsStr = "";
-	std::filesystem::path LcmdargsPath;
-	std::filesystem::path LcmdargsPathReplay;
-	std::mutex cmdlock;
+	std::string _luaCmdArgsStr = "";
+	std::filesystem::path _luaCmdArgsPath;
+	std::filesystem::path _luaCmdArgsPathReplay;
+	std::mutex _cmdLock;
 
 public:
 	Oracle();

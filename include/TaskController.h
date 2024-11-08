@@ -67,7 +67,7 @@ public:
 	/// <summary>
 	/// Disables Lua support
 	/// </summary>
-	inline void SetDisableLua() { disableLua = true; }
+	inline void SetDisableLua() { _disableLua = true; }
 
 	/// <summary>
 	/// Returns the number of completed jobs
@@ -103,6 +103,7 @@ public:
 	#pragma endregion
 	
 private:
+	const int32_t classversion = 0x1;
 
 	friend class LoadResolver;
 	friend class LoadResolverGrammar;
@@ -127,38 +128,52 @@ private:
 	/// <summary>
 	/// disables lua support
 	/// </summary>
-	bool disableLua = false;
+	bool _disableLua = false;
 
 	/// <summary>
 	/// whether to terminate the TaskController
 	/// </summary>
-	bool terminate = false;
+	bool _terminate = false;
 	/// <summary>
 	/// whether to wait for the completion of all tasks
 	/// </summary>
-	bool wait = false;
+	bool _wait = false;
 	/// <summary>
 	/// freezes thread execution without terminating threads or discarding tasks
 	/// </summary>
-	bool freeze = false;
-	std::condition_variable condition;
+	bool _freeze = false;
+	std::condition_variable _condition;
 	/// <summary>
 	/// threads that run InternalLoop
 	/// </summary>
-	std::vector<std::thread> threads;
+	std::vector<std::thread> _threads;
+	/// <summary>
+	/// light queue, tasks will skip be handled before regular tasks if available
+	/// </summary>
+	std::deque<std::shared_ptr<Functions::BaseFunction>> _tasks_light;
 	/// <summary>
 	/// regular queue, tasks will be handled first come first serve
 	/// </summary>
-	std::deque<std::shared_ptr<Functions::BaseFunction>> tasks_light;
-	std::deque<std::shared_ptr<Functions::BaseFunction>> tasks;
-	std::mutex lock;
-	std::atomic<uint64_t> completedjobs;
+	std::deque<std::shared_ptr<Functions::BaseFunction>> _tasks;
+	/// <summary>
+	/// locks access to _tasks_light and _tasks
+	/// </summary>
+	std::mutex _lock;
+	/// <summary>
+	/// number of jobs completed in this session/this instance
+	/// </summary>
+	std::atomic<uint64_t> _completedjobs;
 	/// <summary>
 	/// current thread status
 	/// </summary>
-	std::vector<ThreadStatus> status;
-
+	std::vector<ThreadStatus> _status;
+	/// <summary>
+	/// number of threads used by this instance
+	/// </summary>
 	int32_t _numthreads = 0;
-	const int32_t classversion = 0x1;
+	/// <summary>
+	/// whether to optimize function execution by allowing light tasks to skip queue
+	/// [only available when two or more threads are in use]
+	/// </summary>
 	bool _optimizeFuncExec = false;
 };

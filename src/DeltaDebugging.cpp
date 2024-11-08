@@ -38,7 +38,7 @@ namespace Functions
 		resolver->AddTask([this, controllerid, resolver]() {
 			this->_DDcontroller = resolver->ResolveFormID<DeltaDebugging::DeltaController>(controllerid);
 		});
-		// get id of saved input and resolve link
+		// get id of saved _input and resolve link
 		uint64_t inputid = Buffer::ReadUInt64(buffer, offset);
 		resolver->AddTask([this, inputid, resolver]() {
 			this->_input = resolver->ResolveFormID<Input>(inputid);
@@ -66,7 +66,7 @@ namespace Functions
 		_sessiondata.reset();
 		if (_input)
 			if (_input->test)
-				_input->test->callback.reset();
+				_input->test->_callback.reset();
 		_input.reset();
 	}
 }
@@ -98,7 +98,7 @@ namespace DeltaDebugging
 		_totaltests = 0;
 		input->SetFlag(Input::Flags::DoNotFree);
 		if (input->GetGenerated() == false && !input->HasFlag(Input::Flags::NoDerivation)) {
-			// we are trying to add an input that hasn't been generated or regenerated
+			// we are trying to add an _input that hasn't been generated or regenerated
 			// try the generate it and if it succeeds add the test
 			SessionFunctions::GenerateInput(input, _sessiondata);
 			if (input->GetGenerated() == false)
@@ -110,7 +110,7 @@ namespace DeltaDebugging
 		case DDMode::Standard:
 			{
 				// standard mode is the one originally developed by Andreas Zeller
-				// it uses division of the input in form of binary search and executes the
+				// it uses division of the _input in form of binary search and executes the
 				// subsets and its complements
 				StandardGenerateFirstLevel();
 			}
@@ -155,7 +155,7 @@ namespace DeltaDebugging
 			dinfo.positionbegin = splitbegin;
 			dinfo.length = 0;
 			if (i == number - 1) {
-				// add rest of input to split
+				// add rest of _input to split
 				while (itr != _input->end()) {
 					splits[i]->AddEntry(*itr);
 					itr++;
@@ -163,7 +163,7 @@ namespace DeltaDebugging
 					splitbegin++;
 				}
 			} else {
-				// add a sepcific number of strings to input
+				// add a sepcific number of strings to _input
 				for (int32_t x = 0; x < splitsize; x++) {
 					splits[i]->AddEntry(*itr);
 					itr++;
@@ -226,7 +226,7 @@ namespace DeltaDebugging
 			FormID prefixID = 0;
 			int32_t fails = 0;
 			for (int32_t i = 0; i < (int32_t)splits.size(); i++) {
-				// only execute input if the length is above our settings and 
+				// only execute _input if the length is above our settings and 
 				// it isn't present in the exclusiontree
 				if (_sessiondata->_settings->dd.executeAboveLength < (int64_t)splits[i]->Length()) {
 					if (_sessiondata->_excltree->HasPrefix(splits[i], prefixID) == false) {
@@ -306,7 +306,7 @@ namespace DeltaDebugging
 					return;
 				}
 
-				// this is the very ordinary variant where we choose a test as our new starting input
+				// this is the very ordinary variant where we choose a test as our new starting _input
 				// based on its ability to reproduce the original oracle result
 				ReproduceResult* rrparams = (ReproduceResult*)_params;
 				switch (rrparams->secondarygoal) {
@@ -315,7 +315,7 @@ namespace DeltaDebugging
 					{
 						// find the tests that reproduced the original result and pick one
 						std::uniform_int_distribution<signed> dist(0, (int32_t)rinputs.size() - 1);
-						// choose new base input
+						// choose new base _input
 						_input = rinputs[dist(randan)];
 						// adjust level
 						_level = std::max(_level - 1, 2);
@@ -337,7 +337,7 @@ namespace DeltaDebugging
 						// just a precaution
 						if (!inp)
 							inp = rinputs[0];
-						// set new base input
+						// set new base _input
 						_input = inp;
 						// adjust level
 						_level = std::max(_level - 1, 2);
@@ -359,7 +359,7 @@ namespace DeltaDebugging
 						// just a precaution
 						if (!inp)
 							inp = rinputs[0];
-						// set new base input
+						// set new base _input
 						_input = inp;
 						// adjust level
 						_level = std::max(_level - 1, 2);
@@ -431,7 +431,7 @@ namespace DeltaDebugging
 					StandardGenerateNextLevel();
 					return;
 				} else {
-					// set new base input
+					// set new base _input
 					_input = passing[0];
 					// adjust level
 					_level = std::max(_level - 1, 2);
@@ -500,7 +500,7 @@ namespace DeltaDebugging
 					StandardGenerateNextLevel();
 					return;
 				} else {
-					// set new base input
+					// set new base _input
 					_input = passing[0];
 					// adjust level
 					_level = std::max(_level - 1, 2);
@@ -528,7 +528,7 @@ namespace DeltaDebugging
 		                        + 4                     // totaltests
 		                        + 1                     // finished
 		                        + 8                     // origInput
-		                        + 8                     // input
+		                        + 8                     // _input
 		                        + 4;                    // level
 
 		switch (version)

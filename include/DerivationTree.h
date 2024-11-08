@@ -13,8 +13,6 @@ class DerivationTree : public Form
 private:
 	const int32_t classversion = 0x2;
 
-	std::mutex _lock;
-
 public:
 	enum class NodeType
 	{
@@ -29,16 +27,16 @@ public:
 	
 	struct NonTerminalNode : public Node
 	{
-		std::vector<Node*> children;
-		uint64_t grammarID;
+		std::vector<Node*> _children;
+		uint64_t _grammarID;
 
 		NodeType Type() override { return NodeType::NonTerminal; }
 	};
 
 	struct TerminalNode : public Node
 	{
-		uint64_t grammarID;
-		std::string content;
+		uint64_t _grammarID;
+		std::string _content;
 
 		NodeType Type() override { return NodeType::Terminal; }
 	};
@@ -48,14 +46,14 @@ public:
 		NodeType Type() override { return NodeType::Sequence; }
 	};
 
-	Node* root;
-	FormID grammarID;
-	bool valid = false;
-	bool regenerate = false;
-	uint32_t seed = 0;
-	int32_t targetlen = 0;
-	std::set<Node*> nodes;
-	int32_t sequenceNodes = 0;
+	Node* _root;
+	FormID _grammarID;
+	bool _valid = false;
+	bool _regenerate = false;
+	uint32_t _seed = 0;
+	int32_t _targetlen = 0;
+	std::set<Node*> _nodes;
+	int32_t _sequenceNodes = 0;
 
 	void Parse(std::string);
 
@@ -79,15 +77,6 @@ public:
 	void Clear() override;
 	inline static bool _registeredFactories = false;
 	static void RegisterFactories();
-
-	void AcquireLock() {
-		_lock.lock();
-	}
-
-	void ReleaseLock()
-	{
-		_lock.unlock();
-	}
 
 	#pragma endregion
 };

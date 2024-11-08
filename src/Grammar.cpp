@@ -9,29 +9,29 @@
 
 bool GrammarNode::IsLeaf()
 {
-	return type == NodeType::Terminal;
+	return _type == NodeType::Terminal;
 }
 
 bool GrammarNode::IsSequence()
 {
-	return type == NodeType::Sequence;
+	return _type == NodeType::Sequence;
 }
 
 bool GrammarNode::IsValid()
 {
-	return identifier.empty() == false && derivation.empty() && (IsLeaf() && expansions.size() == 0 || !IsLeaf() && expansions.size() > 0);
+	return _identifier.empty() == false && _derivation.empty() && (IsLeaf() && _expansions.size() == 0 || !IsLeaf() && _expansions.size() > 0);
 }
 
 GrammarNode::operator std::string()
 {
-	switch (type)
+	switch (_type)
 	{
 	case NodeType::Terminal:
-		return "T_" + identifier;
+		return "T_" + _identifier;
 	case NodeType::NonTerminal:
-		return "NT_" + identifier;
+		return "NT_" + _identifier;
 	case NodeType::Sequence:
-		return "SEQ_" + identifier;
+		return "SEQ_" + _identifier;
 	}
 	return "T_";
 }
@@ -48,13 +48,13 @@ GrammarObject::Type GrammarNode::GetObjectType()
 
 std::string GrammarNode::Scala()
 {
-	std::string str = "\t" + identifier + " := ";
-	for (int32_t i = 0; i < expansions.size(); i++)
+	std::string str = "\t" + _identifier + " := ";
+	for (int32_t i = 0; i < _expansions.size(); i++)
 	{
-		if (i == expansions.size() - 1)
-			str += expansions[i]->Scala();
+		if (i == _expansions.size() - 1)
+			str += _expansions[i]->Scala();
 		else
-			str += expansions[i]->Scala() + " | ";
+			str += _expansions[i]->Scala() + " | ";
 	}
 	str += ",";
 	return str;
@@ -63,13 +63,13 @@ std::string GrammarNode::Scala()
 size_t GrammarNode::GetDynamicSize()
 {
 	size_t sz = 4                                       // version
-	            + Buffer::CalcStringLength(identifier)  // identifier
-	            + Buffer::CalcStringLength(derivation)  // derivation
+	            + Buffer::CalcStringLength(_identifier)  // _identifier
+	            + Buffer::CalcStringLength(_derivation)  // derivation
 	            + 8                                     // id
-	            + 8 + 8 * expansions.size()             // list of expansions
+	            + 8 + 8 * _expansions.size()             // list of expansions
 	            + 8                                     // flags
 	            + 4                                     // type
-	            + 8 + 8 * parents.size()                // list of parents
+	            + 8 + 8 * _parents.size()                // list of parents
 	            + 1                                     // reachable
 	            + 1                                     // producing
 	            + 1;                                    // remove
@@ -79,22 +79,22 @@ size_t GrammarNode::GetDynamicSize()
 bool GrammarNode::WriteData(unsigned char* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
-	Buffer::Write(identifier, buffer, offset);
-	Buffer::Write(derivation, buffer, offset);
-	Buffer::Write(id, buffer, offset);
+	Buffer::Write(_identifier, buffer, offset);
+	Buffer::Write(_derivation, buffer, offset);
+	Buffer::Write(_id, buffer, offset);
 	// expansions
-	Buffer::WriteSize(expansions.size(), buffer, offset);
-	for (int32_t i = 0; i < expansions.size(); i++)
-		Buffer::Write(expansions[i]->id, buffer, offset);
-	Buffer::Write(flags, buffer, offset);
-	Buffer::Write((uint32_t)type, buffer, offset);
+	Buffer::WriteSize(_expansions.size(), buffer, offset);
+	for (int32_t i = 0; i < _expansions.size(); i++)
+		Buffer::Write(_expansions[i]->_id, buffer, offset);
+	Buffer::Write(_flags, buffer, offset);
+	Buffer::Write((uint32_t)_type, buffer, offset);
 	// parents
-	Buffer::WriteSize(parents.size(), buffer, offset);
-	for (auto expansion : parents)
-		Buffer::Write(expansion->id, buffer, offset);
-	Buffer::Write(reachable, buffer, offset);
-	Buffer::Write(producing, buffer, offset);
-	Buffer::Write(remove, buffer, offset);
+	Buffer::WriteSize(_parents.size(), buffer, offset);
+	for (auto expansion : _parents)
+		Buffer::Write(expansion->_id, buffer, offset);
+	Buffer::Write(_reachable, buffer, offset);
+	Buffer::Write(_producing, buffer, offset);
+	Buffer::Write(_remove, buffer, offset);
 	return true;
 }
 
@@ -105,9 +105,9 @@ bool GrammarNode::ReadData(unsigned char* buffer, size_t& offset, size_t /*lengt
 	{
 	case 0x1:
 		{
-			identifier = Buffer::ReadString(buffer, offset);
-			derivation = Buffer::ReadString(buffer, offset);
-			id = Buffer::ReadUInt64(buffer, offset);
+			_identifier = Buffer::ReadString(buffer, offset);
+			_derivation = Buffer::ReadString(buffer, offset);
+			_id = Buffer::ReadUInt64(buffer, offset);
 			// expansions
 			size_t len = Buffer::ReadSize(buffer, offset);
 			std::vector<uint64_t> exp;
@@ -116,12 +116,12 @@ bool GrammarNode::ReadData(unsigned char* buffer, size_t& offset, size_t /*lengt
 			}
 			resolver->AddTask([this, exp, resolver]() {
 				for (int32_t i = 0; i < exp.size(); i++) {
-					expansions.push_back(resolver->ResolveExpansionID(exp[i]));
+					_expansions.push_back(resolver->ResolveExpansionID(exp[i]));
 				}
 			});
 
-			flags = Buffer::ReadUInt64(buffer, offset);
-			type = (GrammarNode::NodeType)(Buffer::ReadUInt32(buffer, offset));
+			_flags = Buffer::ReadUInt64(buffer, offset);
+			_type = (GrammarNode::NodeType)(Buffer::ReadUInt32(buffer, offset));
 			// parents
 			size_t plen = Buffer::ReadSize(buffer, offset);
 			std::vector<uint64_t> par;
@@ -130,13 +130,13 @@ bool GrammarNode::ReadData(unsigned char* buffer, size_t& offset, size_t /*lengt
 			}
 			resolver->AddTask([this, par, resolver]() {
 				for (int32_t i = 0; i < par.size(); i++) {
-					parents.insert(resolver->ResolveExpansionID(par[i]));
+					_parents.insert(resolver->ResolveExpansionID(par[i]));
 				}
 			});
 
-			reachable = Buffer::ReadBool(buffer, offset);
-			producing = Buffer::ReadBool(buffer, offset);
-			remove = Buffer::ReadBool(buffer, offset);
+			_reachable = Buffer::ReadBool(buffer, offset);
+			_producing = Buffer::ReadBool(buffer, offset);
+			_remove = Buffer::ReadBool(buffer, offset);
 			return true;
 		}
 	default:
@@ -147,12 +147,12 @@ bool GrammarNode::ReadData(unsigned char* buffer, size_t& offset, size_t /*lengt
 GrammarExpansion::operator std::string()
 {
 	std::string ret;
-	for (int32_t i = 0; i < nodes.size(); i++)
+	for (int32_t i = 0; i < _nodes.size(); i++)
 	{
-		if (i == nodes.size() - 1)
-			ret += nodes[i]->string();
+		if (i == _nodes.size() - 1)
+			ret += _nodes[i]->string();
 		else
-			ret += nodes[i]->string() + " ~ ";
+			ret += _nodes[i]->string() + " ~ ";
 	}
 	return ret;
 }
@@ -165,17 +165,17 @@ GrammarObject::Type GrammarExpansion::GetObjectType()
 std::string GrammarExpansion::Scala()
 {
 	std::string ret;
-	for (int32_t i = 0; i < nodes.size(); i++) {
-		switch (nodes[i]->type) {
+	for (int32_t i = 0; i < _nodes.size(); i++) {
+		switch (_nodes[i]->_type) {
 		case GrammarNode::NodeType::Terminal:
-			ret += "\"" + nodes[i]->identifier + "\"";
+			ret += "\"" + _nodes[i]->_identifier + "\"";
 			break;
 		case GrammarNode::NodeType::NonTerminal:
 		case GrammarNode::NodeType::Sequence:
-			ret += nodes[i]->identifier;
+			ret += _nodes[i]->_identifier;
 			break;
 		}
-		if (i != nodes.size() - 1)
+		if (i != _nodes.size() - 1)
 			ret += " ~ ";
 	}
 	return ret;
@@ -183,14 +183,14 @@ std::string GrammarExpansion::Scala()
 
 size_t GrammarExpansion::GetDynamicSize(int32_t version)
 {
-	size_t size0x1 = 4                       // version
-	            + 8 + 8 * nodes.size()  // nodes
-	            + 4                     // weight
-	            + 8                     // id
-	            + 1                     // producing
-	            + 8                     // flags
-	            + 1                     // remove
-	            + 8;                    // parent
+	size_t size0x1 = 4                        // version
+	                 + 8 + 8 * _nodes.size()  // nodes
+	                 + 4                      // weight
+	                 + 8                      // id
+	                 + 1                      // producing
+	                 + 8                      // flags
+	                 + 1                      // remove
+	                 + 8;                     // parent
 	size_t size0x2 = size0x1                 // prior version
 	                 + 4                     // nonterminals
 	                 + 4                     // seqnonterminals
@@ -208,18 +208,18 @@ size_t GrammarExpansion::GetDynamicSize(int32_t version)
 bool GrammarExpansion::WriteData(unsigned char* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
-	Buffer::WriteSize(nodes.size(), buffer, offset);
-	for (int32_t i = 0; i < nodes.size(); i++)
-		Buffer::Write(nodes[i]->id, buffer, offset);
-	Buffer::Write(weight, buffer, offset);
-	Buffer::Write(id, buffer, offset);
-	Buffer::Write(producing, buffer, offset);
-	Buffer::Write(flags, buffer, offset);
-	Buffer::Write(remove, buffer, offset);
-	Buffer::Write(parent->id, buffer, offset);
-	Buffer::Write(nonterminals, buffer, offset);
-	Buffer::Write(seqnonterminals, buffer, offset);
-	Buffer::Write(terminals, buffer, offset);
+	Buffer::WriteSize(_nodes.size(), buffer, offset);
+	for (int32_t i = 0; i < _nodes.size(); i++)
+		Buffer::Write(_nodes[i]->_id, buffer, offset);
+	Buffer::Write(_weight, buffer, offset);
+	Buffer::Write(_id, buffer, offset);
+	Buffer::Write(_producing, buffer, offset);
+	Buffer::Write(_flags, buffer, offset);
+	Buffer::Write(_remove, buffer, offset);
+	Buffer::Write(_parent->_id, buffer, offset);
+	Buffer::Write(_nonterminals, buffer, offset);
+	Buffer::Write(_seqnonterminals, buffer, offset);
+	Buffer::Write(_terminals, buffer, offset);
 	return true;
 }
 
@@ -235,16 +235,16 @@ bool GrammarExpansion::ReadData(unsigned char* buffer, size_t& offset, size_t /*
 				nds.push_back(Buffer::ReadUInt64(buffer, offset));
 			resolver->AddTask([this, resolver, nds]() {
 				for (int32_t i = 0; i < nds.size(); i++)
-					this->nodes.push_back(resolver->ResolveNodeID(nds[i]));
+					this->_nodes.push_back(resolver->ResolveNodeID(nds[i]));
 			});
-			weight = Buffer::ReadFloat(buffer, offset);
-			id = Buffer::ReadUInt64(buffer, offset);
-			producing = Buffer::ReadBool(buffer, offset);
-			flags = Buffer::ReadUInt64(buffer, offset);
-			remove = Buffer::ReadBool(buffer, offset);
+			_weight = Buffer::ReadFloat(buffer, offset);
+			_id = Buffer::ReadUInt64(buffer, offset);
+			_producing = Buffer::ReadBool(buffer, offset);
+			_flags = Buffer::ReadUInt64(buffer, offset);
+			_remove = Buffer::ReadBool(buffer, offset);
 			uint64_t pid = Buffer::ReadUInt64(buffer, offset);
 			resolver->AddTask([this, resolver, pid]() {
-				this->parent = resolver->ResolveNodeID(pid);
+				this->_parent = resolver->ResolveNodeID(pid);
 			});
 			return true;
 		}
@@ -256,20 +256,20 @@ bool GrammarExpansion::ReadData(unsigned char* buffer, size_t& offset, size_t /*
 				nds.push_back(Buffer::ReadUInt64(buffer, offset));
 			resolver->AddTask([this, resolver, nds]() {
 				for (int32_t i = 0; i < nds.size(); i++)
-					this->nodes.push_back(resolver->ResolveNodeID(nds[i]));
+					this->_nodes.push_back(resolver->ResolveNodeID(nds[i]));
 			});
-			weight = Buffer::ReadFloat(buffer, offset);
-			id = Buffer::ReadUInt64(buffer, offset);
-			producing = Buffer::ReadBool(buffer, offset);
-			flags = Buffer::ReadUInt64(buffer, offset);
-			remove = Buffer::ReadBool(buffer, offset);
+			_weight = Buffer::ReadFloat(buffer, offset);
+			_id = Buffer::ReadUInt64(buffer, offset);
+			_producing = Buffer::ReadBool(buffer, offset);
+			_flags = Buffer::ReadUInt64(buffer, offset);
+			_remove = Buffer::ReadBool(buffer, offset);
 			uint64_t pid = Buffer::ReadUInt64(buffer, offset);
 			resolver->AddTask([this, resolver, pid]() {
-				this->parent = resolver->ResolveNodeID(pid);
+				this->_parent = resolver->ResolveNodeID(pid);
 			});
-			nonterminals = Buffer::ReadInt32(buffer, offset);
-			seqnonterminals = Buffer::ReadInt32(buffer, offset);
-			terminals = Buffer::ReadInt32(buffer, offset);
+			_nonterminals = Buffer::ReadInt32(buffer, offset);
+			_seqnonterminals = Buffer::ReadInt32(buffer, offset);
+			_terminals = Buffer::ReadInt32(buffer, offset);
 			return true;
 		}
 	default:
@@ -294,55 +294,55 @@ void GrammarTree::Clear()
 	//    because there may be multiple references (even though there shouldn't) and we want to destroy all pointers as soon as we can
 	//	  to avoid lingering shared objects
 	//	  this shouldn't happen to this class, but for consistency within the project its here
-	valid = false;
-	nonterminals.clear();
-	terminals.clear();
-	for (auto [key, node] : hashmap) {
+	_valid = false;
+	_nonterminals.clear();
+	_terminals.clear();
+	for (auto [key, node] : _hashmap) {
 		if (node) {
-			node->parents.clear();
-			node->expansions.clear();
+			node->_parents.clear();
+			node->_expansions.clear();
 		}
 	}
-	hashmap.clear();
-	for (auto [key, expansion] : hashmap_expansions) {
+	_hashmap.clear();
+	for (auto [key, expansion] : _hashmap_expansions) {
 		if (expansion) {
-			expansion->parent.reset();
-			expansion->nodes.clear();
+			expansion->_parent.reset();
+			expansion->_nodes.clear();
 		}
 	}
-	hashmap_expansions.clear();
-	root.reset();
+	_hashmap_expansions.clear();
+	_root.reset();
 }
 
 bool GrammarTree::IsValid()
 {
-	return valid;
+	return _valid;
 }
 
 void GrammarTree::SetRoot(std::string symbol, std::string derivation)
 {
 	// erase old root if there was one
-	nonterminals.erase(root);
-	root.reset();
+	_nonterminals.erase(_root);
+	_root.reset();
 
 	// remove whitespaces from symbol and identifiers, since they are superfluous
 	Utility::RemoveWhiteSpaces(symbol, '\"', true);
 	Utility::RemoveWhiteSpaces(derivation, '\"', true);
 
 	// create new root node
-	root = std::make_shared<GrammarNode>();
-	root->derivation = derivation;
-	root->identifier = symbol;
-	root->type = GrammarNode::NodeType::Terminal;
-	root->id = GetNextID();
-	nonterminals.insert(root);
-	ruleorder.push_back(root->id);
+	_root = std::make_shared<GrammarNode>();
+	_root->_derivation = derivation;
+	_root->_identifier = symbol;
+	_root->_type = GrammarNode::NodeType::Terminal;
+	_root->_id = GetNextID();
+	_nonterminals.insert(_root);
+	_ruleorder.push_back(_root->_id);
 }
 
 void GrammarTree::SetRoot(std::shared_ptr<GrammarNode> node)
 {
-	root.reset();
-	root = node;
+	_root.reset();
+	_root = node;
 }
 
 void GrammarTree::AddSymbol(std::string symbol, std::string derivation)
@@ -354,12 +354,12 @@ void GrammarTree::AddSymbol(std::string symbol, std::string derivation)
 
 	// create node
 	std::shared_ptr<GrammarNode> node = std::make_shared<GrammarNode>();
-	node->derivation = derivation;
-	node->identifier = symbol;
-	node->type = GrammarNode::NodeType::NonTerminal;
-	node->id = GetNextID();
-	nonterminals.insert(node);
-	ruleorder.push_back(node->id);
+	node->_derivation = derivation;
+	node->_identifier = symbol;
+	node->_type = GrammarNode::NodeType::NonTerminal;
+	node->_id = GetNextID();
+	_nonterminals.insert(node);
+	_ruleorder.push_back(node->_id);
 }
 
 void GrammarTree::AddSequenceSymbol(std::string symbol, std::string derivation)
@@ -371,25 +371,25 @@ void GrammarTree::AddSequenceSymbol(std::string symbol, std::string derivation)
 
 	// create node
 	std::shared_ptr<GrammarNode> node = std::make_shared<GrammarNode>();
-	node->derivation = derivation;
-	node->identifier = symbol;
-	node->type = GrammarNode::NodeType::Sequence;
-	node->id = GetNextID();
-	nonterminals.insert(node);
-	ruleorder.push_back(node->id);
+	node->_derivation = derivation;
+	node->_identifier = symbol;
+	node->_type = GrammarNode::NodeType::Sequence;
+	node->_id = GetNextID();
+	_nonterminals.insert(node);
+	_ruleorder.push_back(node->_id);
 }
 
 std::shared_ptr<GrammarNode> GrammarTree::FindNode(std::string identifier)
 {
 	std::string symbols;
-	for (auto& node : nonterminals) {
-		symbols += "|" + node->identifier;
-		if (node->identifier == identifier) {
+	for (auto& node : _nonterminals) {
+		symbols += "|" + node->_identifier;
+		if (node->_identifier == identifier) {
 			return node;
 		}
 	}
 	symbols += "|";
-	logdebug("Nonterminals: {}, Symbols found: {}", nonterminals.size(), symbols);
+	logdebug("Nonterminals: {}, Symbols found: {}", _nonterminals.size(), symbols);
 	return {};
 }
 
@@ -407,11 +407,11 @@ void GrammarTree::Construct()
 	// if this is not the case the function will fail.
 
 	// iterate over all non-terminals and initialize them
-	for (auto node : nonterminals) {
+	for (auto node : _nonterminals) {
 		if (node->IsValid() == false) {
-			hashmap.insert({ node->id, node });
+			_hashmap.insert({ node->_id, node });
 			// extract the alternative derivations
-			std::vector<std::string> alternatives = Utility::SplitString(node->derivation, '|', true, true, '\"');
+			std::vector<std::string> alternatives = Utility::SplitString(node->_derivation, '|', true, true, '\"');
 			for (std::string alter : alternatives) {
 				// go over the derivations and get all concated productions
 				std::vector<std::string> productions = Utility::SplitString(alter, '~', true, true, '\"', true);
@@ -425,8 +425,8 @@ void GrammarTree::Construct()
 					else if (size_t pos = productions[i].find("\'"); pos != std::string::npos && Utility::IsEscaped(productions[i], (int32_t)pos, '\"') == false) {
 						auto newnode = FindNode(productions[i]);
 						if (newnode) {
-							expansion->nodes.push_back(newnode);
-							newnode->parents.insert(expansion);
+							expansion->_nodes.push_back(newnode);
+							newnode->_parents.insert(expansion);
 						} else
 							logcritical("Cannot find unknown Symbol: {}", productions[i]);
 					}
@@ -435,42 +435,42 @@ void GrammarTree::Construct()
 						std::string iden = productions[i];
 						Utility::RemoveSymbols(iden, '\"', '\\');
 						auto tnode = std::make_shared<GrammarNode>();
-						tnode->derivation = "";
-						tnode->identifier = iden;
-						tnode->type = GrammarNode::NodeType::Terminal;
-						tnode->flags = GrammarNode::NodeFlags::ProduceTerminals;
-						tnode->id = GetNextID();
-						tnode->producing = true;
-						tnode->parents.insert(expansion);
-						terminals.insert(tnode);
-						expansion->nodes.push_back(tnode);
-						hashmap.insert({ tnode->id, tnode });
+						tnode->_derivation = "";
+						tnode->_identifier = iden;
+						tnode->_type = GrammarNode::NodeType::Terminal;
+						tnode->_flags = GrammarNode::NodeFlags::ProduceTerminals;
+						tnode->_id = GetNextID();
+						tnode->_producing = true;
+						tnode->_parents.insert(expansion);
+						_terminals.insert(tnode);
+						expansion->_nodes.push_back(tnode);
+						_hashmap.insert({ tnode->_id, tnode });
 					}
 				}
-				expansion->weight = weight;
-				expansion->id = GetNextID();
-				expansion->parent = node;
-				node->expansions.push_back(expansion);
-				hashmap_expansions.insert({ expansion->id, expansion });
+				expansion->_weight = weight;
+				expansion->_id = GetNextID();
+				expansion->_parent = node;
+				node->_expansions.push_back(expansion);
+				_hashmap_expansions.insert({ expansion->_id, expansion });
 			}
-			node->derivation = "";
+			node->_derivation = "";
 			if (node->IsValid() == false)
-				logcritical("Cannot fully initialize grammar node: {}. Expansions: {}, Flags: {}, Type: {}", node->identifier, node->expansions.size(), Utility::GetHex(node->flags), Utility::GetHex((EnumType)node->type));
+				logcritical("Cannot fully initialize grammar node: {}. Expansions: {}, Flags: {}, Type: {}", node->_identifier, node->_expansions.size(), Utility::GetHex(node->_flags), Utility::GetHex((EnumType)node->_type));
 		}
 	}
 
 	// gather all flags for all tree nodes
-	GatherFlags(root, {}, true);
+	GatherFlags(_root, {}, true);
 
 	// prune tree to valid expansion and nodes
 	Prune();
 
 	// check whether there still is a grammar that we can work with
-	if (root) {
-		valid = true;
+	if (_root) {
+		_valid = true;
 		loginfo("Successfully pruned the grammar");
 	} else {
-		valid = false;
+		_valid = false;
 		logcritical("Grammar is not valid");
 	}
 
@@ -480,7 +480,7 @@ void GrammarTree::Construct()
 
 uint64_t GrammarTree::GetNextID()
 {
-	return ++nextid;
+	return ++_nextid;
 }
 
 float GrammarTree::GetWeight(std::string production)
@@ -510,20 +510,20 @@ void GrammarTree::GatherFlags(std::shared_ptr<GrammarNode> node, std::set<uint64
 		begin = std::chrono::steady_clock::now();
 	}
 	// this node is reachable
-	node->reachable = true;
+	node->_reachable = true;
 	// add node to path
-	path.insert(node->id);
+	path.insert(node->_id);
 	// if this is a terminal, it was reached and it is producing
 	if (node->IsLeaf()) {
-		node->producing = true;
-		finished_ids.insert(node->id);
+		node->_producing = true;
+		finished_ids.insert(node->_id);
 		return;
 	}
 	std::set<std::shared_ptr<GrammarExpansion>> skip;
 	// otherwise this is a
-	for (auto expansion : node->expansions) {
-		if (finished_ids.contains(expansion->id) == false) {
-			if (path.contains(expansion->id)) {
+	for (auto expansion : node->_expansions) {
+		if (finished_ids.contains(expansion->_id) == false) {
+			if (path.contains(expansion->_id)) {
 				// if the expansion is not finished, but it is already on our path
 				// we have encountered a cycle. This cycle can be resolved quite easily
 				// by knowing that an expansion is only producing if all of its nodes are
@@ -536,9 +536,9 @@ void GrammarTree::GatherFlags(std::shared_ptr<GrammarNode> node, std::set<uint64
 	}
 	// collect information from expansions;
 	// the node is producing if at least one of its expansions is producing
-	node->producing = false;
-	node->flags = [&node]() {
-		switch (node->type) {
+	node->_producing = false;
+	node->_flags = [&node]() {
+		switch (node->_type) {
 		case GrammarNode::NodeType::NonTerminal:
 			return GrammarNode::NodeFlags::ProduceNonTerminals;
 			break;
@@ -551,13 +551,13 @@ void GrammarTree::GatherFlags(std::shared_ptr<GrammarNode> node, std::set<uint64
 		}
 		return GrammarNode::NodeFlags::ProduceTerminals;
 	}();
-	for (int32_t i = 0; i < (int)(node->expansions.size()); i++) {
-		if (skip.contains(node->expansions[i]))  // skip cycling expansions
+	for (int32_t i = 0; i < (int)(node->_expansions.size()); i++) {
+		if (skip.contains(node->_expansions[i]))  // skip cycling expansions
 			continue;
-		node->producing |= node->expansions[i]->producing;
-		node->flags |= node->expansions[i]->flags;
+		node->_producing |= node->_expansions[i]->_producing;
+		node->_flags |= node->_expansions[i]->_flags;
 	}
-	finished_ids.insert(node->id);
+	finished_ids.insert(node->_id);
 
 	if (reset)
 	{
@@ -569,33 +569,33 @@ void GrammarTree::GatherFlags(std::shared_ptr<GrammarNode> node, std::set<uint64
 void GrammarTree::GatherFlags(std::shared_ptr<GrammarExpansion> expansion, std::set<uint64_t> path)
 {
 	// add expansion to path
-	path.insert(expansion->id);
+	path.insert(expansion->_id);
 	// the expansion is only producing if and only if ALL its nodes are also producing
-	expansion->producing = true;
-	for (int32_t i = 0; i < expansion->nodes.size(); i++) {
-		if (finished_ids.contains(expansion->nodes[i]->id) == false) {
-			GatherFlags(expansion->nodes[i], path);
+	expansion->_producing = true;
+	for (int32_t i = 0; i < expansion->_nodes.size(); i++) {
+		if (finished_ids.contains(expansion->_nodes[i]->_id) == false) {
+			GatherFlags(expansion->_nodes[i], path);
 		}
-		expansion->producing &= expansion->nodes[i]->producing;
-		expansion->flags |= expansion->nodes[i]->flags;
-		switch (expansion->nodes[i]->type)
+		expansion->_producing &= expansion->_nodes[i]->_producing;
+		expansion->_flags |= expansion->_nodes[i]->_flags;
+		switch (expansion->_nodes[i]->_type)
 		{
 		case GrammarNode::NodeType::NonTerminal:
-			expansion->flags |= GrammarNode::NodeFlags::ProduceNonTerminals;
-			expansion->nonterminals++;
+			expansion->_flags |= GrammarNode::NodeFlags::ProduceNonTerminals;
+			expansion->_nonterminals++;
 			break;
 		case GrammarNode::NodeType::Sequence:
-			expansion->flags |= GrammarNode::NodeFlags::ProduceSequence;
+			expansion->_flags |= GrammarNode::NodeFlags::ProduceSequence;
 			break;
 		case GrammarNode::NodeType::Terminal:
-			expansion->flags |= GrammarNode::NodeFlags::ProduceTerminals;
-			expansion->terminals++;
+			expansion->_flags |= GrammarNode::NodeFlags::ProduceTerminals;
+			expansion->_terminals++;
 			break;
 		}
-		if (expansion->nodes[i]->flags & GrammarNode::NodeFlags::ProduceSequence)
-			expansion->seqnonterminals++;
+		if (expansion->_nodes[i]->_flags & GrammarNode::NodeFlags::ProduceSequence)
+			expansion->_seqnonterminals++;
 	}
-	finished_ids.insert(expansion->id);
+	finished_ids.insert(expansion->_id);
 }
 
 void GrammarTree::Prune(bool pruneall)
@@ -607,14 +607,14 @@ void GrammarTree::Prune(bool pruneall)
 	std::set<uint64_t> touched;
 	std::stack<GrammarObject*> stack;
 	// begin with root
-	stack.push(root.get());
+	stack.push(_root.get());
 
 	// now add all non-reachable node into the stack
-	for (auto node : nonterminals)
-		if (node->reachable == false)
+	for (auto node : _nonterminals)
+		if (node->_reachable == false)
 			stack.push(node.get());
-	for (auto node : terminals)
-		if (node->reachable == false)
+	for (auto node : _terminals)
+		if (node->_reachable == false)
 			stack.push(node.get());
 
 	while (stack.size() > 0)
@@ -623,25 +623,25 @@ void GrammarTree::Prune(bool pruneall)
 		stack.pop();
 		if (ptr->GetObjectType() == GrammarObject::Type::GrammarNode) {
 			GrammarNode* node = (GrammarNode*)ptr;
-			if (node->producing == false || node->remove || node->reachable == false || pruneall == true)
+			if (node->_producing == false || node->_remove || node->_reachable == false || pruneall == true)
 			{
-				for (auto parent : node->parents)
+				for (auto parent : node->_parents)
 				{
-					parent->remove = true;
+					parent->_remove = true;
 					stack.push(parent.get());
 				}
-				node->parents.clear();
-				node->remove = true;
-				toremove.insert(node->id);
-				for (auto expansion : node->expansions)
+				node->_parents.clear();
+				node->_remove = true;
+				toremove.insert(node->_id);
+				for (auto expansion : node->_expansions)
 				{
-					expansion->remove = true;
+					expansion->_remove = true;
 					stack.push(expansion.get());
 				}
-				node->expansions.clear();
-				if (node->producing == false) {
+				node->_expansions.clear();
+				if (node->_producing == false) {
 					logwarn("Node is not producing and has been removed: {}", node->string());
-				} else if (node->reachable == false) {
+				} else if (node->_reachable == false) {
 					logwarn("Node is not reachable and has been removed: {}", node->string());
 				}	else
 					logwarn("Node has been marked for removal: {}", node->string());
@@ -649,12 +649,12 @@ void GrammarTree::Prune(bool pruneall)
 			else
 			{
 				// enter all nodes into touched, so that we do not run into cycles
-				for (auto exp : node->expansions)
+				for (auto exp : node->_expansions)
 				{
-					if (touched.contains(exp->id) == false)
+					if (touched.contains(exp->_id) == false)
 					{
 						stack.push(exp.get());
-						touched.insert(exp->id);
+						touched.insert(exp->_id);
 						logdebug("Enter expansion to stack: {}", exp->operator std::string());
 					}
 				}
@@ -665,11 +665,11 @@ void GrammarTree::Prune(bool pruneall)
 			GrammarExpansion* exp = (GrammarExpansion*)ptr;
 
 			auto erasefromparent = [exp]() {
-				if (exp->parent) {
-					auto itr = exp->parent->expansions.begin();
-					while (itr != exp->parent->expansions.end()) {
+				if (exp->_parent) {
+					auto itr = exp->_parent->_expansions.begin();
+					while (itr != exp->_parent->_expansions.end()) {
 						if ((*itr).get() == exp) {
-							exp->parent->expansions.erase(itr);
+							exp->_parent->_expansions.erase(itr);
 							break;
 						}
 						itr++;
@@ -678,10 +678,10 @@ void GrammarTree::Prune(bool pruneall)
 			};
 			auto eraseasparent = [exp](std::shared_ptr<GrammarNode> node) {
 				if (node) {
-					auto itr = node->parents.begin();
-					while (itr != node->parents.end()) {
+					auto itr = node->_parents.begin();
+					while (itr != node->_parents.end()) {
 						if ((*itr).get() == exp) {
-							node->parents.erase(itr);
+							node->_parents.erase(itr);
 							break;
 						}
 						itr++;
@@ -689,36 +689,36 @@ void GrammarTree::Prune(bool pruneall)
 				}
 			};
 
-			if (exp->remove || exp->producing == false || pruneall == true) {
-				toremove.insert(exp->id);
+			if (exp->_remove || exp->_producing == false || pruneall == true) {
+				toremove.insert(exp->_id);
 				// we have been set to be removed
 				erasefromparent();
-				for (auto node : exp->nodes)
+				for (auto node : exp->_nodes)
 				{
 					// if node is already flagged remove, its either in the stack or already processed
-					if (node && node->remove == false)
+					if (node && node->_remove == false)
 					{
 						// remove expansion are parent from the node
 						eraseasparent(node);
 						// if node doesn't have any more parent, remove it
-						if (node->parents.size() == 0)
+						if (node->_parents.size() == 0)
 						{
-							node->remove = true;
+							node->_remove = true;
 							stack.push(node.get());
 						}
 					}
 				}
-				if (exp->producing == false) {
+				if (exp->_producing == false) {
 					logwarn("Expansion is not producing and has been removed: {}", exp->operator std::string());
-				} else if (exp->remove) {
+				} else if (exp->_remove) {
 					logwarn("Expansion has been marked for removal: {}", exp->operator std::string());
 				}
 			}
 			else
 			{
 				// enter all nodes onto stack
-				for (auto node : exp->nodes) {
-					if (touched.contains(node->id) == false) {
+				for (auto node : exp->_nodes) {
+					if (touched.contains(node->_id) == false) {
 						stack.push(node.get());
 						logdebug("Enter node to stack: {}", node->operator std::string());
 					}
@@ -728,20 +728,20 @@ void GrammarTree::Prune(bool pruneall)
 	}
 
 	// now that the tree itself has been pruned, remove all nodes and expansions to be removed
-	for (auto [id, node] : hashmap)
+	for (auto [id, node] : _hashmap)
 	{
 		if (toremove.contains(id))
 		{
-			hashmap.erase(id);
-			terminals.erase(node);
-			nonterminals.erase(node);
+			_hashmap.erase(id);
+			_terminals.erase(node);
+			_nonterminals.erase(node);
 			if (node.use_count() != 1)
 				logcritical("MEMORY LEAK: Use_Count of Node {} is not 1", node->string());
 		}
 	}
-	for (auto [id, exp] : hashmap_expansions) {
+	for (auto [id, exp] : _hashmap_expansions) {
 		if (toremove.contains(id)) {
-			hashmap.erase(id);
+			_hashmap.erase(id);
 			if (exp.use_count() != 1)
 				logcritical("MEMORY LEAK: Use_Count of Expansion {} is not 1", exp->operator std::string());
 		}
@@ -754,9 +754,9 @@ void GrammarTree::Prune(bool pruneall)
 std::string GrammarTree::Scala()
 {
 	std::string str = "Grammar(\n";
-	for (auto id : ruleorder)
+	for (auto id : _ruleorder)
 	{
-		if (auto itr = hashmap.find(id); itr != hashmap.end())
+		if (auto itr = _hashmap.find(id); itr != _hashmap.end())
 		{
 			str += itr->second->Scala() + "\n";
 		}
@@ -832,8 +832,8 @@ void Grammar::ParseScala(std::filesystem::path path)
 		grammar = grammar.substr(0, lpos);
 
 		// initialize the grammartree
-		tree.reset();  // destroy
-		tree = std::make_shared<GrammarTree>();
+		_tree.reset();  // destroy
+		_tree = std::make_shared<GrammarTree>();
 
 		logdebug("initialized grammar tree");
 
@@ -849,9 +849,9 @@ void Grammar::ParseScala(std::filesystem::path path)
 			auto split = Utility::SplitString(rule, ":=", true, true, '\"');
 			if (split.size() == 2) {
 				if (auto pos = split[0].find("'SEQ"); pos != std::string::npos)
-					tree->AddSequenceSymbol(split[0], split[1]);
+					_tree->AddSequenceSymbol(split[0], split[1]);
 				else
-					tree->AddSymbol(split[0], split[1]);
+					_tree->AddSymbol(split[0], split[1]);
 				loginfo("Found symbol: {} with derivation: {}", split[0], split[1]);
 			} else
 				logwarn("Rule cannot be read: {}, splitsize: {}", rule, split.size());
@@ -860,9 +860,9 @@ void Grammar::ParseScala(std::filesystem::path path)
 		logdebug("parsed grammar");
 
 		// find 'start symbol and add it to root
-		auto node = tree->FindNode("'start");
+		auto node = _tree->FindNode("'start");
 		if (node) {
-			tree->SetRoot(node);
+			_tree->SetRoot(node);
 			loginfo("Set root node for grammar");
 		}
 		else {
@@ -872,11 +872,11 @@ void Grammar::ParseScala(std::filesystem::path path)
 
 		// all symbols have been read and added to the tree
 		// now construct the tree
-		tree->Construct();
-
+		_tree->Construct();
+		
 		logdebug("constructed grammar");
 
-		if (tree->IsValid()) {
+		if (_tree->IsValid()) {
 			loginfo("Successfully read the grammar from file: {}", path.string());
 		} else
 			logcritical("The file {} does not contain a valid grammar", path.string());
@@ -887,15 +887,15 @@ void Grammar::ParseScala(std::filesystem::path path)
 
 bool Grammar::IsValid()
 {
-	if (tree)
-		return tree->IsValid();
+	if (_tree)
+		return _tree->IsValid();
 	return false;
 }
 
 std::string Grammar::Scala()
 {
-	if (tree)
-		return tree->Scala();
+	if (_tree)
+		return _tree->Scala();
 	else
 		return "Grammar()";
 }
@@ -913,9 +913,9 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, ui
 	// until the goal is reached
 	// afterwards all nonterminals are expanded until there are only terinal nodes remaining
 	// at last the terminal nodes are resolved
-	dtree->grammarID = _formid;
-	dtree->seed = seed;
-	dtree->targetlen = sequence;
+	dtree->_grammarID = _formid;
+	dtree->_seed = seed;
+	dtree->_targetlen = sequence;
 	DerivationTree::NonTerminalNode* nnode = nullptr;
 	DerivationTree::TerminalNode* ttnode = nullptr;
 	DerivationTree::NonTerminalNode* tnnode = nullptr;
@@ -937,24 +937,24 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, ui
 	std::deque<std::pair<DerivationTree::NonTerminalNode*, std::shared_ptr<GrammarNode>>> qseqnonterminals;
 
 	// begin: insert start node 
-	if (tree->root->flags & GrammarNode::NodeFlags::ProduceSequence) {
+	if (_tree->_root->_flags & GrammarNode::NodeFlags::ProduceSequence) {
 		nnode = new DerivationTree::NonTerminalNode;
-		dtree->nodes.insert(nnode);
-		nnode->grammarID = tree->root->id;
-		dtree->root = nnode;
-		qseqnonterminals.push_back({ nnode, tree->root });
-	} else if (tree->root->flags & GrammarNode::NodeFlags::ProduceNonTerminals) {
+		dtree->_nodes.insert(nnode);
+		nnode->_grammarID = _tree->_root->_id;
+		dtree->_root = nnode;
+		qseqnonterminals.push_back({ nnode, _tree->_root });
+	} else if (_tree->_root->_flags & GrammarNode::NodeFlags::ProduceNonTerminals) {
 		nnode = new DerivationTree::NonTerminalNode;
-		dtree->nodes.insert(nnode);
-		nnode->grammarID = tree->root->id;
-		dtree->root = nnode;
-		qnonterminals.push_back({ nnode, tree->root });
+		dtree->_nodes.insert(nnode);
+		nnode->_grammarID = _tree->_root->_id;
+		dtree->_root = nnode;
+		qnonterminals.push_back({ nnode, _tree->_root });
 	} else {
 		ttnode = new DerivationTree::TerminalNode;
-		dtree->nodes.insert(ttnode);
-		ttnode->grammarID = tree->root->id;
-		dtree->root = ttnode;
-		ttnode->content = tree->root->identifier;
+		dtree->_nodes.insert(ttnode);
+		ttnode->_grammarID = _tree->_root->_id;
+		dtree->_root = ttnode;
+		ttnode->_content = _tree->_root->_identifier;
 	}
 
 	bool flip = false;
@@ -977,30 +977,30 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, ui
 			// choose expansion
 			// we are sure there are always expansions to choose from, as we have pruned the tree and this cannot be a terminal node
 			if (!flip)
-				for (int32_t i = 0; i < (int32_t)gnode->expansions.size(); i++)
+				for (int32_t i = 0; i < (int32_t)gnode->_expansions.size(); i++)
 				{
 					// as long as we don't use weighted rules, the one with the most sequence symbols is used
-					if (cnodes < gnode->expansions[i]->seqnonterminals && cweight == 0)
+					if (cnodes < gnode->_expansions[i]->_seqnonterminals && cweight == 0)
 					{
-						cnodes = gnode->expansions[i]->seqnonterminals;
+						cnodes = gnode->_expansions[i]->_seqnonterminals;
 						idx = i;
-					} else if (cweight < gnode->expansions[i]->weight) {
-						cnodes = gnode->expansions[i]->seqnonterminals;
-						cweight = gnode->expansions[i]->weight;
+					} else if (cweight < gnode->_expansions[i]->_weight) {
+						cnodes = gnode->_expansions[i]->_seqnonterminals;
+						cweight = gnode->_expansions[i]->_weight;
 						idx = i;
 					}
 				}
 			else
-				for (int32_t i = (int32_t)gnode->expansions.size() - 1; i >= 0; i--) {
+				for (int32_t i = (int32_t)gnode->_expansions.size() - 1; i >= 0; i--) {
 					// as long as we don't use weighted rules, the one with the most sequence symbols is used
-					if (cnodes < gnode->expansions[i]->seqnonterminals && cweight == 0) {
-						cnodes = gnode->expansions[i]->seqnonterminals;
+					if (cnodes < gnode->_expansions[i]->_seqnonterminals && cweight == 0) {
+						cnodes = gnode->_expansions[i]->_seqnonterminals;
 						idx = i;
 					}
-					else if (cweight < gnode->expansions[i]->weight)
+					else if (cweight < gnode->_expansions[i]->_weight)
 					{
-						cnodes = gnode->expansions[i]->seqnonterminals;
-						cweight = gnode->expansions[i]->weight;
+						cnodes = gnode->_expansions[i]->_seqnonterminals;
+						cweight = gnode->_expansions[i]->_weight;
 						idx = i;
 					}
 				}
@@ -1009,11 +1009,11 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, ui
 			{
 				std::vector<int32_t> exp;
 				float tweight = 0.f;
-				for (int32_t i = 0; i < (int32_t)gnode->expansions.size(); i++)
+				for (int32_t i = 0; i < (int32_t)gnode->_expansions.size(); i++)
 				{
-					if (gnode->expansions[i]->flags & GrammarNode::NodeFlags::ProduceSequence) {
+					if (gnode->_expansions[i]->_flags & GrammarNode::NodeFlags::ProduceSequence) {
 						exp.push_back(i);
-						tweight += gnode->expansions[i]->weight;
+						tweight += gnode->_expansions[i]->_weight;
 					}
 				}
 				if (exp.size() > 0)
@@ -1027,7 +1027,7 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, ui
 						float current = 0.f;
 						for (int32_t i = 0; i < (int32_t)exp.size(); i++)
 						{
-							if (current += gnode->expansions[exp[i]]->weight; current >= target) {
+							if (current += gnode->_expansions[exp[i]]->_weight; current >= target) {
 								idx = exp[i];
 								break;
 							}
@@ -1047,39 +1047,39 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, ui
 				}
 			}
 			// create derivation nodes and add them to the derivation tree
-			gexp = gnode->expansions[idx];
-			for (int32_t i = 0; i < (int32_t)gexp->nodes.size(); i++)
+			gexp = gnode->_expansions[idx];
+			for (int32_t i = 0; i < (int32_t)gexp->_nodes.size(); i++)
 			{
-				switch (gexp->nodes[i]->type) {
+				switch (gexp->_nodes[i]->_type) {
 				case GrammarNode::NodeType::Sequence:
 					seq++;
 					tnnode = new DerivationTree::SequenceNode;
-					dtree->nodes.insert(tnnode);
-					dtree->sequenceNodes++;
-					tnnode->grammarID = gexp->nodes[i]->id;
-					nnode->children.push_back(tnnode);
-					if (gexp->nodes[i]->flags & GrammarNode::NodeFlags::ProduceSequence)
-						qseqnonterminals.push_back({ tnnode, gexp->nodes[i] });
+					dtree->_nodes.insert(tnnode);
+					dtree->_sequenceNodes++;
+					tnnode->_grammarID = gexp->_nodes[i]->_id;
+					nnode->_children.push_back(tnnode);
+					if (gexp->_nodes[i]->_flags & GrammarNode::NodeFlags::ProduceSequence)
+						qseqnonterminals.push_back({ tnnode, gexp->_nodes[i] });
 					else
-						qnonterminals.push_back({ tnnode, gexp->nodes[i] });
+						qnonterminals.push_back({ tnnode, gexp->_nodes[i] });
 					break;
 				case GrammarNode::NodeType::NonTerminal:
 					tnnode = new DerivationTree::NonTerminalNode;
-					dtree->nodes.insert(tnnode);
-					tnnode->grammarID = gexp->nodes[i]->id;
-					nnode->children.push_back(tnnode);
-					if (gexp->nodes[i]->flags & GrammarNode::NodeFlags::ProduceSequence)
-						qseqnonterminals.push_back({ tnnode, gexp->nodes[i] });
+					dtree->_nodes.insert(tnnode);
+					tnnode->_grammarID = gexp->_nodes[i]->_id;
+					nnode->_children.push_back(tnnode);
+					if (gexp->_nodes[i]->_flags & GrammarNode::NodeFlags::ProduceSequence)
+						qseqnonterminals.push_back({ tnnode, gexp->_nodes[i] });
 					else
-						qnonterminals.push_back({ tnnode, gexp->nodes[i] });
+						qnonterminals.push_back({ tnnode, gexp->_nodes[i] });
 					break;
 				case GrammarNode::NodeType::Terminal:
 					// create new terminal node
 					ttnode = new DerivationTree::TerminalNode();
-					dtree->nodes.insert(ttnode);
-					ttnode->grammarID = gexp->nodes[i]->id;
-					ttnode->content = gexp->nodes[i]->identifier;
-					nnode->children.push_back(ttnode);
+					dtree->_nodes.insert(ttnode);
+					ttnode->_grammarID = gexp->_nodes[i]->_id;
+					ttnode->_content = gexp->_nodes[i]->_identifier;
+					nnode->_children.push_back(ttnode);
 					break;
 				}
 			}
@@ -1103,12 +1103,12 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, ui
 		float ttweight = 0.f;
 		// sort out expansions that do not increase sequence number
 		std::vector<int32_t> exp;
-		for (int32_t i = 0; i < (int32_t)gnode->expansions.size(); i++) {
-			if ((gnode->expansions[i]->flags & GrammarNode::NodeFlags::ProduceSequence) == 0) {
+		for (int32_t i = 0; i < (int32_t)gnode->_expansions.size(); i++) {
+			if ((gnode->_expansions[i]->_flags & GrammarNode::NodeFlags::ProduceSequence) == 0) {
 				exp.push_back(i);
-				tweight += gnode->expansions[i]->weight;
+				tweight += gnode->_expansions[i]->_weight;
 			}
-			ttweight += gnode->expansions[i]->weight;
+			ttweight += gnode->_expansions[i]->_weight;
 		}
 		if (exp.size() > 0) {
 			if (tweight == 0.f) {
@@ -1119,7 +1119,7 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, ui
 				float target = (float)dist(randan) / 100000000.f;
 				float current = 0.f;
 				for (int32_t i = 0; i < (int32_t)exp.size(); i++) {
-					if (current += gnode->expansions[exp[i]]->weight; current >= target) {
+					if (current += gnode->_expansions[exp[i]]->_weight; current >= target) {
 						idx = exp[i];
 						break;
 					}
@@ -1128,14 +1128,14 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, ui
 		} else {
 			// there weren't any expansions that do not increase the sequence size, so just choose any random expansion
 			if (ttweight == 0.f) {
-				std::uniform_int_distribution<signed> dist(0, (int32_t)gnode->expansions.size() - 1);
+				std::uniform_int_distribution<signed> dist(0, (int32_t)gnode->_expansions.size() - 1);
 				idx = dist(randan);
 			} else {
 				std::uniform_int_distribution<signed> dist(0, 100000000);
 				float target = (float)dist(randan) / 100000000.f;
 				float current = 0.f;
-				for (int32_t i = 0; i < (int32_t)gnode->expansions.size(); i++) {
-					if (current += gnode->expansions[i]->weight; current >= target) {
+				for (int32_t i = 0; i < (int32_t)gnode->_expansions.size(); i++) {
+					if (current += gnode->_expansions[i]->_weight; current >= target) {
 						idx = i;
 						break;
 					}
@@ -1145,32 +1145,32 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, ui
 		exp.clear();
 
 		// create derivation nodes and add them to the derivation tree
-		gexp = gnode->expansions[idx];
-		for (int32_t i = 0; i < (int32_t)gexp->nodes.size(); i++) {
-			switch (gexp->nodes[i]->type) {
+		gexp = gnode->_expansions[idx];
+		for (int32_t i = 0; i < (int32_t)gexp->_nodes.size(); i++) {
+			switch (gexp->_nodes[i]->_type) {
 			case GrammarNode::NodeType::Sequence:
 				seq++;
 				tnnode = new DerivationTree::SequenceNode;
-				dtree->nodes.insert(tnnode);
-				dtree->sequenceNodes++;
-				tnnode->grammarID = gexp->nodes[i]->id;
-				nnode->children.push_back(tnnode);
-				qnonterminals.push_back({ tnnode, gexp->nodes[i] });
+				dtree->_nodes.insert(tnnode);
+				dtree->_sequenceNodes++;
+				tnnode->_grammarID = gexp->_nodes[i]->_id;
+				nnode->_children.push_back(tnnode);
+				qnonterminals.push_back({ tnnode, gexp->_nodes[i] });
 				break;
 			case GrammarNode::NodeType::NonTerminal:
 				tnnode = new DerivationTree::NonTerminalNode;
-				dtree->nodes.insert(tnnode);
-				tnnode->grammarID = gexp->nodes[i]->id;
-				nnode->children.push_back(tnnode);
-				qnonterminals.push_back({ tnnode, gexp->nodes[i] });
+				dtree->_nodes.insert(tnnode);
+				tnnode->_grammarID = gexp->_nodes[i]->_id;
+				nnode->_children.push_back(tnnode);
+				qnonterminals.push_back({ tnnode, gexp->_nodes[i] });
 				break;
 			case GrammarNode::NodeType::Terminal:
 				// create new terminal node
 				ttnode = new DerivationTree::TerminalNode();
-				dtree->nodes.insert(ttnode);
-				ttnode->grammarID = gexp->nodes[i]->id;
-				ttnode->content = gexp->nodes[i]->identifier;
-				nnode->children.push_back(ttnode);
+				dtree->_nodes.insert(ttnode);
+				ttnode->_grammarID = gexp->_nodes[i]->_id;
+				ttnode->_content = gexp->_nodes[i]->_identifier;
+				nnode->_children.push_back(ttnode);
 				break;
 			}
 		}
@@ -1190,18 +1190,18 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, ui
 		idx = -1;
 		float tweight = 0.f;
 		// choose random expansion
-		for (int32_t i = 0; i < (int32_t)gnode->expansions.size(); i++)
-			tweight += gnode->expansions[i]->weight;
+		for (int32_t i = 0; i < (int32_t)gnode->_expansions.size(); i++)
+			tweight += gnode->_expansions[i]->_weight;
 
 		if (tweight == 0.f) {
-			std::uniform_int_distribution<signed> dist(0, (int32_t)gnode->expansions.size() - 1);
+			std::uniform_int_distribution<signed> dist(0, (int32_t)gnode->_expansions.size() - 1);
 			idx = dist(randan);
 		} else {
 			std::uniform_int_distribution<signed> dist(0, 100000000);
 			float target = (float)dist(randan) / 100000000.f;
 			float current = 0.f;
-			for (int32_t i = 0; i < (int32_t)gnode->expansions.size(); i++) {
-				if (current += gnode->expansions[i]->weight; current >= target) {
+			for (int32_t i = 0; i < (int32_t)gnode->_expansions.size(); i++) {
+				if (current += gnode->_expansions[i]->_weight; current >= target) {
 					idx = i;
 					break;
 				}
@@ -1209,46 +1209,46 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, ui
 		}
 
 		// create derivation nodes and add them to the derivation tree
-		gexp = gnode->expansions[idx];
-		for (int32_t i = 0; i < (int32_t)gexp->nodes.size(); i++) {
-			switch (gexp->nodes[i]->type) {
+		gexp = gnode->_expansions[idx];
+		for (int32_t i = 0; i < (int32_t)gexp->_nodes.size(); i++) {
+			switch (gexp->_nodes[i]->_type) {
 			case GrammarNode::NodeType::Sequence:
 				seq++;
 				tnnode = new DerivationTree::SequenceNode;
-				dtree->nodes.insert(tnnode);
-				dtree->sequenceNodes++;
-				tnnode->grammarID = gexp->nodes[i]->id;
-				nnode->children.push_back(tnnode);
-				qnonterminals.push_back({ tnnode, gexp->nodes[i] });
+				dtree->_nodes.insert(tnnode);
+				dtree->_sequenceNodes++;
+				tnnode->_grammarID = gexp->_nodes[i]->_id;
+				nnode->_children.push_back(tnnode);
+				qnonterminals.push_back({ tnnode, gexp->_nodes[i] });
 				break;
 			case GrammarNode::NodeType::NonTerminal:
 				tnnode = new DerivationTree::NonTerminalNode;
-				dtree->nodes.insert(tnnode);
-				tnnode->grammarID = gexp->nodes[i]->id;
-				nnode->children.push_back(tnnode);
-				qnonterminals.push_back({ tnnode, gexp->nodes[i] });
+				dtree->_nodes.insert(tnnode);
+				tnnode->_grammarID = gexp->_nodes[i]->_id;
+				nnode->_children.push_back(tnnode);
+				qnonterminals.push_back({ tnnode, gexp->_nodes[i] });
 				break;
 			case GrammarNode::NodeType::Terminal:
 				// create new terminal node
 				ttnode = new DerivationTree::TerminalNode();
-				dtree->nodes.insert(tnnode);
-				ttnode->grammarID = gexp->nodes[i]->id;
-				ttnode->content = gexp->nodes[i]->identifier;
-				nnode->children.push_back(ttnode);
+				dtree->_nodes.insert(tnnode);
+				ttnode->_grammarID = gexp->_nodes[i]->_id;
+				ttnode->_content = gexp->_nodes[i]->_identifier;
+				nnode->_children.push_back(ttnode);
 				break;
 			}
 		}
 	}
-	dtree->valid = true;
-	dtree->regenerate = true;
+	dtree->_valid = true;
+	dtree->_regenerate = true;
 }
 
 
 void Grammar::Clear()
 {
 	// remove tree shared_ptr so that grammar isn't valid anymore
-	std::shared_ptr tr = tree;
-	tree.reset();
+	std::shared_ptr tr = _tree;
+	_tree.reset();
 	if (tr)
 	{
 		tr->Clear();
@@ -1285,23 +1285,23 @@ size_t Grammar::GetStaticSize(int32_t version)
 
 size_t Grammar::GetDynamicSize()
 {
-	size_t sz = GetStaticSize() + Buffer::VectorBasic::GetVectorSize(tree->ruleorder);
+	size_t sz = GetStaticSize() + Buffer::VectorBasic::GetVectorSize(_tree->_ruleorder);
 	// hashmap
 	sz += 8;
-	for (auto& [id, node] : tree->hashmap)
+	for (auto& [id, node] : _tree->_hashmap)
 	{
 		sz += 8 + node->GetDynamicSize();
 	}
 	// hashmap_expansions
 	sz += 8;
-	for (auto& [id, expan] : tree->hashmap_expansions)
+	for (auto& [id, expan] : _tree->_hashmap_expansions)
 	{
 		sz += 8 + expan->GetDynamicSize(expan->classversion);
 	}
 	// nonterminals
-	sz += 8 + tree->nonterminals.size() * 8;
+	sz += 8 + _tree->_nonterminals.size() * 8;
 	// terminals
-	sz += 8 + tree->terminals.size() * 8;
+	sz += 8 + _tree->_terminals.size() * 8;
 
 	return sz;
 }
@@ -1310,51 +1310,51 @@ bool Grammar::WriteData(unsigned char* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
-	Buffer::Write(tree->nextid, buffer, offset);
-	Buffer::Write(tree->_numcycles, buffer, offset);
-	Buffer::Write(tree->valid, buffer, offset);
-	Buffer::Write(tree->root->id, buffer, offset);
-	Buffer::VectorBasic::WriteVector<uint64_t>(tree->ruleorder, buffer, offset);
-	Buffer::WriteSize(tree->hashmap.size(), buffer, offset);
-	for (auto& [id, node] : tree->hashmap)
+	Buffer::Write(_tree->_nextid, buffer, offset);
+	Buffer::Write(_tree->_numcycles, buffer, offset);
+	Buffer::Write(_tree->_valid, buffer, offset);
+	Buffer::Write(_tree->_root->_id, buffer, offset);
+	Buffer::VectorBasic::WriteVector<uint64_t>(_tree->_ruleorder, buffer, offset);
+	Buffer::WriteSize(_tree->_hashmap.size(), buffer, offset);
+	for (auto& [id, node] : _tree->_hashmap)
 	{
 		Buffer::Write(id, buffer, offset);
 		node->WriteData(buffer, offset);
 	}
-	Buffer::WriteSize(tree->hashmap_expansions.size(), buffer, offset);
-	for (auto& [id, expan] : tree->hashmap_expansions)
+	Buffer::WriteSize(_tree->_hashmap_expansions.size(), buffer, offset);
+	for (auto& [id, expan] : _tree->_hashmap_expansions)
 	{
 		Buffer::Write(id, buffer, offset);
 		expan->WriteData(buffer, offset);
 	}
-	Buffer::WriteSize(tree->nonterminals.size(), buffer, offset);
-	for (auto& node : tree->nonterminals)
-		Buffer::Write(node->id, buffer, offset);
-	Buffer::WriteSize(tree->terminals.size(), buffer, offset);
-	for (auto& node : tree->terminals)
-		Buffer::Write(node->id, buffer, offset);
+	Buffer::WriteSize(_tree->_nonterminals.size(), buffer, offset);
+	for (auto& node : _tree->_nonterminals)
+		Buffer::Write(node->_id, buffer, offset);
+	Buffer::WriteSize(_tree->_terminals.size(), buffer, offset);
+	for (auto& node : _tree->_terminals)
+		Buffer::Write(node->_id, buffer, offset);
 	return true;
 }
 
 bool Grammar::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
-	tree = std::make_shared<GrammarTree>();
+	_tree = std::make_shared<GrammarTree>();
 	LoadResolverGrammar* lresolve = new LoadResolverGrammar();
-	lresolve->tree = tree;
+	lresolve->_tree = _tree;
 	switch (version) {
 	case 0x1:
 		{
 			Form::ReadData(buffer, offset, length, resolver);
-			tree->nextid = Buffer::ReadUInt64(buffer, offset);
-			tree->_numcycles = Buffer::ReadInt32(buffer, offset);
-			tree->valid = Buffer::ReadBool(buffer, offset);
-			auto& tmptree = tree;
+			_tree->_nextid = Buffer::ReadUInt64(buffer, offset);
+			_tree->_numcycles = Buffer::ReadInt32(buffer, offset);
+			_tree->_valid = Buffer::ReadBool(buffer, offset);
+			auto& tmptree = _tree;
 			uint64_t rootid = Buffer::ReadUInt64(buffer, offset);
 			lresolve->AddTask([lresolve, rootid, tmptree]() {
 				tmptree->SetRoot(lresolve->ResolveNodeID(rootid));
 			});
-			tree->ruleorder = Buffer::VectorBasic::ReadVector<uint64_t>(buffer, offset);
+			_tree->_ruleorder = Buffer::VectorBasic::ReadVector<uint64_t>(buffer, offset);
 			{
 				// hashmap
 				size_t len = Buffer::ReadSize(buffer, offset);
@@ -1363,7 +1363,7 @@ bool Grammar::ReadData(unsigned char* buffer, size_t& offset, size_t length, Loa
 					uint64_t id = Buffer::ReadUInt64(buffer, offset);
 					std::shared_ptr<GrammarNode> node = std::make_shared<GrammarNode>();
 					node->ReadData(buffer, offset, length, lresolve);
-					tree->hashmap.insert({ id, node });
+					_tree->_hashmap.insert({ id, node });
 				}
 			}
 			{
@@ -1374,7 +1374,7 @@ bool Grammar::ReadData(unsigned char* buffer, size_t& offset, size_t length, Loa
 					uint64_t id = Buffer::ReadUInt64(buffer, offset);
 					std::shared_ptr<GrammarExpansion> expan = std::make_shared<GrammarExpansion>();
 					expan->ReadData(buffer, offset, length, lresolve);
-					tree->hashmap_expansions.insert({ id, expan });
+					_tree->_hashmap_expansions.insert({ id, expan });
 				}
 			}
 			// hashmaps are initialized and all nodes are known so we can just find them in the hashmap if we need them
@@ -1384,8 +1384,8 @@ bool Grammar::ReadData(unsigned char* buffer, size_t& offset, size_t length, Loa
 				for (int64_t i = 0; i < (int64_t)len; i++)
 				{
 					uint64_t id = Buffer::ReadUInt64(buffer, offset);
-					if (auto ptr = tree->hashmap.at(id); ptr)
-						tree->nonterminals.insert(ptr);
+					if (auto ptr = _tree->_hashmap.at(id); ptr)
+						_tree->_nonterminals.insert(ptr);
 					else
 						logcritical("cannot find nonterminal node {}", id);
 				}
@@ -1396,8 +1396,8 @@ bool Grammar::ReadData(unsigned char* buffer, size_t& offset, size_t length, Loa
 				for (int64_t i = 0; i < (int64_t)len; i++)
 				{
 					uint64_t id = Buffer::ReadUInt64(buffer, offset);
-					if (auto ptr = tree->hashmap.at(id); ptr)
-						tree->terminals.insert(ptr);
+					if (auto ptr = _tree->_hashmap.at(id); ptr)
+						_tree->_terminals.insert(ptr);
 					else
 						logcritical("cannot find terminal node {}", id);
 				}
@@ -1420,10 +1420,10 @@ void Grammar::Delete(Data*)
 
 LoadResolverGrammar::~LoadResolverGrammar()
 {
-	tree.reset();
-	while (!tasks.empty()) {
-		tasks.front()->Dispose();
-		tasks.pop();
+	_tree.reset();
+	while (!_tasks.empty()) {
+		_tasks.front()->Dispose();
+		_tasks.pop();
 	}
 }
 
@@ -1435,8 +1435,8 @@ void LoadResolverGrammar::AddTask(TaskFn a_task)
 void LoadResolverGrammar::AddTask(TaskDelegate* a_task)
 {
 	{
-		std::unique_lock<std::mutex> guard(lock);
-		tasks.push(a_task);
+		std::unique_lock<std::mutex> guard(_lock);
+		_tasks.push(a_task);
 	}
 }
 
@@ -1456,8 +1456,8 @@ void LoadResolverGrammar::Task::Dispose()
 
 std::shared_ptr<GrammarNode> LoadResolverGrammar::ResolveNodeID(uint64_t id)
 {
-	auto itr = tree->hashmap.find(id);
-	if (itr != tree->hashmap.end()) {
+	auto itr = _tree->_hashmap.find(id);
+	if (itr != _tree->_hashmap.end()) {
 		return std::get<1>(*itr);
 	} else
 		logcritical("cannot resolve nodeid {}", id);
@@ -1466,8 +1466,8 @@ std::shared_ptr<GrammarNode> LoadResolverGrammar::ResolveNodeID(uint64_t id)
 
 std::shared_ptr<GrammarExpansion> LoadResolverGrammar::ResolveExpansionID(uint64_t id)
 {
-	auto itr = tree->hashmap_expansions.find(id);
-	if (itr != tree->hashmap_expansions.end()) {
+	auto itr = _tree->_hashmap_expansions.find(id);
+	if (itr != _tree->_hashmap_expansions.end()) {
 		return std::get<1>(*itr);
 	} else
 		logcritical("cannot resolve expansionid {}", id);
@@ -1476,10 +1476,10 @@ std::shared_ptr<GrammarExpansion> LoadResolverGrammar::ResolveExpansionID(uint64
 
 void LoadResolverGrammar::Resolve()
 {
-	while (!tasks.empty()) {
+	while (!_tasks.empty()) {
 		TaskDelegate* del;
-		del = tasks.front();
-		tasks.pop();
+		del = _tasks.front();
+		_tasks.pop();
 		del->Run();
 		del->Dispose();
 	}

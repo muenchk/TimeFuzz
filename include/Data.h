@@ -5,6 +5,9 @@
 #include <unordered_map>
 #include <mutex>
 #include <chrono>
+#include <boost/bimap.hpp>
+#include <boost/bimap/unordered_set_of.hpp>
+#include <boost/thread.hpp>
 
 #include "TaskController.h"
 #include "Form.h"
@@ -67,31 +70,31 @@ private:
 	/// <summary>
 	/// unique name of the save [i.e. "Testing"]
 	/// </summary>
-	std::string uniquename;
+	std::string _uniquename;
 	/// <summary>
 	/// save name of the save itself, contains unique name and saveidentifiers
 	/// </summary>
-	std::string savename;
+	std::string _savename;
 	/// <summary>
 	/// file extension used by savefiles
 	/// </summary>
-	std::string extension = ".tfsave";
+	std::string _extension = ".tfsave";
 	/// <summary>
 	/// path to the save files
 	/// </summary>
-	std::filesystem::path savepath = std::filesystem::path(".") / "saves";
+	std::filesystem::path _savepath = std::filesystem::path(".") / "saves";
 	/// <summary>
 	/// number of the next save
 	/// </summary>
-	int32_t savenumber = 1;
+	int32_t _savenumber = 1;
 	/// <summary>
 	/// start time of this session
 	/// </summary>
-	std::chrono::steady_clock::time_point sessionBegin = std::chrono::steady_clock::now();
+	std::chrono::steady_clock::time_point _sessionBegin = std::chrono::steady_clock::now();
 	/// <summary>
 	/// Overall session runtime
 	/// </summary>
-	std::chrono::nanoseconds runtime = std::chrono::nanoseconds(0);
+	std::chrono::nanoseconds _runtime = std::chrono::nanoseconds(0);
 	/// <summary>
 	/// load resolver, used to resolve forms after loading has been completed
 	/// </summary>
@@ -118,6 +121,23 @@ private:
 	/// </summary>
 	std::shared_mutex _hashmaplock;
 
+	/// <summary>
+	/// id of the next string in the registry
+	/// </summary>
+	FormID _stringNextFormID = 100;
+	/// <summary>
+	/// Type definition of BiMap for ease-of-access
+	/// </summary>
+	typedef boost::bimap<boost::bimaps::unordered_set_of<FormID>, boost::bimaps::unordered_set_of<std::string>> StringHashmap;
+	/// <summary>
+	/// string registry
+	/// </summary>
+	StringHashmap _stringHashmap;
+	/// <summary>
+	/// mutex for _stringHashmap access
+	/// </summary>
+	boost::upgrade_mutex _stringHashmapLock;
+
 	friend LoadResolver;
 
 	/// <summary>
@@ -140,13 +160,13 @@ public:
 
 	Data();
 
-	std::string status;
-	int32_t record;
-	bool actionloadsave = false; 
-	uint64_t actionloadsave_max = 0;
-	uint64_t actionloadsave_current = 0;
-	size_t actionrecord_len = 0;
-	size_t actionrecord_offset = 0;
+	std::string _status;
+	int32_t _record;
+	bool _actionloadsave = false; 
+	uint64_t _actionloadsave_max = 0;
+	uint64_t _actionloadsave_current = 0;
+	size_t _actionrecord_len = 0;
+	size_t _actionrecord_offset = 0;
 
 	/// <summary>
 	/// Returns a singleton for the Data class
@@ -162,7 +182,7 @@ public:
 	/// Returns the overall session runtime
 	/// </summary>
 	/// <returns></returns>
-	std::chrono::nanoseconds GetRuntime() { return runtime + std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - sessionBegin); }
+	std::chrono::nanoseconds GetRuntime() { return _runtime + std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - _sessionBegin); }
 
 	/// <summary>
 	/// Creates a new dynamic form and registers it
@@ -284,6 +304,45 @@ public:
 	std::unordered_map<FormID, std::weak_ptr<Form>> GetWeakHashmapCopy();
 
 	/// <summary>
+	/// Returns the ID associated with the given string
+	/// </summary>
+	/// <param name="str"></param>
+	/// <returns></returns>
+	FormID GetIDFromString(std::string str)
+	{
+		boost::upgrade_lock<boost::upgrade_mutex> guard(_stringHashmapLock);
+		auto itr = _stringHashmap.right.find(str);
+		if (itr != _stringHashmap.right.end()) {
+			return itr->second;
+		} else {
+			boost::upgrade_to_unique_lock<boost::upgrade_mutex> guardunique(guard);
+			FormID formid = 0;
+			{
+				formid = _stringNextFormID++;
+			}
+			_stringHashmap.insert(StringHashmap::value_type(formid, str));
+			return formid;
+		}
+	}
+
+	/// <summary>
+	/// Returns the string associated with the given ID, and a boolean that indicates whether the value exists
+	/// </summary>
+	/// <param name="id"></param>
+	/// <returns></returns>
+	std::pair<std::string, bool> GetStringFromID(FormID id)
+	{
+		boost::shared_lock<boost::upgrade_mutex> guard(_stringHashmapLock);
+		auto itr = _stringHashmap.left.find(id);
+		if (itr != _stringHashmap.left.end())
+		{
+			return { itr->second, true };
+		} else
+			return { "", false };
+	}
+
+
+	/// <summary>
 	/// clears all forms
 	/// </summary>
 	void Clear();
@@ -335,7 +394,7 @@ public:
 	static LoadResolver* GetSingleton();
 	~LoadResolver();
 	void SetData(Data* dat);
-	Data* data = nullptr;
+	Data* _data = nullptr;
 	std::shared_ptr<Oracle> _oracle;
 
 	void AddTask(TaskFn a_task);
@@ -347,8 +406,8 @@ public:
 	template <class T>
 	std::shared_ptr<T> ResolveFormID(FormID formid)
 	{
-		auto itr = data->_hashmap.find(formid);
-		if (itr != data->_hashmap.end()) {
+		auto itr = _data->_hashmap.find(formid);
+		if (itr != _data->_hashmap.end()) {
 			if (itr->second)
 				return dynamic_pointer_cast<T>(itr->second);
 		}
@@ -358,12 +417,12 @@ public:
 	void Resolve(uint64_t& progress);
 	void ResolveLate(uint64_t& progress);
 
-	size_t TaskCount() { return tasks.size() + latetasks.size(); }
+	size_t TaskCount() { return _tasks.size() + _latetasks.size(); }
 
 private:
-	std::queue<TaskDelegate*> tasks;
-	std::queue<TaskDelegate*> latetasks;
-	std::mutex lock;
+	std::queue<TaskDelegate*> _tasks;
+	std::queue<TaskDelegate*> _latetasks;
+	std::mutex _lock;
 
 	class Task : public TaskDelegate
 	{

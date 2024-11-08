@@ -69,10 +69,10 @@ void Oracle::Set(PUTType type, std::filesystem::path PUTpath)
 		// so we just continue if we get that specific error without outputting any errors and settings us to invalid
 		if (e.code().value() == ERROR_CANT_ACCESS_FILE)
 		{
-			valid = true;
+			_valid = true;
 			return;
 		}
-		valid = false;
+		_valid = false;
 		return;
 		#else
 		// linux file not found, etc... just exit
@@ -81,7 +81,7 @@ void Oracle::Set(PUTType type, std::filesystem::path PUTpath)
 		return;
 		#endif
 	}
-	valid = true;
+	_valid = true;
 }
 
 bool Oracle::Validate()
@@ -89,39 +89,39 @@ bool Oracle::Validate()
 	try {
 		if (!std::filesystem::exists(_path)) {
 			logwarn("Oracle cannot be initialised with a non-existent path: {}", _path.string());
-			valid = false;
-			return valid;
+			_valid = false;
+			return _valid;
 		}
 		if (std::filesystem::is_directory(_path)) {
 			logwarn("Oracle cannot be initialised with a directory: {}", _path.string());
-			valid = false;
-			return valid;
+			_valid = false;
+			return _valid;
 		}
 		if (std::filesystem::is_symlink(_path)) {
 			logwarn("Oracle cannot be initialsed with a symlink: {}", _path.string());
-			valid = false;
-			return valid;
+			_valid = false;
+			return _valid;
 		}
 		if (std::filesystem::is_regular_file(_path) == false) {
 			logwarn("Oracle cannot be initialised on an unsupported filetype: {}", _path.string());
-			valid = false;
-			return valid;
+			_valid = false;
+			return _valid;
 		}
 		if (std::filesystem::is_empty(_path)) {
 			logwarn("Oracle cannot be initialised on an empty file: {}", _path.string());
-			valid = false;
-			return valid;
+			_valid = false;
+			return _valid;
 		}
 	} catch (std::filesystem::filesystem_error& e) {
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 		// windows when checking certain pathes the files cannot be accessed and throw error, for instance python installation from the store
 		// so we just continue if we get that specific error without outputting any errors and settings us to invalid
 		if (e.code().value() == ERROR_CANT_ACCESS_FILE) {
-			valid = true;
-			return valid;
+			_valid = true;
+			return _valid;
 		}
-		valid = false;
-		return valid;
+		_valid = false;
+		return _valid;
 #else
 		// linux file not found, etc... just exit
 		logcritical("Cannot check for Oracle: {}", e.what());
@@ -129,69 +129,69 @@ bool Oracle::Validate()
 		return valid;
 #endif
 	}
-	return valid;
+	return _valid;
 }
 
 void Oracle::SetLuaCmdArgs(std::string script)
 {
-	LcmdargsStr = script;
+	_luaCmdArgsStr = script;
 }
 
 void Oracle::SetLuaCmdArgs(std::filesystem::path scriptpath)
 {
-	LcmdargsPath = scriptpath;
+	_luaCmdArgsPath = scriptpath;
 }
 
 void Oracle::SetLuaCmdArgsReplay(std::filesystem::path scriptpath)
 {
-	LcmdargsPathReplay = scriptpath;
+	_luaCmdArgsPathReplay = scriptpath;
 }
 
 void Oracle::SetLuaOracle(std::string script)
 {
-	LoracleStr = script;
+	_luaOracleStr = script;
 }
 
 void Oracle::SetLuaOracle(std::filesystem::path scriptpath)
 {
-	LoraclePath = scriptpath;
+	_luaOraclePath = scriptpath;
 }
 
 void Oracle::ApplyLuaCommands(lua_State* L)
 {
-	if (LcmdargsStr.empty() == false) {
+	if (_luaCmdArgsStr.empty() == false) {
 		// the lua command is saved in a string
-		if (luaL_dostring(L, LcmdargsStr.c_str()) == LUA_OK) {
+		if (luaL_dostring(L, _luaCmdArgsStr.c_str()) == LUA_OK) {
 			lua_pop(L, lua_gettop(L));
 		}
 	} else {
 		// run lua on script
-		if (luaL_dofile(L, LcmdargsPath.string().c_str()) == LUA_OK) {
+		if (luaL_dofile(L, _luaCmdArgsPath.string().c_str()) == LUA_OK) {
 			lua_pop(L, lua_gettop(L));
 		}
 	}
 
-	if (LoracleStr.empty() == false) {
+	if (_luaOracleStr.empty() == false) {
 		// the lua command is saved in a string
-		if (luaL_dostring(L, LoracleStr.c_str()) == LUA_OK) {
+		if (luaL_dostring(L, _luaOracleStr.c_str()) == LUA_OK) {
 			lua_pop(L, lua_gettop(L));
 		}
 	} else {
 		// run lua on script
-		if (luaL_dofile(L, LoraclePath.string().c_str()) == LUA_OK) {
+		if (luaL_dofile(L, _luaOraclePath.string().c_str()) == LUA_OK) {
 			lua_pop(L, lua_gettop(L));
 		}
 	}
 
-	if (std::filesystem::exists(LcmdargsPathReplay))
-		if (luaL_dofile(L, LcmdargsPathReplay.string().c_str()) == LUA_OK) {
+	if (std::filesystem::exists(_luaCmdArgsPathReplay))
+		if (luaL_dofile(L, _luaCmdArgsPathReplay.string().c_str()) == LUA_OK) {
 			lua_pop(L, lua_gettop(L));
 		}
 }
 
 OracleResult Oracle::Evaluate(lua_State* L, std::shared_ptr<Test> test)
 {
-	auto input = test->input.lock();
+	auto input = test->_input.lock();
 	OracleResult result = OracleResult::None;
 	if (input)
 	{
@@ -225,7 +225,7 @@ std::string Oracle::GetCmdArgs(lua_State* L, Test* test, bool replay)
 {
 	//std::unique_lock<std::mutex> guard(cmdlock);
 	std::string args = "";
-	auto input = test->input.lock();
+	auto input = test->_input.lock();
 	if (input) {
 		lua_pushlightuserdata(L, (void*)(input.get()));
 		lua_setglobal(L, "input");
@@ -280,7 +280,7 @@ size_t Oracle::GetStaticSize(int32_t version)
 
 size_t Oracle::GetDynamicSize()
 {
-	return GetStaticSize(classversion) + Buffer::CalcStringLength(_path.string()) + Buffer::CalcStringLength(LoracleStr) + Buffer::CalcStringLength(LoraclePath.string()) + Buffer::CalcStringLength(LcmdargsStr) + Buffer::CalcStringLength(LcmdargsPath.string());
+	return GetStaticSize(classversion) + Buffer::CalcStringLength(_path.string()) + Buffer::CalcStringLength(_luaOracleStr) + Buffer::CalcStringLength(_luaOraclePath.string()) + Buffer::CalcStringLength(_luaCmdArgsStr) + Buffer::CalcStringLength(_luaCmdArgsPath.string());
 }
 
 bool Oracle::WriteData(unsigned char* buffer, size_t& offset)
@@ -288,16 +288,16 @@ bool Oracle::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
 	Buffer::Write((int32_t)_type, buffer, offset);
-	Buffer::Write(valid, buffer, offset);
+	Buffer::Write(_valid, buffer, offset);
 	Buffer::Write(_path.string(), buffer, offset);
-	Buffer::Write(LoracleStr, buffer, offset);
-	if (std::filesystem::exists(LoraclePath))
-		Buffer::Write(LoraclePath.string(), buffer, offset);
+	Buffer::Write(_luaOracleStr, buffer, offset);
+	if (std::filesystem::exists(_luaOraclePath))
+		Buffer::Write(_luaOraclePath.string(), buffer, offset);
 	else
 		Buffer::Write(std::string(""), buffer, offset);
-	Buffer::Write(LcmdargsStr, buffer, offset);
-	if (std::filesystem::exists(LcmdargsPath))
-		Buffer::Write(LcmdargsPath.string(), buffer, offset);
+	Buffer::Write(_luaCmdArgsStr, buffer, offset);
+	if (std::filesystem::exists(_luaCmdArgsPath))
+		Buffer::Write(_luaCmdArgsPath.string(), buffer, offset);
 	else
 		Buffer::Write(std::string(""), buffer, offset);
 	return true;
@@ -311,18 +311,18 @@ bool Oracle::ReadData(unsigned char* buffer, size_t& offset, size_t length, Load
 		{
 			Form::ReadData(buffer, offset, length, resolver);
 			_type = (PUTType)Buffer::ReadInt32(buffer, offset);
-			valid = Buffer::ReadBool(buffer, offset);
+			_valid = Buffer::ReadBool(buffer, offset);
 			std::string path = Buffer::ReadString(buffer, offset);
 			_path = std::filesystem::path(path);
-			LoracleStr = Buffer::ReadString(buffer, offset);
-			if (LoracleStr.empty() == false)
-				SetLuaOracle(LoracleStr);
+			_luaOracleStr = Buffer::ReadString(buffer, offset);
+			if (_luaOracleStr.empty() == false)
+				SetLuaOracle(_luaOracleStr);
 			path = Buffer::ReadString(buffer, offset);
 			if (path.empty() == false)
 				SetLuaOracle(std::filesystem::path(path));
-			LcmdargsStr = Buffer::ReadString(buffer, offset);
-			if (LcmdargsStr.empty() == false)
-				SetLuaCmdArgs(LcmdargsStr);
+			_luaCmdArgsStr = Buffer::ReadString(buffer, offset);
+			if (_luaCmdArgsStr.empty() == false)
+				SetLuaCmdArgs(_luaCmdArgsStr);
 			path = Buffer::ReadString(buffer, offset);
 			if (path.empty() == false)
 				SetLuaCmdArgs(std::filesystem::path(path));
@@ -355,11 +355,11 @@ void Oracle::Delete(Data*)
 
 void Oracle::Clear()
 {
-	LoracleStr = "";
-	LoraclePath = "";
-	LcmdargsStr = "";
-	LcmdargsPath = "";
-	valid = false;
+	_luaOracleStr = "";
+	_luaOraclePath = "";
+	_luaCmdArgsStr = "";
+	_luaCmdArgsPath = "";
+	_valid = false;
 	_path = "";
 }
 

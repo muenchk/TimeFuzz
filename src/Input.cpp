@@ -15,25 +15,25 @@ size_t Input::GetStaticSize(int32_t version)
 {
 	static size_t size0x1 = Form::GetDynamicSize()  // form base size
 	                        + 4 +                   // version
-	                        1 +                     // hasfinished
-	                        1 +                     // trimmed
-	                        8 +                     // executiontime
-	                        4 +                     // exitcode
-	                        sizeof(EnumType) +      // oracleResult
+	                        1 +                     // _hasfinished
+	                        1 +                     // _trimmed
+	                        8 +                     // _executiontime
+	                        4 +                     // _exitcode
+	                        sizeof(EnumType) +      // _oracleResult
 	                        8 +                     // test
 	                        8;                      // derivationtree
 
 	static size_t size0x2 = Form::GetDynamicSize()  // form base size
 	                        + 4 +                   // version
-	                        1 +                     // hasfinished
-	                        1 +                     // trimmed
-	                        8 +                     // executiontime
-	                        4 +                     // exitcode
-	                        sizeof(EnumType) +      // oracleResult
+	                        1 +                     // _hasfinished
+	                        1 +                     // _trimmed
+	                        8 +                     // _executiontime
+	                        4 +                     // _exitcode
+	                        sizeof(EnumType) +      // _oracleResult
 	                        8 +                     // test
 	                        8 +                     // derivationtree
-	                        8 +                     // primaryScore
-	                        8 +                     // secondaryScore
+	                        8 +                     // _primaryScore
+	                        8 +                     // _secondaryScore
 	                        8;                      // trimmedLength
 	static size_t size0x4 = size0x2                 // prior version size
 	                        + 8;                    // _flags
@@ -56,10 +56,10 @@ size_t Input::GetStaticSize(int32_t version)
 size_t Input::GetDynamicSize()
 {
 	size_t size = GetStaticSize(classversion);
-	size += Buffer::CalcStringLength(stringrep);
+	size += Buffer::CalcStringLength(_stringrep);
 	if (HasFlag(Flags::NoDerivation)) {
-		size += Buffer::List::GetListLength(sequence);
-		size += Buffer::List::GetListLength(orig_sequence);
+		size += Buffer::List::GetListLength(_sequence);
+		size += Buffer::List::GetListLength(_orig_sequence);
 	}
 	return size;
 }
@@ -69,11 +69,11 @@ bool Input::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
 	Buffer::Write(_flags, buffer, offset);
-	Buffer::Write(hasfinished, buffer, offset);
-	Buffer::Write(trimmed, buffer, offset);
-	Buffer::Write(executiontime, buffer, offset);
-	Buffer::Write(exitcode, buffer, offset);
-	Buffer::Write((uint64_t)oracleResult, buffer, offset);
+	Buffer::Write(_hasfinished, buffer, offset);
+	Buffer::Write(_trimmed, buffer, offset);
+	Buffer::Write(_executiontime, buffer, offset);
+	Buffer::Write(_exitcode, buffer, offset);
+	Buffer::Write((uint64_t)_oracleResult, buffer, offset);
 	if (auto ptr = test; ptr) {
 		Buffer::Write(ptr->GetFormID(), buffer, offset);
 	} else
@@ -82,14 +82,14 @@ bool Input::WriteData(unsigned char* buffer, size_t& offset)
 		Buffer::Write(ptr->GetFormID(), buffer, offset);
 	} else
 		Buffer::Write((FormID)0, buffer, offset);
-	Buffer::Write(stringrep, buffer, offset);
+	Buffer::Write(_stringrep, buffer, offset);
 	if (HasFlag(Flags::NoDerivation)) {
-		Buffer::List::WriteList(sequence, buffer, offset);
-		Buffer::List::WriteList(orig_sequence, buffer, offset);
+		Buffer::List::WriteList(_sequence, buffer, offset);
+		Buffer::List::WriteList(_orig_sequence, buffer, offset);
 	}
-	Buffer::Write(primaryScore, buffer, offset);
-	Buffer::Write(secondaryScore, buffer, offset);
-	Buffer::Write(trimmedlength, buffer, offset);
+	Buffer::Write(_primaryScore, buffer, offset);
+	Buffer::Write(_secondaryScore, buffer, offset);
+	Buffer::Write(_trimmedlength, buffer, offset);
 
 	return true;
 }
@@ -103,14 +103,14 @@ bool Input::ReadData0x1(unsigned char* buffer, size_t& offset, size_t length, Lo
 	Form::ReadData(buffer, offset, length, resolver);
 	//logdebug("ReadData Basic Data");
 	// static init
-	pythonconverted = false;
-	pythonstring = "";
+	_pythonconverted = false;
+	_pythonstring = "";
 	// end
-	hasfinished = Buffer::ReadBool(buffer, offset);
-	trimmed = Buffer::ReadBool(buffer, offset);
-	executiontime = Buffer::ReadNanoSeconds(buffer, offset);
-	exitcode = Buffer::ReadInt32(buffer, offset);
-	oracleResult = Buffer::ReadUInt64(buffer, offset);
+	_hasfinished = Buffer::ReadBool(buffer, offset);
+	_trimmed = Buffer::ReadBool(buffer, offset);
+	_executiontime = Buffer::ReadNanoSeconds(buffer, offset);
+	_exitcode = Buffer::ReadInt32(buffer, offset);
+	_oracleResult = Buffer::ReadUInt64(buffer, offset);
 	FormID testid = Buffer::ReadUInt64(buffer, offset);
 	resolver->AddTask([this, resolver, testid]() {
 		this->test = resolver->ResolveFormID<Test>(testid);
@@ -120,20 +120,20 @@ bool Input::ReadData0x1(unsigned char* buffer, size_t& offset, size_t length, Lo
 		this->derive = resolver->ResolveFormID<DerivationTree>(deriveid);
 	});
 	//logdebug("ReadData string rep");
-	// get stringrep
+	// get _stringrep
 	//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
 	//	return false;
-	stringrep = Buffer::ReadString(buffer, offset);
-	//logdebug("ReadData sequence, offset {}, len {}", offset, length);
-	// read sequence
+	_stringrep = Buffer::ReadString(buffer, offset);
+	//logdebug("ReadData _sequence, offset {}, len {}", offset, length);
+	// read _sequence
 	//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::List::GetListLength(buffer, offset))
 	//	return false;
-	Buffer::List::ReadList(sequence, buffer, offset);
-	//logdebug("ReadData orig sequence, offset {}, len {}", offset, length);
-	// read orig_sequence
+	Buffer::List::ReadList(_sequence, buffer, offset);
+	//logdebug("ReadData orig _sequence, offset {}, len {}", offset, length);
+	// read _orig_sequence
 	//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::List::GetListLength(buffer, offset))
 	//	return false;
-	Buffer::List::ReadList(orig_sequence, buffer, offset);
+	Buffer::List::ReadList(_orig_sequence, buffer, offset);
 	//logdebug("ReadData finish");
 	return true;
 }
@@ -144,9 +144,9 @@ bool Input::ReadData0x2(unsigned char* buffer, size_t& offset, size_t length, Lo
 	res &= ReadData0x1(buffer, offset, length, resolver);
 	if (!res)
 		return res;
-	primaryScore = Buffer::ReadDouble(buffer, offset);
-	secondaryScore = Buffer::ReadDouble(buffer, offset);
-	trimmedlength = Buffer::ReadInt64(buffer, offset);
+	_primaryScore = Buffer::ReadDouble(buffer, offset);
+	_secondaryScore = Buffer::ReadDouble(buffer, offset);
+	_trimmedlength = Buffer::ReadInt64(buffer, offset);
 	return true;
 }
 
@@ -168,14 +168,14 @@ bool Input::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadR
 			Form::ReadData(buffer, offset, length, resolver);
 			//logdebug("ReadData Basic Data");
 			// static init
-			pythonconverted = false;
-			pythonstring = "";
+			_pythonconverted = false;
+			_pythonstring = "";
 			// end
-			hasfinished = Buffer::ReadBool(buffer, offset);
-			trimmed = Buffer::ReadBool(buffer, offset);
-			executiontime = Buffer::ReadNanoSeconds(buffer, offset);
-			exitcode = Buffer::ReadInt32(buffer, offset);
-			oracleResult = Buffer::ReadUInt64(buffer, offset);
+			_hasfinished = Buffer::ReadBool(buffer, offset);
+			_trimmed = Buffer::ReadBool(buffer, offset);
+			_executiontime = Buffer::ReadNanoSeconds(buffer, offset);
+			_exitcode = Buffer::ReadInt32(buffer, offset);
+			_oracleResult = Buffer::ReadUInt64(buffer, offset);
 			FormID testid = Buffer::ReadUInt64(buffer, offset);
 			resolver->AddTask([this, resolver, testid]() {
 				this->test = resolver->ResolveFormID<Test>(testid);
@@ -185,12 +185,12 @@ bool Input::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadR
 				this->derive = resolver->ResolveFormID<DerivationTree>(deriveid);
 			});
 			//logdebug("ReadData string rep");
-			// get stringrep
+			// get _stringrep
 			//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
 			//	return false;
-			stringrep = Buffer::ReadString(buffer, offset);
-			primaryScore = Buffer::ReadDouble(buffer, offset);
-			secondaryScore = Buffer::ReadDouble(buffer, offset);
+			_stringrep = Buffer::ReadString(buffer, offset);
+			_primaryScore = Buffer::ReadDouble(buffer, offset);
+			_secondaryScore = Buffer::ReadDouble(buffer, offset);
 		}
 		return true;
 	case 0x4:
@@ -200,14 +200,14 @@ bool Input::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadR
 			Form::ReadData(buffer, offset, length, resolver);
 			_flags = Buffer::ReadUInt64(buffer, offset);
 			// static init
-			pythonconverted = false;
-			pythonstring = "";
+			_pythonconverted = false;
+			_pythonstring = "";
 			// end
-			hasfinished = Buffer::ReadBool(buffer, offset);
-			trimmed = Buffer::ReadBool(buffer, offset);
-			executiontime = Buffer::ReadNanoSeconds(buffer, offset);
-			exitcode = Buffer::ReadInt32(buffer, offset);
-			oracleResult = Buffer::ReadUInt64(buffer, offset);
+			_hasfinished = Buffer::ReadBool(buffer, offset);
+			_trimmed = Buffer::ReadBool(buffer, offset);
+			_executiontime = Buffer::ReadNanoSeconds(buffer, offset);
+			_exitcode = Buffer::ReadInt32(buffer, offset);
+			_oracleResult = Buffer::ReadUInt64(buffer, offset);
 			FormID testid = Buffer::ReadUInt64(buffer, offset);
 			resolver->AddTask([this, resolver, testid]() {
 				this->test = resolver->ResolveFormID<Test>(testid);
@@ -217,16 +217,16 @@ bool Input::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadR
 				this->derive = resolver->ResolveFormID<DerivationTree>(deriveid);
 			});
 			//logdebug("ReadData string rep");
-			// get stringrep
+			// get _stringrep
 			//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
 			//	return false;
-			stringrep = Buffer::ReadString(buffer, offset);
+			_stringrep = Buffer::ReadString(buffer, offset);
 			if (HasFlag(Flags::NoDerivation)) {
-				Buffer::List::ReadList(sequence, buffer, offset);
-				Buffer::List::ReadList(orig_sequence, buffer, offset);
+				Buffer::List::ReadList(_sequence, buffer, offset);
+				Buffer::List::ReadList(_orig_sequence, buffer, offset);
 			}
-			primaryScore = Buffer::ReadDouble(buffer, offset);
-			secondaryScore = Buffer::ReadDouble(buffer, offset);
+			_primaryScore = Buffer::ReadDouble(buffer, offset);
+			_secondaryScore = Buffer::ReadDouble(buffer, offset);
 		}
 		return true;
 	default:
@@ -243,7 +243,7 @@ void Input::Delete(Data* /*data*/)
 
 Input::Input()
 {
-	oracleResult = OracleResult::Running;
+	_oracleResult = OracleResult::Running;
 }
 
 Input::~Input()
@@ -255,9 +255,9 @@ void Input::Clear()
 {
 	test.reset();
 	derive.reset();
-	stringrep = "";
-	sequence.clear();
-	orig_sequence.clear();
+	_stringrep = "";
+	_sequence.clear();
+	_orig_sequence.clear();
 }
 
 void Input::RegisterFactories()
@@ -270,31 +270,31 @@ void Input::RegisterFactories()
 std::string Input::ConvertToPython(bool update)
 {
 	// if we already generated the python commands and aren't forces to update, just return the last one
-	if (!update && pythonconverted)
-		return pythonstring;
-	pythonstring = "[ ";
+	if (!update && _pythonconverted)
+		return _pythonstring;
+	_pythonstring = "[ ";
 	auto itr = begin();
 	if (itr != end())
 	{
 		// first one doesn't have command
-		pythonstring += (*itr);
+		_pythonstring += (*itr);
 		itr++;
 	}
 	while (itr != end()) {
-		pythonstring += ", " + (*itr);
+		_pythonstring += ", " + (*itr);
 		itr++;
 	}
-	pythonstring += " ]";
-	pythonconverted = true;
-	return pythonstring;
+	_pythonstring += " ]";
+	_pythonconverted = true;
+	return _pythonstring;
 }
 
 size_t Input::Length()
 {
-	if (sequence.size() == 0)
-		if (derive && derive->regenerate)
-			return derive->targetlen;
-	return sequence.size();
+	if (_sequence.size() == 0)
+		if (derive && derive->_regenerate)
+			return derive->_targetlen;
+	return _sequence.size();
 }
 
 std::string& Input::operator[](size_t index)
@@ -313,17 +313,17 @@ std::string& Input::operator[](size_t index)
 
 void Input::AddEntry(std::string entry)
 {
-	sequence.push_back(entry);
+	_sequence.push_back(entry);
 }
 
 std::string Input::ToString()
 {
 	std::string str = "[ ";
 	int32_t count = 0;
-	for (auto& s : sequence)
+	for (auto& s : _sequence)
 	{
 		count++;
-		if (count == sequence.size())
+		if (count == _sequence.size())
 			str += "\"" + s + "\"";
 		else
 			str += "\"" + s + "\", ";
@@ -334,17 +334,17 @@ std::string Input::ToString()
 
 std::list<std::string>::iterator Input::begin()
 {
-	return sequence.begin();
+	return _sequence.begin();
 }
 
 std::list<std::string>::iterator Input::end()
 {
-	return sequence.end();
+	return _sequence.end();
 }
 
 std::size_t Input::Hash()
 {
-	return boost::hash_range(sequence.begin(), sequence.end());
+	return boost::hash_range(_sequence.begin(), _sequence.end());
 }
 
 std::vector<std::shared_ptr<Input>> Input::ParseInputs(std::filesystem::path path)
@@ -412,7 +412,7 @@ std::vector<std::shared_ptr<Input>> Input::ParseInputs(std::filesystem::path pat
 					return {};
 				} else {
 					// open == closed
-					// we have found our complete inuput, now onto parse it and extract the input sequences
+					// we have found our complete inuput, now onto parse it and extract the _input sequences
 					std::vector<std::shared_ptr<Input>> inputs;
 					std::shared_ptr<Input> input(nullptr);
 
@@ -437,7 +437,7 @@ std::vector<std::shared_ptr<Input>> Input::ParseInputs(std::filesystem::path pat
 						} else if (rec.open == 1) {
 							switch (c) {
 							case '[':
-								// we are entering an input definition
+								// we are entering an _input definition
 								rec.open++;
 								input = std::make_shared<Input>();
 								break;
@@ -448,12 +448,12 @@ std::vector<std::shared_ptr<Input>> Input::ParseInputs(std::filesystem::path pat
 								break;
 							}
 						} else if (rec.open == 2) {
-							// we are currently parsing an input entry
+							// we are currently parsing an _input entry
 							if (rec.escaped == true) {
 								switch (c) {
 								case '\'':  // fallthrough intended
 								case '\"':
-									// escaped sequence has ended. Add current as entry to the input and reset current
+									// escaped _sequence has ended. Add current as entry to the _input and reset current
 									rec.escaped = false;
 									input->AddEntry(rec.current);
 									rec.current = "";
@@ -469,14 +469,14 @@ std::vector<std::shared_ptr<Input>> Input::ParseInputs(std::filesystem::path pat
 									logwarn("Cannot read inputs from file: {}. Syntax Error: 3-dimensional arrays are not supported.", path.string());
 									return {};
 								case ']':
-									// closing one input
+									// closing one _input
 									inputs.push_back(input);
 									input.reset();
 									rec.open--;
 									break;
 								case '\'':  // fallthrough intended
 								case '\"':
-									// escaped sequence has begun
+									// escaped _sequence has begun
 									rec.escaped = true;
 									break;
 								}
@@ -507,19 +507,19 @@ std::vector<std::shared_ptr<Input>> Input::ParseInputs(std::filesystem::path pat
 void Input::DeepCopy(std::shared_ptr<Input> other)
 {
 	other->derive = derive;
-	other->oracleResult = oracleResult;
-	other->sequence = sequence;
-	other->orig_sequence = orig_sequence;
-	other->lua_sequence_next = lua_sequence_next;
-	other->stringrep = stringrep;
-	other->pythonconverted = pythonconverted;
-	other->pythonstring = pythonstring;
-	other->secondaryScore = secondaryScore;
-	other->primaryScore = primaryScore;
-	other->exitcode = exitcode;
-	other->executiontime = executiontime;
-	other->trimmed = trimmed;
-	other->hasfinished = hasfinished;
+	other->_oracleResult = _oracleResult;
+	other->_sequence = _sequence;
+	other->_orig_sequence = _orig_sequence;
+	other->_lua_sequence_next = _lua_sequence_next;
+	other->_stringrep = _stringrep;
+	other->_pythonconverted = _pythonconverted;
+	other->_pythonstring = _pythonstring;
+	other->_secondaryScore = _secondaryScore;
+	other->_primaryScore = _primaryScore;
+	other->_exitcode = _exitcode;
+	other->_executiontime = _executiontime;
+	other->_trimmed = _trimmed;
+	other->_hasfinished = _hasfinished;
 }
 
 void Input::FreeMemory()
@@ -527,49 +527,49 @@ void Input::FreeMemory()
 	// return if the DoNotFree flag is set
 	if (HasFlag(Flags::DoNotFree))
 		return;
-	// only clear sequence and derivation tree if the input is actually derived from a derivation tree
+	// only clear _sequence and derivation tree if the _input is actually derived from a derivation tree
 	if (!HasFlag(Flags::NoDerivation)) {
-		// if input is generated AND the test has already been run and the callback has been invalidated
+		// if _input is generated AND the test has already been run and the _callback has been invalidated
 		// (i.e. we have evaluated oracle and stuff)
-		// we can destroy the derivation tree and clear the sequence to reclaim
+		// we can destroy the derivation tree and clear the _sequence to reclaim
 		// memory space
-		if (generatedSequence && test && test->IsValid() == false && !test->callback) {
-			generatedSequence = false;
+		if (_generatedSequence && test && test->IsValid() == false && !test->_callback) {
+			_generatedSequence = false;
 
 			if (derive) {
 				// automatically sets derive to invalid
-				if (derive->valid)
+				if (derive->_valid)
 					derive->Clear();
 				else
-					pythonconverted;
+					_pythonconverted;
 			}
-			sequence.clear();
-			orig_sequence.clear();
+			_sequence.clear();
+			_orig_sequence.clear();
 		}
 	}
 	// reset python string
-	pythonconverted = false;
-	pythonstring = "";
-	// reset test itr
+	_pythonconverted = false;
+	_pythonstring = "";
+	// reset test _itr
 	if (test)
-		test->itr = sequence.end();
+		test->_itr = _sequence.end();
 }
 
 void Input::TrimInput(int32_t executed)
 {
-	if (executed != -1 && executed != sequence.size()) {
+	if (executed != -1 && executed != _sequence.size()) {
 		// we are trimming to a specific length
-		trimmed = true;
+		_trimmed = true;
 		int32_t count = 0;
 		auto aitr = begin();
-		// add as long as we don't reach the end of the sequence and haven't added more than [executed] inputs
+		// add as long as we don't reach the end of the _sequence and haven't added more than [executed] inputs
 		while (aitr != end() && count != executed) {
-			orig_sequence.push_back(*aitr);
+			_orig_sequence.push_back(*aitr);
 			aitr++;
 			count++;
 		}
-		std::swap(sequence, orig_sequence);
-		trimmedlength = sequence.size();
+		std::swap(_sequence, _orig_sequence);
+		_trimmedlength = _sequence.size();
 	}
 }
 
@@ -603,7 +603,7 @@ int Input::lua_ConvertToPython(lua_State* L)
 	Input* input = (Input*)lua_touserdata(L, 1);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
 	input->ConvertToPython();
-	lua_pushstring(L, input->pythonstring.c_str());
+	lua_pushstring(L, input->_pythonstring.c_str());
 	return 1;
 }
 
@@ -611,7 +611,7 @@ int Input::lua_IsTrimmed(lua_State* L)
 {
 	Input* input = (Input*)lua_touserdata(L, 1);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
-	lua_pushboolean(L, input->trimmed);
+	lua_pushboolean(L, input->_trimmed);
 	return 1;
 }
 
@@ -620,7 +620,7 @@ int Input::lua_TrimInput(lua_State* L)
 	Input* input = (Input*)lua_touserdata(L, 1);
 	lua_Integer len = luaL_checkinteger(L, 2);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
-	luaL_argcheck(L, 0 <= len && len <= (lua_Integer)input->sequence.size(), 2, (std::string("out of range, value: ") + std::to_string(len) + std::string(" , max: ") + std::to_string(input->sequence.size())).c_str());
+	luaL_argcheck(L, 0 <= len && len <= (lua_Integer)input->_sequence.size(), 2, (std::string("out of range, value: ") + std::to_string(len) + std::string(" , max: ") + std::to_string(input->_sequence.size())).c_str());
 	input->TrimInput((int)len);
 	return 0;
 }
@@ -629,7 +629,7 @@ int Input::lua_GetExecutionTime(lua_State* L)
 {
 	Input* input = (Input*)lua_touserdata(L, 1);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
-	lua_pushinteger(L, (lua_Integer)input->executiontime.count());
+	lua_pushinteger(L, (lua_Integer)input->_executiontime.count());
 	return 1;
 }
 
@@ -637,7 +637,7 @@ int Input::lua_GetExitCode(lua_State* L)
 {
 	Input* input = (Input*)lua_touserdata(L, 1);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
-	lua_pushinteger(L, (lua_Integer)input->exitcode);
+	lua_pushinteger(L, (lua_Integer)input->_exitcode);
 	return 1;
 }
 
@@ -645,7 +645,7 @@ int Input::lua_GetSequenceLength(lua_State* L)
 {
 	Input* input = (Input*)lua_touserdata(L, 1);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
-	lua_pushinteger(L, (lua_Integer)input->sequence.size());
+	lua_pushinteger(L, (lua_Integer)input->_sequence.size());
 	return 1;
 }
 
@@ -654,10 +654,10 @@ int Input::lua_GetSequenceFirst(lua_State* L)
 	static const char* empty = "";
 	Input* input = (Input*)lua_touserdata(L, 1);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
-	input->lua_sequence_next = input->begin();
-	if (input->lua_sequence_next != input->end()) {
-		lua_pushstring(L, (*(input->lua_sequence_next)).c_str());
-		input->lua_sequence_next++;
+	input->_lua_sequence_next = input->begin();
+	if (input->_lua_sequence_next != input->end()) {
+		lua_pushstring(L, (*(input->_lua_sequence_next)).c_str());
+		input->_lua_sequence_next++;
 	} else
 		lua_pushstring(L, empty);
 	return 1;
@@ -668,9 +668,9 @@ int Input::lua_GetSequenceNext(lua_State* L)
 	static const char* empty = "";
 	Input* input = (Input*)lua_touserdata(L, 1);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
-	if (input->lua_sequence_next != input->end()) {
-		lua_pushstring(L, (*(input->lua_sequence_next)).c_str());
-		input->lua_sequence_next++;
+	if (input->_lua_sequence_next != input->end()) {
+		lua_pushstring(L, (*(input->_lua_sequence_next)).c_str());
+		input->_lua_sequence_next++;
 	} else
 		lua_pushstring(L, empty);
 	return 1;
@@ -681,7 +681,7 @@ int Input::lua_GetExitReason(lua_State* L)
 	Input* input = (Input*)lua_touserdata(L, 1);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
 	if (input->test) {
-		lua_pushinteger(L, (lua_Integer)input->test->exitreason);
+		lua_pushinteger(L, (lua_Integer)input->test->_exitreason);
 	} else
 		lua_pushinteger(L, -1);
 	return 1;
@@ -693,7 +693,7 @@ int Input::lua_GetCmdArgs(lua_State* L)
 	Input* input = (Input*)lua_touserdata(L, 1);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
 	if (input->test) {
-		lua_pushstring(L, input->test->cmdArgs.c_str());
+		lua_pushstring(L, input->test->_cmdArgs.c_str());
 	} else
 		lua_pushstring(L, empty);
 	return 1;
@@ -705,7 +705,7 @@ int Input::lua_GetOutput(lua_State* L)
 	Input* input = (Input*)lua_touserdata(L, 1);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
 	if (input->test) {
-		lua_pushstring(L, input->test->output.c_str());
+		lua_pushstring(L, input->test->_output.c_str());
 	} else
 		lua_pushstring(L, empty);
 	return 1;
@@ -716,7 +716,7 @@ int Input::lua_GetReactionTimeLength(lua_State* L)
 	Input* input = (Input*)lua_touserdata(L, 1);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
 	if (input->test)
-		lua_pushinteger(L, (lua_Integer)input->test->reactiontime.size());
+		lua_pushinteger(L, (lua_Integer)input->test->_reactiontime.size());
 	else
 		lua_pushinteger(L, -1);
 	return 1;
@@ -727,10 +727,10 @@ int Input::lua_GetReactionTimeFirst(lua_State* L)
 	Input* input = (Input*)lua_touserdata(L, 1);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
 	if (input->test) {
-		input->test->lua_reactiontime_next = input->test->reactiontime.end();
-		if (input->test->lua_reactiontime_next != input->test->reactiontime.end()) {
-			lua_pushinteger(L, (lua_Integer) (* (input->test->lua_reactiontime_next)));
-			input->test->lua_reactiontime_next++;
+		input->test->_lua_reactiontime_next = input->test->_reactiontime.end();
+		if (input->test->_lua_reactiontime_next != input->test->_reactiontime.end()) {
+			lua_pushinteger(L, (lua_Integer) (* (input->test->_lua_reactiontime_next)));
+			input->test->_lua_reactiontime_next++;
 		} else
 			lua_pushinteger(L, -1);
 	} else
@@ -743,9 +743,9 @@ int Input::lua_GetReactionTimeNext(lua_State* L)
 	Input* input = (Input*)lua_touserdata(L, 1);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
 	if (input->test) {
-		if (input->test->lua_reactiontime_next != input->test->reactiontime.end()) {
-			lua_pushinteger(L, (lua_Integer) (* (input->test->lua_reactiontime_next)));
-			input->test->lua_reactiontime_next++;
+		if (input->test->_lua_reactiontime_next != input->test->_reactiontime.end()) {
+			lua_pushinteger(L, (lua_Integer) (* (input->test->_lua_reactiontime_next)));
+			input->test->_lua_reactiontime_next++;
 		} else
 			lua_pushinteger(L, -1);
 	} else
@@ -758,7 +758,7 @@ int Input::lua_SetPrimaryScore(lua_State* L)
 	Input* input = (Input*)lua_touserdata(L, 1);
 	lua_Number score = lua_tonumber(L, 2);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
-	input->primaryScore = score;
+	input->_primaryScore = score;
 	return 0;
 }
 
@@ -767,7 +767,7 @@ int Input::lua_SetSecondaryScore(lua_State* L)
 	Input* input = (Input*)lua_touserdata(L, 1);
 	lua_Number score = lua_tonumber(L, 2);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
-	input->secondaryScore = score;
+	input->_secondaryScore = score;
 	return 0;
 }
 

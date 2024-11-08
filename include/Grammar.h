@@ -66,24 +66,24 @@ public:
 	/// [terminal] the terminals to be produced
 	/// [sequence] the begin of a new sequence entry
 	/// </summary>
-	std::string identifier;
-	std::string derivation;
+	std::string _identifier;
+	std::string _derivation;
 	/// <summary>
 	/// global treeid associated with this object
 	/// </summary>
-	uint64_t id;
-	std::vector<std::shared_ptr<GrammarExpansion>> expansions;
-	EnumType flags;
-	NodeType type = NodeType::NonTerminal;
-	std::set<std::shared_ptr<GrammarExpansion>> parents;
+	uint64_t _id;
+	std::vector<std::shared_ptr<GrammarExpansion>> _expansions;
+	EnumType _flags;
+	NodeType _type = NodeType::NonTerminal;
+	std::set<std::shared_ptr<GrammarExpansion>> _parents;
 
-	bool reachable = false;
-	bool producing = false;
+	bool _reachable = false;
+	bool _producing = false;
 
 	/// <summary>
 	/// used in pruning. When set to true, the node needs to be deleted
 	/// </summary>
-	bool remove = false;
+	bool _remove = false;
 
 	/// <summary>
 	/// whether this node is a leaf
@@ -140,45 +140,45 @@ public:
 	/// <summary>
 	/// The nodes that are produced by this expansion
 	/// </summary>
-	std::vector<std::shared_ptr<GrammarNode>> nodes;
+	std::vector<std::shared_ptr<GrammarNode>> _nodes;
 	/// <summary>
 	/// the relative weight, that this expansion is chosen during input generation
 	/// </summary>
-	float weight;
+	float _weight;
 	/// <summary>
 	/// global treeid associated with this object
 	/// </summary>
-	uint64_t id;
+	uint64_t _id;
 	/// <summary>
 	/// whether at least one subtree created by this expansion is producing
 	/// </summary>
-	bool producing = false;
+	bool _producing = false;
 	/// <summary>
 	/// flags collected from nodes
 	/// </summary>
-	EnumType flags;
+	EnumType _flags;
 	/// <summary>
 	/// used in pruning. When set to true the expansion needs to be deleted
 	/// </summary>
-	bool remove = false;
+	bool _remove = false;
 
 	/// <summary>
 	/// number of non-terminals in the expansion
 	/// </summary>
-	int32_t nonterminals = 0;
+	int32_t _nonterminals = 0;
 	/// <summary>
 	/// number of sequence non-terminals in the expansion
 	/// </summary>
-	int32_t seqnonterminals = 0;
+	int32_t _seqnonterminals = 0;
 	/// <summary>
 	/// number of terminals in the expansion
 	/// </summary>
-	int32_t terminals = 0;
+	int32_t _terminals = 0;
 
 	/// <summary>
 	/// parent of this expansion
 	/// </summary>
-	std::shared_ptr<GrammarNode> parent;
+	std::shared_ptr<GrammarNode> _parent;
 
 	virtual Type GetObjectType();
 
@@ -267,18 +267,18 @@ public:
 	std::string Scala();
 
 private:
-	std::set<std::shared_ptr<GrammarNode>> nonterminals;
-	std::set<std::shared_ptr<GrammarNode>> terminals;
-	std::unordered_map<uint64_t, std::shared_ptr<GrammarNode>> hashmap;
-	std::unordered_map<uint64_t, std::shared_ptr<GrammarExpansion>> hashmap_expansions;
-	std::vector<uint64_t> ruleorder;
+	std::set<std::shared_ptr<GrammarNode>> _nonterminals;
+	std::set<std::shared_ptr<GrammarNode>> _terminals;
+	std::unordered_map<uint64_t, std::shared_ptr<GrammarNode>> _hashmap;
+	std::unordered_map<uint64_t, std::shared_ptr<GrammarExpansion>> _hashmap_expansions;
+	std::vector<uint64_t> _ruleorder;
 
-	std::shared_ptr<GrammarNode> root;
+	std::shared_ptr<GrammarNode> _root;
 
-	bool valid = false;
+	bool _valid = false;
 
 	int32_t _numcycles = 0;
-	uint64_t nextid = 0;
+	uint64_t _nextid = 0;
 
 	uint64_t GetNextID();
 
@@ -368,7 +368,7 @@ public:
 	#pragma endregion
 
 private:
-	std::shared_ptr<GrammarTree> tree;
+	std::shared_ptr<GrammarTree> _tree;
 
 	const int32_t classversion = 0x1;
 };
@@ -385,7 +385,7 @@ public:
 		virtual void Run() = 0;
 		virtual void Dispose() = 0;
 	};
-	std::shared_ptr<GrammarTree> tree;
+	std::shared_ptr<GrammarTree> _tree;
 	~LoadResolverGrammar();
 
 	void AddTask(TaskFn a_task);
@@ -397,8 +397,8 @@ public:
 	void Resolve();
 
 private:
-	std::queue<TaskDelegate*> tasks;
-	std::mutex lock;
+	std::queue<TaskDelegate*> _tasks;
+	std::mutex _lock;
 
 	class Task : public TaskDelegate
 	{

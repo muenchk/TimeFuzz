@@ -248,7 +248,7 @@ bool SessionData::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(_generationfails, buffer, offset);
 	Buffer::Write(_generatedinputs, buffer, offset);
 	Buffer::Write(_generatedWithPrefix, buffer, offset);
-	Buffer::Write(lastchecks, buffer, offset);
+	Buffer::Write(_lastchecks, buffer, offset);
 	// -----VERSION 2-----
 	Buffer::Write(exitstats.natural, buffer, offset);
 	Buffer::Write(exitstats.lastinput, buffer, offset);
@@ -337,7 +337,7 @@ bool SessionData::ReadData0x1(unsigned char* buffer, size_t& offset, size_t /*le
 	_generationfails = Buffer::ReadInt64(buffer, offset);
 	_generatedinputs = Buffer::ReadInt64(buffer, offset);
 	_generatedWithPrefix = Buffer::ReadInt64(buffer, offset);
-	lastchecks = Buffer::ReadTime(buffer, offset);
+	_lastchecks = Buffer::ReadTime(buffer, offset);
 	return true;
 }
 
@@ -388,7 +388,7 @@ bool SessionData::ReadData(unsigned char* buffer, size_t& offset, size_t length,
 				this->_settings = resolver->ResolveFormID<Settings>(Data::StaticFormIDs::Settings);
 				this->_excltree = resolver->ResolveFormID<ExclusionTree>(Data::StaticFormIDs::ExclusionTree);
 				// this is redundant and has already been set
-				this->data = resolver->data;
+				this->data = resolver->_data;
 			});
 			return true;
 		}

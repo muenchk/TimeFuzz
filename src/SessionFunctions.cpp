@@ -17,7 +17,7 @@
 std::shared_ptr<Input> SessionFunctions::GenerateInput(std::shared_ptr<SessionData>& sessiondata)
 {
 	loginfo("[GenerateInput] create form");
-	// generate a new input
+	// generate a new _input
 	std::shared_ptr<Input> input = sessiondata->data->CreateForm<Input>();
 	input->derive = sessiondata->data->CreateForm<DerivationTree>();
 	loginfo("[GenerateInput] generate");
@@ -29,52 +29,52 @@ std::shared_ptr<Input> SessionFunctions::GenerateInput(std::shared_ptr<SessionDa
 		return {};
 	}
 	loginfo("[GenerateInput] setup");
-	// setup input class
-	input->hasfinished = false;
-	input->trimmed = false;
-	input->executiontime = std::chrono::nanoseconds(0);
-	input->exitcode = 0;
-	input->pythonstring = "";
-	input->pythonconverted = false;
-	input->stringrep = "";
-	input->oracleResult = OracleResult::None;
+	// setup _input class
+	input->_hasfinished = false;
+	input->_trimmed = false;
+	input->_executiontime = std::chrono::nanoseconds(0);
+	input->_exitcode = 0;
+	input->_pythonstring = "";
+	input->_pythonconverted = false;
+	input->_stringrep = "";
+	input->_oracleResult = OracleResult::None;
 
 	return input;
 }
 
 void SessionFunctions::GenerateInput(std::shared_ptr<Input>& input, std::shared_ptr<SessionData>& sessiondata)
 {
-	// if we already generated the input: skip
+	// if we already generated the _input: skip
 	if (input->GetGenerated() || !sessiondata->_generator)
 		return;
 	if (input) {
-		// generate a new input
+		// generate a new _input
 		if (!input->derive)
 			input->derive = sessiondata->data->CreateForm<DerivationTree>();
 		loginfo("[GenerateInput] generate");
-		if (sessiondata->_generator->GetGrammar() && sessiondata->_generator->GetGrammar()->GetFormID() == input->derive->grammarID) {
+		if (sessiondata->_generator->GetGrammar() && sessiondata->_generator->GetGrammar()->GetFormID() == input->derive->_grammarID) {
 			if (sessiondata->_generator->Generate(input) == false) {
 				sessiondata->data->DeleteForm(input->derive);
 				input->derive.reset();
 				sessiondata->data->DeleteForm(input);
 			}
 		} else {
-			auto grammar = sessiondata->data->LookupFormID<Grammar>(input->derive->grammarID);
+			auto grammar = sessiondata->data->LookupFormID<Grammar>(input->derive->_grammarID);
 			if (grammar) {
 				sessiondata->_generator->Generate(input, grammar);
 				return;
 			}
 		}
 		loginfo("[GenerateInput] setup");
-		// setup input class
-		input->hasfinished = false;
-		input->trimmed = false;
-		input->executiontime = std::chrono::nanoseconds(0);
-		input->exitcode = 0;
-		input->pythonstring = "";
-		input->pythonconverted = false;
-		input->stringrep = "";
-		input->oracleResult = OracleResult::None;
+		// setup _input class
+		input->_hasfinished = false;
+		input->_trimmed = false;
+		input->_executiontime = std::chrono::nanoseconds(0);
+		input->_exitcode = 0;
+		input->_pythonstring = "";
+		input->_pythonconverted = false;
+		input->_stringrep = "";
+		input->_oracleResult = OracleResult::None;
 	} else
 		input = GenerateInput(sessiondata);
 }
@@ -117,7 +117,7 @@ void SessionFunctions::SaveSession_Async(std::shared_ptr<SessionData> sessiondat
 	loginfo("Master Save Session");
 	// async function that simply initiates the save
 	// we are using this to free us from a potential deadlock in the TaskController
-	// if the save is orchestrated by a callback within the TaskController
+	// if the save is orchestrated by a _callback within the TaskController
 	// if we would allow it, the saving function that stops the taskcontroller temporarily
 	// would deadlock itself
 	sessiondata->data->Save();
@@ -138,7 +138,7 @@ bool SessionFunctions::EndCheck(std::shared_ptr<SessionData>& sessiondata)
 
 	double failureRate = 0.0f;
 
-	// check whether the recent input generation is converging and we should abort the program 
+	// check whether the recent _input generation is converging and we should abort the program 
 	if (sessiondata->_generatedinputs < (int64_t)sessiondata->GENERATION_WEIGHT_BUFFER_SIZE) {
 		failureRate = (double)std::accumulate(sessiondata->_recentfailes.begin(), sessiondata->_recentfailes.end(), 0) / (double)sessiondata->_generatedinputs;
 		if (failureRate >= sessiondata->GENERATION_WEIGHT_LIMIT)
@@ -165,7 +165,7 @@ void SessionFunctions::EndSession_Async(std::shared_ptr<SessionData> sessiondata
 {
 	loginfo("Master End Session");
 	auto session = sessiondata->data->CreateForm<Session>();
-	if (session->abort)
+	if (session->_abort)
 		return;
 	// async function that ends the session itself
 
@@ -175,7 +175,7 @@ void SessionFunctions::EndSession_Async(std::shared_ptr<SessionData> sessiondata
 	// end the session
 
 	// set abort flag to catch all threads that try to escape
-	session->abort = true;
+	session->_abort = true;
 	session->StopSession(false);
 }
 
@@ -190,7 +190,7 @@ Data::VisitAction HandleInput(std::shared_ptr<Form> form)
 void SessionFunctions::ReclaimMemory(std::shared_ptr<SessionData>& sessiondata)
 {
 	StartProfiling;
-	sessiondata->lastmemorysweep = std::chrono::steady_clock::now();
+	sessiondata->_lastMemorySweep = std::chrono::steady_clock::now();
 	sessiondata->data->Visit(HandleInput);
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
@@ -199,8 +199,8 @@ void SessionFunctions::ReclaimMemory(std::shared_ptr<SessionData>& sessiondata)
 	uint64_t mem = Processes::GetProcessMemory(GetCurrentProcess());
 #endif
 	mem = mem / 1048576;
-	profile(TimeProfiling, "Freed {} MB", sessiondata->memory_mem - mem);
-	sessiondata->memory_mem = mem;
+	profile(TimeProfiling, "Freed {} MB", sessiondata->_memory_mem - mem);
+	sessiondata->_memory_mem = mem;
 }
 
 void SessionFunctions::MasterControl(std::shared_ptr<SessionData>& sessiondata, bool forceexecute)
@@ -218,7 +218,7 @@ void SessionFunctions::MasterControl(std::shared_ptr<SessionData>& sessiondata, 
 
 	StartProfiling;
 
-	std::chrono::nanoseconds timediff = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - sessiondata->lastchecks);
+	std::chrono::nanoseconds timediff = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - sessiondata->_lastchecks);
 
 	loginfo("[MasterControl] EndCheck");
 
@@ -244,38 +244,38 @@ void SessionFunctions::MasterControl(std::shared_ptr<SessionData>& sessiondata, 
 	*/
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
-	sessiondata->memory_mem = Processes::GetProcessMemory(getpid());
+	sessiondata->_memory_mem = Processes::GetProcessMemory(getpid());
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-	sessiondata->memory_mem = Processes::GetProcessMemory(GetCurrentProcess());
+	sessiondata->_memory_mem = Processes::GetProcessMemory(GetCurrentProcess());
 #endif
-	sessiondata->memory_mem = sessiondata->memory_mem / 1048576;
+	sessiondata->_memory_mem = sessiondata->_memory_mem / 1048576;
 
-	if (sessiondata->memory_outofmemory == true)
+	if (sessiondata->_memory_outofmemory == true)
 	{
-		if (sessiondata->memory_ending == false) {
+		if (sessiondata->_memory_ending == false) {
 			// we are still not ending so check the timer
-			if (sessiondata->memory_outofmemory_timer < std::chrono::steady_clock::now())
+			if (sessiondata->_memory_outofmemory_timer < std::chrono::steady_clock::now())
 			{
 				// we have exceeded the timer
 				// if we have more memory consumption than the limit, exit
-				if ((int64_t)sessiondata->memory_mem > sessiondata->_settings->general.memory_limit) {
-					sessiondata->memory_ending = true;
+				if ((int64_t)sessiondata->_memory_mem > sessiondata->_settings->general.memory_limit) {
+					sessiondata->_memory_ending = true;
 					std::thread(EndSession_Async, sessiondata).detach();
 				} else
-					sessiondata->memory_outofmemory = false;
+					sessiondata->_memory_outofmemory = false;
 			}
 		}
 	} else {
-		if ((int64_t)sessiondata->memory_mem > sessiondata->_settings->general.memory_softlimit) {
-			if ((int64_t)sessiondata->memory_mem > sessiondata->_settings->general.memory_limit || std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - sessiondata->lastmemorysweep) > sessiondata->_settings->general.memory_sweep_period) {
+		if ((int64_t)sessiondata->_memory_mem > sessiondata->_settings->general.memory_softlimit) {
+			if ((int64_t)sessiondata->_memory_mem > sessiondata->_settings->general.memory_limit || std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - sessiondata->_lastMemorySweep) > sessiondata->_settings->general.memory_sweep_period) {
 				// free memory
 				ReclaimMemory(sessiondata);
 				// if we were above the memory limit set the outofmemory flag, and a timer
 				// if we are still above the limit when the timer ends, save and end the session
 				// (even though sving might consume a bit more memory)
-				if ((int64_t)sessiondata->memory_mem > sessiondata->_settings->general.memory_limit) {
-					sessiondata->memory_outofmemory = true;
-					sessiondata->memory_outofmemory_timer = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
+				if ((int64_t)sessiondata->_memory_mem > sessiondata->_settings->general.memory_limit) {
+					sessiondata->_memory_outofmemory = true;
+					sessiondata->_memory_outofmemory_timer = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
 				}
 			}
 		}
@@ -308,32 +308,32 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 		sessiondata->data->DeleteForm(input);
 		std::cout << "Delete Done\n";
 	}
-	if (input->test->skipOracle)
+	if (input->test->_skipOracle)
 		return;
 	// calculate oracle result
 	bool stateerror = false;
-	input->oracleResult = Lua::EvaluateOracle(std::bind(&Oracle::Evaluate, sessiondata->_oracle, std::placeholders::_1, std::placeholders::_2), input->test, stateerror);
+	input->_oracleResult = Lua::EvaluateOracle(std::bind(&Oracle::Evaluate, sessiondata->_oracle, std::placeholders::_1, std::placeholders::_2), input->test, stateerror);
 	if (stateerror) {
 		logcritical("Test End functions cannot be completed, as the calling thread lacks a lua context");
 		return;
 	}
-	// check whether output should be stored
-	input->test->storeoutput = sessiondata->_settings->tests.storePUToutput || (sessiondata->_settings->tests.storePUToutputSuccessful && input->GetOracleResult() == OracleResult::Passing);
+	// check whether _output should be stored
+	input->test->_storeoutput = sessiondata->_settings->tests.storePUToutput || (sessiondata->_settings->tests.storePUToutputSuccessful && input->GetOracleResult() == OracleResult::Passing);
 
-	// check input result
+	// check _input result
 	switch (input->GetOracleResult()) {
 	case OracleResult::Failing:
 		{
-		// -----We have a failing input-----
+		// -----We have a failing _input-----
 			sessiondata->_negativeInputNumbers++;
 
 			// -----Calculate initial weight for backtracking-----
 			double weight = 0.0f;
 
-			// -----Add input to its list-----
+			// -----Add _input to its list-----
 			sessiondata->AddInput(input, OracleResult::Failing, weight);
 			
-			// -----Add input to exclusion tree as result is fixed-----
+			// -----Add _input to exclusion tree as result is fixed-----
 			sessiondata->_excltree->AddInput(input, OracleResult::Failing);
 
 
@@ -342,13 +342,13 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 		break;
 	case OracleResult::Passing:
 		{
-			// -----We have a passing input-----
+			// -----We have a passing _input-----
 			sessiondata->_positiveInputNumbers++;
 
-			// -----Add input to its list-----
+			// -----Add _input to its list-----
 			sessiondata->AddInput(input, OracleResult::Passing);
 
-			// -----Add input to exclusion tree as result is fixed-----
+			// -----Add _input to exclusion tree as result is fixed-----
 			sessiondata->_excltree->AddInput(input, OracleResult::Passing);
 
 
@@ -357,7 +357,7 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 		break;
 	case OracleResult::Prefix:
 		{
-			// -----The input has a prefix that has already been decided-----
+			// -----The _input has a prefix that has already been decided-----
 			sessiondata->AddInput(input, OracleResult::Prefix);
 			// inputs which's value is determined by a prefix cannot get here, as they 
 			// are caught on generation, so everything here is just for show
@@ -365,7 +365,7 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 		break;
 	case OracleResult::Unfinished:
 		{
-			// -----We have an unfinished input-----
+			// -----We have an unfinished _input-----
 			sessiondata->_unfinishedInputNumbers++;
 
 			// -----Calculate initial weight for expansion-----
@@ -373,10 +373,10 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 
 
 
-			// -----Add input to its list-----
+			// -----Add _input to its list-----
 			sessiondata->AddInput(input, OracleResult::Unfinished, weight);
 
-			// -----Add input to exclusion tree to avoid duplicate execution-----
+			// -----Add _input to exclusion tree to avoid duplicate execution-----
 			sessiondata->_excltree->AddInput(input, OracleResult::Unfinished);
 
 
@@ -550,7 +550,7 @@ namespace Functions
 						gencount++;
 						// we found one that isn't a prefix
 						_sessiondata->IncGeneratedInputs();
-						//inputs.push_back(input);
+						//inputs.push_back(_input);
 						logdebug("[MasterGenerationCallback] add test");
 						// add tests to execution handler
 						auto callback = dynamic_pointer_cast<Functions::TestCallback>(Functions::TestCallback::Create());
@@ -600,13 +600,13 @@ namespace Functions
 				logdebug("[MasterGenerationCallback] add test");
 				// add tests to execution handler
 				for (auto inp : inputs) {
-					auto callback = dynamic_pointer_cast<Functions::TestCallback>(Functions::TestCallback::Create());
-					callback->_sessiondata = _sessiondata;
-					callback->_input = inp;
-					if (_sessiondata->_exechandler->AddTest(inp, callback) == false) {
+					auto _callback = dynamic_pointer_cast<Functions::TestCallback>(Functions::TestCallback::Create());
+					_callback->_sessiondata = _sessiondata;
+					_callback->_input = inp;
+					if (_sessiondata->_exechandler->AddTest(inp, _callback) == false) {
 						_sessiondata->IncAddTestFails();
 						_sessiondata->data->DeleteForm(inp);
-						callback->Dispose();
+						_callback->Dispose();
 					}
 				}
 				return;

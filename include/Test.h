@@ -77,67 +77,67 @@ public:
 	/// <summary>
 	/// whether test is currently running
 	/// </summary>
-	bool running = false;
+	bool _running = false;
 	/// <summary>
 	/// the time of the tests start
 	/// </summary>
-	std::chrono::steady_clock::time_point starttime;
+	std::chrono::steady_clock::time_point _starttime;
 	/// <summary>
 	/// the time of the tests end
 	/// </summary>
-	std::chrono::steady_clock::time_point endtime;
+	std::chrono::steady_clock::time_point _endtime;
 	/// <summary>
 	/// the input for the PUT
 	/// </summary>
-	std::weak_ptr<Input> input;
+	std::weak_ptr<Input> _input;
 	/// <summary>
 	/// the iterator the to the next sequence element to be given to executable
 	/// </summary>
-	std::list<std::string>::iterator itr;
+	std::list<std::string>::iterator _itr;
 	/// <summary>
 	/// the end iterator of the sequence
 	/// </summary>
-	std::list<std::string>::iterator itrend;
+	std::list<std::string>::iterator _itrend;
 	/// <summary>
 	/// last string written to program
 	/// </summary>
-	std::string lastwritten;
+	std::string _lastwritten;
 	/// <summary>
 	/// time the last input was given to the process
 	/// </summary>
-	std::chrono::steady_clock::time_point lasttime;
+	std::chrono::steady_clock::time_point _lasttime;
 	/// <summary>
 	/// reaction time for each fragment [on whole test this contains only one element]
 	/// </summary>
-	std::list<uint64_t> reactiontime;
-	std::list<uint64_t>::iterator lua_reactiontime_next;
+	std::list<uint64_t> _reactiontime;
+	std::list<uint64_t>::iterator _lua_reactiontime_next;
 	/// <summary>
 	/// called after the test has been finished
 	/// </summary>
-	std::shared_ptr<Functions::BaseFunction> callback;
+	std::shared_ptr<Functions::BaseFunction> _callback;
 	/// <summary>
 	/// command line args for the test
 	/// </summary>
-	std::string cmdArgs;
+	std::string _cmdArgs;
 
 	/// <summary>
 	/// output of the PUT
 	/// </summary>
-	std::string output;
+	std::string _output;
 	/// <summary>
 	/// whether to store the put output
 	/// </summary>
-	bool storeoutput;
+	bool _storeoutput;
 
 	/// <summary>
 	/// unique test identifier
 	/// </summary>
-	uint64_t identifier;
+	uint64_t _identifier;
 
 	/// <summary>
 	/// reason the process has exited
 	/// </summary>
-	uint64_t exitreason = ExitReason::Running;
+	uint64_t _exitreason = ExitReason::Running;
 
 	// process stuff
 #if defined(unix) || defined(__unix__) || defined(__unix)
@@ -155,7 +155,7 @@ public:
 	/// <summary>
 	/// this is a flag indicating that this test was already run and no oracle is necessary
 	/// </summary>
-	bool skipOracle = false;
+	bool _skipOracle = false;
 
 	/// <summary>
 	/// Returns whether the test is still running
@@ -222,7 +222,7 @@ public:
 	/// returns whether the test is valid and still needs to be run
 	/// </summary>
 	/// <returns></returns>
-	bool IsValid() { return valid; }
+	bool IsValid() { return _valid; }
 
 	void DeepCopy(std::shared_ptr<Test> other);
 
@@ -247,7 +247,7 @@ public:
 
 private:
 	inline static bool _registeredFactories = false;
-	bool valid = true;
+	bool _valid = true;
 };
 
 namespace Functions

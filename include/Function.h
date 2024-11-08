@@ -17,8 +17,6 @@ namespace Functions
 
 	class BaseFunction
 	{
-	private:
-		std::vector<void**> ptrs;
 	public:
 		/// <summary>
 		/// Runs the function

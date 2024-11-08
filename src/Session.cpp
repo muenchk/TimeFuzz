@@ -38,7 +38,7 @@ void Session::LoadSession_Async(Data* dat, std::string name, int32_t number, Loa
 		dat->Load(name, number);
 	auto session = dat->CreateForm<Session>();
 	session->_self = session;
-	session->loaded = true;
+	session->_loaded = true;
 	bool error = false;
 	if (args && args->startSession == true)
 		session->StartLoadedSession(error, args->reloadSettings, args->settingsPath);
@@ -117,7 +117,7 @@ Session::~Session()
 
 void Session::Clear()
 {
-	abort = true;
+	_abort = true;
 	if (_sessioncontroller.joinable())
 		_sessioncontroller.detach();
 	_sessioncontroller = {};
@@ -163,9 +163,9 @@ void Session::Clear()
 		data = nullptr;
 		tmp->Clear();
 	}
-	LastError = 0;
+	_lastError = 0;
 	data = nullptr;
-	running = false;
+	_running = false;
 }
 
 void Session::RegisterFactories()
@@ -202,14 +202,14 @@ std::vector<std::shared_ptr<Input>> Session::GenerateNegatives(int32_t /*negativ
 
 void Session::StopSession(bool savesession)
 {
-	if (abort == true)
+	if (_abort == true)
 		return;
 	logmessage("Stopping session.");
 	if (savesession)
 		data->Save();
 
 	// set abort -> session controller should automatically stop
-	abort = true;
+	_abort = true;
 	if (_sessiondata) {
 		// stop executionhandler first, so no more new tests are started and the 
 		// taskcontroller can catch up if necessary
@@ -231,7 +231,7 @@ void Session::StopSession(bool savesession)
 void Session::DestroySession()
 {
 	// delete everything. If this isn't called the session is likely to persist until the program ends
-	loaded = false;
+	_loaded = false;
 	Delete(data);
 }
 
@@ -248,10 +248,10 @@ void Session::SetSessionEndCallback(std::function<void()> callback)
 
 void Session::StartLoadedSession(bool& error, bool reloadsettings, std::wstring settingsPath, std::function<void()> callback)
 {
-	if (loaded == false)
+	if (_loaded == false)
 	{
 		logcritical("Cannot start session before it has been fully loaded.");
-		LastError = ExitCodes::StartupError;
+		_lastError = ExitCodes::StartupError;
 		error = true;
 		return;
 	}
@@ -266,7 +266,7 @@ void Session::StartLoadedSession(bool& error, bool reloadsettings, std::wstring 
 		// reset oracle after settings reload
 		if (_sessiondata->_settings->oracle.oracle == Oracle::PUTType::Undefined) {
 			logcritical("The oracle type could not be identified");
-			LastError = ExitCodes::StartupError;
+			_lastError = ExitCodes::StartupError;
 			error = true;
 			return;
 		}
@@ -277,7 +277,7 @@ void Session::StartLoadedSession(bool& error, bool reloadsettings, std::wstring 
 		if (!std::filesystem::exists(path))
 		{
 			logcritical("Lua CmdArgs script cannot be found.");
-			LastError = ExitCodes::StartupError;
+			_lastError = ExitCodes::StartupError;
 			error = true;
 			return;
 		}
@@ -291,7 +291,7 @@ void Session::StartLoadedSession(bool& error, bool reloadsettings, std::wstring 
 		path = std::filesystem::path(_sessiondata->_settings->oracle.lua_path_oracle);
 		if (!std::filesystem::exists(path)) {
 			logcritical("Lua Oracle script cannot be found.");
-			LastError = ExitCodes::StartupError;
+			_lastError = ExitCodes::StartupError;
 			error = true;
 			return;
 		}
@@ -302,7 +302,7 @@ void Session::StartLoadedSession(bool& error, bool reloadsettings, std::wstring 
 		_callback = callback;
 	if (_sessiondata->_oracle->Validate() == false) {
 		logcritical("Oracle isn't valid.");
-		LastError = ExitCodes::StartupError;
+		_lastError = ExitCodes::StartupError;
 		error = true;
 		return;
 	}
@@ -312,7 +312,7 @@ void Session::StartLoadedSession(bool& error, bool reloadsettings, std::wstring 
 
 void Session::StartSession(bool& error, bool globalTaskController, bool globalExecutionHandler, std::wstring settingsPath, std::function<void()> callback)
 {
-	loaded = true;
+	_loaded = true;
 	logmessage("Starting new session");
 	// init sessiondata
 	_sessiondata = data->CreateForm<SessionData>();
@@ -343,7 +343,7 @@ void Session::StartSessionIntern(bool &error)
 		// populate the oracle
 		if (_sessiondata->_settings->oracle.oracle == Oracle::PUTType::Undefined) {
 			logcritical("The oracle type could not be identified");
-			LastError = ExitCodes::StartupError;
+			_lastError = ExitCodes::StartupError;
 			error = true;
 			return;
 		}
@@ -353,7 +353,7 @@ void Session::StartSessionIntern(bool &error)
 		auto path = std::filesystem::path(_sessiondata->_settings->oracle.lua_path_cmd);
 		if (!std::filesystem::exists(path)) {
 			logcritical("Lua CmdArgs script cannot be found.");
-			LastError = ExitCodes::StartupError;
+			_lastError = ExitCodes::StartupError;
 			error = true;
 			return;
 		}
@@ -362,7 +362,7 @@ void Session::StartSessionIntern(bool &error)
 		path = std::filesystem::path(_sessiondata->_settings->oracle.lua_path_oracle);
 		if (!std::filesystem::exists(path)) {
 			logcritical("Lua Oracle script cannot be found.");
-			LastError = ExitCodes::StartupError;
+			_lastError = ExitCodes::StartupError;
 			error = true;
 			return;
 		}
@@ -376,7 +376,7 @@ void Session::StartSessionIntern(bool &error)
 		// check the oracle for validity
 		if (_sessiondata->_oracle->Validate() == false) {
 			logcritical("Oracle isn't valid.");
-			LastError = ExitCodes::StartupError;
+			_lastError = ExitCodes::StartupError;
 			error = true;
 			return;
 		}
@@ -386,7 +386,7 @@ void Session::StartSessionIntern(bool &error)
 		_sessiondata->_grammar->ParseScala(_sessiondata->_settings->oracle.grammar_path);
 		if (!_sessiondata->_grammar->IsValid()) {
 			logcritical("Grammar isn't valid.");
-			LastError = ExitCodes::StartupError;
+			_lastError = ExitCodes::StartupError;
 			error = true;
 			return;
 		}
@@ -441,8 +441,9 @@ void Session::SessionControl()
 	_sessiondata->_exechandler->Init(_self, _sessiondata, _sessiondata->_settings, _sessiondata->_controller, _sessiondata->_settings->general.concurrenttests, _sessiondata->_oracle);
 	_sessiondata->_exechandler->StartHandlerAsIs();
 	_sessiondata->_excltree = data->CreateForm<ExclusionTree>();
+	_sessiondata->_excltree->Init(_sessiondata);
 
-	running = true;
+	_running = true;
 	data->StartClock();
 
 	// run master control and kick stuff of
@@ -459,7 +460,7 @@ void Session::End()
 {
 	logmessage("Ending Session...");
 	_hasFinished = true;
-	running = false;
+	_running = false;
 	_waitSessionCond.notify_all();
 	if (_callback != nullptr) {
 		logmessage("Executing session end callback...");
@@ -511,7 +512,7 @@ void Session::InitStatus(SessionStatus* status, std::shared_ptr<Settings> sett)
 
 void Session::GetStatus(SessionStatus& status)
 {
-	if (loaded) {
+	if (_loaded) {
 		status.overallTests = SessionStatistics::TestsExecuted(_sessiondata);
 		status.positiveTests = SessionStatistics::PositiveTestsGenerated(_sessiondata);
 		status.negativeTests = SessionStatistics::NegativeTestsGenerated(_sessiondata);
@@ -560,13 +561,13 @@ void Session::GetStatus(SessionStatus& status)
 		// Tests
 		status.exitstats = _sessiondata->GetTestExitStats();
 	}
-	status.saveload = data->actionloadsave;
-	status.status = data->status;
-	status.record = data->record;
-	status.saveload_max = data->actionloadsave_max;
-	status.saveload_current = data->actionloadsave_current;
-	status.saveload_record_len = data->actionrecord_len;
-	status.saveload_record_current = data->actionrecord_offset;
+	status.saveload = data->_actionloadsave;
+	status.status = data->_status;
+	status.record = data->_record;
+	status.saveload_max = data->_actionloadsave_max;
+	status.saveload_current = data->_actionloadsave_current;
+	status.saveload_record_len = data->_actionrecord_len;
+	status.saveload_record_current = data->_actionrecord_offset;
 	if (status.saveload_max != 0)
 		status.gsaveload = (double)status.saveload_current / (double)status.saveload_max;
 	else
@@ -580,21 +581,21 @@ void Session::GetStatus(SessionStatus& status)
 
 bool Session::IsRunning()
 {
-	std::lock_guard<std::mutex> guard(runninglock);
-	return running;
+	std::lock_guard<std::mutex> guard(_runninglock);
+	return _running;
 }
 
 bool Session::SetRunning(bool state)
 {
-	std::lock_guard<std::mutex> guard(runninglock);
-	if (running != state) {
+	std::lock_guard<std::mutex> guard(_runninglock);
+	if (_running != state) {
 		// either we are starting a session or we are ending it, so this is a viable state
-		running = state;
+		_running = state;
 		return true;
 	} else {
 		// we are either not running a session and have encountered an unexpected situation,
 		// or we are running a session and are trying to start another one
-		logwarn("Trying to set session state has failes. Current state: {}", running);
+		logwarn("Trying to set session state has failes. Current state: {}", _running);
 		return false;
 	}
 }
@@ -692,7 +693,7 @@ void Session::Replay(FormID inputid)
 
 void Session::UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k)
 {
-	if (!loaded)
+	if (!_loaded)
 		return;
 	if (vector.size() < k)
 		vector.resize(k);
@@ -709,7 +710,7 @@ void Session::UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k)
 
 UI::UIDeltaDebugging Session::UI_StartDeltaDebugging()
 {
-	if (!loaded)
+	if (!_loaded)
 		return {};
 	bool reg = Lua::RegisterThread(_sessiondata);
 	auto vec = _sessiondata->GetTopK_Unfinished((int32_t)1);
@@ -727,7 +728,7 @@ UI::UIDeltaDebugging Session::UI_StartDeltaDebugging()
 
 UI::UIDeltaDebugging Session::UI_FindDeltaDebugging()
 {
-	if (!loaded)
+	if (!_loaded)
 		return {};
 	auto vec = _sessiondata->data->GetFormArray<DeltaDebugging::DeltaController>();
 	if (vec.size() > 0) {

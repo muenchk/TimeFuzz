@@ -5,7 +5,7 @@
 #include <list>
 #include <vector>
 #include <string>
-
+#include "Form.h"
 
 namespace Buffer
 {

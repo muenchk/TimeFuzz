@@ -27,29 +27,29 @@ Data* Data::GetSingleton()
 
 std::string Data::GetSaveName()
 {
-	std::string name = uniquename + "_" + std::to_string(savenumber) + extension;
-	savenumber++;
+	std::string name = _uniquename + "_" + std::to_string(_savenumber) + _extension;
+	_savenumber++;
 	return name;
 }
 
 void Data::SetSaveName(std::string name)
 {
-	uniquename = name;
+	_uniquename = name;
 }
 
 void Data::SetSavePath(std::filesystem::path path)
 {
-	savepath = path;
+	_savepath = path;
 }
 
 void Data::Save()
 {
-	runtime += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - sessionBegin);
-	actionloadsave = true;
-	actionloadsave_max = 0;
-	actionrecord_len = 0;
-	actionrecord_offset = 0;
-	status = "Beginning save...";
+	_runtime += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - _sessionBegin);
+	_actionloadsave = true;
+	_actionloadsave_max = 0;
+	_actionrecord_len = 0;
+	_actionrecord_offset = 0;
+	_status = "Beginning save...";
 	StartProfiling;
 	// saves the current state of the program to disk
 	// saving requires all active operations to cease while the data is collected and written to disk
@@ -61,20 +61,20 @@ void Data::Save()
 	std::cout << "hashtable size: " << _hashmap.size() << "\n";
 	// create new file on disc
 	std::string name = GetSaveName();
-	if (!std::filesystem::exists(savepath))
-		std::filesystem::create_directories(savepath);
-	logdebug("{}", (savepath / name).string());
-	std::cout << "path: " << (savepath / name).string() << "\n";
-	std::ofstream fsave = std::ofstream((savepath / name), std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
+	if (!std::filesystem::exists(_savepath))
+		std::filesystem::create_directories(_savepath);
+	logdebug("{}", (_savepath / name).string());
+	std::cout << "path: " << (_savepath / name).string() << "\n";
+	std::ofstream fsave = std::ofstream((_savepath / name), std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
 	if (fsave.is_open()) {
 		// lock access to taskcontroller and executionhandler
-		status = "Freezing controllers...";
+		_status = "Freezing controllers...";
 		std::shared_ptr<TaskController> taskcontrol = CreateForm<TaskController>();
 		std::shared_ptr<ExecutionHandler> execcontrol = CreateForm<ExecutionHandler>();
 		execcontrol->Freeze();
 		taskcontrol->Freeze();
 
-		// write main information about savefile: name, savenumber, nextformid, runtime etc.
+		// write main information about savefile: name, _savenumber, nextformid, _runtime etc.
 		{
 			size_t len = 38;
 			size_t offset = 0;
@@ -85,7 +85,7 @@ void Data::Save()
 			Buffer::Write(_nextformid, buffer, offset);
 			Buffer::Write(_globalTasks, buffer, offset);
 			Buffer::Write(_globalExec, buffer, offset);
-			Buffer::Write(runtime, buffer, offset);
+			Buffer::Write(_runtime, buffer, offset);
 			fsave.write((char*)buffer, len);
 			delete[] buffer;
 		}
@@ -108,13 +108,13 @@ void Data::Save()
 		std::ostream save(sbuf);
 		loginfo("Opened save-file \"{}\"", name);
 
-		status = "Writing save...";
+		_status = "Writing save...";
 		// write session data
 		{
 			std::shared_lock<std::shared_mutex> guard(_hashmaplock);
 			loginfo("Saving {} records...", _hashmap.size());
-			actionloadsave_max = _hashmap.size();
-			actionloadsave_current = 0;
+			_actionloadsave_max = _hashmap.size();
+			_actionloadsave_current = 0;
 			{
 				size_t len = 8;
 				size_t offset = 0;
@@ -124,110 +124,110 @@ void Data::Save()
 				delete[] buffer;
 			}
 			for (auto& [formid, form] : _hashmap) {
-				actionrecord_len = 0;
-				actionrecord_offset = 0;
+				_actionrecord_len = 0;
+				_actionrecord_offset = 0;
 				unsigned char* buffer = nullptr;
-				record = form->GetType();
-				switch (record) {
+				_record = form->GetType();
+				switch (_record) {
 				case FormType::Input:
-					buffer = Records::CreateRecord<Input>(dynamic_pointer_cast<Input>(form), actionrecord_offset, actionrecord_len);
-					if (actionrecord_offset > actionrecord_len) {
+					buffer = Records::CreateRecord<Input>(dynamic_pointer_cast<Input>(form), _actionrecord_offset, _actionrecord_len);
+					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: Input");
 					}
 					stats._Input++;
 					//logdebug("Write Record:      Input");
 					break;
 				case FormType::Grammar:
-					buffer = Records::CreateRecord<Grammar>(dynamic_pointer_cast<Grammar>(form), actionrecord_offset, actionrecord_len);
-					if (actionrecord_offset > actionrecord_len) {
+					buffer = Records::CreateRecord<Grammar>(dynamic_pointer_cast<Grammar>(form), _actionrecord_offset, _actionrecord_len);
+					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: Grammar");
 					}
 					stats._Grammar++;
 					//Logdebug("Write Record:      Grammar");
 					break;
 				case FormType::DevTree:
-					buffer = Records::CreateRecord<DerivationTree>(dynamic_pointer_cast<DerivationTree>(form), actionrecord_offset, actionrecord_len);
-					if (actionrecord_offset > actionrecord_len) {
+					buffer = Records::CreateRecord<DerivationTree>(dynamic_pointer_cast<DerivationTree>(form), _actionrecord_offset, _actionrecord_len);
+					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: DerivationTree");
 					}
 					stats._DevTree++;
 					//logdebug("Write Record:      DerivationTree");
 					break;
 				case FormType::ExclTree:
-					buffer = Records::CreateRecord<ExclusionTree>(dynamic_pointer_cast<ExclusionTree>(form), actionrecord_offset, actionrecord_len);
-					if (actionrecord_offset > actionrecord_len) {
+					buffer = Records::CreateRecord<ExclusionTree>(dynamic_pointer_cast<ExclusionTree>(form), _actionrecord_offset, _actionrecord_len);
+					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: ExclusionTree");
 					}
 					stats._ExclTree++;
 					//logdebug("Write Record:      ExclusionTree");
 					break;
 				case FormType::Generator:
-					buffer = Records::CreateRecord<Generator>(dynamic_pointer_cast<Generator>(form), actionrecord_offset, actionrecord_len);
-					if (actionrecord_offset > actionrecord_len) {
+					buffer = Records::CreateRecord<Generator>(dynamic_pointer_cast<Generator>(form), _actionrecord_offset, _actionrecord_len);
+					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: Generator");
 					}
 					stats._Generator++;
 					//logdebug("Write Record:      Generator");
 					break;
 				case FormType::Session:
-					buffer = Records::CreateRecord<Session>(dynamic_pointer_cast<Session>(form), actionrecord_offset, actionrecord_len);
-					if (actionrecord_offset > actionrecord_len) {
+					buffer = Records::CreateRecord<Session>(dynamic_pointer_cast<Session>(form), _actionrecord_offset, _actionrecord_len);
+					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: Session");
 					}
 					stats._Session++;
 					//logdebug("Write Record:      Session");
 					break;
 				case FormType::Settings:
-					buffer = Records::CreateRecord<Settings>(dynamic_pointer_cast<Settings>(form), actionrecord_offset, actionrecord_len);
-					if (actionrecord_offset > actionrecord_len) {
+					buffer = Records::CreateRecord<Settings>(dynamic_pointer_cast<Settings>(form), _actionrecord_offset, _actionrecord_len);
+					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: Settings");
 					}
 					stats._Settings++;
 					//logdebug("Write Record:      Settings");
 					break;
 				case FormType::Test:
-					buffer = Records::CreateRecord<Test>(dynamic_pointer_cast<Test>(form), actionrecord_offset, actionrecord_len);
-					if (actionrecord_offset > actionrecord_len) {
+					buffer = Records::CreateRecord<Test>(dynamic_pointer_cast<Test>(form), _actionrecord_offset, _actionrecord_len);
+					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: Test");
 					}
 					stats._Test++;
 					//logdebug("Write Record:      Test");
 					break;
 				case FormType::TaskController:
-					buffer = Records::CreateRecord<TaskController>(dynamic_pointer_cast<TaskController>(form), actionrecord_offset, actionrecord_len);
-					if (actionrecord_offset > actionrecord_len) {
+					buffer = Records::CreateRecord<TaskController>(dynamic_pointer_cast<TaskController>(form), _actionrecord_offset, _actionrecord_len);
+					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: TaskController");
 					}
 					stats._TaskController++;
 					//logdebug("Write Record:      TaskController");
 					break;
 				case FormType::ExecutionHandler:
-					buffer = Records::CreateRecord<ExecutionHandler>(dynamic_pointer_cast<ExecutionHandler>(form), actionrecord_offset, actionrecord_len);
-					if (actionrecord_offset > actionrecord_len) {
+					buffer = Records::CreateRecord<ExecutionHandler>(dynamic_pointer_cast<ExecutionHandler>(form), _actionrecord_offset, _actionrecord_len);
+					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: ExecutionHandler");
 					}
 					stats._ExecutionHandler++;
 					//logdebug("Write Record:      ExecutionHandler");
 					break;
 				case FormType::Oracle:
-					buffer = Records::CreateRecord<Oracle>(dynamic_pointer_cast<Oracle>(form), actionrecord_offset, actionrecord_len);
-					if (actionrecord_offset > actionrecord_len) {
+					buffer = Records::CreateRecord<Oracle>(dynamic_pointer_cast<Oracle>(form), _actionrecord_offset, _actionrecord_len);
+					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: Oracle");
 					}
 					stats._Oracle++;
 					//logdebug("Write Record:      Oracle");
 					break;
 				case FormType::SessionData:
-					buffer = Records::CreateRecord<SessionData>(dynamic_pointer_cast<SessionData>(form), actionrecord_offset, actionrecord_len);
-					if (actionrecord_offset > actionrecord_len) {
+					buffer = Records::CreateRecord<SessionData>(dynamic_pointer_cast<SessionData>(form), _actionrecord_offset, _actionrecord_len);
+					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: SessionData");
 					}
 					stats._SessionData++;
 					//logdebug("Write Record:      SessionData");
 					break;
 				case FormType::DeltaController:
-					buffer = Records::CreateRecord<DeltaDebugging::DeltaController>(dynamic_pointer_cast<DeltaDebugging::DeltaController>(form), actionrecord_offset, actionrecord_len);
-					if (actionrecord_offset > actionrecord_len) {
+					buffer = Records::CreateRecord<DeltaDebugging::DeltaController>(dynamic_pointer_cast<DeltaDebugging::DeltaController>(form), _actionrecord_offset, _actionrecord_len);
+					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: DeltaController");
 					}
 					stats._DeltaController++;
@@ -239,14 +239,14 @@ void Data::Save()
 					break;
 				}
 				if (buffer != nullptr) {
-					save.write((char*)buffer, actionrecord_len);
+					save.write((char*)buffer, _actionrecord_len);
 					if (fsave.bad())
 						logcritical("critical error in underlying savefile")
 				} else {
 					stats._Fail++;
 					logcritical("record buffer could not be created");
 				}
-				actionloadsave_current++;
+				_actionloadsave_current++;
 			}
 		}
 		sbuf->flush();
@@ -259,7 +259,7 @@ void Data::Save()
 			sbuf = nullptr;
 		}
 		// set proper
-		sessionBegin = std::chrono::steady_clock::now();
+		_sessionBegin = std::chrono::steady_clock::now();
 		// unlock taskcontroller and executionhandler
 		taskcontrol->Thaw();
 		execcontrol->Thaw();
@@ -282,22 +282,22 @@ void Data::Save()
 	loginfo("Oracle: {}", stats._Oracle);
 	loginfo("Fails: {}", stats._Fail);
 
-	actionloadsave = false;
-	status = "Running...";
+	_actionloadsave = false;
+	_status = "Running...";
 	profile(TimeProfiling, "Saving session");
 }
 
 void Data::Load(std::string name)
 {
 	StartProfiling;
-	status = "Finding save files...";
-	actionloadsave = true;
-	actionloadsave_max = 0;
+	_status = "Finding save files...";
+	_actionloadsave = true;
+	_actionloadsave_max = 0;
 	std::vector<std::filesystem::path> files;
-	if (!std::filesystem::exists(savepath))
-		std::filesystem::create_directories(savepath);
-	for (const auto& entry : std::filesystem::directory_iterator(savepath)) {
-		if (entry.exists() && !entry.path().empty() && entry.path().extension() == extension.c_str()) {
+	if (!std::filesystem::exists(_savepath))
+		std::filesystem::create_directories(_savepath);
+	for (const auto& entry : std::filesystem::directory_iterator(_savepath)) {
+		if (entry.exists() && !entry.path().empty() && entry.path().extension() == _extension.c_str()) {
 			if (auto path = entry.path().string(); path.rfind(name) != std::string::npos) {
 				files.push_back(entry.path());
 			}
@@ -330,12 +330,12 @@ void Data::Load(std::string name)
 	profile(TimeProfiling, "Pre-Load");
 	if (number != 0)
 	{
-		uniquename = name;
-		savenumber = number + 1;
+		_uniquename = name;
+		_savenumber = number + 1;
 		LoadIntern(fullname);
 	} else {
-		actionloadsave = false;
-		status = "No savefiles found.";
+		_actionloadsave = false;
+		_status = "No savefiles found.";
 		loginfo("No save files were found with the unique name {}", name);
 		return;
 	}
@@ -344,16 +344,16 @@ void Data::Load(std::string name)
 void Data::Load(std::string name, int32_t number)
 {
 	StartProfiling;
-	status = "Finding save files...";
-	actionloadsave = true;
-	actionloadsave_max = 0;
+	_status = "Finding save files...";
+	_actionloadsave = true;
+	_actionloadsave_max = 0;
 	// find the appropiate save file to open
 	// additionally find the one with the highest number, so that we can identify the number of the next save
-	if (!std::filesystem::exists(savepath))
-		std::filesystem::create_directories(savepath);
+	if (!std::filesystem::exists(_savepath))
+		std::filesystem::create_directories(_savepath);
 	std::vector<std::filesystem::path> files;
-	for (const auto& entry : std::filesystem::directory_iterator(savepath)) {
-		if (entry.exists() && !entry.path().empty() && entry.path().extension() == extension.c_str()) {
+	for (const auto& entry : std::filesystem::directory_iterator(_savepath)) {
+		if (entry.exists() && !entry.path().empty() && entry.path().extension() == _extension.c_str()) {
 			if (auto path = entry.path().string(); path.rfind(name) != std::string::npos) {
 				files.push_back(entry.path());
 			}
@@ -385,12 +385,12 @@ void Data::Load(std::string name, int32_t number)
 	}
 	profile(TimeProfiling, "Pre-Load");
 	if (found) {
-		uniquename = name;
-		savenumber = highest + 1;
+		_uniquename = name;
+		_savenumber = highest + 1;
 		LoadIntern(fullname);
 	} else {
-		actionloadsave = false;
-		status = "No savefiles found.";
+		_actionloadsave = false;
+		_status = "No savefiles found.";
 		loginfo("No save file was found with the unique name {} and number {}", name, number);
 		return;
 	}
@@ -398,11 +398,11 @@ void Data::Load(std::string name, int32_t number)
 
 void Data::LoadIntern(std::filesystem::path path)
 {
-	status = "Load save file....";
-	actionloadsave = true;
-	actionloadsave_max = 0;
-	actionrecord_len = 0;
-	actionrecord_offset = 0;
+	_status = "Load save file....";
+	_actionloadsave = true;
+	_actionloadsave_max = 0;
+	_actionrecord_len = 0;
+	_actionrecord_offset = 0;
 	StartProfiling;
 	SaveStats stats;
 	std::ifstream fsave = std::ifstream(path, std::ios_base::in | std::ios_base::binary);
@@ -413,7 +413,7 @@ void Data::LoadIntern(std::filesystem::path path)
 		unsigned char* cbuffer = nullptr;
 		unsigned char* buf = nullptr;
 		size_t flen = std::filesystem::file_size(path);
-		actionloadsave_max = (uint64_t)flen;
+		_actionloadsave_max = (uint64_t)flen;
 		size_t pos = 0;
 		size_t offset = 0;
 		// get save file version
@@ -451,7 +451,7 @@ void Data::LoadIntern(std::filesystem::path path)
 					_nextformid = Buffer::ReadUInt64(buffer, offset);
 					_globalTasks = Buffer::ReadBool(buffer, offset);
 					_globalExec = Buffer::ReadBool(buffer, offset);
-					runtime = Buffer::ReadNanoSeconds(buffer, offset);
+					_runtime = Buffer::ReadNanoSeconds(buffer, offset);
 				}
 				else
 				{
@@ -476,7 +476,7 @@ void Data::LoadIntern(std::filesystem::path path)
 				}
 			}
 
-			actionloadsave_current = pos;
+			_actionloadsave_current = pos;
 			if (!abort) {
 				logdebug("decide compression");
 				// init compression etc.
@@ -489,8 +489,8 @@ void Data::LoadIntern(std::filesystem::path path)
 
 				bool fileerror = false;
 				// read hashmap and progress information
-				actionloadsave_max = 0;
-				actionloadsave_current = 0;
+				_actionloadsave_max = 0;
+				_actionloadsave_current = 0;
 				{
 					save.read(reinterpret_cast<char*>(buffer), 8);
 					if (save.bad())
@@ -500,14 +500,14 @@ void Data::LoadIntern(std::filesystem::path path)
 					}
 					offset = 0;
 					if (save.gcount() == 8) {
-						actionloadsave_max = Buffer::ReadSize(buffer, offset);
+						_actionloadsave_max = Buffer::ReadSize(buffer, offset);
 					} else {
 						logcritical("Save file does not appear to have the proper format: failed to read hashmap size");
 						fileerror = true;
 					}
 				}
 
-				logdebug("load {} records.", actionloadsave_max);
+				logdebug("load {} records.", _actionloadsave_max);
 
 				switch (version) {
 				case 0:  // couldn't get saveversion
@@ -518,12 +518,12 @@ void Data::LoadIntern(std::filesystem::path path)
 						size_t rlen = 0;
 						int32_t rtype = 0;
 						bool cbuf = false;
-						while (fileerror == false && actionloadsave_current < actionloadsave_max) {
-							if (actionloadsave_current < 400)
+						while (fileerror == false && _actionloadsave_current < _actionloadsave_max) {
+							if (_actionloadsave_current < 400)
 								Logging::EnableDebug = false;
 							else
 								Logging::EnableDebug = true;
-							//logdebug("Load record: {}", actionloadsave_current);
+							//logdebug("Load record: {}", _actionloadsave_current);
 							rlen = 0;
 							rtype = 0;
 							// read length of record, type of record
@@ -578,15 +578,15 @@ void Data::LoadIntern(std::filesystem::path path)
 								}
 								//logdebug("read record data.");
 								offset = 0;
-								actionrecord_len = rlen;
-								actionrecord_offset = 0;
-								record = rtype;
+								_actionrecord_len = rlen;
+								_actionrecord_offset = 0;
+								_record = rtype;
 								// create the correct record type
 								switch (rtype) {
 								case FormType::Input:
 									{
 										//logdebug("Read Record:      Input");
-										bool res = RegisterForm(Records::ReadRecord<Input>(buf, offset, actionrecord_offset, rlen, _lresolve));
+										bool res = RegisterForm(Records::ReadRecord<Input>(buf, offset, _actionrecord_offset, rlen, _lresolve));
 										if (res) {
 											stats._Input++;
 										} else {
@@ -598,7 +598,7 @@ void Data::LoadIntern(std::filesystem::path path)
 								case FormType::Grammar:
 									{
 										//logdebug("Read Record:      Grammar");
-										bool res = RegisterForm(Records::ReadRecord<Grammar>(buf, offset, actionrecord_offset, rlen, _lresolve));
+										bool res = RegisterForm(Records::ReadRecord<Grammar>(buf, offset, _actionrecord_offset, rlen, _lresolve));
 										if (res) {
 											stats._Grammar++;
 										} else {
@@ -610,7 +610,7 @@ void Data::LoadIntern(std::filesystem::path path)
 								case FormType::DevTree:
 									{
 										//logdebug("Read Record:      DerivationTree");
-										bool res = RegisterForm(Records::ReadRecord<DerivationTree>(buf, offset, actionrecord_offset, rlen, _lresolve));
+										bool res = RegisterForm(Records::ReadRecord<DerivationTree>(buf, offset, _actionrecord_offset, rlen, _lresolve));
 										if (res) {
 											stats._DevTree++;
 										} else {
@@ -623,7 +623,7 @@ void Data::LoadIntern(std::filesystem::path path)
 									{
 										//logdebug("Read Record:      ExclusionTree");
 										auto excl = CreateForm<ExclusionTree>();
-										bool res = excl->ReadData(buf, actionrecord_offset, rlen, _lresolve);
+										bool res = excl->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
 										if (offset > rlen)
 											res = false;
 										if (res) {
@@ -638,7 +638,7 @@ void Data::LoadIntern(std::filesystem::path path)
 									{
 										//logdebug("Read Record:      Generator");
 										auto gen = CreateForm<Generator>();
-										bool res = gen->ReadData(buf, actionrecord_offset, rlen, _lresolve);
+										bool res = gen->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
 										if (offset > rlen)
 											res = false;
 										if (res) {
@@ -653,7 +653,7 @@ void Data::LoadIntern(std::filesystem::path path)
 									{
 										//logdebug("Read Record:      Session");
 										auto session = CreateForm<Session>();
-										bool res = session->ReadData(buf, actionrecord_offset, rlen, _lresolve);
+										bool res = session->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
 										if (offset > rlen)
 											res = false;
 										if (res) {
@@ -668,7 +668,7 @@ void Data::LoadIntern(std::filesystem::path path)
 									{
 										//logdebug("Read Record:      Settings");
 										auto sett = CreateForm<Settings>();
-										bool res = sett->ReadData(buf, actionrecord_offset, rlen, _lresolve);
+										bool res = sett->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
 										if (offset > rlen)
 											res = false;
 										if (res) {
@@ -682,7 +682,7 @@ void Data::LoadIntern(std::filesystem::path path)
 								case FormType::Test:
 									{
 										//logdebug("Read Record:      Test");
-										bool res = RegisterForm(Records::ReadRecord<Test>(buf, offset, actionrecord_offset, rlen, _lresolve));
+										bool res = RegisterForm(Records::ReadRecord<Test>(buf, offset, _actionrecord_offset, rlen, _lresolve));
 										if (res) {
 											stats._Test++;
 										} else {
@@ -695,7 +695,7 @@ void Data::LoadIntern(std::filesystem::path path)
 									{
 										//logdebug("Read Record:      TaskController");
 										auto tcontrol = CreateForm<TaskController>();
-										bool res = tcontrol->ReadData(buf, actionrecord_offset, rlen, _lresolve);
+										bool res = tcontrol->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
 										if (offset > rlen)
 											res = false;
 										if (res) {
@@ -710,7 +710,7 @@ void Data::LoadIntern(std::filesystem::path path)
 									{
 										//logdebug("Read Record:      ExecutionHandler");
 										auto exec = CreateForm<ExecutionHandler>();
-										bool res = exec->ReadData(buf, actionrecord_offset, rlen, _lresolve);
+										bool res = exec->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
 										if (offset > rlen)
 											res = false;
 										if (res) {
@@ -725,7 +725,7 @@ void Data::LoadIntern(std::filesystem::path path)
 									{
 										//logdebug("Read Record:      Oracle");
 										auto oracle = CreateForm<Oracle>();
-										bool res = oracle->ReadData(buf, actionrecord_offset, rlen, _lresolve);
+										bool res = oracle->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
 										if (offset > rlen)
 											res = false;
 										if (res) {
@@ -741,7 +741,7 @@ void Data::LoadIntern(std::filesystem::path path)
 									{
 										//logdebug("Read Record:      SessionData");
 										auto sessdata = CreateForm<SessionData>();
-										bool res = sessdata->ReadData(buf, actionrecord_offset, rlen, _lresolve);
+										bool res = sessdata->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
 										if (offset > rlen)
 											res = false;
 										if (res) {
@@ -755,7 +755,7 @@ void Data::LoadIntern(std::filesystem::path path)
 								case FormType::DeltaController:
 									{
 										//logdebug("Read Record:      Test");
-										bool res = RegisterForm(Records::ReadRecord<DeltaDebugging::DeltaController>(buf, offset, actionrecord_offset, rlen, _lresolve));
+										bool res = RegisterForm(Records::ReadRecord<DeltaDebugging::DeltaController>(buf, offset, _actionrecord_offset, rlen, _lresolve));
 										if (res) {
 											stats._DeltaController++;
 										} else {
@@ -773,7 +773,7 @@ void Data::LoadIntern(std::filesystem::path path)
 
 							}
 							// update progress
-							actionloadsave_current++;
+							_actionloadsave_current++;
 						}
 						_loaded = true;
 						loginfo("Loaded save");
@@ -801,10 +801,10 @@ void Data::LoadIntern(std::filesystem::path path)
 			_lresolve->_oracle = CreateForm<Oracle>();
 		}
 
-		status = "Resolving Records...";
+		_status = "Resolving Records...";
 		loginfo("Resolving records.");
-		actionloadsave_max = _lresolve->TaskCount();
-		_lresolve->Resolve(actionloadsave_current);
+		_actionloadsave_max = _lresolve->TaskCount();
+		_lresolve->Resolve(_actionloadsave_current);
 
 		loginfo("Resolved records.");
 		loginfo("Resolving late records.");
@@ -814,7 +814,7 @@ void Data::LoadIntern(std::filesystem::path path)
 		auto sessdata = CreateForm<SessionData>();
 		sessdata->_oracle = CreateForm<Oracle>();
 		bool registeredLua = Lua::RegisterThread(sessdata);  // session is already fully loaded for the most part, so we can use the command
-		_lresolve->ResolveLate(actionloadsave_current);
+		_lresolve->ResolveLate(_actionloadsave_current);
 		// unregister ourselves from the lua wrapper if we registered ourselves above
 		if (registeredLua)
 			Lua::UnregisterThread();
@@ -837,8 +837,8 @@ void Data::LoadIntern(std::filesystem::path path)
 	loginfo("Oracle: {}", stats._Oracle);
 	loginfo("Fails: {}", stats._Fail);
 
-	actionloadsave = false;
-	status = "Running...";
+	_actionloadsave = false;
+	_status = "Running...";
 	profile(TimeProfiling, "Loading Save");
 }
 
@@ -851,17 +851,17 @@ LoadResolver* LoadResolver::GetSingleton()
 
 LoadResolver::~LoadResolver()
 {
-	data = nullptr;
-	while (!tasks.empty())
+	_data = nullptr;
+	while (!_tasks.empty())
 	{
-		tasks.front()->Dispose();
-		tasks.pop();
+		_tasks.front()->Dispose();
+		_tasks.pop();
 	}
 }
 
 void Data::StartClock()
 {
-	sessionBegin = std::chrono::steady_clock::now();
+	_sessionBegin = std::chrono::steady_clock::now();
 }
 
 void LoadResolver::AddTask(TaskFn a_task)
@@ -872,8 +872,8 @@ void LoadResolver::AddTask(TaskFn a_task)
 void LoadResolver::AddTask(TaskDelegate* a_task)
 {
 	{
-		std::unique_lock<std::mutex> guard(lock);
-		tasks.push(a_task);
+		std::unique_lock<std::mutex> guard(_lock);
+		_tasks.push(a_task);
 	}
 }
 
@@ -885,23 +885,23 @@ void LoadResolver::AddLateTask(TaskFn a_task)
 void LoadResolver::AddLateTask(TaskDelegate* a_task)
 {
 	{
-		std::unique_lock<std::mutex> guard(lock);
-		latetasks.push(a_task);
+		std::unique_lock<std::mutex> guard(_lock);
+		_latetasks.push(a_task);
 	}
 }
 
 void LoadResolver::SetData(Data* dat)
 {
-	data = dat;
+	_data = dat;
 }
 
 void LoadResolver::Resolve(uint64_t& progress)
 {
 	StartProfiling;
-	while (!tasks.empty()) {
+	while (!_tasks.empty()) {
 		TaskDelegate* del;
-		del = tasks.front();
-		tasks.pop();
+		del = _tasks.front();
+		_tasks.pop();
 		del->Run();
 		del->Dispose();
 		progress++;
@@ -912,10 +912,10 @@ void LoadResolver::Resolve(uint64_t& progress)
 void LoadResolver::ResolveLate(uint64_t& progress)
 {
 	StartProfiling;
-	while (!latetasks.empty()) {
+	while (!_latetasks.empty()) {
 		TaskDelegate* del;
-		del = latetasks.front();
-		latetasks.pop();
+		del = _latetasks.front();
+		_latetasks.pop();
 		del->Run();
 		del->Dispose();
 		progress++;
@@ -1188,7 +1188,7 @@ void Data::Visit(std::function<VisitAction(std::shared_ptr<Form>)> visitor)
 
 void Data::Clear()
 {
-	status = "Clearing hashmap...";
+	_status = "Clearing hashmap...";
 	if (_lresolve != nullptr) {
 		delete _lresolve;
 	}

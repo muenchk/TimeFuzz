@@ -44,7 +44,7 @@ void endCallback()
 }
 
 
-// glfw: whenever the window size changed (by OS or user resize) this callback function executes
+// glfw: whenever the window size changed (by OS or user resize) this _callback function executes
 // ---------------------------------------------------------------------------------------------
 void framebuffer_size_callback(GLFWwindow* /*window*/, int width, int height)
 {
@@ -122,8 +122,8 @@ int32_t main(int32_t argc, char** argv)
 	*	-conf <FILE>			- specifies path to the settings file
 	*	-l <SAFE>				- load prior safepoint and resume					
 	*	-p <SAFE>				- print statistics from prior safepoint					
-	*	--dry					- just run PUT once, and display output statistics	
-	*	--dry-i	<INPUT>			- just run PUT once with the given input			
+	*	--dry					- just run PUT once, and display _output statistics	
+	*	--dry-i	<INPUT>			- just run PUT once with the given _input			
 	*/
 
 	// -----Evaluate the command line parameters-----
@@ -474,8 +474,8 @@ int32_t main(int32_t argc, char** argv)
 		while (!glfwWindowShouldClose(window) && !stop) {
 			// Poll and handle events (inputs, window resize, etc.)
 			// You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
-			// - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or clear/overwrite your copy of the mouse data.
-			// - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application, or clear/overwrite your copy of the keyboard data.
+			// - When io.WantCaptureMouse is true, do not dispatch mouse _input data to your main application, or clear/overwrite your copy of the mouse data.
+			// - When io.WantCaptureKeyboard is true, do not dispatch keyboard _input data to your main application, or clear/overwrite your copy of the keyboard data.
 			// Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
 			glfwPollEvents();
 			if (glfwGetWindowAttrib(window, GLFW_ICONIFIED) != 0) {
@@ -657,7 +657,7 @@ int32_t main(int32_t argc, char** argv)
 						// GET ITEMS FROM SESSION
 						session->UI_GetTopK(elements, MAX_ITEMS);
 
-						for (int i = 0; i < MAX_ITEMS; i++)
+						for (int i = 0; i < MAX_ITEMS && i < (int32_t)elements.size(); i++)
 							imElements[i] = elements[i];
 
 						static char buf[32];
@@ -850,8 +850,8 @@ int32_t main(int32_t argc, char** argv)
 						ImGui::Text("Tests done: %d", dd.GetTests());
 						ImGui::SameLine(300);
 						ImGui::Text("Tests Remaining: %d", dd.GetTestsRemaining());
-						// do something with original input
-						// do something with currrent input
+						// do something with original _input
+						// do something with currrent _input
 						// results table
 						static ImGuiTableFlags flags =
 							ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable | ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_ScrollY;

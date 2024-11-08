@@ -36,9 +36,9 @@ namespace Processes
 		// Signature: int32_t execvp(const char *file, char *const argv[]);
 
 		// execvp(app.c_str(), execvp(app.c_str(), (char* const *) pargs.data() )
-		int32_t status = execvp(app.c_str(), (char* const*)pargs.data());
+		int32_t _status = execvp(app.c_str(), (char* const*)pargs.data());
 
-		if (status == -1) {
+		if (_status == -1) {
 #	ifdef INCLLIBEXPLAIN
 			logcritical("Cannot start process: Error: {}, EXPL: {}", errno, std::string(explain_errno_execvp(errno, app.c_str(), (char* const*)pargs.data())));
 #	else
@@ -90,7 +90,7 @@ namespace Processes
 		std::printf(" [TRACE] <AFTER FORK> PID of parent process = %d \n", getpid());
 
 		// pid_t waitpid(pid_t pid, int32_t *wstatus, int32_t options);
-		int32_t status;
+		int32_t _status;
 
 		std::printf(" [TRACE] Waiting for child process to finish.\n");
 
@@ -101,7 +101,7 @@ namespace Processes
 		while (timelimitsec == 0 || std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - start).count() < timelimitsec * 1000) {
 			// Wait for child process termination.
 			// From header: #include <sys/wait.h>
-			int32_t ret = waitpid(pid, &status, WNOHANG);
+			int32_t ret = waitpid(pid, &_status, WNOHANG);
 			if (ret == -1) {
 				//logger::error("Processes", "Fork_exec", "Error: cannot wait for child process");
 				throw std::runtime_error("Error: cannot wait for child process");
@@ -115,8 +115,8 @@ namespace Processes
 			}
 		}
 		int32_t exitcode = 1;
-		if (finished && WIFEXITED(status)) {
-			exitcode = WEXITSTATUS(status);
+		if (finished && WIFEXITED(_status)) {
+			exitcode = WEXITSTATUS(_status);
 		} else {
 			// kill child since it exceeded its time limit
 			kill(pid, SIGTERM);
@@ -180,13 +180,13 @@ namespace Processes
 				argus.push_back(par);
 		}
 		// delete possible empty arguments
-		auto itr = argus.begin();
-		while (itr != argus.end()) {
-			if (*itr == "") {
-				argus.erase(itr);
+		auto _itr = argus.begin();
+		while (_itr != argus.end()) {
+			if (*_itr == "") {
+				argus.erase(_itr);
 				continue;
 			}
-			itr++;
+			_itr++;
 		}
 		return argus;
 	}
@@ -201,7 +201,7 @@ namespace Processes
 		if (pid == 0) {
 			// running on child process
 
-			// redirect input and output
+			// redirect _input and _output
 			close(test->red_input[1]);
 			close(test->red_output[0]);
 
@@ -288,16 +288,16 @@ namespace Processes
 		// pid recycling, as the children will remain in zombie-mode until we actively wait
 		// on them
 		bool result = false;
-		int32_t status = 0;
-		pid_t res = waitpid(pid, &status, WNOHANG);
+		int32_t _status = 0;
+		pid_t res = waitpid(pid, &_status, WNOHANG);
 		if (res == 0)  // has not exited so far (no state changes)
 			result = true;
 		else if (res == pid)  // child has exited
 		{
 			// find out exitcode 
-			if (WIFEXITED(status) == true) // normal exit -> retrieve exit code
+			if (WIFEXITED(_status) == true) // normal exit -> retrieve exit code
 			{
-				*exitcode = WEXITSTATUS(status);
+				*exitcode = WEXITSTATUS(_status);
 			} else // set exitcode as -1
 				*exitcode = -1;
 			result =  false;
@@ -368,13 +368,13 @@ namespace Processes
 			&(test->pi));
 
 		profileDebug(TimeProfilingDebug, "");
-		// close input pipe of redirected output
+		// close _input pipe of redirected _output
 		CloseHandle(test->red_output[1]);
 		test->red_output[1] = 0;
 		if (!success) {
 			return false;
 		} else {
-			// don't close input pipe handle, as we will be using that
+			// don't close _input pipe handle, as we will be using that
 			return true;
 		}
 	}

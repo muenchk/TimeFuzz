@@ -9,6 +9,8 @@
 #include "Form.h"
 #include "Utility.h"
 
+class SessionData;
+
 enum OracleResult : EnumType;
 
 /// <summary>
@@ -21,37 +23,37 @@ class ExclusionTree : public Form
 		/// <summary>
 		/// identifier of the node
 		/// </summary>
-		std::string identifier;
+		FormID _stringID;
 		/// <summary>
 		/// tree-id of the node
 		/// </summary>
-		uint64_t id;
+		uint64_t _id;
 		/// <summary>
 		/// (rough) number of visits to node, exclusion wise, may be used to prune the tree if necessary [race condition]
 		/// </summary>
-		uint64_t visitcount;
+		uint64_t _visitcount;
 		/// <summary>
 		/// children of the node
 		/// </summary>
-		std::vector<TreeNode*> children;
+		std::vector<TreeNode*> _children;
 		/// <summary>
 		/// childrens ids
 		/// </summary>
-		std::vector<uint64_t> childrenids;
+		std::vector<uint64_t> _childrenids;
 		/// <summary>
 		/// whether this node is a lead
 		/// </summary>
-		bool isLeaf = false;
+		bool _isLeaf = false;
 
-		OracleResult result;
-		FormID InputID = 0;
+		OracleResult _result;
+		FormID _InputID = 0;
 
 		/// <summary>
 		/// Returns the child with the identifier [str] if there is one
 		/// </summary>
 		/// <param name="str"></param>
 		/// <returns></returns>
-		TreeNode* HasChild(std::string str);
+		TreeNode* HasChild(FormID stringID);
 	};
 
 public:
@@ -77,9 +79,11 @@ public:
 	/// <returns></returns>
 	bool HasPrefix(std::shared_ptr<Input> input, FormID& prefixID);
 
+	void Init(std::shared_ptr<SessionData> sessiondata);
+
 	~ExclusionTree();
 
-	const int32_t classversion = 0x2;
+	const int32_t classversion = 0x3;
 
 	#pragma region InheritedForm
 
@@ -118,6 +122,8 @@ private:
 	uint64_t leafcount = 0;
 
 	std::unordered_map<uint64_t, TreeNode*> hashmap;
+
+	std::shared_ptr<SessionData> _sessiondata;
 
 	void DeleteChildren(TreeNode* node);
 
