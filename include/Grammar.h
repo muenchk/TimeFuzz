@@ -7,15 +7,18 @@
 #include <vector>
 #include <unordered_map>
 #include <queue>
+#include <random>
 
 #include "Utility.h"
 #include "TaskController.h"
 #include "Form.h"
+#include "DerivationTree.h"
 
 class GrammarExpansion;
 class Grammar;
 class LoadResolverGrammar;
 class DerivationTree;
+class Input;
 
 class GrammarObject
 {
@@ -275,6 +278,8 @@ private:
 
 	std::shared_ptr<GrammarNode> _root;
 
+	std::set<uint64_t> _hashmap_parsenodes;
+
 	bool _valid = false;
 
 	int32_t _numcycles = 0;
@@ -313,6 +318,19 @@ private:
 	/// </summary>
 	/// <param name="pruneall">prunes all nodes in the tree</param>
 	void Prune(bool pruneall = false);
+
+	/// <summary>
+	/// copies the entire tree including all nodes and expansions by duplicating them
+	/// </summary>
+	/// <param name="other"></param>
+	void DeepCopy(std::shared_ptr<GrammarTree> other);
+
+	/// <summary>
+	/// Inserts additional nodes used for parsing when considering sequence nodes as terminal children
+	/// this is necessary for the earley parser to work correctly, then can afterwards be removed
+	/// from the resulting parse tree
+	/// </summary>
+	void InsertParseNodes();
 };
 
 class Grammar : public Form
@@ -328,7 +346,7 @@ public:
 	/// Transforms the grammar into a valid scala representation
 	/// </summary>
 	/// <returns></returns>
-	std::string Scala();
+	std::string Scala(bool parsetree = false);
 
 	/// <summary>
 	/// Transforms the grammar into a valid python representation
@@ -363,12 +381,32 @@ public:
 	inline static bool _registeredFactories = false;
 	static void RegisterFactories();
 
-	void Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, uint32_t seed, int32_t maxsteps = 100000);
+	void SetGenerationParameters(int32_t extension_min, int32_t extension_max, int32_t backtrack_min, int32_t backtrack_max)
+	{
+		_extension_min = extension_min;
+		_extension_max = extension_max;
+		_backtrack_min = backtrack_min;
+		_backtrack_max = backtrack_max;
+	}
+
+	void Derive(std::shared_ptr<DerivationTree> dtree, int32_t targetlength, uint32_t seed, int32_t maxsteps = 100000);
+
+	void Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<DerivationTree> dtree, int64_t begin, int64_t length, int64_t stop, bool complement);
+
+	void Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTree> dtree, bool backtrack, int32_t targetlength, uint32_t seed, int32_t maxsteps = 100000);
 
 	#pragma endregion
 
 private:
+	void DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<std::pair<DerivationTree::NonTerminalNode*, std::shared_ptr<GrammarNode>>>& qnonterminals, std::deque<std::pair<DerivationTree::NonTerminalNode*, std::shared_ptr<GrammarNode>>>& qseqnonterminals, std::mt19937& randan, int32_t& seq);
+
 	std::shared_ptr<GrammarTree> _tree;
+	std::shared_ptr<GrammarTree> _treeParse;
+
+	int32_t _extension_min = 0;
+	int32_t _extension_max = 0;
+	int32_t _backtrack_min = 0;
+	int32_t _backtrack_max = 0;
 
 	const int32_t classversion = 0x1;
 };

@@ -45,6 +45,50 @@ namespace Functions
 		void Dispose();
 		size_t GetLength();
 	};
+
+	/// <summary>
+	/// This callback initiates the end of a generation and executes tasks like delta debugging etc.
+	/// </summary>
+	class GenerationEndCallback : public BaseFunction
+	{
+	public:
+		std::shared_ptr<SessionData> _sessiondata;
+
+		void Run() override;
+		static uint64_t GetTypeStatic() { return 'SESE'; }
+		uint64_t GetType() override { return 'SESE'; }
+
+		FunctionType GetFunctionType() override { return FunctionType::Heavy; }
+
+		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+		bool WriteData(unsigned char* buffer, size_t& offset);
+
+		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<GenerationEndCallback>()); }
+		void Dispose();
+		size_t GetLength();
+	};
+
+	/// <summary>
+	/// This callback finishes a generation
+	/// </summary>
+	class GenerationFinishedCallback : public BaseFunction
+	{
+	public:
+		std::shared_ptr<SessionData> _sessiondata;
+
+		void Run() override;
+		static uint64_t GetTypeStatic() { return 'SEFI'; }
+		uint64_t GetType() override { return 'SEFI'; }
+
+		FunctionType GetFunctionType() override { return FunctionType::Heavy; }
+
+		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+		bool WriteData(unsigned char* buffer, size_t& offset);
+
+		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<GenerationFinishedCallback>()); }
+		void Dispose();
+		size_t GetLength();
+	};
 }
 
 class SessionFunctions
@@ -59,6 +103,22 @@ public:
 	/// This function generates a new input and adds it to the execution queue
 	/// </summary>
 	static void GenerateInput(std::shared_ptr<Input>& input, std::shared_ptr<SessionData>& sessiondata);
+
+	/// <summary>
+	/// This function extends an existing input, automatic support for backtracking on failing inputs
+	/// </summary>
+	/// <param name="sessiondata"></param>
+	/// <param name="parent"></param>
+	/// <returns></returns>
+	static std::shared_ptr<Input> ExtendInput(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> parent);
+
+	/// <summary>
+	/// This function extends an existing input, automatic support for backtracking on failing inputs
+	/// </summary>
+	/// <param name="sessiondata"></param>
+	/// <param name="parent"></param>
+	/// <returns></returns>
+	static void ExtendInput(std::shared_ptr<Input>& input, std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> parent);
 
 	/// <summary>
 	/// This function checks whether we need to save the session and performs the save
@@ -109,7 +169,7 @@ public:
 	/// </summary>
 	/// <param name="sessiondata"></param>
 	/// <param name="input"></param>
-	static std::shared_ptr<DeltaDebugging::DeltaController> BeginDeltaDebugging(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input);
+	static std::shared_ptr<DeltaDebugging::DeltaController> BeginDeltaDebugging(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback = {}, bool bypassTests = false);
 
 private:
 	/// <summary>

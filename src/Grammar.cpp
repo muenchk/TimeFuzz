@@ -3,6 +3,9 @@
 #include "Utility.h"
 #include "BufferOperations.h"
 #include "DerivationTree.h"
+#include "EarleyParser.h"
+#include "Data.h"
+#include "Input.h"
 
 #include <stack>
 #include <random>
@@ -503,11 +506,11 @@ std::set<uint64_t> finished_ids;
 void GrammarTree::GatherFlags(std::shared_ptr<GrammarNode> node, std::set<uint64_t> path, bool reset)
 {
 	// if we are starting of from a new non-recursive function call, delete prior finished ids
-	std::chrono::steady_clock::time_point begin;
+	StartProfiling;
 	if (reset) {
 		loginfo("enter");
 		finished_ids.clear();
-		begin = std::chrono::steady_clock::now();
+		TimeProfiling = std::chrono::steady_clock::now();
 	}
 	// this node is reachable
 	node->_reachable = true;
@@ -765,7 +768,150 @@ std::string GrammarTree::Scala()
 	return str;
 }
 
+void GrammarTree::DeepCopy(std::shared_ptr<GrammarTree> other)
+{
+	// this function is structured into multiple sections
+	// ----- lambda copy functions -----
+	auto copyGrammarNode = [](std::shared_ptr<GrammarNode> node) {
+		auto newnode = std::make_shared<GrammarNode>();
+		newnode->_identifier = node->_identifier;
+		newnode->_derivation = node->_derivation;
+		newnode->_id = node->_id;
+		newnode->_expansions = node->_expansions;
+		newnode->_flags = node->_flags;
+		newnode->_type = node->_type;
+		newnode->_parents = node->_parents;
+		newnode->_reachable = node->_reachable;
+		newnode->_producing = node->_producing;
+		newnode->_remove = node->_remove;
+		return newnode;
+	};
+	auto copyGrammarExpansion = [](std::shared_ptr<GrammarExpansion> expansion) {
+		auto newexpansion = std::make_shared<GrammarExpansion>();
+		newexpansion->_nodes = expansion->_nodes;
+		newexpansion->_weight = expansion->_weight;
+		newexpansion->_id = expansion->_id;
+		newexpansion->_producing = expansion->_producing;
+		newexpansion->_flags = expansion->_flags;
+		newexpansion->_remove = expansion->_remove;
+		newexpansion->_nonterminals = expansion->_nonterminals;
+		newexpansion->_seqnonterminals = expansion->_seqnonterminals;
+		newexpansion->_terminals = expansion->_terminals;
+		newexpansion->_parent = expansion->_parent;
+		return newexpansion;
+	};
 
+	// ----- Copy all objects in the tree to the new tree -----
+	other->_nextid = _nextid;
+	other->_numcycles = _numcycles;
+	other->_valid = _valid;
+	// not available in linux (barf)
+	//other->_ruleorder.append_range(_ruleorder);
+	other->_ruleorder.resize(_ruleorder.size());
+	for (size_t i = 0; i < _ruleorder.size(); i++)
+		other->_ruleorder[i] = _ruleorder[i];
+
+	// copy hashmap
+	for (auto [id, node] : _hashmap)
+		other->_hashmap.insert_or_assign(id, copyGrammarNode(node));
+	for (auto [id, expansion] : _hashmap_expansions)
+		other->_hashmap_expansions.insert_or_assign(id, copyGrammarExpansion(expansion));
+	// apply new data from hashmap to root and sets
+	other->_root = other->_hashmap.at(_root->_id);
+	for (auto node : _nonterminals)
+		other->_nonterminals.insert(other->_hashmap.at(node->_id));
+	for (auto tnode : _terminals)
+		other->_terminals.insert(other->_hashmap.at(tnode->_id));
+
+	// ----- Change all the references in the copied objects
+	// to references from the new tree -----
+	for (auto [id, node] : other->_hashmap)
+	{
+		std::set<std::shared_ptr<GrammarExpansion>> parents;
+		std::vector<std::shared_ptr<GrammarExpansion>> expansions;
+		for (auto pnode : node->_parents)
+			parents.insert(other->_hashmap_expansions.at(pnode->_id));
+		for (auto cnode : node->_expansions)
+			expansions.push_back(other->_hashmap_expansions.at(cnode->_id));
+		node->_parents.clear();
+		// not available in linux (barf)
+		//node->_parents.insert_range(parents);
+		for (auto x : parents)
+			node->_parents.insert(x);
+		node->_expansions.clear();
+		// not available in linux (barf)
+		//node->_expansions.append_range(expansions);
+		for (auto x : expansions)
+			node->_expansions.push_back(x);
+	}
+
+	for (auto [id, node] : other->_hashmap_expansions)
+	{
+		std::vector<std::shared_ptr<GrammarNode>> nodes;
+		node->_parent = other->_hashmap.at(node->_parent->_id);
+		for (auto cnode : node->_nodes)
+			nodes.push_back(other->_hashmap.at(cnode->_id));
+		node->_nodes.clear();
+		// not available in linux (barf)
+		//node->_nodes.append_range(nodes);
+		for (auto x : nodes)
+			node->_nodes.push_back(x);
+	}
+
+	// all references have been resolved so we are done
+}
+
+void GrammarTree::InsertParseNodes()
+{
+	// this function will insert a new production PN -> S for every
+	// sequence node S and change all productions P -> S to P -> PN
+
+	// gather sequence nodes
+	std::set<std::shared_ptr<GrammarNode>> seqnodes;
+	for (auto node : _nonterminals)
+		if (node->IsSequence())
+			seqnodes.insert(node);
+	// create new rules for all seqnodes
+	for (auto node : seqnodes)
+	{
+		// create new node
+		auto nnode = std::make_shared<GrammarNode>();
+		nnode->_derivation = "parse";
+		nnode->_type = GrammarNode::NodeType::NonTerminal;
+		nnode->_id = GetNextID();
+		nnode->_identifier = std::string("'ParseNode") + std::to_string(nnode->_id);
+		_hashmap.insert_or_assign(nnode->_id, nnode);
+		_hashmap_parsenodes.insert(nnode->_id);
+		_ruleorder.push_back(nnode->_id);
+		for (auto expansion : node->_parents)
+		{
+			nnode->_parents.insert(expansion);
+			for (int64_t i = 0; i < (int64_t)expansion->_nodes.size(); i++)
+			{
+				if (expansion->_nodes[i]->_id == node->_id)
+					expansion->_nodes[i] = nnode;
+			}
+		}
+		// create new expansion
+		auto nexp = std::make_shared<GrammarExpansion>();
+		nexp->_weight = 0;
+		nexp->_nonterminals++;
+		nexp->_parent = nnode;
+		nexp->_nodes.push_back(node);
+		nexp->_id = GetNextID();
+		_hashmap_expansions.insert_or_assign(nexp->_id, nexp);
+		nnode->_expansions.push_back(nexp);
+		// update parents
+		node->_parents.clear();
+		node->_parents.insert(nexp);
+	}
+	// check that root isn't a seq-node
+	if (_root->IsSequence()) // if it is (which should not be the case) assigns its parent as new root
+		_root = (*(_root->_parents.begin()))->_parent;
+
+	// as we have inserted a lot of stuff, call gather flags so the tree is consistent
+	GatherFlags(_root, {}, true);
+}
 
 
 
@@ -878,6 +1024,11 @@ void Grammar::ParseScala(std::filesystem::path path)
 
 		if (_tree->IsValid()) {
 			loginfo("Successfully read the grammar from file: {}", path.string());
+
+			// now construct tree for parsing
+			_treeParse = std::make_shared<GrammarTree>();
+			_tree->DeepCopy(_treeParse);
+			_treeParse->InsertParseNodes();
 		} else
 			logcritical("The file {} does not contain a valid grammar", path.string());
 	}
@@ -892,12 +1043,19 @@ bool Grammar::IsValid()
 	return false;
 }
 
-std::string Grammar::Scala()
+std::string Grammar::Scala(bool parsetree)
 {
-	if (_tree)
-		return _tree->Scala();
-	else
-		return "Grammar()";
+	if (parsetree) {
+		if (_treeParse)
+			return _treeParse->Scala();
+		else
+			return "Grammar()";
+	} else {
+		if (_tree)
+			return _tree->Scala();
+		else
+			return "Grammar()";
+	}
 }
 
 Grammar::~Grammar()
@@ -905,9 +1063,141 @@ Grammar::~Grammar()
 	Clear();
 }
 
-
-void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, uint32_t seed, int32_t /*maxsteps*/)
+void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<DerivationTree> dtree, int64_t begin, int64_t length, int64_t stop, bool complement)
 {
+	StartProfiling;
+	// set up dtree information
+	dtree->_parent._parentID = stree->GetFormID();
+	dtree->_parent._posbegin = begin;
+	dtree->_parent._length = length;
+	dtree->_parent._stop = stop;
+	dtree->_parent._complement = complement;
+	dtree->_parent.method = DerivationTree::ParentTree::Method::DD;
+	dtree->_grammarID = stree->_grammarID;
+
+	// gather the sequence nodes of the source tree
+	std::vector<DerivationTree::SequenceNode*> seqnodes;
+	std::stack<DerivationTree::NonTerminalNode*> stacks;
+	stacks.push((DerivationTree::NonTerminalNode*)(stree->_root));
+	DerivationTree::NonTerminalNode* tmp = nullptr;
+
+	while (stacks.size() > 0) {
+		tmp = stacks.top();
+		stacks.pop();
+		if (tmp->Type() == DerivationTree::NodeType::Sequence)
+			seqnodes.push_back((DerivationTree::SequenceNode*)tmp);
+		// push children in reverse order to stack: We explore from left to right
+		// skip terminal children, they cannot produce sequences
+		for (int32_t i = (int32_t)tmp->_children.size() - 1; i >= 0; i--) {
+			if (tmp->_children[i]->Type() != DerivationTree::NodeType::Terminal)
+				stacks.push((DerivationTree::NonTerminalNode*)(tmp->_children[i]));
+		}
+	}
+	// sequence nodes are in order
+
+	EarleyParser parser;
+	std::vector<DerivationTree::SequenceNode*> targetnodes;
+
+	for (int64_t i = 0; i < stop; i++) {
+		if (complement) {
+			if (i < begin || i >= begin + length) {
+				parser.inputVector.push_back(_treeParse->_hashmap.at(seqnodes[i]->_grammarID));
+				targetnodes.push_back(seqnodes[i]);
+			}
+		} else {
+			if (i >= begin && i < begin + length) {
+				parser.inputVector.push_back(_treeParse->_hashmap.at(seqnodes[i]->_grammarID));
+				targetnodes.push_back(seqnodes[i]);
+			}
+		}
+	}
+	parser.initialize(false);
+	parser.createChart(_treeParse->_root);
+	// we have the correct sequence we want to create
+	// now find a parse tree that supports it
+
+	parser.parse();
+	auto forest = parser.returnParsingTrees(_treeParse->_root);
+
+	// check wether there is at least one tree in the forest
+	if (forest->size() < 1) {
+		// there is no valid derivation, so set dest tree to invalid and return
+		dtree->_valid = false;
+		dtree->_regenerate = false;
+		return;
+	}
+
+	// there is at least one valid derivation, so just take the first there is and be done with it
+	// construct the derivation tree
+
+	// traversing the parseTree from left to right will result in the corresponding derivation tree
+	// we want
+	int64_t targetnodesIndex = 0;
+
+	Node* proot = forest->at(0);
+	DerivationTree::NonTerminalNode* droot = new DerivationTree::NonTerminalNode();
+	droot->_grammarID = proot->getGrammarElement()->_id;
+	dtree->_root = droot;
+	dtree->_nodes.insert(droot);
+	std::stack<std::pair<Node*, DerivationTree::NonTerminalNode*>> stack;
+	DerivationTree::NonTerminalNode* ntmp = nullptr;
+	stack.push({ proot, droot });
+	while (stack.size() > 0)
+	{
+		auto [pnode, dnode] = stack.top();
+		stack.pop();
+		auto children = pnode->getChildren();
+		// check whether pnode is a parse node, if thats the case replace it by the original node
+		// and put it back onto the stack
+		if (_treeParse->_hashmap_parsenodes.find(pnode->getGrammarElement()->_id) != _treeParse->_hashmap_parsenodes.end())
+			stack.push({ children[0], dnode }); // there is only one child by definition
+		else if (pnode->getGrammarElement()->IsSequence()) {
+			// we have found the currently left most seqnode, so copy that one and all their children and childrens children, etc.
+			// to the dnode
+			dnode->_grammarID = targetnodes[targetnodesIndex]->_grammarID;
+			for (auto child : targetnodes[targetnodesIndex]->_children) {
+				auto [cnode, cnodes] = child->CopyRecursive();
+				dnode->_children.push_back(cnode);
+				// not available in linux (barf)
+				//dtree->_nodes.insert_range(cnodes);
+				for (auto x : cnodes)
+					dtree->_nodes.insert(x);
+			}
+			targetnodesIndex++;
+		}
+		else
+		{
+			dnode->_children.resize(children.size());
+			// its just a terminal node, so expand the dnode with children and add them to the stack
+			for (int64_t i = (int64_t)children.size() - 1; i >= 0; i--) {
+				// if the node is a sequence node, or the node is a special parse node insert a SequenceNode instead of a NonTerminal
+				if (children[i]->getGrammarElement()->IsSequence() || _treeParse->_hashmap_parsenodes.find(children[i]->getGrammarElement()->_id) != _treeParse->_hashmap_parsenodes.end()) {
+					ntmp = new DerivationTree::SequenceNode();
+					dtree->_sequenceNodes++;
+				}
+				else
+					ntmp = new DerivationTree::NonTerminalNode();
+				ntmp->_grammarID = children[i]->getGrammarElement()->_id;
+				dtree->_nodes.insert(ntmp);
+				dnode->_children[i] = (ntmp);
+				stack.push({ children.at(i), ntmp });
+			}
+		}
+	}
+	if (targetnodesIndex == (int64_t)targetnodes.size()) {
+		//dtree->_sequenceNodes = (int64_t)targetnodes.size();
+		dtree->_valid = true;
+		dtree->_regenerate = true;
+	} else {
+		dtree->_valid = false;
+		dtree->_regenerate = false;
+	}
+	profile(TimeProfiling, "Time taken for extraction of length: {}, form length: {}", dtree->_sequenceNodes, stree->_sequenceNodes);
+}
+
+void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t targetlength, uint32_t seed, int32_t /*maxsteps*/)
+{
+	StartProfiling
 	// this function takes an empty derivation tree and a goal of nonterminals to produce
 	// this function will step-by-step expand from the start symbol to more and more nonterminals
 	// until the goal is reached
@@ -915,19 +1205,10 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, ui
 	// at last the terminal nodes are resolved
 	dtree->_grammarID = _formid;
 	dtree->_seed = seed;
-	dtree->_targetlen = sequence;
+	dtree->_targetlen = targetlength;
 	DerivationTree::NonTerminalNode* nnode = nullptr;
 	DerivationTree::TerminalNode* ttnode = nullptr;
 	DerivationTree::NonTerminalNode* tnnode = nullptr;
-	int32_t idx = 0;
-	int32_t cnodes = 0;
-	float cweight = 0.f;
-	std::shared_ptr<GrammarNode> gnode;
-	std::shared_ptr<GrammarExpansion> gexp;
-
-	// init random stuff
-	std::mt19937 randan((unsigned int)seed);
-	//std::uniform_int_distribution<signed> butdist(0, 1);
 
 	// count of generated sequence nodes
 	int32_t seq = 0;
@@ -936,12 +1217,16 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, ui
 	// holds all sequence nodes and sequence producing nodes during generation
 	std::deque<std::pair<DerivationTree::NonTerminalNode*, std::shared_ptr<GrammarNode>>> qseqnonterminals;
 
+	// init random stuff
+	std::mt19937 randan((unsigned int)seed);
+
 	// begin: insert start node 
 	if (_tree->_root->_flags & GrammarNode::NodeFlags::ProduceSequence) {
 		nnode = new DerivationTree::NonTerminalNode;
 		dtree->_nodes.insert(nnode);
 		nnode->_grammarID = _tree->_root->_id;
 		dtree->_root = nnode;
+		seq++;
 		qseqnonterminals.push_back({ nnode, _tree->_root });
 	} else if (_tree->_root->_flags & GrammarNode::NodeFlags::ProduceNonTerminals) {
 		nnode = new DerivationTree::NonTerminalNode;
@@ -957,15 +1242,34 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, ui
 		ttnode->_content = _tree->_root->_identifier;
 	}
 
+	DeriveFromNode(dtree, qnonterminals, qseqnonterminals, randan, seq);
+	
+	dtree->_valid = true;
+	dtree->_regenerate = true;
+	dtree->_sequenceNodes = seq;
+
+	profile(TimeProfiling, "Time taken for derivation of length: {}", dtree->_sequenceNodes);
+}
+
+void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<std::pair<DerivationTree::NonTerminalNode*, std::shared_ptr<GrammarNode>>>& qnonterminals, std::deque<std::pair<DerivationTree::NonTerminalNode*, std::shared_ptr<GrammarNode>>>& qseqnonterminals, std::mt19937& randan, int32_t& seq)
+{
+	DerivationTree::NonTerminalNode* nnode = nullptr;
+	DerivationTree::TerminalNode* ttnode = nullptr;
+	DerivationTree::NonTerminalNode* tnnode = nullptr;
+	int32_t idx = 0;
+	int32_t cnodes = 0;
+	float cweight = 0.f;
+	std::shared_ptr<GrammarNode> gnode;
+	std::shared_ptr<GrammarExpansion> gexp;
+
 	bool flip = false;
 
-	// in the first loop, we will expand the non terminals and sequence non terminals such that we only expand 
+	// in the first loop, we will expand the non terminals and sequence non terminals such that we only expand
 	// nodes that can produce new sequence nodes and only apply expansions that produce new sequence nodes
-	while (seq < sequence && qseqnonterminals.size() > 0) {
+	while (seq < dtree->_targetlen && qseqnonterminals.size() > 0) {
 		// expand the current valid sequence nonterminals by applying rules that may produce sequences
-		int32_t nonseq = (int32_t)qseqnonterminals.size(); // number of non terminals that will be handled this iteration
-		for (int c = 0; c < nonseq; c++)
-		{
+		int32_t nonseq = (int32_t)qseqnonterminals.size();  // number of non terminals that will be handled this iteration
+		for (int c = 0; c < nonseq; c++) {
 			// get node to handle
 			auto pair = qseqnonterminals.front();
 			qseqnonterminals.pop_front();
@@ -977,11 +1281,9 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, ui
 			// choose expansion
 			// we are sure there are always expansions to choose from, as we have pruned the tree and this cannot be a terminal node
 			if (!flip)
-				for (int32_t i = 0; i < (int32_t)gnode->_expansions.size(); i++)
-				{
+				for (int32_t i = 0; i < (int32_t)gnode->_expansions.size(); i++) {
 					// as long as we don't use weighted rules, the one with the most sequence symbols is used
-					if (cnodes < gnode->_expansions[i]->_seqnonterminals && cweight == 0)
-					{
+					if (cnodes < gnode->_expansions[i]->_seqnonterminals && cweight == 0) {
 						cnodes = gnode->_expansions[i]->_seqnonterminals;
 						idx = i;
 					} else if (cweight < gnode->_expansions[i]->_weight) {
@@ -996,28 +1298,23 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, ui
 					if (cnodes < gnode->_expansions[i]->_seqnonterminals && cweight == 0) {
 						cnodes = gnode->_expansions[i]->_seqnonterminals;
 						idx = i;
-					}
-					else if (cweight < gnode->_expansions[i]->_weight)
-					{
+					} else if (cweight < gnode->_expansions[i]->_weight) {
 						cnodes = gnode->_expansions[i]->_seqnonterminals;
 						cweight = gnode->_expansions[i]->_weight;
 						idx = i;
 					}
 				}
 			// if there is no rule that directly produces sequence nodes, choose a random expansion that produces sequence nodes
-			if (idx == -1)
-			{
+			if (idx == -1) {
 				std::vector<int32_t> exp;
 				float tweight = 0.f;
-				for (int32_t i = 0; i < (int32_t)gnode->_expansions.size(); i++)
-				{
+				for (int32_t i = 0; i < (int32_t)gnode->_expansions.size(); i++) {
 					if (gnode->_expansions[i]->_flags & GrammarNode::NodeFlags::ProduceSequence) {
 						exp.push_back(i);
 						tweight += gnode->_expansions[i]->_weight;
 					}
 				}
-				if (exp.size() > 0)
-				{
+				if (exp.size() > 0) {
 					if (tweight == 0.f) {
 						std::uniform_int_distribution<signed> dist(0, (int32_t)exp.size() - 1);
 						idx = exp[dist(randan)];
@@ -1025,31 +1322,26 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, ui
 						std::uniform_int_distribution<signed> dist(0, 100000000);
 						float target = (float)dist(randan) / 100000000.f;
 						float current = 0.f;
-						for (int32_t i = 0; i < (int32_t)exp.size(); i++)
-						{
+						for (int32_t i = 0; i < (int32_t)exp.size(); i++) {
 							if (current += gnode->_expansions[exp[i]]->_weight; current >= target) {
 								idx = exp[i];
 								break;
 							}
 						}
 					}
-				}
-				else if (gnode->IsSequence())
-				{
+				} else if (gnode->IsSequence()) {
 					// this node is a sequence non terminal but doesn't have any rules that expand into new sequences
 					// so we just add it to the regular nonterminals we will deal with later
 					qnonterminals.push_back({ nnode, gnode });
 					continue;
-				}else
-				{
+				} else {
 					logcritical("Error during Derivation: Produce Sequence Flag set on node, but no expansions produce sequences.");
 					return;
 				}
 			}
 			// create derivation nodes and add them to the derivation tree
 			gexp = gnode->_expansions[idx];
-			for (int32_t i = 0; i < (int32_t)gexp->_nodes.size(); i++)
-			{
+			for (int32_t i = 0; i < (int32_t)gexp->_nodes.size(); i++) {
 				switch (gexp->_nodes[i]->_type) {
 				case GrammarNode::NodeType::Sequence:
 					seq++;
@@ -1087,10 +1379,9 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, ui
 		flip = true;
 	}
 
-	// in the second loop we expand all seq-nonterminals until non remain, while favoring expansions that 
+	// in the second loop we expand all seq-nonterminals until non remain, while favoring expansions that
 	// do not produce new sequences
-	while (qseqnonterminals.size() > 0)
-	{
+	while (qseqnonterminals.size() > 0) {
 		// get node to handle
 		auto pair = qseqnonterminals.front();
 		qseqnonterminals.pop_front();
@@ -1178,8 +1469,7 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, ui
 
 	// in the third loop we expand all non-terminals, favoring rules that do not increase the sequence nodes,
 	// until only terminal nodes remain
-	while (qnonterminals.size() > 0) 
-	{
+	while (qnonterminals.size() > 0) {
 		// get node to handle
 		auto pair = qnonterminals.front();
 		qnonterminals.pop_front();
@@ -1239,8 +1529,309 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t sequence, ui
 			}
 		}
 	}
+}
+
+void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTree> dtree, bool backtrack, int32_t targetlength, uint32_t seed, int32_t /*maxsteps*/)
+{
+	StartProfiling;
+	// we need to whole source input, because it may have been trimmed, in that case we cannot just copy the source
+	// but we must extract a subtree (hopefully valid) and extend from there
+	auto stree = sinput->derive;
+	// init dtree
+	dtree->_grammarID = _formid;
+	dtree->_seed = seed;
+	dtree->_targetlen = targetlength;
+	dtree->_parent.method = DerivationTree::ParentTree::Method::Extension;
+	dtree->_parent._parentID = stree->GetFormID();
+	// set this so we can use it for length calculations in inputs that are memory freed
+	dtree->_parent._length = stree->_sequenceNodes;
+	dtree->_valid = false;
+	// tmp
+	DerivationTree::NonTerminalNode* nnode = nullptr;
+	DerivationTree::TerminalNode* ttnode = nullptr;
+	DerivationTree::NonTerminalNode* tnnode = nullptr;
+	std::shared_ptr<GrammarNode> gnode;
+	std::shared_ptr<GrammarExpansion> gexp;
+	// counter
+	int32_t additionalLength = 0;
+
+	// init random stuff
+	std::mt19937 randan((unsigned int)seed);
+	std::uniform_int_distribution<signed> dist;
+	if (backtrack)
+		dist = std::uniform_int_distribution<signed>(_backtrack_min, _backtrack_max);
+	else
+		dist = std::uniform_int_distribution<signed>(_extension_min, _extension_max);
+
+	int32_t trackback = dist(randan);
+
+	// copy source derivation tree to dest tree
+	// // uhhh stack overflow uhh I like complaingin uhhh
+	//auto [node, nodevec] = stree->_root->CopyRecursive();
+	//for (auto nd : nodevec)
+	//	dtree->_nodes.insert(nd);
+	//dtree->_sequenceNodes = stree->_sequenceNodes;
+
+
+	if (sinput->IsTrimmed())
+	{
+		// if the input is trimmed, extract the source tree of the given length instead
+		Extract(sinput->derive, dtree, 0, sinput->GetTrimmedLength(), sinput->Length(), false);
+	}else
+	{
+		// ----- COPY THE SOURCE TREE -----
+		dtree->_sequenceNodes = 0;
+		std::stack<std::pair<DerivationTree::NonTerminalNode*, DerivationTree::NonTerminalNode*>> nodestack;
+		if (stree->_root->Type() == DerivationTree::NodeType::Sequence) {
+			nnode = new DerivationTree::SequenceNode;
+			dtree->_nodes.insert(nnode);
+			nnode->_grammarID = ((DerivationTree::SequenceNode*)stree->_root)->_grammarID;
+			dtree->_root = nnode;
+			nodestack.push({ nnode, (DerivationTree::NonTerminalNode*)stree->_root });
+		} else if (stree->_root->Type() == DerivationTree::NodeType::NonTerminal) {
+			nnode = new DerivationTree::NonTerminalNode;
+			dtree->_nodes.insert(nnode);
+			nnode->_grammarID = ((DerivationTree::NonTerminalNode*)stree->_root)->_grammarID;
+			dtree->_root = nnode;
+			nodestack.push({ nnode, (DerivationTree::NonTerminalNode*)stree->_root });
+		} else {
+			ttnode = new DerivationTree::TerminalNode;
+			dtree->_nodes.insert(ttnode);
+			ttnode->_grammarID = ((DerivationTree::NonTerminalNode*)stree->_root)->_grammarID;
+			dtree->_root = ttnode;
+			ttnode->_content = _tree->_root->_identifier;
+		}
+		while (nodestack.size() > 0) {
+			auto [dnode, snode] = nodestack.top();
+			nodestack.pop();
+			for (int32_t i = 0; i < (int32_t)snode->_children.size(); i++) {
+				switch (snode->_children[i]->Type()) {
+				case DerivationTree::NodeType::NonTerminal:
+					tnnode = new DerivationTree::NonTerminalNode;
+					tnnode->_grammarID = ((DerivationTree::NonTerminalNode*)snode->_children[i])->_grammarID;
+					dnode->_children.push_back(tnnode);
+					dtree->_nodes.insert(tnnode);
+					nodestack.push({ tnnode, (DerivationTree::NonTerminalNode*)snode->_children[i] });
+					break;
+				case DerivationTree::NodeType::Sequence:
+					tnnode = new DerivationTree::SequenceNode;
+					tnnode->_grammarID = ((DerivationTree::SequenceNode*)snode->_children[i])->_grammarID;
+					dnode->_children.push_back(tnnode);
+					dtree->_nodes.insert(tnnode);
+					dtree->_sequenceNodes++;
+					nodestack.push({ tnnode, (DerivationTree::SequenceNode*)snode->_children[i] });
+					break;
+				case DerivationTree::NodeType::Terminal:
+					ttnode = new DerivationTree::TerminalNode;
+					ttnode->_grammarID = ((DerivationTree::TerminalNode*)snode->_children[i])->_grammarID;
+					ttnode->_content = ((DerivationTree::TerminalNode*)snode->_children[i])->_content;
+					dnode->_children.push_back(ttnode);
+					dtree->_nodes.insert(ttnode);
+					break;
+				}
+			}
+		}
+	}
+
+
+	std::stack<DerivationTree::NonTerminalNode*> path;
+
+	// find right-most path in the tree, that the one where we will be deleting stuff
+	auto findRightPath = [&path](DerivationTree::NonTerminalNode* root) {
+		DerivationTree::NonTerminalNode* tmp = root;
+		while (tmp != nullptr) {
+			if (tmp->_children.size() > 0) {
+				for (int32_t i = (int32_t)tmp->_children.size() - 1; i >= 0; i--) {
+					if (tmp->_children[i]->Type() == DerivationTree::NodeType::Sequence) {
+						path.push((DerivationTree::SequenceNode*)tmp->_children[i]);
+						tmp = nullptr;
+						break;
+					} else if (tmp->_children[i]->Type() == DerivationTree::NodeType::NonTerminal) {
+						tmp = (DerivationTree::NonTerminalNode*)tmp->_children[i];
+						path.push(tmp);
+						break;
+					} else {  // terminal
+						continue;
+					}
+				}
+			}
+		}
+	};
+
+	// get the number of node children that are sequence nodes
+	auto getSeqChildren = [](DerivationTree::NonTerminalNode* root) {
+		int32_t i = 0;
+		std::stack<DerivationTree::NonTerminalNode*> stack;
+		DerivationTree::NonTerminalNode* tmp;
+		stack.push(root);
+		while (stack.size() > 0) {
+			tmp = stack.top();
+			stack.pop();
+			if (tmp->Type() == DerivationTree::NodeType::Sequence)
+				i++;
+			else {
+				for (auto node : tmp->_children) {
+					if (node->Type() == DerivationTree::NodeType::Sequence)
+						i++;
+					else if (node->Type() == DerivationTree::NodeType::NonTerminal)
+						stack.push((DerivationTree::NonTerminalNode*)node);
+				}
+			}
+		}
+		return i;
+	};
+	// delete this node and all its children
+	auto deleteNode = [](DerivationTree::NonTerminalNode* root, std::shared_ptr<DerivationTree> tree) {
+		std::stack<DerivationTree::NonTerminalNode*> stack;
+		DerivationTree::NonTerminalNode* tmp;
+		stack.push(root);
+		while (stack.size() > 0) {
+			tmp = stack.top();
+			stack.pop();
+			for (DerivationTree::Node* node : tmp->_children) {
+				if (node->Type() == DerivationTree::NodeType::NonTerminal || node->Type() == DerivationTree::NodeType::Sequence)
+					stack.push((DerivationTree::NonTerminalNode*)node);
+				else {
+					tree->_nodes.erase(node);
+					delete (DerivationTree::TerminalNode*)node;
+				}
+			}
+			if (tmp->Type() == DerivationTree::NodeType::Sequence) {
+				tree->_nodes.erase(tmp);
+				delete (DerivationTree::SequenceNode*)tmp;
+			} else {
+				tree->_nodes.erase(tmp);
+				delete (DerivationTree::NonTerminalNode*)tmp;
+			}
+		}
+	};
+
+	int32_t deletednodes = 0;
+	while (deletednodes < trackback) {
+		DerivationTree::NonTerminalNode* tmp;
+		DerivationTree::NonTerminalNode* parent;
+		while (path.size() > 0)
+			path.pop();
+		// get right most path
+		findRightPath((DerivationTree::NonTerminalNode*)dtree->_root);
+		if (path.size() > 0)
+		{
+			// while theres a path to work with a we haven't deleted enough nodes
+			while (path.size() > 0 && deletednodes < trackback)
+			{
+				tmp = path.top();
+				path.pop();
+				// delete node from the tree and check how many sequence nodes we are deleting by doing so (may have multiple children)
+				auto numseq = getSeqChildren(tmp);
+				if (path.size() == 0)
+				{
+					// the parent is root,
+					parent = (DerivationTree::NonTerminalNode*)dtree->_root;
+				} else
+					parent = path.top();
+				auto num = std::erase_if(parent->_children, [tmp](DerivationTree::Node* node) { return (intptr_t)tmp == (intptr_t)node; });
+				if (num > 0)
+				{
+					// node successfully deleted, now get on with it
+					deletednodes += numseq;
+					deleteNode(tmp, dtree);
+				} else {
+					logcritical("Tree is malformed, parent doesn't know child");
+					return;
+				}
+			}
+		} else {
+			logcritical("Tree is malformed, or completely deleted, cannot expand");
+			return;
+		}
+	}
+
+	// now that we have deleted what we had to delete, if there are still nodes in path, then we go from there
+	// if that isn't the case we have to get the right-most path, cut the lowest sequence node, and backtrack until we find
+	// a node that expands into multiple sequence nodes, and can get started from there
+
+	// we cannot start on a sequence node
+	while (path.size() > 0 && path.top()->Type() == DerivationTree::NodeType::Sequence)
+		path.pop();
+
+	DerivationTree::NonTerminalNode* root;
+	if (path.size() > 0)
+	{
+		root = path.top();
+		// delete path it takes up ram
+		while (path.size() > 0)
+			path.pop();
+
+		auto itr = _tree->_hashmap.find(root->_grammarID);
+		if (itr != _tree->_hashmap.end()) {
+			gnode = itr->second;
+		}
+	} else {
+		bool found = false;
+		while (found == false) {
+			findRightPath((DerivationTree::NonTerminalNode*)dtree->_root);
+			while (path.size() > 0 && found == false)
+			{
+				if (path.top()->Type() == DerivationTree::NodeType::NonTerminal)
+				{
+					auto itr = _tree->_hashmap.find(path.top()->_grammarID);
+					if (itr != _tree->_hashmap.end())
+					{
+						gnode = itr->second;
+						// we are in business
+						if (gnode->_expansions.size() > 0)
+						{
+							for (auto exp : gnode->_expansions)
+							{
+								// find one that has multiple nodes with ProduceSequence flag
+								int32_t c = 0;
+								for (auto nd : exp->_nodes)
+									if (nd->_flags & GrammarNode::NodeFlags::ProduceSequence)
+										c++;
+								if (c > 1) {
+									found = true;
+									break;
+								}
+							}
+						}
+					}
+				}
+				if (found == false)
+					path.pop();
+			}
+		}
+
+		root = path.top();
+		// delete path it takes up ram
+		while (path.size() > 0)
+			path.pop();
+	}
+
+	// count of generated sequence nodes
+	int32_t seq = 0;
+	// holds all nonterminals that were generated
+	std::deque<std::pair<DerivationTree::NonTerminalNode*, std::shared_ptr<GrammarNode>>> qnonterminals;
+	// holds all sequence nodes and sequence producing nodes during generation
+	std::deque<std::pair<DerivationTree::NonTerminalNode*, std::shared_ptr<GrammarNode>>> qseqnonterminals;
+
+	// begin: insert start node
+	if (gnode->_flags & GrammarNode::NodeFlags::ProduceSequence) {
+		qseqnonterminals.push_back({ root, gnode });
+	} else if (gnode->_flags & GrammarNode::NodeFlags::ProduceNonTerminals) {
+		qnonterminals.push_back({ root, gnode });
+	}
+
+	// generated sequence nodes
+	seq = 0;
+	dtree->_sequenceNodes -= deletednodes;
+
+	DeriveFromNode(dtree, qnonterminals, qseqnonterminals, randan, seq);
+
 	dtree->_valid = true;
 	dtree->_regenerate = true;
+	dtree->_parent.method = DerivationTree::ParentTree::Method::Extension;
+
+	profile(TimeProfiling, "Time taken for extension of length: {}", dtree->_sequenceNodes - sinput->Length());
 }
 
 
@@ -1404,6 +1995,14 @@ bool Grammar::ReadData(unsigned char* buffer, size_t& offset, size_t length, Loa
 			}
 			lresolve->Resolve();
 			delete lresolve;
+
+			// create parse tree for parsing
+			resolver->AddTask([this]() {
+				// now construct tree for parsing
+				_treeParse = std::make_shared<GrammarTree>();
+				_tree->DeepCopy(_treeParse);
+				_treeParse->InsertParseNodes();
+			});
 			return true;
 		}
 		break;

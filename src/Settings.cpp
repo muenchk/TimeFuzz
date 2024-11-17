@@ -47,6 +47,8 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "Oracle:           ", oracle.oraclepath_NAME, oracle.oraclepath.string());
 	oracle.lua_path_cmd = std::string(ini.GetValue("Oracle", oracle.lua_path_cmd_NAME, oracle.lua_path_cmd.c_str()));
 	loginfo("{}{} {}", "Oracle:           ", oracle.lua_path_cmd_NAME, oracle.lua_path_cmd);
+	oracle.lua_path_script = std::string(ini.GetValue("Oracle", oracle.lua_path_script_NAME, oracle.lua_path_script.c_str()));
+	loginfo("{}{} {}", "Oracle:           ", oracle.lua_path_script_NAME, oracle.lua_path_script);
 	oracle.lua_path_cmd_replay = std::string(ini.GetValue("Oracle", oracle.lua_path_cmd_replay_NAME, oracle.lua_path_cmd_replay.c_str()));
 	loginfo("{}{} {}", "Oracle:           ", oracle.lua_path_cmd_replay_NAME, oracle.lua_path_cmd_replay);
 	oracle.lua_path_oracle = std::string(ini.GetValue("Oracle", oracle.lua_path_oracle_NAME, oracle.lua_path_oracle.c_str()));
@@ -72,6 +74,8 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "General:          ", general.memory_sweep_period_NAME, general.memory_sweep_period.count());
 
 	// saves
+	saves.enablesaves = ini.GetBoolValue("SaveFiles", saves.enablesaves_NAME, saves.enablesaves);
+	loginfo("{}{} {}", "SaveFiles:          ", saves.enablesaves_NAME, saves.enablesaves);
 	saves.autosave_every_tests = (int64_t)ini.GetLongValue("SaveFiles", saves.autosave_every_tests_NAME, (long)saves.autosave_every_tests);
 	loginfo("{}{} {}", "SaveFiles:          ", saves.autosave_every_tests_NAME, saves.autosave_every_tests);
 	saves.autosave_every_seconds = (int64_t)ini.GetLongValue("SaveFiles", saves.autosave_every_seconds_NAME, (long)saves.autosave_every_seconds);
@@ -107,6 +111,11 @@ void Settings::Load(std::wstring path, bool reload)
 	if (generation.generationstep < 10)
 		generation.generationstep = 10;
 	loginfo("{}{} {}", "Generation:       ", generation.generationsize_NAME, generation.generationsize);
+	generation.generationalMode = ini.GetBoolValue("Generation", generation.generationalMode_NAME, generation.generationalMode);
+	loginfo("{}{} {}", "Generation:       ", generation.generationalMode_NAME, generation.generationalMode);
+	generation.activeGeneratedInputs = (int32_t)ini.GetLongValue("Generation", generation.activeGeneratedInputs_NAME, generation.activeGeneratedInputs);
+	loginfo("{}{} {}", "Generation:       ", generation.activeGeneratedInputs_NAME, generation.activeGeneratedInputs);
+
 	generation.generationtweakstart = (float)ini.GetDoubleValue("Generation", generation.generationtweakstart_NAME, generation.generationtweakstart);
 	loginfo("{}{} {}", "Generation:       ", generation.generationtweakstart_NAME, generation.generationtweakstart);
 	generation.generationtweakmax = (float)ini.GetDoubleValue("Generation", generation.generationtweakmax_NAME, generation.generationtweakmax);
@@ -187,6 +196,7 @@ void Settings::Save(std::wstring _path)
 		"\\\\ \tSTDIN_Dump\t-\tExecutes an unresponsive program. All Inputs are dumped into the standardinput immediately.");
 	ini.SetValue("Oracle", oracle.oraclepath_NAME, oracle.oraclepath.string().c_str(), "\\\\ The path to the oracle.");
 	ini.SetValue("Oracle", oracle.lua_path_cmd_NAME, oracle.lua_path_cmd.c_str(), "\\\\ The lua script containing the cmdargs function.");
+	ini.SetValue("Oracle", oracle.lua_path_script_NAME, oracle.lua_path_script.c_str(), "\\\\ The lua script containing the ScriptArgs function.");
 	ini.SetValue("Oracle", oracle.lua_path_cmd_replay_NAME, oracle.lua_path_cmd_replay.c_str(), "\\\\ The lua script containing the cmdargs function for replay inputs.");
 	ini.SetValue("Oracle", oracle.lua_path_oracle_NAME, oracle.lua_path_oracle.c_str(), "\\\\ The lua script containing the oracle function.");
 	ini.SetValue("Oracle", oracle.grammar_path_NAME, oracle.grammar_path.c_str(), "\\\\ Path to the Grammar.");
@@ -245,6 +255,11 @@ void Settings::Save(std::wstring _path)
 
 
 	// generation
+	ini.SetLongValue("Generation", generation.activeGeneratedInputs_NAME, generation.activeGeneratedInputs, "\\\\ Number of inputs that may be generated at a time. [Applies even if GenerationalMode has been disabled]");
+	ini.SetBoolValue("Generation", generation.generationalMode_NAME, generation.generationalMode,
+		"\\\\ Inputs are generated in generations of size [GenerationSize].\n"
+		"After a generation has been finished additional methods are applied and \n"
+		"a new generation is generated based on the prior one.");
 	ini.SetLongValue("Generation", generation.generationsize_NAME, generation.generationsize, "\\\\ Maximum generated inputs per generation cycle.");
 	ini.SetDoubleValue("Generation", generation.generationtweakstart_NAME, generation.generationtweakstart, "\\\\ Starting parameter for automatic generationsize scaling.");
 	ini.SetDoubleValue("Generation", generation.generationtweakmax_NAME, generation.generationtweakmax, "\\\\ Max parameter for automatic generationsize scaling.");
@@ -323,7 +338,9 @@ size_t Settings::GetStaticSize(int32_t version)
 	                 + 8   // DeltaDebugging::executeAboveLength
 	                 + 4   // DeltaDebugging::mode
 	                 + 1   // DeltaDebugging::allowScoreOptimization
-	                 + 8;  // DeltaDebugging::optimizationLossThreshold
+	                 + 8   // DeltaDebugging::optimizationLossThreshold
+	                 + 4   // Generation::activeGeneratedInputs
+	                 + 1;  // Generation::generationalMode
 
 	switch (version) {
 	case 0x1:
@@ -343,6 +360,7 @@ size_t Settings::GetDynamicSize()
 	       + Buffer::CalcStringLength(oracle.oraclepath.string())  // oraclepath
 	       + Buffer::CalcStringLength(saves.savepath)              // General::savepath
 	       + Buffer::CalcStringLength(oracle.lua_path_cmd)         // Oracle::lua_path_cmd
+	       + Buffer::CalcStringLength(oracle.lua_path_script)      // Oracle::lua_path_script
 	       + Buffer::CalcStringLength(oracle.lua_path_cmd_replay)  // Oracle::lua_path_cmd_replay
 	       + Buffer::CalcStringLength(oracle.lua_path_oracle)      // Oracle::lua_path_oracle
 	       + Buffer::CalcStringLength(oracle.grammar_path);     // Oracle::grammar_path
@@ -356,6 +374,7 @@ bool Settings::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write((int32_t)oracle.oracle, buffer, offset);
 	Buffer::Write(oracle.oraclepath.string(), buffer, offset);
 	Buffer::Write(oracle.lua_path_cmd, buffer, offset);
+	Buffer::Write(oracle.lua_path_script, buffer, offset);
 	Buffer::Write(oracle.lua_path_cmd_replay, buffer, offset);
 	Buffer::Write(oracle.lua_path_oracle, buffer, offset);
 	Buffer::Write(oracle.grammar_path, buffer, offset);
@@ -386,6 +405,8 @@ bool Settings::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(generation.generationsize, buffer, offset);
 	Buffer::Write(generation.generationtweakstart, buffer, offset);
 	Buffer::Write(generation.generationtweakmax, buffer, offset);
+	Buffer::Write(generation.activeGeneratedInputs, buffer, offset);
+	Buffer::Write(generation.generationalMode, buffer, offset);
 	// endconditions
 	Buffer::Write(conditions.use_foundnegatives, buffer, offset);
 	Buffer::Write(conditions.foundnegatives, buffer, offset);
@@ -471,6 +492,7 @@ bool Settings::ReadData(unsigned char* buffer, size_t& offset, size_t length, Lo
 			oracle.oracle = (::Oracle::PUTType)Buffer::ReadInt32(buffer, offset);
 			oracle.oraclepath = std::filesystem::path(Buffer::ReadString(buffer, offset));
 			oracle.lua_path_cmd = Buffer::ReadString(buffer, offset);
+			oracle.lua_path_script = Buffer::ReadString(buffer, offset);
 			oracle.lua_path_cmd_replay = Buffer::ReadString(buffer, offset);
 			oracle.lua_path_oracle = Buffer::ReadString(buffer, offset);
 			oracle.grammar_path = Buffer::ReadString(buffer, offset);
@@ -504,6 +526,8 @@ bool Settings::ReadData(unsigned char* buffer, size_t& offset, size_t length, Lo
 				generation.generationstep = 10;
 			generation.generationtweakstart = Buffer::ReadFloat(buffer, offset);
 			generation.generationtweakmax = Buffer::ReadFloat(buffer, offset);
+			generation.activeGeneratedInputs = Buffer::ReadInt32(buffer, offset);
+			generation.generationalMode = Buffer::ReadBool(buffer, offset);
 			// endconditions
 			conditions.use_foundnegatives = Buffer::ReadBool(buffer, offset);
 			conditions.foundnegatives = Buffer::ReadUInt64(buffer, offset);

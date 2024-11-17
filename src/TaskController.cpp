@@ -20,6 +20,10 @@ void TaskController::AddTask(std::shared_ptr<Functions::BaseFunction> a_task)
 	if (_optimizeFuncExec && a_task->GetFunctionType() == Functions::FunctionType::Light) {
 		std::unique_lock<std::mutex> guard(_lock);
 		_tasks_light.push_back(a_task);
+		_condition_light.notify_one();
+	} else if (_optimizeFuncExec && a_task->GetFunctionType() == Functions::FunctionType::Medium) {
+		std::unique_lock<std::mutex> guard(_lock);
+		_tasks_medium.push_back(a_task);
 	} else {
 		std::unique_lock<std::mutex> guard(_lock);
 		_tasks.push_back(a_task);
@@ -32,15 +36,21 @@ void TaskController::Start(std::shared_ptr<SessionData> session, int32_t numthre
 	_sessiondata = session;
 	if (numthreads == 0)
 		throw std::runtime_error("Cannot start a TaskController with 0 threads.");
-	if (numthreads > 1)
-		_optimizeFuncExec = true;
 	_numthreads = numthreads;
-	for (int32_t i = 0; i < numthreads; i++) {
+	if (_numthreads < 1)
+		_numthreads = 1;
+	if (_numthreads == 1 && _optimizeFuncExec) {
 		_status.push_back(ThreadStatus::Initializing);
-		if (_optimizeFuncExec && i == 0)
-			_threads.emplace_back(std::thread(&TaskController::InternalLoop_Light, this, i));
-		else
-			_threads.emplace_back(std::thread(&TaskController::InternalLoop, this, i));
+		_threads.emplace_back(std::thread(&TaskController::InternalLoop_SingleThread, this, 0));
+	}
+	else {
+		for (int32_t i = 0; i < numthreads; i++) {
+			_status.push_back(ThreadStatus::Initializing);
+			if (_optimizeFuncExec && i == 0)
+				_threads.emplace_back(std::thread(&TaskController::InternalLoop_LightExclusive, this, i));
+			else
+				_threads.emplace_back(std::thread(&TaskController::InternalLoop, this, i));
+		}
 	}
 }
 
@@ -52,6 +62,7 @@ void TaskController::Stop(bool completeall)
 		_wait = completeall;
 	}
 	_condition.notify_all();
+	_condition_light.notify_all();
 	for (std::thread& t : _threads)
 		t.join();
 	_threads.clear();
@@ -86,6 +97,37 @@ bool TaskController::Busy()
 	return !_tasks.empty() || running;
 }
 
+void TaskController::InternalLoop_LightExclusive(int32_t number)
+{
+	// register new lua state for lua functions executed by the thread
+	if (!_disableLua)
+		Lua::RegisterThread(_sessiondata);
+
+	while (true) {
+		std::shared_ptr<Functions::BaseFunction> del;
+		{
+			std::unique_lock<std::mutex> guard(_lock);
+			_status[number] = ThreadStatus::Waiting;
+			// while freeze is [true], this will never return, if freeze is [false] it only returns when [tasks is non-empty], when [terinated and not waiting], or when [terminating and tasks is empty]
+			_condition_light.wait(guard, [this] { return _freeze == false && (!_tasks_light.empty() || _terminate && _wait == false || _terminate && _tasks_light.empty()); });
+			if (_terminate && _wait == false || _terminate && _tasks_light.empty())
+				return;
+			_status[number] = ThreadStatus::Running;
+			del = _tasks_light.front();
+			_tasks_light.pop_front();
+		}
+		if (del) {
+			del->Run();
+			del->Dispose();
+			_completedjobs++;
+		}
+	}
+
+	// unregister thread from lua functions
+	if (!_disableLua)
+		Lua::UnregisterThread();
+}
+
 void TaskController::InternalLoop_Light(int32_t number)
 {
 	// register new lua state for lua functions executed by the thread
@@ -98,16 +140,16 @@ void TaskController::InternalLoop_Light(int32_t number)
 			std::unique_lock<std::mutex> guard(_lock);
 			_status[number] = ThreadStatus::Waiting;
 			// while freeze is [true], this will never return, if freeze is [false] it only returns when [tasks is non-empty], when [terinated and not waiting], or when [terminating and tasks is empty]
-			_condition.wait(guard, [this] { return _freeze == false && (!_tasks_light.empty() || !_tasks.empty() || _terminate && _wait == false || _terminate && _tasks_light.empty() && _tasks.empty()); });
-			if (_terminate && _wait == false || _terminate && _tasks_light.empty() && _tasks.empty())
+			_condition.wait(guard, [this] { return _freeze == false && (!_tasks_light.empty() || !_tasks_medium.empty() || _terminate && _wait == false || _terminate && _tasks_light.empty() && _tasks_medium.empty()); });
+			if (_terminate && _wait == false || _terminate && _tasks_light.empty() && _tasks_medium.empty())
 				return;
 			_status[number] = ThreadStatus::Running;
 			if (!_tasks_light.empty()) {
 				del = _tasks_light.front();
 				_tasks_light.pop_front();
-			} else if (!_tasks.empty()) {
-				del = _tasks.front();
-				_tasks.pop_front();
+			} else if (!_tasks_medium.empty()) {
+				del = _tasks_medium.front();
+				_tasks_medium.pop_front();
 			}
 		}
 		if (del) {
@@ -134,12 +176,56 @@ void TaskController::InternalLoop(int32_t number)
 			std::unique_lock<std::mutex> guard(_lock);
 			_status[number] = ThreadStatus::Waiting;
 			// while freeze is [true], this will never return, if freeze is [false] it only returns when [tasks is non-empty], when [terinated and not waiting], or when [terminating and tasks is empty]
-			_condition.wait(guard, [this] { return _freeze == false && (!_tasks.empty() || _terminate && _wait == false || _terminate && _tasks.empty()); });
-			if (_terminate && _wait == false || _terminate && _tasks.empty())
+			_condition.wait(guard, [this] { return _freeze == false && (!_tasks_medium.empty() || !_tasks.empty() || _terminate && _wait == false || _terminate && _tasks_medium.empty() && _tasks.empty()); });
+			if (_terminate && _wait == false || _terminate && _tasks_medium.empty() && _tasks.empty())
 				return;
 			_status[number] = ThreadStatus::Running;
-			del = _tasks.front();
-			_tasks.pop_front();
+			if (!_tasks_medium.empty()) {
+				del = _tasks_medium.front();
+				_tasks_medium.pop_front();
+			} else if (!_tasks.empty()) {
+				del = _tasks.front();
+				_tasks.pop_front();
+			}
+		}
+		if (del) {
+			del->Run();
+			del->Dispose();
+			_completedjobs++;
+		}
+	}
+
+	// unregister thread from lua functions
+	if (!_disableLua)
+		Lua::UnregisterThread();
+}
+
+void TaskController::InternalLoop_SingleThread(int32_t number)
+{
+	// register new lua state for lua functions executed by the thread
+	if (!_disableLua)
+		Lua::RegisterThread(_sessiondata);
+
+	while (true) {
+		std::shared_ptr<Functions::BaseFunction> del;
+		{
+			std::unique_lock<std::mutex> guard(_lock);
+			_status[number] = ThreadStatus::Waiting;
+			// while freeze is [true], this will never return, if freeze is [false] it only returns when [tasks is non-empty], when [terinated and not waiting], or when [terminating and tasks is empty]
+			_condition.wait(guard, [this] { return _freeze == false && (!_tasks_light.empty() || !_tasks_medium.empty() || !_tasks.empty() || _terminate && _wait == false || _terminate && _tasks_light.empty() && _tasks_medium.empty() && _tasks.empty()); });
+			if (_terminate && _wait == false || _terminate && _tasks_light.empty() && _tasks_medium.empty() && _tasks.empty())
+				return;
+			_status[number] = ThreadStatus::Running;
+			if (!_tasks_light.empty()) {
+				del = _tasks_light.front();
+				_tasks_light.pop_front();
+			} else if (!_tasks_medium.empty()) {
+				del = _tasks_medium.front();
+				_tasks_medium.pop_front();
+			} else if (!_tasks.empty()) {
+				del = _tasks.front();
+				_tasks.pop_front();
+			}
 		}
 		if (del) {
 			del->Run();
@@ -160,12 +246,17 @@ uint64_t TaskController::GetCompletedJobs()
 
 int32_t TaskController::GetWaitingJobs()
 {
-	return (int32_t)_tasks.size() + (int32_t)_tasks_light.size();
+	return (int32_t)_tasks.size() + (int32_t)_tasks_medium.size() + (int32_t)_tasks_light.size();
 }
 
 int32_t TaskController::GetWaitingLightJobs()
 {
 	return (int32_t)_tasks_light.size();
+}
+
+int32_t TaskController::GetWaitingMediumJobs()
+{
+	return (int32_t)_tasks_medium.size();
 }
 
 size_t TaskController::GetStaticSize(int32_t version)
@@ -256,6 +347,7 @@ void TaskController::Clear()
 	_terminate = true;
 	_wait = false;
 	_condition.notify_all();
+	_condition_light.notify_all();
 	for (std::thread& t : _threads)
 		t.detach();
 	_threads.clear();

@@ -36,7 +36,11 @@ size_t Input::GetStaticSize(int32_t version)
 	                        8 +                     // _secondaryScore
 	                        8;                      // trimmedLength
 	static size_t size0x4 = size0x2                 // prior version size
-	                        + 8;                    // _flags
+	                        + 8                     // _parent.parentInput
+	                        + 8                     // _parent.positionBegin
+	                        + 8                     // _parent.length
+	                        + 1                     // _parent.complement
+	                        + 8;                    // generationID
 
 	switch (version)
 	{
@@ -57,7 +61,7 @@ size_t Input::GetDynamicSize()
 {
 	size_t size = GetStaticSize(classversion);
 	size += Buffer::CalcStringLength(_stringrep);
-	if (HasFlag(Flags::NoDerivation)) {
+	if (HasFlag(Form::FormFlags::DoNotFree)) {  // if do not free flag is present this input is needed for something and won't be checked for regeneration
 		size += Buffer::List::GetListLength(_sequence);
 		size += Buffer::List::GetListLength(_orig_sequence);
 	}
@@ -68,7 +72,6 @@ bool Input::WriteData(unsigned char* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
-	Buffer::Write(_flags, buffer, offset);
 	Buffer::Write(_hasfinished, buffer, offset);
 	Buffer::Write(_trimmed, buffer, offset);
 	Buffer::Write(_executiontime, buffer, offset);
@@ -83,13 +86,18 @@ bool Input::WriteData(unsigned char* buffer, size_t& offset)
 	} else
 		Buffer::Write((FormID)0, buffer, offset);
 	Buffer::Write(_stringrep, buffer, offset);
-	if (HasFlag(Flags::NoDerivation)) {
+	if (HasFlag(Form::FormFlags::DoNotFree)) {
 		Buffer::List::WriteList(_sequence, buffer, offset);
 		Buffer::List::WriteList(_orig_sequence, buffer, offset);
 	}
 	Buffer::Write(_primaryScore, buffer, offset);
 	Buffer::Write(_secondaryScore, buffer, offset);
 	Buffer::Write(_trimmedlength, buffer, offset);
+	Buffer::Write(_parent.parentInput, buffer, offset);
+	Buffer::Write(_parent.positionBegin, buffer, offset);
+	Buffer::Write(_parent.length, buffer, offset);
+	Buffer::Write(_parent.complement, buffer, offset);
+	Buffer::Write(_generationID, buffer, offset);
 
 	return true;
 }
@@ -198,7 +206,6 @@ bool Input::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadR
 			if (length < GetStaticSize(0x1))
 				return false;
 			Form::ReadData(buffer, offset, length, resolver);
-			_flags = Buffer::ReadUInt64(buffer, offset);
 			// static init
 			_pythonconverted = false;
 			_pythonstring = "";
@@ -221,12 +228,17 @@ bool Input::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadR
 			//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
 			//	return false;
 			_stringrep = Buffer::ReadString(buffer, offset);
-			if (HasFlag(Flags::NoDerivation)) {
+			if (HasFlag(Form::FormFlags::DoNotFree)) {
 				Buffer::List::ReadList(_sequence, buffer, offset);
 				Buffer::List::ReadList(_orig_sequence, buffer, offset);
 			}
 			_primaryScore = Buffer::ReadDouble(buffer, offset);
 			_secondaryScore = Buffer::ReadDouble(buffer, offset);
+			_parent.parentInput = Buffer::ReadUInt64(buffer, offset);
+			_parent.positionBegin = Buffer::ReadInt64(buffer, offset);
+			_parent.length = Buffer::ReadInt64(buffer, offset);
+			_parent.complement = Buffer::ReadBool(buffer, offset);
+			_generationID = Buffer::ReadUInt64(buffer, offset);
 		}
 		return true;
 	default:
@@ -292,8 +304,30 @@ std::string Input::ConvertToPython(bool update)
 size_t Input::Length()
 {
 	if (_sequence.size() == 0)
-		if (derive && derive->_regenerate)
-			return derive->_targetlen;
+	{
+		if (_trimmedlength > 0)
+			return _trimmedlength;
+		if (derive)
+		{
+			if (derive->_valid)
+				return derive->_sequenceNodes;
+			else
+			{
+				if (derive->_parent._parentID != 0) {
+					if (derive->_parent._complement)
+						return derive->_parent._stop - derive->_parent._length;
+					else
+						// this is either DD: length has value, targetlen = 0
+						// or extended: length has parent length, targetlen has this length
+						return derive->_parent._length + derive->_targetlen;
+				}
+				else
+				{
+					return derive->_targetlen;
+				}
+			}
+		}
+	}
 	return _sequence.size();
 }
 
@@ -507,52 +541,66 @@ std::vector<std::shared_ptr<Input>> Input::ParseInputs(std::filesystem::path pat
 void Input::DeepCopy(std::shared_ptr<Input> other)
 {
 	other->derive = derive;
-	other->_oracleResult = _oracleResult;
-	other->_sequence = _sequence;
 	other->_orig_sequence = _orig_sequence;
 	other->_lua_sequence_next = _lua_sequence_next;
+	other->_sequence = _sequence;
+	other->_oracleResult = _oracleResult;
 	other->_stringrep = _stringrep;
+	other->_generationID = _generationID;
+	other->_parent = _parent;
 	other->_pythonconverted = _pythonconverted;
 	other->_pythonstring = _pythonstring;
 	other->_secondaryScore = _secondaryScore;
 	other->_primaryScore = _primaryScore;
 	other->_exitcode = _exitcode;
 	other->_executiontime = _executiontime;
+	other->_trimmedlength = _trimmedlength;
 	other->_trimmed = _trimmed;
 	other->_hasfinished = _hasfinished;
+	other->_flags = _flags;
 }
 
 void Input::FreeMemory()
 {
-	// return if the DoNotFree flag is set
-	if (HasFlag(Flags::DoNotFree))
-		return;
-	// only clear _sequence and derivation tree if the _input is actually derived from a derivation tree
-	if (!HasFlag(Flags::NoDerivation)) {
-		// if _input is generated AND the test has already been run and the _callback has been invalidated
-		// (i.e. we have evaluated oracle and stuff)
-		// we can destroy the derivation tree and clear the _sequence to reclaim
-		// memory space
-		if (_generatedSequence && test && test->IsValid() == false && !test->_callback) {
-			_generatedSequence = false;
+	if (TryLock()) {
+		// return if the DoNotFree flag is set
+		if (HasFlag(Form::FormFlags::DoNotFree)) {
+			Form::Unlock();
+			return;
+		}
+		// only clear _sequence and derivation tree if the _input is actually derived from a derivation tree
+		if (HasFlag(Flags::GeneratedGrammar)) {
+			// if _input is generated AND the test has already been run and the _callback has been invalidated
+			// (i.e. we have evaluated oracle and stuff)
+			// we can destroy the derivation tree and clear the _sequence to reclaim
+			// memory space
+			if (_generatedSequence && test && test->IsValid() == false && !test->_callback) {
+				_generatedSequence = false;
 
-			if (derive) {
-				// automatically sets derive to invalid
-				if (derive->_valid)
-					derive->Clear();
-				else
-					_pythonconverted;
+				if (derive) {
+					// automatically sets derive to invalid
+					if (derive->_valid)
+						derive->FreeMemory();
+				}
+				_sequence.clear();
+				_orig_sequence.clear();
 			}
+		} else if (HasFlag(Flags::GeneratedDeltaDebugging)) {
+			// if the input has been generated by delta debugging
+			// we just clear the sequences and set generated to false
+			_generatedSequence = false;
 			_sequence.clear();
 			_orig_sequence.clear();
 		}
+		// reset python string
+		_pythonconverted = false;
+		_pythonstring = "";
+		// reset test _itr
+		if (test)
+			test->_itr = _sequence.end();
+
+		Form::Unlock();
 	}
-	// reset python string
-	_pythonconverted = false;
-	_pythonstring = "";
-	// reset test _itr
-	if (test)
-		test->_itr = _sequence.end();
 }
 
 void Input::TrimInput(int32_t executed)
@@ -573,6 +621,75 @@ void Input::TrimInput(int32_t executed)
 	}
 }
 
+void Input::SetParentSplitInformation(FormID parentInput, int64_t positionBegin, int64_t length, bool complement)
+{
+	UnsetFlag(Input::Flags::GeneratedGrammar);
+	UnsetFlag(Input::Flags::GeneratedGrammarParent);
+	SetFlag(Input::Flags::GeneratedDeltaDebugging);
+	_parent.parentInput = parentInput;
+	_parent.positionBegin = positionBegin;
+	_parent.length = length;
+	_parent.complement = complement;
+}
+
+void Input::SetParentGenerationInformation(FormID parentInput)
+{
+	UnsetFlag(Input::Flags::GeneratedDeltaDebugging);
+	SetFlag(Input::Flags::GeneratedGrammar);
+	SetFlag(Input::Flags::GeneratedGrammarParent);
+	_parent.parentInput = parentInput;
+}
+
+void Input::SetGenerationInformation()
+{
+	UnsetFlag(Input::Flags::GeneratedDeltaDebugging);
+	UnsetFlag(Input::Flags::GeneratedGrammarParent);
+	SetFlag(Input::Flags::GeneratedGrammar);
+}
+
+FormID Input::GetParentID()
+{
+	if (HasFlag(Input::Flags::GeneratedDeltaDebugging) || HasFlag(Input::Flags::GeneratedGrammarParent))
+		return _parent.parentInput;
+	else
+		return 0;
+}
+
+int64_t Input::GetParentSplitBegin()
+{
+	if (HasFlag(Flags::GeneratedDeltaDebugging))
+		return _parent.positionBegin;
+	else
+		return -1;
+}
+
+int64_t Input::GetParentSplitLength()
+{
+	if (HasFlag(Flags::GeneratedDeltaDebugging))
+		return _parent.length;
+	else
+		return -1;
+}
+
+bool Input::GetParentSplitComplement()
+{
+	if (HasFlag(Flags::GeneratedDeltaDebugging))
+		return _parent.complement;
+	else
+		return 0;
+}
+
+FormID Input::GetGenerationID()
+{
+	std::shared_lock<std::shared_mutex> guard(_lock);
+	return _generationID;
+}
+
+void Input::SetGenerationID(FormID genID)
+{
+	std::unique_lock<std::shared_mutex> guard(_lock);
+	_generationID = genID;
+}
 
 #pragma region LuaFunctions
 

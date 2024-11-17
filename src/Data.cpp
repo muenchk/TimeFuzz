@@ -6,6 +6,7 @@
 #include "LZMAStreamBuf.h"
 #include "SessionData.h"
 #include "DeltaDebugging.h"
+#include "Generation.h"
 
 #include <memory>
 #include <iostream>
@@ -17,12 +18,33 @@ Data::Data()
 {
 	_lresolve = new LoadResolver();
 	_lresolve->SetData(this);
+	RegisterForms();
 }
 
 Data* Data::GetSingleton()
 {
 	static Data data;
 	return std::addressof(data);
+}
+
+void Data::RegisterForms()
+{
+	// this is a bit brute force, and needs to be updated when a new class is introduced,
+	// but then again the save and load methods need to be updated as well
+	Input::RegisterFactories();
+	Grammar::RegisterFactories();
+	DerivationTree::RegisterFactories();
+	ExclusionTree::RegisterFactories();
+	Generator::RegisterFactories();
+	Generation::RegisterFactories();
+	Session::RegisterFactories();
+	Settings::RegisterFactories();
+	Test::RegisterFactories();
+	TaskController::RegisterFactories();
+	ExecutionHandler::RegisterFactories();
+	Oracle::RegisterFactories();
+	SessionData::RegisterFactories();
+	DeltaDebugging::DeltaController::RegisterFactories();
 }
 
 std::string Data::GetSaveName()
@@ -232,6 +254,14 @@ void Data::Save()
 					}
 					stats._DeltaController++;
 					//logdebug("Write Record:      DeltaController");
+					break;
+				case FormType::Generation:
+					buffer = Records::CreateRecord<Generation>(dynamic_pointer_cast<Generation>(form), _actionrecord_offset, _actionrecord_len);
+					if (_actionrecord_offset > _actionrecord_len) {
+						std::cout << ("Buffer overflow in record: Generation");
+					}
+					stats._Generation++;
+					//logdebug("Write Record:      Generation");
 					break;
 				default:
 					stats._Fail++;
@@ -591,7 +621,7 @@ void Data::LoadIntern(std::filesystem::path path)
 											stats._Input++;
 										} else {
 											stats._Fail++;
-											loginfo("Failed Record:    Input");
+											logcritical("Failed Record:    Input");
 										}
 									}
 									break;
@@ -603,7 +633,7 @@ void Data::LoadIntern(std::filesystem::path path)
 											stats._Grammar++;
 										} else {
 											stats._Fail++;
-											loginfo("Failed Record:    Grammar");
+											logcritical("Failed Record:    Grammar");
 										}
 									}
 									break;
@@ -615,7 +645,7 @@ void Data::LoadIntern(std::filesystem::path path)
 											stats._DevTree++;
 										} else {
 											stats._Fail++;
-											loginfo("Failed Record:    DerivationTree");
+											logcritical("Failed Record:    DerivationTree");
 										}
 									}
 									break;
@@ -630,7 +660,7 @@ void Data::LoadIntern(std::filesystem::path path)
 											stats._ExclTree++;
 										} else {
 											stats._Fail++;
-											loginfo("Failed Record:    ExclusionTree");
+											logcritical("Failed Record:    ExclusionTree");
 										}
 									}
 									break;
@@ -645,7 +675,7 @@ void Data::LoadIntern(std::filesystem::path path)
 											stats._Generator++;
 										} else {
 											stats._Fail++;
-											loginfo("Failed Record:    Generator");
+											logcritical("Failed Record:    Generator");
 										}
 									}
 									break;
@@ -660,7 +690,7 @@ void Data::LoadIntern(std::filesystem::path path)
 											stats._Session++;
 										} else {
 											stats._Fail++;
-											loginfo("Failed Record:    Session");
+											logcritical("Failed Record:    Session");
 										}
 									}
 									break;
@@ -675,7 +705,7 @@ void Data::LoadIntern(std::filesystem::path path)
 											stats._Settings++;
 										} else {
 											stats._Fail++;
-											loginfo("Failed Record:    Settings");
+											logcritical("Failed Record:    Settings");
 										}
 									}
 									break;
@@ -687,7 +717,7 @@ void Data::LoadIntern(std::filesystem::path path)
 											stats._Test++;
 										} else {
 											stats._Fail++;
-											loginfo("Failed Record:    Test");
+											logcritical("Failed Record:    Test");
 										}
 									}
 									break;
@@ -702,7 +732,7 @@ void Data::LoadIntern(std::filesystem::path path)
 											stats._TaskController++;
 										} else {
 											stats._Fail++;
-											loginfo("Failed Record:    TaskController");
+											logcritical("Failed Record:    TaskController");
 										}
 									}
 									break;
@@ -717,7 +747,7 @@ void Data::LoadIntern(std::filesystem::path path)
 											stats._ExecutionHandler++;
 										} else {
 											stats._Fail++;
-											loginfo("Failed Record:    ExecutionHandler");
+											logcritical("Failed Record:    ExecutionHandler");
 										}
 									}
 									break;
@@ -733,7 +763,7 @@ void Data::LoadIntern(std::filesystem::path path)
 											_lresolve->_oracle = oracle;
 										} else {
 											stats._Fail++;
-											loginfo("Failed Record:    Oracle");
+											logcritical("Failed Record:    Oracle");
 										}
 									}
 									break;
@@ -748,7 +778,7 @@ void Data::LoadIntern(std::filesystem::path path)
 											stats._SessionData++;
 										} else {
 											stats._Fail++;
-											loginfo("Failed Record:    SessionData");
+											logcritical("Failed Record:    SessionData");
 										}
 									}
 									break;
@@ -760,13 +790,25 @@ void Data::LoadIntern(std::filesystem::path path)
 											stats._DeltaController++;
 										} else {
 											stats._Fail++;
-											loginfo("Failed Record:    DeltaController");
+											logcritical("Failed Record:    DeltaController");
+										}
+									}
+									break;
+								case FormType::Generation:
+									{
+										//logdebug("Read Record:      Generation");
+										bool res = RegisterForm(Records::ReadRecord<Generation>(buf, offset, _actionrecord_offset, rlen, _lresolve));
+										if (res) {
+											stats._Generation++;
+										} else {
+											stats._Fail++;
+											logcritical("Failed Record:    Generation");
 										}
 									}
 									break;
 								default:
 									stats._Fail++;
-									loginfo("Trying to read unknown formtype");
+									logcritical("Trying to read unknown formtype");
 								}
 								if (cbuf)
 									delete[] cbuffer;
@@ -941,7 +983,6 @@ void LoadResolver::Task::Dispose()
 template<>
 std::shared_ptr<Session> Data::CreateForm()
 {
-	Session::RegisterFactories();
 	std::shared_ptr<Session> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
@@ -967,7 +1008,6 @@ std::shared_ptr<Session> Data::CreateForm()
 template <>
 std::shared_ptr<TaskController> Data::CreateForm()
 {
-	TaskController::RegisterFactories();
 	std::shared_ptr<TaskController> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
@@ -995,7 +1035,6 @@ std::shared_ptr<TaskController> Data::CreateForm()
 template <>
 std::shared_ptr<Settings> Data::CreateForm()
 {
-	Settings::RegisterFactories();
 	std::shared_ptr<Settings> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
@@ -1020,7 +1059,6 @@ std::shared_ptr<Settings> Data::CreateForm()
 template <>
 std::shared_ptr<Oracle> Data::CreateForm()
 {
-	Oracle::RegisterFactories();
 	std::shared_ptr<Oracle> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
@@ -1045,7 +1083,6 @@ std::shared_ptr<Oracle> Data::CreateForm()
 template <>
 std::shared_ptr<Generator> Data::CreateForm()
 {
-	Generator::RegisterFactories();
 	std::shared_ptr<Generator> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
@@ -1070,7 +1107,6 @@ std::shared_ptr<Generator> Data::CreateForm()
 template <>
 std::shared_ptr<ExclusionTree> Data::CreateForm()
 {
-	ExclusionTree::RegisterFactories();
 	std::shared_ptr<ExclusionTree> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
@@ -1095,7 +1131,6 @@ std::shared_ptr<ExclusionTree> Data::CreateForm()
 template <>
 std::shared_ptr<ExecutionHandler> Data::CreateForm()
 {
-	ExecutionHandler::RegisterFactories();
 	std::shared_ptr<ExecutionHandler> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
@@ -1123,7 +1158,6 @@ std::shared_ptr<ExecutionHandler> Data::CreateForm()
 template <>
 std::shared_ptr<SessionData> Data::CreateForm()
 {
-	SessionData::RegisterFactories();
 	std::shared_ptr<SessionData> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
@@ -1157,6 +1191,32 @@ std::unordered_map<FormID, std::weak_ptr<Form>> Data::GetWeakHashmapCopy()
 		}
 	}
 	return hashweak;
+}
+
+FormID Data::GetIDFromString(std::string str)
+{
+	boost::upgrade_lock<boost::upgrade_mutex> guard(_stringHashmapLock);
+	auto itr = _stringHashmap.right.find(str);
+	if (itr != _stringHashmap.right.end()) {
+		return itr->second;
+	} else {
+		boost::upgrade_to_unique_lock<boost::upgrade_mutex> guardunique(guard);
+		FormID formid = 0;
+		{
+			formid = _stringNextFormID++;
+		}
+		_stringHashmap.insert(StringHashmap::value_type(formid, str));
+		return formid;
+	}
+}
+std::pair<std::string, bool> Data::GetStringFromID(FormID id)
+{
+	boost::shared_lock<boost::upgrade_mutex> guard(_stringHashmapLock);
+	auto itr = _stringHashmap.left.find(id);
+	if (itr != _stringHashmap.left.end()) {
+		return { itr->second, true };
+	} else
+		return { "", false };
 }
 
 void Data::Visit(std::function<VisitAction(std::shared_ptr<Form>)> visitor)

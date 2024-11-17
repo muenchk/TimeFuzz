@@ -80,6 +80,7 @@ public:
 	/// <returns></returns>
 	int32_t GetWaitingJobs();
 	int32_t GetWaitingLightJobs();
+	int32_t GetWaitingMediumJobs();
 
 	#pragma region InheritedForm
 
@@ -121,6 +122,18 @@ private:
 	void InternalLoop_Light(int32_t number);
 
 	/// <summary>
+	/// Parallel function that only executes the waiting light tasks
+	/// </summary>
+	/// <param name="number"></param>
+	void InternalLoop_LightExclusive(int32_t number);
+
+	/// <summary>
+	/// Parallel function that only executes the waiting light tasks
+	/// </summary>
+	/// <param name="number"></param>
+	void InternalLoop_SingleThread(int32_t number);
+
+	/// <summary>
 	/// shared pointer to session
 	/// </summary>
 	std::shared_ptr<SessionData> _sessiondata{};
@@ -143,14 +156,19 @@ private:
 	/// </summary>
 	bool _freeze = false;
 	std::condition_variable _condition;
+	std::condition_variable _condition_light;
 	/// <summary>
 	/// threads that run InternalLoop
 	/// </summary>
 	std::vector<std::thread> _threads;
 	/// <summary>
-	/// light queue, tasks will skip be handled before regular tasks if available
+	/// light queue, tasks will be handled before medium and regular tasks if available
 	/// </summary>
 	std::deque<std::shared_ptr<Functions::BaseFunction>> _tasks_light;
+	/// <summary>
+	/// medium queue, tasks will be handled before regular tasks if available
+	/// </summary>
+	std::deque<std::shared_ptr<Functions::BaseFunction>> _tasks_medium;
 	/// <summary>
 	/// regular queue, tasks will be handled first come first serve
 	/// </summary>
@@ -175,5 +193,5 @@ private:
 	/// whether to optimize function execution by allowing light tasks to skip queue
 	/// [only available when two or more threads are in use]
 	/// </summary>
-	bool _optimizeFuncExec = false;
+	bool _optimizeFuncExec = true;
 };

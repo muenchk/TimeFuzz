@@ -116,6 +116,42 @@ std::string Lua::GetCmdArgs(std::function<std::string(lua_State*, Test*, bool)> 
 	return func(luas, test, replay);
 }
 
+std::string Lua::GetScriptArgs(std::function<std::string(lua_State*, Test*)> func, std::shared_ptr<Test> test, bool& stateerror)
+{
+	auto threadid = std::this_thread::get_id();
+	lua_State* luas = nullptr;
+	std::shared_lock<std::shared_mutex> guard(_statesLock);
+	try {
+		luas = _states.at(threadid);
+	} catch (std::out_of_range&) {
+		luas = nullptr;
+	}
+	if (luas == nullptr) {
+		stateerror = true;
+		return "";
+	}
+	// call the enclosed function
+	return func(luas, test.get());
+}
+
+std::string Lua::GetScriptArgs(std::function<std::string(lua_State*, Test*)> func, Test* test, bool& stateerror)
+{
+	auto threadid = std::this_thread::get_id();
+	lua_State* luas = nullptr;
+	std::shared_lock<std::shared_mutex> guard(_statesLock);
+	try {
+		luas = _states.at(threadid);
+	} catch (std::out_of_range&) {
+		luas = nullptr;
+	}
+	if (luas == nullptr) {
+		stateerror = true;
+		return "";
+	}
+	// call the enclosed function
+	return func(luas, test);
+}
+
 void Lua::DestroyAll()
 {
 	std::unique_lock<std::shared_mutex> guard(_statesLock);

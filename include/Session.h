@@ -64,10 +64,12 @@ struct SessionStatus
 	// -----TaskController-----
 	int32_t task_waiting = 0;
 	int32_t task_waiting_light = 0;
+	int32_t task_waiting_medium = 0;
 	uint64_t task_completed = 0;
 
 	// -----ExecutionHandler-----
 	int32_t exec_waiting = 0;
+	int32_t exec_initialized = 0;
 	int32_t exec_running = 0;
 	int32_t exec_stopping = 0;
 
@@ -164,8 +166,9 @@ public:
 
 	void UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k);
 
-	UI::UIDeltaDebugging UI_StartDeltaDebugging();
-	UI::UIDeltaDebugging UI_FindDeltaDebugging();
+	UI::UIDeltaDebugging UI_StartDeltaDebugging(FormID inputid);
+	void UI_FindDeltaDebugging(UI::UIDeltaDebugging& dd);
+	void UI_FindAllDeltaDebugging(std::vector<UI::UIDeltaDebugging>& ddvector, size_t& length);
 
 	/// <summary>
 	/// Returns a string with information about the session

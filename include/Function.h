@@ -12,6 +12,7 @@ namespace Functions
 	enum class FunctionType
 	{
 		Light,
+		Medium,
 		Heavy,
 	};
 

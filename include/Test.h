@@ -74,6 +74,8 @@ public:
 	Test() {}
 	void Init(std::shared_ptr<Functions::BaseFunction> a_callback, uint64_t id);
 
+	void PrepareForExecution() { Init(); }
+
 	/// <summary>
 	/// whether test is currently running
 	/// </summary>
@@ -119,6 +121,10 @@ public:
 	/// command line args for the test
 	/// </summary>
 	std::string _cmdArgs;
+	/// <summary>
+	/// stdin arguments for scripts
+	/// </summary>
+	std::string _scriptArgs;
 
 	/// <summary>
 	/// output of the PUT
@@ -156,6 +162,12 @@ public:
 	/// this is a flag indicating that this test was already run and no oracle is necessary
 	/// </summary>
 	bool _skipOracle = false;
+
+	/// <summary>
+	/// If set to true, this test bypasses addtional exclusion checks
+	/// for instance if the test is a replay of an already executed test
+	/// </summary>
+	bool _skipExclusionCheck = false;
 
 	/// <summary>
 	/// Returns whether the test is still running
@@ -224,6 +236,12 @@ public:
 	/// <returns></returns>
 	bool IsValid() { return _valid; }
 
+	/// <summary>
+	/// returns wether the test is valid and the pipes are initialized
+	/// </summary>
+	/// <returns></returns>
+	bool IsInitialized() { return _valid && _pipeinit; }
+
 	void DeepCopy(std::shared_ptr<Test> other);
 
 	const int32_t classversion = 0x1;
@@ -248,6 +266,7 @@ public:
 private:
 	inline static bool _registeredFactories = false;
 	bool _valid = true;
+	bool _pipeinit = false;
 };
 
 namespace Functions

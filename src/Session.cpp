@@ -13,6 +13,7 @@
 #include "LuaEngine.h"
 #include "SessionData.h"
 #include "ExclusionTree.h"
+#include "Generation.h"
 
 Session* Session::GetSingleton()
 {
@@ -282,6 +283,17 @@ void Session::StartLoadedSession(bool& error, bool reloadsettings, std::wstring 
 			return;
 		}
 		_sessiondata->_oracle->SetLuaCmdArgs(path);
+		if (_sessiondata->_oracle->GetOracletype() == Oracle::PUTType::Script) {
+			// set lua scriptargs scripts
+			path = std::filesystem::path(_sessiondata->_settings->oracle.lua_path_script);
+			if (!std::filesystem::exists(path)) {
+				logcritical("Lua ScriptArgs script cannot be found.");
+				_lastError = ExitCodes::StartupError;
+				error = true;
+				return;
+			}
+			_sessiondata->_oracle->SetLuaScriptArgs(path);
+		}
 		// set lua cmd args replay
 		path = std::filesystem::path(_sessiondata->_settings->oracle.lua_path_cmd_replay);
 		if (std::filesystem::exists(path)) {
@@ -358,6 +370,17 @@ void Session::StartSessionIntern(bool &error)
 			return;
 		}
 		_sessiondata->_oracle->SetLuaCmdArgs(path);
+		if (_sessiondata->_oracle->GetOracletype() == Oracle::PUTType::Script) {
+			// set lua scriptargs scripts
+			path = std::filesystem::path(_sessiondata->_settings->oracle.lua_path_script);
+			if (!std::filesystem::exists(path)) {
+				logcritical("Lua ScriptArgs script cannot be found.");
+				_lastError = ExitCodes::StartupError;
+				error = true;
+				return;
+			}
+			_sessiondata->_oracle->SetLuaScriptArgs(path);
+		}
 		// set lua oracle script
 		path = std::filesystem::path(_sessiondata->_settings->oracle.lua_path_oracle);
 		if (!std::filesystem::exists(path)) {
@@ -383,6 +406,11 @@ void Session::StartSessionIntern(bool &error)
 
 		// load grammar
 		_sessiondata->_grammar = data->CreateForm<Grammar>();
+		_sessiondata->_grammar->SetGenerationParameters(
+			_sessiondata->_settings->methods.IterativeConstruction_Extension_Backtrack_min,
+			_sessiondata->_settings->methods.IterativeConstruction_Extension_Backtrack_max,
+			_sessiondata->_settings->methods.IterativeConstruction_Backtrack_Backtrack_min,
+			_sessiondata->_settings->methods.IterativeConstruction_Backtrack_Backtrack_max);
 		_sessiondata->_grammar->ParseScala(_sessiondata->_settings->oracle.grammar_path);
 		if (!_sessiondata->_grammar->IsValid()) {
 			logcritical("Grammar isn't valid.");
@@ -390,6 +418,9 @@ void Session::StartSessionIntern(bool &error)
 			error = true;
 			return;
 		}
+
+		// init generation
+		_sessiondata->SetNewGeneration();
 
 		// set generator
 		_sessiondata->_generator = data->CreateForm<Generator>();
@@ -545,10 +576,12 @@ void Session::GetStatus(SessionStatus& status)
 		status.task_completed = _sessiondata->_controller->GetCompletedJobs();
 		status.task_waiting = _sessiondata->_controller->GetWaitingJobs();
 		status.task_waiting_light = _sessiondata->_controller->GetWaitingLightJobs();
+		status.task_waiting_medium = _sessiondata->_controller->GetWaitingMediumJobs();
 		
 		// ExecutionHandler
 		status.exec_running = _sessiondata->_exechandler->GetRunningTests();
 		status.exec_waiting = _sessiondata->_exechandler->GetWaitingTests();
+		status.exec_initialized = _sessiondata->_exechandler->GetInitializedTests();
 		status.exec_stopping = _sessiondata->_exechandler->GetStoppingTests();
 
 		// Generation
@@ -705,20 +738,33 @@ void Session::UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k)
 		vector[i].primaryScore = vec[i]->GetPrimaryScore();
 		vector[i].secondaryScore = vec[i]->GetSecondaryScore();
 		vector[i].result = (UI::Result)vec[i]->GetOracleResult();
+		vector[i].flags = vec[i]->GetFlags();
 	}
 }
 
-UI::UIDeltaDebugging Session::UI_StartDeltaDebugging()
+UI::UIDeltaDebugging Session::UI_StartDeltaDebugging(FormID inputid)
 {
 	if (!_loaded)
 		return {};
 	bool reg = Lua::RegisterThread(_sessiondata);
-	auto vec = _sessiondata->GetTopK_Unfinished((int32_t)1);
 	UI::UIDeltaDebugging dd;
-	
-	if (vec.size() > 0)
-	{
-		dd.SetDeltaController(SessionFunctions::BeginDeltaDebugging(_sessiondata, vec[0]));
+	if (inputid == 0) {
+		auto vec = _sessiondata->GetTopK_Unfinished((int32_t)1);
+
+		if (vec.size() > 0) {
+			auto ddcontroller = SessionFunctions::BeginDeltaDebugging(_sessiondata, vec[0], {}, true);
+			if (ddcontroller) {
+				dd.SetDeltaController(ddcontroller);
+				_sessiondata->GetCurrentGeneration()->AddDDController(ddcontroller);
+			}
+		}
+	} else {
+		auto input = data->LookupFormID<Input>(inputid);
+		auto ddcontroller = SessionFunctions::BeginDeltaDebugging(_sessiondata, input, {}, true);
+		if (ddcontroller) {
+			dd.SetDeltaController(ddcontroller);
+			_sessiondata->GetCurrentGeneration()->AddDDController(ddcontroller);
+		}
 	}
 	if (reg)
 		Lua::UnregisterThread();
@@ -726,15 +772,36 @@ UI::UIDeltaDebugging Session::UI_StartDeltaDebugging()
 }
 
 
-UI::UIDeltaDebugging Session::UI_FindDeltaDebugging()
+void Session::UI_FindDeltaDebugging(UI::UIDeltaDebugging& dd)
 {
 	if (!_loaded)
-		return {};
+		return;
 	auto vec = _sessiondata->data->GetFormArray<DeltaDebugging::DeltaController>();
 	if (vec.size() > 0) {
-		UI::UIDeltaDebugging dd;
-		dd.SetDeltaController(vec[0]);
-		return dd;
+		for (int32_t i = 0; i < (int32_t)vec.size(); i++) {
+			if (vec[i]->Finished() == false) {
+				dd.SetDeltaController(vec[0]);
+				return;
+			}
+		}
 	} else
-		return {};
+		dd.SetDeltaController({});
+}
+
+void Session::UI_FindAllDeltaDebugging(std::vector<UI::UIDeltaDebugging>& ddvector,size_t& length)
+{
+	length = 0;
+	if (!_loaded)
+		return;
+	auto vec = _sessiondata->data->GetFormArray<DeltaDebugging::DeltaController>();
+	if (vec.size() > 0) {
+		for (int32_t i = 0; i < (int32_t)vec.size(); i++) {
+			if (vec[i]->Finished() == false) {
+				length++;
+				if (ddvector.size() < length)
+					ddvector.resize(length);
+				ddvector[length - 1].SetDeltaController(vec[i]);
+			}
+		}
+	}
 }

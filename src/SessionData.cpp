@@ -3,6 +3,7 @@
 #include "BufferOperations.h"
 #include "Data.h"
 #include "SessionFunctions.h"
+#include "Generation.h"
 
 #include <exception>
 #include <stdexcept>
@@ -121,7 +122,8 @@ size_t SessionData::GetStaticSize(int32_t version)
 	                        + 8;     // addTestFails
 	static size_t size0x3 = size0x2                   // size of existing stuff from version 1 and 2
 	                        + Form::GetDynamicSize()  // form size
-	                        + 8;                      // grammar id
+	                        + 8                       // grammar id
+	                        + 8;                      // generation ID
 
 	switch (version) {
 	case 0x1:
@@ -147,7 +149,7 @@ size_t SessionData::GetDynamicSize()
 
 std::vector<std::shared_ptr<Input>> SessionData::GetTopK(int32_t k)
 {
-	std::set<std::shared_ptr<InputNode>, InputNodeLess> set;
+	std::multiset<std::shared_ptr<InputNode>, InputNodeLess> set;
 	std::vector<std::shared_ptr<Input>> ret;
 	int32_t count = 0;
 	auto itr = _unfinishedInputs.begin();
@@ -185,6 +187,94 @@ std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Unfinished(int32_t k)
 		count++;
 	}
 	return ret;
+}
+
+std::shared_ptr<Generation> SessionData::GetCurrentGeneration()
+{
+	if (_settings->generation.generationalMode)
+		return _generation.load();
+	else {
+		static Generation gen;
+		static std::shared_ptr<Generation> genptr = std::shared_ptr<Generation>(std::addressof(gen));
+		return genptr;
+	}
+}
+
+std::shared_ptr<Generation> SessionData::GetGeneration(FormID generationID)
+{
+	if (_settings->generation.generationalMode) {
+		try {
+			return _generations.at(generationID);
+		} catch (std::exception&) {
+			static Generation gen;
+			static std::shared_ptr<Generation> genptr = std::shared_ptr<Generation>(std::addressof(gen));
+			return genptr;
+		}
+	}
+	else {
+		static Generation gen;
+		static std::shared_ptr<Generation> genptr = std::shared_ptr<Generation>(std::addressof(gen));
+		return genptr;
+	}
+}
+
+void SessionData::SetNewGeneration()
+{
+	if (_settings->generation.generationalMode) {
+		std::shared_ptr<Generation> oldgen;
+		std::shared_ptr<Generation> newgen = data->CreateForm<Generation>();
+		// add to generations map
+		_generations.insert_or_assign(newgen->GetFormID(), newgen);
+		// init generation data
+		newgen->SetTargetSize(_settings->generation.generationsize);
+		newgen->SetMaxSimultaneuosGeneration(_settings->generation.generationstep);
+		newgen->SetMaxActiveInputs(_settings->generation.activeGeneratedInputs);
+		oldgen = _generation.exchange(newgen);
+		if (oldgen)
+			newgen->SetGenerationNumber(oldgen->GetGenerationNumber() + 1);  // increment generation
+		else
+			newgen->SetGenerationNumber(1);  // first generation
+		_generationEnding = false;
+	}
+}
+
+void SessionData::CheckGenerationEnd()
+{
+	// checks whether the current session should end and prepares to do so
+	bool exp = false;
+	if (_generation.load()->IsActive() == false && _generationEnding.compare_exchange_strong(exp, true) /*if gen is inactive and genending is false, set it to true and execute this block*/) {
+		// generation has finished
+		auto call = dynamic_pointer_cast<Functions::GenerationEndCallback>(Functions::GenerationEndCallback::Create());
+		call->_sessiondata = data->CreateForm<SessionData>(); // self
+		_controller->AddTask(call);
+	}
+}
+
+int64_t SessionData::GetNumberInputsToGenerate()
+{
+	if (_settings->generation.generationalMode)
+	{
+		auto [res, num] = _generation.load()->CanGenerate();
+		if (res)
+			return num;
+		else
+			return 0;
+	} else
+		return _settings->generation.generationsize - (int64_t)_exechandler->WaitingTasks();
+}
+
+int64_t SessionData::CheckNumberInputsToGenerate(int64_t generated, int64_t failcount, int64_t togenerate)
+{
+	if (_settings->generation.generationalMode)
+		return togenerate - generated;
+	else
+		return _settings->generation.activeGeneratedInputs > (int64_t)_exechandler->WaitingTasks() && failcount < (int64_t)GENERATION_RETRIES && generated < _settings->generation.generationstep;
+}
+
+void SessionData::FailNumberInputsToGenerate(int64_t fails, int64_t)
+{
+	if (_settings->generation.generationalMode)
+		_generation.load()->FailGeneration(fails);
 }
 
 bool SessionData::WriteData(unsigned char* buffer, size_t& offset)
@@ -263,6 +353,10 @@ bool SessionData::WriteData(unsigned char* buffer, size_t& offset)
 		Buffer::Write(_grammar->GetFormID(), buffer, offset);
 	else
 		Buffer::Write((uint64_t)0, buffer, offset);
+	if (_generation.load())
+		Buffer::Write(_generation.load()->GetFormID(), buffer, offset);
+	else
+		Buffer::Write((FormID)0, buffer, offset);
 	return true;
 }
 
@@ -379,7 +473,8 @@ bool SessionData::ReadData(unsigned char* buffer, size_t& offset, size_t length,
 			_failureRate = Buffer::ReadDouble(buffer, offset);
 			_addtestFails = Buffer::ReadInt64(buffer, offset);
 			FormID grammarid = Buffer::ReadUInt64(buffer, offset);
-			resolver->AddTask([this, resolver, grammarid]() {
+			FormID generationid = Buffer::ReadUInt64(buffer, offset);
+			resolver->AddTask([this, resolver, grammarid, generationid]() {
 				this->_oracle = resolver->ResolveFormID<Oracle>(Data::StaticFormIDs::Oracle);
 				this->_controller = resolver->ResolveFormID<TaskController>(Data::StaticFormIDs::TaskController);
 				this->_exechandler = resolver->ResolveFormID<ExecutionHandler>(Data::StaticFormIDs::ExecutionHandler);
@@ -387,8 +482,14 @@ bool SessionData::ReadData(unsigned char* buffer, size_t& offset, size_t length,
 				this->_grammar = resolver->ResolveFormID<Grammar>(grammarid);
 				this->_settings = resolver->ResolveFormID<Settings>(Data::StaticFormIDs::Settings);
 				this->_excltree = resolver->ResolveFormID<ExclusionTree>(Data::StaticFormIDs::ExclusionTree);
+				this->_generation = resolver->ResolveFormID<Generation>(generationid);
+				if (this->_generation.load())
+					this->_generationID = _generation.load()->GetFormID();
 				// this is redundant and has already been set
 				this->data = resolver->_data;
+				auto gens = resolver->_data->GetFormArray<Generation>();
+				for (auto gen : gens)
+					this->_generations.insert_or_assign(gen->GetFormID(), gen);
 			});
 			return true;
 		}
@@ -402,5 +503,7 @@ void SessionData::RegisterFactories()
 	if (!_registeredFactories) {
 		_registeredFactories = !_registeredFactories;
 		Functions::RegisterFactory(Functions::MasterGenerationCallback::GetTypeStatic(), Functions::MasterGenerationCallback::Create);
+		Functions::RegisterFactory(Functions::GenerationEndCallback::GetTypeStatic(), Functions::GenerationEndCallback::Create);
+		Functions::RegisterFactory(Functions::GenerationFinishedCallback::GetTypeStatic(), Functions::GenerationFinishedCallback::Create);
 	}
 }

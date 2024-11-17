@@ -7,21 +7,25 @@
 #include "DerivationTree.h"
 #include "Processes.h"
 #include "DeltaDebugging.h"
+#include "Generation.h"
 
 #include <mutex>
 #include <boost/circular_buffer.hpp>
 #include <time.h>
 #include <algorithm>
 #include <numeric>
+#include <random>
 
 std::shared_ptr<Input> SessionFunctions::GenerateInput(std::shared_ptr<SessionData>& sessiondata)
 {
 	loginfo("[GenerateInput] create form");
 	// generate a new _input
 	std::shared_ptr<Input> input = sessiondata->data->CreateForm<Input>();
+	input->SetFlag(Form::FormFlags::DoNotFree);
 	input->derive = sessiondata->data->CreateForm<DerivationTree>();
+	input->derive->_inputID = input->GetFormID();
 	loginfo("[GenerateInput] generate");
-	if (sessiondata->_generator->Generate(input) == false)
+	if (sessiondata->_generator->Generate(input, {}, sessiondata) == false)
 	{
 		sessiondata->data->DeleteForm(input->derive);
 		input->derive.reset();
@@ -42,6 +46,74 @@ std::shared_ptr<Input> SessionFunctions::GenerateInput(std::shared_ptr<SessionDa
 	return input;
 }
 
+std::shared_ptr<Input> SessionFunctions::ExtendInput(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> parent)
+{
+	loginfo("[GenerateInput] create form");
+	// generate a new _input
+	std::shared_ptr<Input> input = sessiondata->data->CreateForm<Input>();
+	input->SetFlag(Form::FormFlags::DoNotFree);
+	input->derive = sessiondata->data->CreateForm<DerivationTree>();
+	input->derive->_inputID = input->GetFormID();
+	// flag makes the generator extend the input
+	input->SetFlag(Input::Flags::GeneratedGrammarParent);
+	if (parent->GetOracleResult() == OracleResult::Failing)
+		input->SetFlag(Input::Flags::GeneratedGrammarParentBacktrack);
+	loginfo("[GenerateInput] generate");
+	if (sessiondata->_generator->Generate(input, {}, sessiondata, parent) == false) {
+		sessiondata->data->DeleteForm(input->derive);
+		input->derive.reset();
+		sessiondata->data->DeleteForm(input);
+		return {};
+	}
+	loginfo("[GenerateInput] setup");
+	// setup _input class
+	input->_hasfinished = false;
+	input->_trimmed = false;
+	input->_executiontime = std::chrono::nanoseconds(0);
+	input->_exitcode = 0;
+	input->_pythonstring = "";
+	input->_pythonconverted = false;
+	input->_stringrep = "";
+	input->_oracleResult = OracleResult::None;
+
+	return input;
+}
+
+void SessionFunctions::ExtendInput(std::shared_ptr<Input>& input, std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> parent)
+{
+	// if we already generated the _input: skip
+	if (input->GetGenerated() || !sessiondata->_generator)
+		return;
+	if (input) {
+		// generate a new _input
+		if (!input->derive) {
+			input->derive = sessiondata->data->CreateForm<DerivationTree>();
+			input->derive->_inputID = input->GetFormID();
+		}
+		// flag makes the generator extend the input
+		input->SetFlag(Input::Flags::GeneratedGrammarParent);
+		if (input->GetOracleResult() == OracleResult::Failing)
+			input->SetFlag(Input::Flags::GeneratedGrammarParentBacktrack);
+		loginfo("[GenerateInput] generate");
+		if (sessiondata->_generator->GetGrammar() && sessiondata->_generator->GetGrammar()->GetFormID() == input->derive->_grammarID) {
+			if (sessiondata->_generator->Generate(input, {}, sessiondata, parent) == false) {
+				//sessiondata->data->DeleteForm(input->derive);
+				//input->derive.reset();
+				//sessiondata->data->DeleteForm(input);
+				//input.reset();
+			}
+		} else {
+			auto grammar = sessiondata->data->LookupFormID<Grammar>(input->derive->_grammarID);
+			if (grammar) {
+				sessiondata->_generator->Generate(input, grammar, sessiondata, parent);
+				return;
+			}
+		}
+		loginfo("[GenerateInput] setup");
+	} else
+		input = ExtendInput(sessiondata, parent);
+}
+
 void SessionFunctions::GenerateInput(std::shared_ptr<Input>& input, std::shared_ptr<SessionData>& sessiondata)
 {
 	// if we already generated the _input: skip
@@ -49,32 +121,26 @@ void SessionFunctions::GenerateInput(std::shared_ptr<Input>& input, std::shared_
 		return;
 	if (input) {
 		// generate a new _input
-		if (!input->derive)
+		if (!input->derive) {
 			input->derive = sessiondata->data->CreateForm<DerivationTree>();
+			input->derive->_inputID = input->GetFormID();
+		}
 		loginfo("[GenerateInput] generate");
 		if (sessiondata->_generator->GetGrammar() && sessiondata->_generator->GetGrammar()->GetFormID() == input->derive->_grammarID) {
-			if (sessiondata->_generator->Generate(input) == false) {
-				sessiondata->data->DeleteForm(input->derive);
-				input->derive.reset();
-				sessiondata->data->DeleteForm(input);
+			if (sessiondata->_generator->Generate(input, {}, sessiondata) == false) {
+				//sessiondata->data->DeleteForm(input->derive);
+				//input->derive.reset();
+				//sessiondata->data->DeleteForm(input);
+				//input.reset();
 			}
 		} else {
 			auto grammar = sessiondata->data->LookupFormID<Grammar>(input->derive->_grammarID);
 			if (grammar) {
-				sessiondata->_generator->Generate(input, grammar);
+				sessiondata->_generator->Generate(input, grammar, sessiondata);
 				return;
 			}
 		}
 		loginfo("[GenerateInput] setup");
-		// setup _input class
-		input->_hasfinished = false;
-		input->_trimmed = false;
-		input->_executiontime = std::chrono::nanoseconds(0);
-		input->_exitcode = 0;
-		input->_pythonstring = "";
-		input->_pythonconverted = false;
-		input->_stringrep = "";
-		input->_oracleResult = OracleResult::None;
 	} else
 		input = GenerateInput(sessiondata);
 }
@@ -205,6 +271,7 @@ void SessionFunctions::ReclaimMemory(std::shared_ptr<SessionData>& sessiondata)
 
 void SessionFunctions::MasterControl(std::shared_ptr<SessionData>& sessiondata, bool forceexecute)
 {
+
 	loginfo("[Mastercontrol] begin");
 	// try to get lock for master
 	if (forceexecute) // forcefully execute function
@@ -218,7 +285,9 @@ void SessionFunctions::MasterControl(std::shared_ptr<SessionData>& sessiondata, 
 
 	StartProfiling;
 
-	std::chrono::nanoseconds timediff = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - sessiondata->_lastchecks);
+	auto now = std::chrono::steady_clock::now();
+
+	std::chrono::nanoseconds timediff = std::chrono::duration_cast<std::chrono::nanoseconds>(now - sessiondata->_lastchecks);
 
 	loginfo("[MasterControl] EndCheck");
 
@@ -254,7 +323,7 @@ void SessionFunctions::MasterControl(std::shared_ptr<SessionData>& sessiondata, 
 	{
 		if (sessiondata->_memory_ending == false) {
 			// we are still not ending so check the timer
-			if (sessiondata->_memory_outofmemory_timer < std::chrono::steady_clock::now())
+			if (sessiondata->_memory_outofmemory_timer < now)
 			{
 				// we have exceeded the timer
 				// if we have more memory consumption than the limit, exit
@@ -267,17 +336,62 @@ void SessionFunctions::MasterControl(std::shared_ptr<SessionData>& sessiondata, 
 		}
 	} else {
 		if ((int64_t)sessiondata->_memory_mem > sessiondata->_settings->general.memory_softlimit) {
-			if ((int64_t)sessiondata->_memory_mem > sessiondata->_settings->general.memory_limit || std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - sessiondata->_lastMemorySweep) > sessiondata->_settings->general.memory_sweep_period) {
+			if ((int64_t)sessiondata->_memory_mem > sessiondata->_settings->general.memory_limit || std::chrono::duration_cast<std::chrono::nanoseconds>(now - sessiondata->_lastMemorySweep) > sessiondata->_settings->general.memory_sweep_period) {
 				// free memory
 				ReclaimMemory(sessiondata);
+				// update now since some time may have passed
+				now = std::chrono::steady_clock::now();
 				// if we were above the memory limit set the outofmemory flag, and a timer
 				// if we are still above the limit when the timer ends, save and end the session
 				// (even though sving might consume a bit more memory)
 				if ((int64_t)sessiondata->_memory_mem > sessiondata->_settings->general.memory_limit) {
 					sessiondata->_memory_outofmemory = true;
-					sessiondata->_memory_outofmemory_timer = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
+					sessiondata->_memory_outofmemory_timer = now + std::chrono::milliseconds(100);
 				}
 			}
+		}
+	}
+
+	// cleanup session data periodically
+	if (std::chrono::duration_cast<std::chrono::seconds>(now - sessiondata->_cleanup) > sessiondata->_cleanup_period) {
+		sessiondata->_cleanup = now;
+		{
+			std::unique_lock<std::shared_mutex> guard(sessiondata->_negativeInputsLock);
+			for (auto node : sessiondata->_negativeInputs) {
+				if (auto ptr = node->input.lock(); ptr) {
+					if (ptr->HasFlag(Input::Flags::Duplicate)) {
+						logmessage("Duplicate Input");
+						sessiondata->_negativeInputs.erase(node);
+					}
+					if (ptr->HasFlag(Form::FormFlags::Deleted)) {
+						logmessage("Deleted Input");
+						sessiondata->_negativeInputs.erase(node);
+					}
+				} else {
+					logmessage("Invalid pointer");
+					sessiondata->_negativeInputs.erase(node);
+				}
+			}
+			sessiondata->_negativeInputNumbers = (int64_t)sessiondata->_negativeInputs.size();
+		}
+		{
+			std::unique_lock<std::shared_mutex> guard(sessiondata->_unfinishedInputsLock);
+			for (auto node : sessiondata->_unfinishedInputs) {
+				if (auto ptr = node->input.lock(); ptr) {
+					if (ptr->HasFlag(Input::Flags::Duplicate)) {
+						logmessage("Duplicate Input");
+						sessiondata->_unfinishedInputs.erase(node);
+					}
+					if (ptr->HasFlag(Form::FormFlags::Deleted)) {
+						logmessage("Deleted Input");
+						sessiondata->_unfinishedInputs.erase(node);
+					}
+				} else {
+					logmessage("Invalid pointer");
+					sessiondata->_unfinishedInputs.erase(node);
+				}
+			}
+			sessiondata->_unfinishedInputNumbers = (int64_t)sessiondata->_unfinishedInputs.size();
 		}
 	}
 
@@ -307,18 +421,44 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 		std::cout << "Delete Input\n";
 		sessiondata->data->DeleteForm(input);
 		std::cout << "Delete Done\n";
-	}
-	if (input->test->_skipOracle)
+
+		input->UnsetFlag(Form::FormFlags::DoNotFree);
 		return;
+	}
+	if (input->test->_skipOracle) {
+		input->UnsetFlag(Form::FormFlags::DoNotFree);
+		return;
+	}
+
+	// add this input to the current generation
+	if (input->HasFlag(Input::Flags::GeneratedDeltaDebugging))
+		sessiondata->GetGeneration(input->GetGenerationID())->AddDDInput(input);
+	else
+		sessiondata->GetGeneration(input->GetGenerationID())->AddGeneratedInput(input);
+
+	// if the inputs generation matches the current generation, initiate the end of the current iteration
+	if (input->GetGenerationID() == sessiondata->GetCurrentGenerationID())
+		sessiondata->CheckGenerationEnd();
+
 	// calculate oracle result
 	bool stateerror = false;
 	input->_oracleResult = Lua::EvaluateOracle(std::bind(&Oracle::Evaluate, sessiondata->_oracle, std::placeholders::_1, std::placeholders::_2), input->test, stateerror);
 	if (stateerror) {
 		logcritical("Test End functions cannot be completed, as the calling thread lacks a lua context");
+		// remove input from the current generation
+		// we do this as removing counts down the targeted generation values,
+		if (input->HasFlag(Input::Flags::GeneratedDeltaDebugging))
+			sessiondata->GetGeneration(input->GetGenerationID())->RemoveDDInput(input);
+		else
+			sessiondata->GetGeneration(input->GetGenerationID())->RemoveGeneratedInput(input);
+		input->UnsetFlag(Form::FormFlags::DoNotFree);
 		return;
 	}
 	// check whether _output should be stored
 	input->test->_storeoutput = sessiondata->_settings->tests.storePUToutput || (sessiondata->_settings->tests.storePUToutputSuccessful && input->GetOracleResult() == OracleResult::Passing);
+
+	if (input->_hasfinished == false)
+		logwarn("Somehow its finished even though its not");
 
 	// check _input result
 	switch (input->GetOracleResult()) {
@@ -394,8 +534,8 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 		break;
 	}
 
-
-	// ----- DO SOME NICE STUFF -----
+	input->UnsetFlag(Form::FormFlags::DoNotFree);
+	return;
 }
 
 void SessionFunctions::AddTestExitReason(std::shared_ptr<SessionData>& sessiondata, int32_t reason)
@@ -432,7 +572,7 @@ void SessionFunctions::GenerateTests(std::shared_ptr<SessionData>& sessiondata)
 	sessiondata->_controller->AddTask(callback);
 }
 
-std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDebugging(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input)
+std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDebugging(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback, bool bypassTests)
 {
 	DeltaDebugging::DDGoal goal = DeltaDebugging::DDGoal::MaximizePrimaryScore;
 	DeltaDebugging::DDMode mode = sessiondata->_settings->dd.mode;
@@ -461,9 +601,13 @@ std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDeb
 		}
 		break;
 	}
+	params->bypassTests = bypassTests;
+	params->minimalSubsetSize = (int32_t)sessiondata->_settings->dd.executeAboveLength + 1;
 	auto control = sessiondata->data->CreateForm<DeltaDebugging::DeltaController>();
-	if (control->Start(params, sessiondata, input))
+	if (control->Start(params, sessiondata, input, callback))
 	{
+		// add ddcontroler to current generation
+		sessiondata->GetCurrentGeneration()->AddDDController(control);
 		return control;
 	}
 	else
@@ -521,7 +665,8 @@ namespace Functions
 			// waiting tests against the parameters
 
 			// number of new tests we need to generate
-			int64_t generate = _sessiondata->_settings->generation.generationsize - (int64_t)_sessiondata->_exechandler->WaitingTasks();
+			//int64_t generate = _sessiondata->_settings->generation.generationsize - (int64_t)_sessiondata->_exechandler->WaitingTasks();
+			int64_t generate = _sessiondata->GetNumberInputsToGenerate();
 			if (generate == 0)
 				return;
 
@@ -541,9 +686,19 @@ namespace Functions
 			// also stop generation is we have generated [generationsize] passing inputs, as new tests
 			// might have finished in the meantime and we don't want this to become an endless loop
 			// blocking our task executions
-			while (_sessiondata->_settings->generation.generationsize > (int64_t)_sessiondata->_exechandler->WaitingTasks() && failcount < (int64_t)_sessiondata->GENERATION_RETRIES && gencount < _sessiondata->_settings->generation.generationstep) {
+			//_sessiondata->_settings->generation.generationsize > (int64_t)_sessiondata->_exechandler->WaitingTasks() && failcount < (int64_t)_sessiondata->GENERATION_RETRIES && gencount < _sessiondata->_settings->generation.generationstep
+			while (_sessiondata->CheckNumberInputsToGenerate(generated, failcount, generate) > 0) {
 				loginfo("[MasterGenerationCallback] inner loop");
-				input = SessionFunctions::GenerateInput(_sessiondata);
+				std::mt19937 randan((uint32_t)std::chrono::steady_clock::now().time_since_epoch().count());
+				std::uniform_int_distribution<signed> dist(0, 1);
+				if (dist(randan) == 0 && _sessiondata->GetTopK_Unfinished(1).size() > 0) {
+					auto parent = _sessiondata->GetTopK_Unfinished(1)[0];
+					parent->SetFlag(Form::FormFlags::DoNotFree);
+					input = SessionFunctions::ExtendInput(_sessiondata, parent);
+					parent->UnsetFlag(Form::FormFlags::DoNotFree);
+				}
+				else
+					input = SessionFunctions::GenerateInput(_sessiondata);
 				if (input) {
 					logdebug("[MasterGenerationCallback] prefix tree");
 					if (_sessiondata->_excltree->HasPrefix(input) == false) {
@@ -560,8 +715,8 @@ namespace Functions
 							_sessiondata->IncAddTestFails();
 							_sessiondata->data->DeleteForm(input);
 							callback->Dispose();
-						}
-						generated++;
+						} else
+							generated++;
 					}
 					// else continue with loop
 					else {
@@ -578,6 +733,9 @@ namespace Functions
 				_sessiondata->PushRecenFails(1);
 			} else
 				_sessiondata->PushRecenFails(0);
+
+			if (generated != generate)
+				_sessiondata->FailNumberInputsToGenerate(generate - generated, generated);
 
 			if (generated == 0 && (int64_t)_sessiondata->_exechandler->WaitingTasks() == 0 /*generate == _sessiondata->_settings->generation.generationsize */) {
 				// if we could not generate any new inputs and the number we needed to generate is equal to the maximum generation size (i.e. we don't have any tasks waiting)
@@ -640,6 +798,107 @@ namespace Functions
 	}
 
 	void MasterGenerationCallback::Dispose()
+	{
+		_sessiondata.reset();
+	}
+
+
+
+	void GenerationEndCallback::Run()
+	{
+		// this callback calculates the top k inputs that will be kept for future generation of new inputs
+		// it will start k delta controllers for the top k inputs
+		// the callback for the delta controllers are instance of GenerationFinishedCallback
+		// if all delta controllers are finished the transtion will begin
+
+		// get top 5 percent generated inputs //_sessiondata->_settings->generation.generationsize * 0.05
+		auto topk = _sessiondata->GetTopK((int32_t)(10));
+
+		for (auto ptr : topk)
+		{
+			auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
+			callback->_sessiondata = _sessiondata;
+			auto ddcontroller = SessionFunctions::BeginDeltaDebugging(_sessiondata, ptr, callback, false);
+			if (ddcontroller)
+				_sessiondata->GetCurrentGeneration()->AddDDController(ddcontroller);
+		}
+	}
+
+	bool GenerationEndCallback::ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	{
+		// get id of sessiondata and resolve link
+		uint64_t sessid = Buffer::ReadUInt64(buffer, offset);
+		resolver->AddTask([this, sessid, resolver]() {
+			this->_sessiondata = resolver->ResolveFormID<SessionData>(sessid);
+		});
+		return true;
+	}
+
+	bool GenerationEndCallback::WriteData(unsigned char* buffer, size_t& offset)
+	{
+		BaseFunction::WriteData(buffer, offset);
+		Buffer::Write(_sessiondata->GetFormID(), buffer, offset);  // +8
+		return true;
+	}
+
+	size_t GenerationEndCallback::GetLength()
+	{
+		return BaseFunction::GetLength() + 8;
+	}
+
+	void GenerationEndCallback::Dispose()
+	{
+		_sessiondata.reset();
+	}
+
+
+	void GenerationFinishedCallback::Run()
+	{
+		if (_sessiondata->GetCurrentGeneration()->IsDeltaDebuggingActive() == false)
+		{
+			_sessiondata->SetNewGeneration();
+
+			// copy sources to new generation
+			// ------------------------------
+			// ------------------------------
+			// ------------------------------
+			// ------------------------------
+			// ------------------------------
+			// ------------------------------
+			// ------------------------------
+			// ------------------------------
+			// ------------------------------
+			// ------------------------------
+			// ------------------------------
+
+			SessionFunctions::MasterControl(_sessiondata);
+			SessionFunctions::GenerateTests(_sessiondata);
+		}
+	}
+
+	bool GenerationFinishedCallback::ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	{
+		// get id of sessiondata and resolve link
+		uint64_t sessid = Buffer::ReadUInt64(buffer, offset);
+		resolver->AddTask([this, sessid, resolver]() {
+			this->_sessiondata = resolver->ResolveFormID<SessionData>(sessid);
+		});
+		return true;
+	}
+
+	bool GenerationFinishedCallback::WriteData(unsigned char* buffer, size_t& offset)
+	{
+		BaseFunction::WriteData(buffer, offset);
+		Buffer::Write(_sessiondata->GetFormID(), buffer, offset);  // +8
+		return true;
+	}
+
+	size_t GenerationFinishedCallback::GetLength()
+	{
+		return BaseFunction::GetLength() + 8;
+	}
+
+	void GenerationFinishedCallback::Dispose()
 	{
 		_sessiondata.reset();
 	}

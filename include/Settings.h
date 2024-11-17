@@ -104,6 +104,11 @@ public:
 		std::string lua_path_cmd = "LuaCmdArgs.lua";
 		const char* lua_path_cmd_NAME = "LuaCmdScript";
 		/// <summary>
+		/// path to the lua script containing the script Args
+		/// </summary>
+		std::string lua_path_script = "LuaScriptArgs.lua";
+		const char* lua_path_script_NAME = "LuaScriptArgsScript";
+		/// <summary>
 		/// path to the lua script containing the cmd Args
 		/// </summary>
 		std::string lua_path_cmd_replay = "LuaCmdArgsReplay.lua";
@@ -227,6 +232,34 @@ public:
 
 	struct Methods
 	{
+		// ----- These settings are final for the session, otherwise reproduction is impossible -----
+
+		/// <summary>
+		/// When iteratively construction inputs, they are generated from already existing derivation trees
+		/// by backtracking a certain number of nodes and expanding the tree afterwards, this setting
+		/// provide the minimum amount of sequence nodes to be backtracked [cannot be set less than one]
+		/// </summary>
+		int32_t IterativeConstruction_Extension_Backtrack_min = 1;
+
+		/// <summary>
+		/// This sets the maximum number of sequence nodes to be backtracked when extending an unfinished
+		/// input
+		/// </summary>
+		int32_t IterativeConstruction_Extension_Backtrack_max = 10;
+
+		/// <summary>
+		/// When iteratively construction inputs, failing input must be backtracked before they can be 
+		/// extended to new inputs.
+		/// This setting sets the minimum number of sequence nodes to backtrack before expanding the derivation
+		/// tree once more.
+		/// </summary>
+		int32_t IterativeConstruction_Backtrack_Backtrack_min = 10;
+
+		/// <summary>
+		/// This setting sets the maximum number of sequence nodes to backtrack on failing inputs before 
+		/// expanding the derivation tree once more.
+		/// </summary>
+		int32_t IterativeConstruction_Backtrack_Backtrack_max = 30;
 	};
 
 	Methods methods;
@@ -271,10 +304,26 @@ public:
 		/// <summary>
 		/// maximum generated inputs per generation cycle
 		/// </summary>
-		int32_t generationsize = 100;
+		int32_t generationsize = 1000;
 		const char* generationsize_NAME = "GenerationSize";
 
+		/// <summary>
+		/// maximum number of generated inputs that may be waiting to be tested at any time
+		/// [this is the number of inputs the program will generate, if a test finishes
+		/// a new test will be generated, until the generationsize has been reached]
+		/// [this applies even if generationalMode has been disabled]
+		/// </summary>
+		int32_t activeGeneratedInputs = 100;
+		const char* activeGeneratedInputs_NAME = "ActiveGeneratedInputs";
+
 		int32_t generationstep = 10;
+
+		/// <summary>
+		/// [true] Inputs will be generated in generations
+		/// [false] Inputs will be generated continuously until a goal is reached
+		/// </summary>
+		bool generationalMode = true;
+		const char* generationalMode_NAME = "GenerationalMode";
 
 		/// <summary>
 		/// starting parameter for automatic generationsize scaling

@@ -18,6 +18,7 @@
 
 #include "Function.h"
 
+
 namespace Functions
 {
 	class Callback : public BaseFunction
@@ -114,7 +115,7 @@ int32_t main(/*int32_t argc, char** argv*/)
 	{
 		if (ls[i]->Finished())
 			if (auto ptr = ls[i]->test; ptr)
-				logdebug("TEST: {}, EXITREASON: {}, EXITCODE: {}, EXECTIME: {}ms, OUTPUT: {}", ptr->identifier, ptr->exitreason, ls[i]->GetExitCode(), std::chrono::duration_cast<std::chrono::milliseconds>(ls[i]->GetExecutionTime()).count(), ptr->output);
+				logdebug("TEST: {}, EXITREASON: {}, EXITCODE: {}, EXECTIME: {}ms, OUTPUT: {}", ptr->_identifier, ptr->_exitreason, ls[i]->GetExitCode(), std::chrono::duration_cast<std::chrono::milliseconds>(ls[i]->GetExecutionTime()).count(), ptr->_output);
 	}
 
 	execution.reset();
@@ -149,7 +150,7 @@ int32_t main(/*int32_t argc, char** argv*/)
 	execution->StopHandlerAfterTestsFinishAndWait();
 	logdebug("Finished execution handler");
 	if (auto ptr = inp->test; ptr)
-		logdebug("TEST: {}, EXITREASON: {}, EXITCODE: {}, EXECTIME: {}ms, OUTPUT: {}", ptr->identifier, ptr->exitreason, inp->GetExitCode(), std::chrono::duration_cast<std::chrono::milliseconds>(inp->GetExecutionTime()).count(), ptr->output);
+		logdebug("TEST: {}, EXITREASON: {}, EXITCODE: {}, EXECTIME: {}ms, OUTPUT: {}", ptr->_identifier, ptr->_exitreason, inp->GetExitCode(), std::chrono::duration_cast<std::chrono::milliseconds>(inp->GetExecutionTime()).count(), ptr->_output);
 
 	execution.reset();
 	controller->Stop();

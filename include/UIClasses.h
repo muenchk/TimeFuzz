@@ -43,6 +43,7 @@ namespace UI
 			InputPrimaryScore,
 			InputSecondaryScore,
 			InputResult,
+			InputFlags,
 			InputAction,
 		};
 
@@ -50,6 +51,7 @@ namespace UI
 		size_t length;
 		double primaryScore;
 		double secondaryScore;
+		EnumType flags;
 		UI::Result result;
 	};
 
@@ -82,6 +84,7 @@ namespace UI
 			InputPrimaryScore,
 			InputSecondaryScore,
 			InputResult,
+			InputFlags,
 			InputAction,
 			InputLoss,
 			InputLevel,
@@ -94,12 +97,14 @@ namespace UI
 		UI::Result result;
 		double loss;
 		int32_t level;
+		EnumType flags;
 	};
 
 	class UIDeltaDebugging
 	{
 	public:
 
+		FormID GetFormID();
 		std::string GetGoal();
 		std::string GetMode();
 		int32_t GetTestsRemaining();

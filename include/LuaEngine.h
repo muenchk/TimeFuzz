@@ -21,6 +21,8 @@ public:
 	static EnumType EvaluateOracle(std::function<EnumType(lua_State*, std::shared_ptr<Test>)> func, std::shared_ptr<Test> test, bool& stateerror);
 	static std::string GetCmdArgs(std::function<std::string(lua_State*, Test*, bool)> func, std::shared_ptr<Test> test, bool& stateerror, bool replay);
 	static std::string GetCmdArgs(std::function<std::string(lua_State*, Test*, bool)> func, Test* test, bool& stateerror, bool replay);
+	static std::string GetScriptArgs(std::function<std::string(lua_State*, Test*)> func, std::shared_ptr<Test> test, bool& stateerror);
+	static std::string GetScriptArgs(std::function<std::string(lua_State*, Test*)> func, Test* test, bool& stateerror);
 
 	static void DestroyAll();
 

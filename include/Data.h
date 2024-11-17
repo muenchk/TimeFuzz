@@ -1,5 +1,12 @@
 #pragma once
 
+#if defined(unix) || defined(__unix__) || defined(__unix)
+#include <linux/types.h>
+#include <asm/types.h>
+#endif
+
+#include <sys/types.h>
+
 #include <string>
 #include <queue>
 #include <unordered_map>
@@ -61,6 +68,7 @@ public:
 		int64_t _SessionData = 0;
 		int64_t _Fail = 0;
 		int64_t _DeltaController = 0;
+		int64_t _Generation = 0;
 	};
 
 private:
@@ -152,6 +160,8 @@ private:
 	/// <param name="name"></param>
 	void LoadIntern(std::filesystem::path path);
 
+	void RegisterForms();
+
 public:
 
 	bool _globalTasks = false;
@@ -193,7 +203,6 @@ public:
 	std::shared_ptr<T> CreateForm()
 	{
 		loginfo("Create Form");
-		T::RegisterFactories();
 		std::shared_ptr<T> ptr = std::make_shared<T>();
 		FormID formid = 0;
 		{
@@ -253,6 +262,7 @@ public:
 		if (form) {
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 			_hashmap.erase(form->GetFormID());
+			form->SetFlag(Form::FormFlags::Deleted);
 			//form->Delete(this);
 			form.reset();
 			return;
@@ -271,7 +281,7 @@ public:
 	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 	std::shared_ptr<T> LookupFormID(FormID formid)
 	{
-		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
+		std::shared_lock<std::shared_mutex> guard(_hashmaplock);
 		auto itr = _hashmap.find(formid);
 		if (itr != _hashmap.end())
 			return dynamic_pointer_cast<T>(itr->second);
@@ -282,7 +292,7 @@ public:
 	std::vector<std::shared_ptr<T>> GetFormArray()
 	{
 		std::vector<std::shared_ptr<T>> results;
-		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
+		std::shared_lock<std::shared_mutex> guard(_hashmaplock);
 		for (auto& [_, form] : _hashmap)
 		{
 			if (form->GetType() == T::GetTypeStatic())
@@ -308,38 +318,14 @@ public:
 	/// </summary>
 	/// <param name="str"></param>
 	/// <returns></returns>
-	FormID GetIDFromString(std::string str)
-	{
-		boost::upgrade_lock<boost::upgrade_mutex> guard(_stringHashmapLock);
-		auto itr = _stringHashmap.right.find(str);
-		if (itr != _stringHashmap.right.end()) {
-			return itr->second;
-		} else {
-			boost::upgrade_to_unique_lock<boost::upgrade_mutex> guardunique(guard);
-			FormID formid = 0;
-			{
-				formid = _stringNextFormID++;
-			}
-			_stringHashmap.insert(StringHashmap::value_type(formid, str));
-			return formid;
-		}
-	}
+	FormID GetIDFromString(std::string str);
 
 	/// <summary>
 	/// Returns the string associated with the given ID, and a boolean that indicates whether the value exists
 	/// </summary>
 	/// <param name="id"></param>
 	/// <returns></returns>
-	std::pair<std::string, bool> GetStringFromID(FormID id)
-	{
-		boost::shared_lock<boost::upgrade_mutex> guard(_stringHashmapLock);
-		auto itr = _stringHashmap.left.find(id);
-		if (itr != _stringHashmap.left.end())
-		{
-			return { itr->second, true };
-		} else
-			return { "", false };
-	}
+	std::pair<std::string, bool> GetStringFromID(FormID id);
 
 
 	/// <summary>

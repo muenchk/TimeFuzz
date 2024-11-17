@@ -202,8 +202,8 @@ namespace Processes
 			// running on child process
 
 			// redirect _input and _output
-			close(test->red_input[1]);
-			close(test->red_output[0]);
+			//close(test->red_input[1]);
+			//close(test->red_output[0]);
 
 			dup2(test->red_input[0], STDIN_FILENO);
 			dup2(test->red_output[1], STDOUT_FILENO);
@@ -218,7 +218,7 @@ namespace Processes
 		}
 
 		test->processid = pid;
-		close(test->red_output[1]);
+		//close(test->red_output[1]);
 
 		profileDebug(TimeProfilingDebug, "");
 		return true;
@@ -245,6 +245,8 @@ namespace Processes
 		strcat(buf, std::to_string(pid).c_str());
 		strcat(buf, "/status");
 		FILE* file = fopen(buf, "r");
+		if (file == nullptr)
+			return 0;
 		uint64_t result = 0;
 		char line[128];
 

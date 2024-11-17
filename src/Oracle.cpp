@@ -8,7 +8,7 @@
 
 std::string Oracle::TypeString(PUTType type)
 {
-	return type == Oracle::PUTType::CMD                 ? "CommandLine" :
+	return type == Oracle::PUTType::CMD                 ? "CMD" :
 	       type == Oracle::PUTType::Script              ? "Script" :
 	       type == Oracle::PUTType::STDIN_Responsive    ? "StdinResponsive" :
 	       type == Oracle::PUTType::STDIN_Responsive ? "StdinDump" :
@@ -17,7 +17,7 @@ std::string Oracle::TypeString(PUTType type)
 
 Oracle::PUTType Oracle::ParseType(std::string str)
 {
-	if (Utility::ToLower(str).find("commandline") != std::string::npos)
+	if (Utility::ToLower(str).find("cmd") != std::string::npos)
 		return Oracle::PUTType::CMD;
 	else if (Utility::ToLower(str).find("script") != std::string::npos)
 		return Oracle::PUTType::Script;
@@ -77,7 +77,7 @@ void Oracle::Set(PUTType type, std::filesystem::path PUTpath)
 		#else
 		// linux file not found, etc... just exit
 		logcritical("Cannot check for Oracle: {}", e.what());
-		valid = false;
+		_valid = false;
 		return;
 		#endif
 	}
@@ -125,8 +125,8 @@ bool Oracle::Validate()
 #else
 		// linux file not found, etc... just exit
 		logcritical("Cannot check for Oracle: {}", e.what());
-		valid = false;
-		return valid;
+		_valid = false;
+		return _valid;
 #endif
 	}
 	return _valid;
@@ -155,6 +155,16 @@ void Oracle::SetLuaOracle(std::string script)
 void Oracle::SetLuaOracle(std::filesystem::path scriptpath)
 {
 	_luaOraclePath = scriptpath;
+}
+
+void Oracle::SetLuaScriptArgs(std::string script)
+{
+	_luaScriptArgsStr = script;
+}
+
+void Oracle::SetLuaScriptArgs(std::filesystem::path scriptpath)
+{
+	_luaScriptArgsPath = scriptpath;
 }
 
 void Oracle::ApplyLuaCommands(lua_State* L)
@@ -187,6 +197,18 @@ void Oracle::ApplyLuaCommands(lua_State* L)
 		if (luaL_dofile(L, _luaCmdArgsPathReplay.string().c_str()) == LUA_OK) {
 			lua_pop(L, lua_gettop(L));
 		}
+
+	if (_luaScriptArgsStr.empty() == false) {
+		// the lua command is saved in a string
+		if (luaL_dostring(L, _luaScriptArgsStr.c_str()) == LUA_OK) {
+			lua_pop(L, lua_gettop(L));
+		}
+	} else {
+		// run lua on script
+		if (luaL_dofile(L, _luaScriptArgsPath.string().c_str()) == LUA_OK) {
+			lua_pop(L, lua_gettop(L));
+		}
+	}
 }
 
 OracleResult Oracle::Evaluate(lua_State* L, std::shared_ptr<Test> test)
@@ -251,6 +273,39 @@ std::string Oracle::GetCmdArgs(lua_State* L, Test* test, bool replay)
 				std::string err = lua_tostring(L, -1);
 				lua_pop(L, 1);
 				logcritical("Lua Error in GetCmdArgs: {}", err);
+			}
+		}
+		while (lua_gettop(L) != 0)
+			lua_pop(L, 1);
+	}
+	return args;
+}
+
+std::string Oracle::GetScriptArgs(lua_State* L, Test* test)
+{
+	//std::unique_lock<std::mutex> guard(cmdlock);
+	std::string args = "";
+	auto input = test->_input.lock();
+	if (input) {
+		lua_pushlightuserdata(L, (void*)(input.get()));
+		lua_setglobal(L, "input");
+		lua_getglobal(L, "GetScriptArgs");
+		//lua_push .....
+		// set function call args
+
+		if (lua_isfunction(L, -1)) {
+			if (lua_pcall(L, 0, 1, 0) == LUA_OK)  // execute function with 0 Arguments, 1 return value
+			{
+				if (lua_isstring(L, -1)) {
+					const char* cmd = lua_tostring(L, -1);
+					lua_pop(L, 1);
+					args = std::string(cmd);
+				}
+				lua_pop(L, lua_gettop(L));
+			} else {
+				std::string err = lua_tostring(L, -1);
+				lua_pop(L, 1);
+				logcritical("Lua Error in GetScriptArgs: {}", err);
 			}
 		}
 		while (lua_gettop(L) != 0)

@@ -18,6 +18,7 @@
 #include "Test.h"
 #include "Form.h"
 #include "Record.h"
+#include "Function.h"
 
 class Settings;
 class TaskController;
@@ -34,6 +35,30 @@ class Session;
 *		it has been exceeded. The test will also be aborted once a general timeout is exceeded
 *	Whole Execution: Executes the test in one go, and applies an overall timeout
 */
+
+namespace Functions
+{
+
+	class ExecInitTestsCallback : public BaseFunction
+	{
+	public:
+		std::shared_ptr<SessionData> _sessiondata;
+
+		void Run() override;
+		static uint64_t GetTypeStatic() { return 'EHTC'; }
+		uint64_t GetType() override { return 'EHTC'; }
+
+		FunctionType GetFunctionType() override { return FunctionType::Light; }
+
+		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool WriteData(unsigned char* buffer, size_t& offset) override;
+
+		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<ExecInitTestsCallback>()); }
+		static std::shared_ptr<BaseFunction> CreateFull(std::shared_ptr<SessionData> sessiondata);
+		void Dispose();
+		size_t GetLength();
+	};
+}
 
 class ExecutionHandler: public Form
 {
@@ -68,6 +93,10 @@ private:
 	/// </summary>
 	int32_t _currentTests = 0;
 	/// <summary>
+	/// Maximum amount of tests that can be fully initialized for execution at the same time
+	/// </summary>
+	int32_t _populationSize = 50;
+	/// <summary>
 	/// lock for the internal loop and test queue synchronisation
 	/// </summary>
 	std::mutex _lockqueue;
@@ -76,9 +105,13 @@ private:
 	/// </summary>
 	std::condition_variable _waitforjob;
 	/// <summary>
-	/// queue for tests waiting to be executed
+	/// queue for tests waiting to be initialized for execution
 	/// </summary>
 	std::deque<std::weak_ptr<Test>> _waitingTests;
+	/// <summary>
+	/// queue for tests waiting to be executed
+	/// </summary>
+	std::deque<std::weak_ptr<Test>> _waitingTestsExec;
 	/// <summary>
 	/// list holding currently active tests
 	/// </summary>
@@ -157,6 +190,8 @@ private:
 	/// </summary>
 	const int32_t classversion = 0x1;
 
+	void InitTestsLockFree();
+
 public:
 	ExecutionHandler();
 
@@ -212,6 +247,8 @@ public:
 	/// <param name="bypass">Bypass queue and start as soon as possible</param>
 	bool AddTest(std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback, bool bypass = false, bool replay = false);
 
+	void InitTests();
+
 	/// <summary>
 	/// Freezes test execution
 	/// </summary>
@@ -226,6 +263,11 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	int32_t GetWaitingTests();
+	/// <summary>
+	/// Returns the number of waiting tests
+	/// </summary>
+	/// <returns></returns>
+	int32_t GetInitializedTests();
 	/// <summary>
 	/// Returns the number of running tests
 	/// </summary>

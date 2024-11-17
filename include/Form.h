@@ -20,13 +20,37 @@ struct FormIDLess
 	}
 };
 
+typedef uint64_t EnumType;
+
 class Form
 {
+public:
+	struct FormFlags
+	{
+		enum Flag : EnumType
+		{
+			/// <summary>
+			/// No flags
+			/// </summary>
+			None = 0 << 0,
+			/// <summary>
+			/// Do not free memory allocated by this instance
+			/// </summary>
+			DoNotFree = (EnumType)1 << 62,
+			/// <summary>
+			/// Form has been deleted
+			/// </summary>
+			Deleted = (EnumType)1 << 63,
+		};
+	};
+
 protected:
 	FormID _formid = 0;
+	EnumType _flags = FormFlags::None;
 	std::shared_mutex _lock;
 
 public:
+
 	/// <summary>
 	/// returns the total size of the fields with static size
 	/// </summary>
@@ -79,13 +103,26 @@ public:
 	static void RegisterFactories();
 
 	/// <summary>
+	/// Attempts to release as much memory as possible
+	/// </summary>
+	virtual void FreeMemory();
+
+	/// <summary>
 	/// Acquires a writers lock on the instance
 	/// </summary>
 	void Lock();
 	/// <summary>
+	/// Tries to aqcuire a writers lock and return whether it has been optained
+	/// </summary>
+	bool TryLock();
+	/// <summary>
 	/// Aqcuires a readers lock on the instance
 	/// </summary>
 	void LockRead();
+	/// <summary>
+	/// Tries to aqcuire a readers lock and return whether it has been optained
+	/// </summary>
+	bool TryLockRead();
 	/// <summary>
 	/// Releases the writers lock on the instance
 	/// </summary>
@@ -94,6 +131,25 @@ public:
 	/// Releases the readers lock on the instance
 	/// </summary>
 	void UnlockRead();
+
+	virtual void SetFlag(EnumType flag)
+	{
+		_flags |= flag;
+	}
+	virtual void UnsetFlag(EnumType flag)
+	{
+		_flags = _flags & (0xFFFFFFFFFFFFFFFF xor flag);
+	}
+
+	virtual bool HasFlag(EnumType flag)
+	{
+		return _flags & flag;
+	}
+
+	virtual EnumType GetFlags()
+	{
+		return _flags;
+	}
 
 	template<class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 	T* As()
@@ -114,6 +170,7 @@ struct FormType
 		DevTree = 'DEVT',           // Derivation Tree
 		ExclTree = 'EXCL',          // ExclusionTree
 		Generator = 'GENR',         // Generator
+		Generation = 'GENE',         // Generation
 		Session = 'SESS',           // Session
 		Settings = 'SETT',          // Settings
 		Test = 'TEST',              // Test

@@ -104,9 +104,9 @@ public:
 
 #ifdef BUILD_DEBUG
 #	define StartProfilingDebug \
-	auto begin = std::chrono::steady_clock::now();
+	auto $$profiletimebegin$$ = std::chrono::steady_clock::now();
 #	define TimeProfilingDebug \
-	begin
+	$$profiletimebegin$$
 #	define profileDebug(...)                                    \
 		if (Logging::EnableProfile) {                       \
 			static_cast<void>(prof(__func__, __VA_ARGS__)); \
@@ -118,10 +118,10 @@ public:
 #endif
 
 #define StartProfiling \
-	auto begin = std::chrono::steady_clock::now();
+	auto $$profiletimebegin$$ = std::chrono::steady_clock::now();
 
 #define TimeProfiling \
-	begin
+	$$profiletimebegin$$
 
 #define loginfo(...)                          \
 	if (Logging::EnableLog) { static_cast<void>(loginf(__func__, __VA_ARGS__)); }

@@ -9,15 +9,47 @@
 #include "LuaEngine.h"
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
-#	include <fcntl.h>
 #	include <poll.h>
+#	include <sys/types.h>
+#	include <sys/stat.h>
+#	include <fcntl.h>
 #	include <unistd.h>
+#	include <time.h>
+#	include <stdlib.h>
+#	include <stdio.h>
+#	ifndef __USE_TIME64_REDIRECTS
+#		ifndef __USE_FILE_OFFSET64
+extern int fcntl(int __fd, int __cmd, ...);
+#		else
+#			ifdef __REDIRECT
+extern int __REDIRECT(fcntl, (int __fd, int __cmd, ...), fcntl64);
+#			else
+#				define fcntl fcntl64
+#			endif
+#		endif
+#		ifdef __USE_LARGEFILE64
+extern int fcntl64(int __fd, int __cmd, ...);
+#		endif
+#	else /* __USE_TIME64_REDIRECTS */
+#		ifdef __REDIRECT
+extern int __REDIRECT_NTH(fcntl, (int __fd, int __request, ...),
+	__fcntl_time64);
+extern int __REDIRECT_NTH(fcntl64, (int __fd, int __request, ...),
+	__fcntl_time64);
+#		else
+extern int __fcntl_time64(int __fd, int __request, ...) __THROW;
+#			define fcntl64 __fcntl_time64
+#			define fcntl __fcntl_time64
+#		endif
+#	endif
+
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 #	include <Psapi.h>
 #	include <Windows.h>
 #endif
 
-#define PIPE_SIZE 65536
+#define PIPE_SIZE 1048576
+#define PIPE_SIZE_LINUX 1048576
 
 Test::Test(std::shared_ptr<Functions::BaseFunction> a_callback, uint64_t id) :
 	_callback(a_callback)
@@ -31,7 +63,6 @@ void Test::Init(std::shared_ptr<Functions::BaseFunction> a_callback, uint64_t id
 	_callback = a_callback;
 	_identifier = id;
 	_valid = true;
-	Init();
 }
 
 void Test::Init()
@@ -46,9 +77,17 @@ void Test::Init()
 	//fcntl64(red_output[0], F_SETFL, O_NONBLOCK);
 	//fcntl64(red_output[1], F_SETFL, O_NONBLOCK);
 	if (pipe2(red_input, O_NONBLOCK == -1)) {
+		close(red_output[0]);
+		red_output[0] = -1;
+		close(red_output[1]);
+		red_output[1] = -1;
 		_exitreason = ExitReason::InitError;
 		return;
 	}
+	//fcntl(red_input[0], F_SETPIPE_SZ, PIPE_SIZE_LINUX);
+	//fcntl(red_input[1], F_SETPIPE_SZ, PIPE_SIZE_LINUX);
+	//fcntl(red_output[0], F_SETPIPE_SZ, PIPE_SIZE_LINUX);
+	//fcntl(red_output[1], F_SETPIPE_SZ, PIPE_SIZE_LINUX);
 	//fcntl64(red_input[0], F_SETFL, O_NONBLOCK);
 	//fcntl64(red_input[1], F_SETFL, O_NONBLOCK);
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
@@ -85,6 +124,10 @@ void Test::Init()
 	if (red_output[1] == INVALID_HANDLE_VALUE) {
 		logcritical("failed to create event handle {}", GetLastError());
 		_exitreason = ExitReason::InitError;
+		if (red_output[0] != INVALID_HANDLE_VALUE) {
+			CloseHandle(red_output[0]);
+			red_output[0] = INVALID_HANDLE_VALUE;
+		}
 		return;
 	}
 
@@ -92,6 +135,14 @@ void Test::Init()
 	if (!success && GetLastError() != ERROR_PIPE_CONNECTED) {
 		logcritical("cannot connect to named pipe {}", GetLastError());
 		_exitreason = ExitReason::InitError;
+		if (red_output[0] != INVALID_HANDLE_VALUE) {
+			CloseHandle(red_output[0]);
+			red_output[0] = INVALID_HANDLE_VALUE;
+		}
+		if (red_output[1] != INVALID_HANDLE_VALUE) {
+			CloseHandle(red_output[1]);
+			red_output[1] = INVALID_HANDLE_VALUE;
+		}
 		return;
 	}
 
@@ -114,6 +165,14 @@ void Test::Init()
 	if (red_input[0] == INVALID_HANDLE_VALUE) {
 		logcritical("failed to create named pipe {}", GetLastError());
 		_exitreason = ExitReason::InitError;
+		if (red_output[0] != INVALID_HANDLE_VALUE) {
+			CloseHandle(red_output[0]);
+			red_output[0] = INVALID_HANDLE_VALUE;
+		}
+		if (red_output[1] != INVALID_HANDLE_VALUE) {
+			CloseHandle(red_output[1]);
+			red_output[1] = INVALID_HANDLE_VALUE;
+		}
 		return;
 	}
 	ZeroMemory(&saAttr, sizeof(saAttr));
@@ -124,6 +183,18 @@ void Test::Init()
 	if (red_input[1] == INVALID_HANDLE_VALUE) {
 		logcritical("failed to create event handle {}", GetLastError());
 		_exitreason = ExitReason::InitError;
+		if (red_output[0] != INVALID_HANDLE_VALUE) {
+			CloseHandle(red_output[0]);
+			red_output[0] = INVALID_HANDLE_VALUE;
+		}
+		if (red_output[1] != INVALID_HANDLE_VALUE) {
+			CloseHandle(red_output[1]);
+			red_output[1] = INVALID_HANDLE_VALUE;
+		}
+		if (red_input[0] != INVALID_HANDLE_VALUE) {
+			CloseHandle(red_input[0]);
+			red_input[0] = INVALID_HANDLE_VALUE;
+		}
 		return;
 	}
 
@@ -131,6 +202,22 @@ void Test::Init()
 	if (!success && GetLastError() != ERROR_PIPE_CONNECTED) {
 		logcritical("cannot connect to named pipe {}", GetLastError());
 		_exitreason = ExitReason::InitError;
+		if (red_output[0] != INVALID_HANDLE_VALUE) {
+			CloseHandle(red_output[0]);
+			red_output[0] = INVALID_HANDLE_VALUE;
+		}
+		if (red_output[1] != INVALID_HANDLE_VALUE) {
+			CloseHandle(red_output[1]);
+			red_output[1] = INVALID_HANDLE_VALUE;
+		}
+		if (red_input[0] != INVALID_HANDLE_VALUE) {
+			CloseHandle(red_input[0]);
+			red_input[0] = INVALID_HANDLE_VALUE;
+		}
+		if (red_input[1] != INVALID_HANDLE_VALUE) {
+			CloseHandle(red_input[1]);
+			red_input[1] = INVALID_HANDLE_VALUE;
+		}
 		return;
 	}
 
@@ -148,6 +235,7 @@ void Test::Init()
 	// set writehandle for _input to not be inherited
 	SetHandleInformation(&red_input[1], HANDLE_FLAG_INHERIT, 0);*/
 #endif
+	_pipeinit = true;
 	profile(TimeProfiling, "");
 }
 
@@ -175,7 +263,7 @@ bool Test::IsRunning()
 
 void Test::WriteInput(std::string str)
 {
-	StartProfilingDebug;
+	StartProfiling;
 	if (!_valid) {
 		logcritical("called WriteInput after invalidation");
 		return;
@@ -193,7 +281,7 @@ void Test::WriteInput(std::string str)
 	const char* cstr = str.c_str();
 	bSuccess = WriteFile(red_input[1], cstr, (DWORD)strlen(cstr), &dwWritten, NULL);
 #endif
-	profileDebug(TimeProfilingDebug, "");
+	profile(TimeProfiling, "");
 }
 
 bool Test::WriteNext()
@@ -444,15 +532,15 @@ void Test::InValidatePreExec()
 	red_output[1] = -1;
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	CloseHandle(red_input[0]);
-	red_input[0] = nullptr;
+	red_input[0] = INVALID_HANDLE_VALUE;
 	CloseHandle(red_input[1]);
-	red_input[1] = nullptr;
+	red_input[1] = INVALID_HANDLE_VALUE;
 	CloseHandle(red_output[0]);
-	red_output[0] = nullptr;
+	red_output[0] = INVALID_HANDLE_VALUE;
 	CloseHandle(red_output[1]);
-	red_output[1] = nullptr;
-	pi.hProcess = nullptr;
-	pi.hThread = nullptr;
+	red_output[1] = INVALID_HANDLE_VALUE;
+	pi.hProcess = INVALID_HANDLE_VALUE;
+	pi.hThread = INVALID_HANDLE_VALUE;
 	pi.dwProcessId = 0;
 	pi.dwThreadId = 0;
 	pi = {};
@@ -636,13 +724,17 @@ namespace Functions
 		// 2. Call global management functions
 
 
-
-
-		// ----- DO SOME NICE INTERNAL COMPUTATION -----
-
-
-		// ----- SESSION STUFF -----
-		SessionFunctions::TestEnd(_sessiondata, _input);
+		// if the test we just ran is a duplicate of an existing test,we can smply discard it
+		// as the result is already in out data
+		if (_input->HasFlag(Input::Flags::Duplicate)) {
+			_sessiondata->data->DeleteForm(_input->test);
+			if (_input->derive)
+				_sessiondata->data->DeleteForm(_input->derive);
+			_sessiondata->data->DeleteForm(_input);
+		} else {
+			// ----- SESSION STUFF -----
+			SessionFunctions::TestEnd(_sessiondata, _input);
+		}
 		// schedule test generation
 		SessionFunctions::GenerateTests(_sessiondata);
 		// perform master checks
@@ -700,5 +792,6 @@ void Test::RegisterFactories()
 	if (!_registeredFactories) {
 		_registeredFactories = !_registeredFactories;
 		Functions::RegisterFactory(Functions::TestCallback::GetTypeStatic(), Functions::TestCallback::Create);
+		Functions::RegisterFactory(Functions::ReplayTestCallback::GetTypeStatic(), Functions::ReplayTestCallback::Create);
 	}
 }

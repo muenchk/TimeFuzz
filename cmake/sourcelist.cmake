@@ -9,6 +9,7 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/Function.cpp"
 	"${SOURCE_DIR}/Grammar.cpp"
 	"${SOURCE_DIR}/Generator.cpp"
+	"${SOURCE_DIR}/Generation.cpp"
 	"${SOURCE_DIR}/Input.cpp"
 	"${SOURCE_DIR}/Logging.cpp" 
 	"${SOURCE_DIR}/LuaEngine.cpp" 

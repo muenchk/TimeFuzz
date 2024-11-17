@@ -151,6 +151,7 @@ else()
 		PRIVATE
 		fmt::fmt
 		lua
+		c
 		imgui::imgui
 		glfw
 		glad::glad
@@ -173,6 +174,7 @@ else()
 		glad::glad
 		glm::glm
 		liblzma::liblzma
+		Boost::thread
 	)
 	else()
 	target_link_libraries(
@@ -188,6 +190,7 @@ else()
 		glad::glad
 		glm::glm
 		liblzma::liblzma
+		Boost::thread
 	)
 	endif()
 endif()

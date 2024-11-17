@@ -9,6 +9,7 @@
 #include "BufferOperations.h"
 #include "LuaEngine.h"
 #include "SessionFunctions.h"
+#include "Generation.h"
 //#include <io.h>
 
 ExecutionHandler::ExecutionHandler()
@@ -19,6 +20,7 @@ void ExecutionHandler::Init(std::shared_ptr<Session> session, std::shared_ptr<Se
 {
 	loginfo("Init execution handler");
 	_maxConcurrentTests = maxConcurrentTests > 0 ? maxConcurrentTests : 1;
+	_populationSize = _maxConcurrentTests * 2;
 	_sessiondata = sessiondata;
 	_threadpool = threadpool;
 	_settings = settings;
@@ -64,6 +66,12 @@ void ExecutionHandler::Clear()
 		if (auto ptr = test.lock(); ptr && _session->data)
 			_session->data->DeleteForm(ptr);
 	}
+	while (!_waitingTestsExec.empty()) {
+		std::weak_ptr<Test> test = _waitingTestsExec.front();
+		_waitingTestsExec.pop_front();
+		if (auto ptr = test.lock(); ptr && _session->data)
+			_session->data->DeleteForm(ptr);
+	}
 	for (auto test : _runningTests)
 	{
 		if (auto ptr = test.lock(); ptr) {
@@ -94,6 +102,7 @@ void ExecutionHandler::RegisterFactories()
 {
 	if (!_registeredFactories) {
 		_registeredFactories = !_registeredFactories;
+		Functions::RegisterFactory(Functions::ExecInitTestsCallback::GetTypeStatic(), Functions::ExecInitTestsCallback::Create);
 	}
 }
 
@@ -102,6 +111,7 @@ void ExecutionHandler::SetMaxConcurrentTests(int32_t maxConcurrenttests)
 {
 	loginfo("Set max concurrent tests to {}", maxConcurrenttests);
 	_maxConcurrentTests = maxConcurrenttests > 0 ? maxConcurrenttests : 1;
+	_populationSize = _maxConcurrentTests * 2;
 }
 
 void ExecutionHandler::StartHandlerAsIs()
@@ -157,6 +167,26 @@ void ExecutionHandler::StartHandler()
 				if (auto ptr = test->_input.lock(); ptr) {
 					ptr->_hasfinished = true;
 					ptr->test = test;
+				} else {
+					logwarn("ptr invalid");
+				}
+				test->_exitreason = Test::ExitReason::InitError;
+				SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::InitError);
+				test->_input.reset();
+				// call _callback if test has finished
+				_threadpool->AddTask(test->_callback);
+			}
+		}
+		// delete all waiting initialized tests
+		while (_waitingTestsExec.empty() == false) {
+			auto weak = _waitingTestsExec.front();
+			_waitingTestsExec.pop_front();
+			if (auto test = weak.lock(); test) {
+				if (auto ptr = test->_input.lock(); ptr) {
+					ptr->_hasfinished = true;
+					ptr->test = test;
+				} else {
+					logwarn("ptr invalid");
 				}
 				test->_exitreason = Test::ExitReason::InitError;
 				SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::InitError);
@@ -173,6 +203,8 @@ void ExecutionHandler::StartHandler()
 				if (auto ptr = test->_input.lock(); ptr) {
 					ptr->_hasfinished = true;
 					ptr->test = test;
+				} else {
+					logwarn("ptr invalid");
 				}
 				test->_exitreason = Test::ExitReason::InitError;
 				SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::InitError);
@@ -231,7 +263,7 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 {
 	StartProfilingDebug;
 	loginfo("Adding new test");
-	if (input->GetGenerated() == false && !input->HasFlag(Input::Flags::NoDerivation))
+	if (input->GetGenerated() == false)
 	{
 		// we are trying to add an _input that hasn't been generated or regenerated
 		// try the generate it and if it succeeds add the test
@@ -258,9 +290,13 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 	test->_itrend = test->_input.lock()->end();
 	test->_reactiontime = {};
 	test->_output = "";
+	if (replay)
+		test->_skipExclusionCheck = true;
 
 	bool stateerror = false;
 	test->_cmdArgs = Lua::GetCmdArgs(std::bind(&Oracle::GetCmdArgs, _oracle, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), test, stateerror, replay);
+	if (_oracle->GetOracletype() == Oracle::PUTType::Script)
+		test->_scriptArgs = Lua::GetScriptArgs(std::bind(&Oracle::GetScriptArgs, _oracle, std::placeholders::_1, std::placeholders::_2), test, stateerror);
 	if (stateerror) {
 		logcritical("Add Test cannot be completed, as the calling thread lacks a lua context.");
 		_sessiondata->data->DeleteForm(test);
@@ -278,12 +314,71 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 	return true;
 }
 
+void ExecutionHandler::InitTests()
+{
+	while (_waitingTestsExec.size() < _populationSize && _waitingTests.size() > 0)
+	{
+		std::weak_ptr<Test> ptest;
+		{
+			std::unique_lock<std::mutex> guard(_lockqueue);
+			if (_waitingTests.size() > 0) {
+				ptest = _waitingTests.front();
+				_waitingTests.pop_front();
+			} else
+				return;
+		}
+		if (auto test = ptest.lock(); test) {
+			test->PrepareForExecution();
+			// if we cannot initialize pipes and status just call callback and be done with it
+			if (test->_exitreason & Test::ExitReason::InitError) {
+				if (auto ptr = test->_input.lock(); ptr) {
+					ptr->_hasfinished = true;
+					ptr->test = test;
+				} else {
+					logwarn("ptr invalid");
+				}
+				_threadpool->AddTask(test->_callback);
+				logdebug("test cannot be initialized");
+				return;
+			}
+			{
+				std::unique_lock<std::mutex> guard(_lockqueue);
+				_waitingTestsExec.push_back(test);
+			}
+		}
+	}
+}
+
+void ExecutionHandler::InitTestsLockFree()
+{
+	while (_waitingTestsExec.size() < _populationSize && _waitingTests.size() > 0) {
+		std::weak_ptr<Test> ptest = _waitingTests.front();
+		_waitingTests.pop_front();
+		if (auto test = ptest.lock(); test) {
+			test->PrepareForExecution();
+			// if we cannot initialize pipes and status just call callback and be done with it
+			if (test->_exitreason & Test::ExitReason::InitError) {
+				if (auto ptr = test->_input.lock(); ptr) {
+					ptr->_hasfinished = true;
+					ptr->test = test;
+				} else {
+					logwarn("ptr invalid");
+				}
+				_threadpool->AddTask(test->_callback);
+				logdebug("test cannot be initialized");
+				return;
+			}
+			_waitingTestsExec.push_back(test);
+		}
+	}
+}
+
 bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 {
 	StartProfilingDebug;
 	// everything that has less than 50 list entries is very likely to be already run when for 
 	// for instance using delta debugging, so just check again to be sure we haven't run it already
-	if (auto ptr = test->_input.lock(); ptr && ptr->Length() <= 50)
+	if (auto ptr = test->_input.lock(); test->_skipExclusionCheck == false && ptr && ptr->Length() <= 50)
 	{
 		FormID prefixID = 0;
 		if (_sessiondata->_excltree->HasPrefix(ptr, prefixID) && prefixID != 0)
@@ -297,10 +392,16 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 				prefix->test->DeepCopy(test);
 				test->_callback = callback;
 				test->_skipOracle = true;
+				ptr->test = test;
+				ptr->_hasfinished = true;
 				_threadpool->AddTask(test->_callback);
 				logdebug("test is duplicate");
+				ptr->SetFlag(Input::Flags::Duplicate);
 				profileDebug(TimeProfilingDebug, "");
 				_sessiondata->IncGeneratedWithPrefix();
+				// inform generation that an inut has finished if applicable
+				if (ptr->HasFlag(Input::Flags::GeneratedGrammar))
+					_sessiondata->GetCurrentGeneration()->FailGeneration(1);
 				return false;
 			}
 		}
@@ -322,6 +423,12 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 			test->InValidate();
 			// give _input access to test information
 			ptr->test = test;
+			// inform generation that an inut has finished if applicable
+			if (ptr->HasFlag(Input::Flags::GeneratedGrammar)) {
+				_sessiondata->GetCurrentGeneration()->FailGeneration(1);
+			}
+		} else {
+			logwarn("ptr invalid");
 		}
 		// call _callback if test has finished
 		_threadpool->AddTask(test->_callback);
@@ -335,6 +442,9 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 			test->WriteNext();
 		else
 			test->WriteAll();
+	} else if (_oracle->GetOracletype() == Oracle::PUTType::Script) {
+		// if it is a script we can dump a special string onto the stdin of the put
+		test->WriteInput(test->_scriptArgs);
 	}
 	_currentTests++;
 	_runningTests.push_back(test);
@@ -356,6 +466,11 @@ void ExecutionHandler::StopTest(std::shared_ptr<Test> test)
 		ptr->_exitcode = test->GetExitCode();
 		// give _input access to test information
 		ptr->test = test;
+		// inform generation that an inut has finished if applicable
+		if (ptr->HasFlag(Input::Flags::GeneratedGrammar))
+			_sessiondata->GetCurrentGeneration()->SetInputCompleted();
+	} else {
+		logwarn("ptr invalid");
 	}
 	// invalidate so no more functions can be called on the test
 	test->InValidate();
@@ -383,6 +498,7 @@ void ExecutionHandler::InternalLoop()
 	// tmp test var
 	std::weak_ptr<Test> test;
 	logdebug("Entering loop");
+	int32_t newtests = 0;
 	while (_stopHandler == false || _finishtests) {
 		StartProfiling;
 		logdebug("find new tests");
@@ -398,14 +514,24 @@ void ExecutionHandler::InternalLoop()
 				_stoppingTests.clear();
 			}
 		}
+		newtests = 0;
 		// while we are not at the max concurrent tests, there are tests waiting to be executed and we are not FROZEN
-		while (_currentTests < _maxConcurrentTests && _waitingTests.size() > 0 && !_frozen) {
+		while (_currentTests < _maxConcurrentTests && (_waitingTestsExec.size() > 0 || _waitingTests.size() > 0) && !_frozen) {
 			test.reset();
 			{
 				std::unique_lock<std::mutex> guard(_lockqueue);
-				if (_waitingTests.size() > 0) {
-					test = _waitingTests.front();
-					_waitingTests.pop_front();
+				if (_waitingTestsExec.size() > 0) {
+					test = _waitingTestsExec.front();
+					_waitingTestsExec.pop_front();
+				}
+				else
+				{
+					// if there aren't any tests ready for execution grab some that aren't and make them ready
+					InitTestsLockFree();
+					if (_waitingTestsExec.size() > 0) {
+						test = _waitingTestsExec.front();
+						_waitingTestsExec.pop_front();
+					}
 				}
 			}
 			if (auto ptr = test.lock(); ptr) {
@@ -413,7 +539,10 @@ void ExecutionHandler::InternalLoop()
 				//if (StartTest(ptr) == false)
 				//	_internalwaitingTests.push_back(ptr);
 			}
+			newtests++;
 		}
+		if (newtests > 0)
+			_threadpool->AddTask(Functions::ExecInitTestsCallback::CreateFull(_sessiondata));
 
 		lasttime = time;
 		time = std::chrono::steady_clock::now();  // record the enter time
@@ -434,7 +563,7 @@ void ExecutionHandler::InternalLoop()
 		if (_currentTests == 0) {
 			logdebug("no tests active -> wait for new tests");
 			std::unique_lock<std::mutex> guard(_lockqueue);
-			_waitforjob.wait_for(guard, std::chrono::seconds(1), [this] { return !_waitingTests.empty() || _stopHandler; });
+			_waitforjob.wait_for(guard, std::chrono::seconds(1), [this] { return !_waitingTests.empty() || !_waitingTestsExec.empty() || _stopHandler; });
 			if (_stopHandler && _finishtests == false) {
 				profile(TimeProfiling, "Round");
 				break;
@@ -592,6 +721,11 @@ int32_t ExecutionHandler::GetWaitingTests()
 	return (int32_t)_waitingTests.size();
 }
 
+int32_t ExecutionHandler::GetInitializedTests()
+{
+	return (int32_t)_waitingTestsExec.size();
+}
+
 int32_t ExecutionHandler::GetRunningTests()
 {
 	return (int32_t)_runningTests.size();
@@ -622,7 +756,7 @@ size_t ExecutionHandler::GetStaticSize(int32_t version)
 
 size_t ExecutionHandler::GetDynamicSize()
 {
-	return GetStaticSize(classversion) + 8 /*len of ids*/ + _stoppingTests.size() * 8 + _runningTests.size() * 8 + _waitingTests.size() * 8;
+	return GetStaticSize(classversion) + 8 /*len of ids*/ + _stoppingTests.size() * 8 + _runningTests.size() * 8 + _waitingTests.size() * 8 + _waitingTestsExec.size() * 8;
 }
 
 bool ExecutionHandler::WriteData(unsigned char* buffer, size_t& offset)
@@ -637,7 +771,7 @@ bool ExecutionHandler::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(_maxConcurrentTests, buffer, offset);
 	// _waitingtests
 	// save all tests running and waiting as waiting tests, since we cannot solve external programs
-	Buffer::WriteSize(_waitingTests.size() + _runningTests.size() + _stoppingTests.size(), buffer, offset);
+	Buffer::WriteSize(_waitingTests.size() + _waitingTestsExec.size() + _runningTests.size() + _stoppingTests.size(), buffer, offset);
 	for (auto test : _runningTests) {
 		if (auto ptr = test.lock(); ptr)
 			Buffer::Write(ptr->GetFormID(), buffer, offset);
@@ -648,6 +782,12 @@ bool ExecutionHandler::WriteData(unsigned char* buffer, size_t& offset)
 		Buffer::Write(ptr->GetFormID(), buffer, offset);
 	}
 	for (auto test : _waitingTests) {
+		if (auto ptr = test.lock(); ptr)
+			Buffer::Write(ptr->GetFormID(), buffer, offset);
+		else
+			Buffer::Write((uint64_t)0, buffer, offset);
+	}
+	for (auto test : _waitingTestsExec) {
 		if (auto ptr = test.lock(); ptr)
 			Buffer::Write(ptr->GetFormID(), buffer, offset);
 		else
@@ -691,11 +831,15 @@ bool ExecutionHandler::ReadData(unsigned char* buffer, size_t& offset, size_t le
 						if (auto ptr = test->_input.lock(); ptr && ptr->GetGenerated() == false)
 							SessionFunctions::GenerateInput(ptr, this->_sessiondata);
 						test->_cmdArgs = Lua::GetCmdArgs(std::bind(&Oracle::GetCmdArgs, _oracle, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), test, stateerror, false);
+						if (_oracle->GetOracletype() == Oracle::PUTType::Script)
+							test->_scriptArgs = Lua::GetScriptArgs(std::bind(&Oracle::GetScriptArgs, _oracle, std::placeholders::_1, std::placeholders::_2), test, stateerror);
 						_waitingTests.push_back(test);
 					}
 					else
 						logcritical("ExecutionHandler::Load cannot resolve test");
 				}
+				// make the first batch of tests ready for execution
+				InitTests();
 				if (_active) {
 					_active = false;
 				}
@@ -712,4 +856,46 @@ void ExecutionHandler::Delete(Data*)
 {
 	StopHandler();
 	Clear();
+}
+
+
+
+namespace Functions
+{
+	void ExecInitTestsCallback::Run()
+	{
+		_sessiondata->_exechandler->InitTests();
+	}
+
+	bool ExecInitTestsCallback::ReadData(unsigned char*, size_t&, size_t, LoadResolver* resolver)
+	{
+		// get id of saved controller and resolve link
+		resolver->AddTask([this, resolver]() {
+			this->_sessiondata = resolver->_data->CreateForm<SessionData>();
+		});
+		return true;
+	}
+
+	bool ExecInitTestsCallback::WriteData(unsigned char* buffer, size_t& offset)
+	{
+		BaseFunction::WriteData(buffer, offset);
+		return true;
+	}
+
+	size_t ExecInitTestsCallback::GetLength()
+	{
+		return BaseFunction::GetLength();
+	}
+
+	void ExecInitTestsCallback::Dispose()
+	{
+		_sessiondata.reset();
+	}
+
+	std::shared_ptr<BaseFunction> ExecInitTestsCallback::CreateFull(std::shared_ptr<SessionData> sessiondata)
+	{
+		auto ptr = std::make_shared<ExecInitTestsCallback>();
+		ptr->_sessiondata = sessiondata;
+		return dynamic_pointer_cast<BaseFunction>(ptr);
+	}
 }

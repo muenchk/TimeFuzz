@@ -76,6 +76,9 @@ private:
 	std::string _luaCmdArgsStr = "";
 	std::filesystem::path _luaCmdArgsPath;
 	std::filesystem::path _luaCmdArgsPathReplay;
+
+	std::string _luaScriptArgsStr = "";
+	std::filesystem::path _luaScriptArgsPath;
 	std::mutex _cmdLock;
 
 public:
@@ -88,6 +91,8 @@ public:
 	void SetLuaCmdArgsReplay(std::filesystem::path scrippath);
 	void SetLuaOracle(std::string script);
 	void SetLuaOracle(std::filesystem::path scriptpath);
+	void SetLuaScriptArgs(std::string script);
+	void SetLuaScriptArgs(std::filesystem::path scriptpath);
 
 	void ApplyLuaCommands(lua_State* L);
 
@@ -103,6 +108,14 @@ public:
 	/// <param name="test"></param>
 	/// <returns></returns>
 	std::string GetCmdArgs(lua_State* L, Test* test, bool replay);
+	/// <summary>
+	/// computes special script arguments for a test
+	/// </summary>
+	/// <param name="L"></param>
+	/// <param name="test"></param>
+	/// <param name="replay"></param>
+	/// <returns></returns>
+	std::string GetScriptArgs(lua_State* L, Test* test);
 
 	/// <summary>
 	/// Returns the type of the PUT as a string

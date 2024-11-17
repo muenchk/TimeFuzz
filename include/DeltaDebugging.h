@@ -33,8 +33,27 @@ namespace Functions
 		bool WriteData(unsigned char* buffer, size_t& offset) override;
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDTestCallback>()); }
-		void Dispose();
-		size_t GetLength();
+		void Dispose() override;
+		size_t GetLength() override;
+	};
+
+	class DDEvaluateExplicitCallback : public BaseFunction
+	{
+	public:
+		std::shared_ptr<DeltaDebugging::DeltaController> _DDcontroller;
+
+		void Run() override;
+		static uint64_t GetTypeStatic() { return 'DDEC'; }
+		uint64_t GetType() override { return 'DDEC'; }
+
+		FunctionType GetFunctionType() override { return FunctionType::Medium; }
+
+		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool WriteData(unsigned char* buffer, size_t& offset) override;
+
+		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDEvaluateExplicitCallback>()); }
+		void Dispose() override;
+		size_t GetLength() override;
 	};
 }
 
@@ -78,6 +97,10 @@ namespace DeltaDebugging
 		/// to the PUT in a short amount of time, with low expected gain on individual inputs
 		/// </summary>
 		int32_t minimalSubsetSize = 0;
+		/// <summary>
+		/// delta debugging tests bypass regular tests
+		/// </summary>
+		bool bypassTests = false;
 
 		DDMode mode = DDMode::Standard;
 	};
@@ -128,9 +151,10 @@ namespace DeltaDebugging
 		/// <summary>
 		/// starts delta debugging for an input on a specific taskcontroller
 		/// </summary>
-		bool Start(DDParameters* params, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> input);
+		bool Start(DDParameters* params, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback);
 
 		void CallbackTest(std::shared_ptr<Input> input);
+		void CallbackExplicitEvaluate();
 
 		DDGoal GetGoal()
 		{
@@ -268,7 +292,11 @@ namespace DeltaDebugging
 
 		std::set<std::shared_ptr<Input>, FormIDLess<Input>> _activeInputs;
 
-		std::unordered_map<FormID, DeltaInformation> _activeInformation;
+		std::set<std::shared_ptr<Input>> _completedTests;
+
+		std::mutex _completedTestsLock;
+
+		std::shared_ptr<Functions::BaseFunction> _callback;
 
 		/// <summary>
 		/// start parameters of the instance

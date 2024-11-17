@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(
-	TimeFuzz
+project(TimeFuzz
 	VERSION 0.0.1
 	LANGUAGES C CXX
 )
@@ -15,6 +14,8 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
 	message(FATAL_ERROR "in-source builds are not allowed")
 endif()
+
+SET(CMAKE_WARN_DEPRECATED       OFF CACHE BOOL "" FORCE)
 
 find_package(fmt CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
@@ -30,6 +31,7 @@ find_package(glfw3 CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(LibLZMA CONFIG REQUIRED)
+find_package(Boost_thread CONFIG REQUIRED)
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
         find_package(Boost

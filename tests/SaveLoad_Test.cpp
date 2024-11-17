@@ -29,7 +29,7 @@ namespace Functions
 		{
 			if (input->Finished())
 				if (auto ptr = input->test; ptr)
-					logdebug("TEST: {}, EXITREASON: {}, EXITCODE: {}, EXECTIME: {}ms, OUTPUT: {}", ptr->identifier, ptr->exitreason, input->GetExitCode(), std::chrono::duration_cast<std::chrono::milliseconds>(input->GetExecutionTime()).count(), ptr->output);
+					logdebug("TEST: {}, EXITREASON: {}, EXITCODE: {}, EXECTIME: {}ms, OUTPUT: {}", ptr->_identifier, ptr->_exitreason, input->GetExitCode(), std::chrono::duration_cast<std::chrono::milliseconds>(input->GetExecutionTime()).count(), ptr->_output);
 		}
 
 		static uint64_t GetTypeStatic() { return 'CALL'; }
@@ -59,7 +59,7 @@ namespace Functions
 		{
 			if (input)
 				if (input->test)
-					input->test->callback.reset();
+					input->test->_callback.reset();
 			input.reset();
 		}
 

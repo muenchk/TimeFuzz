@@ -12,6 +12,16 @@ void Form::SetFormID(FormID formid)
 	_formid = formid;
 }
 
+void Form::FreeMemory()
+{
+
+}
+
+bool Form::TryLock()
+{
+	return _lock.try_lock();
+}
+
 void Form::Lock()
 {
 	_lock.lock();
@@ -20,6 +30,11 @@ void Form::Lock()
 void Form::LockRead()
 {
 	_lock.lock_shared();
+}
+
+bool Form::TryLockRead()
+{
+	return _lock.try_lock_shared();
 }
 
 void Form::Unlock()
