@@ -7,6 +7,7 @@
 #include "SessionData.h"
 #include "DeltaDebugging.h"
 #include "Generation.h"
+#include "BufferOperations.h"
 
 #include <memory>
 #include <iostream>
@@ -131,6 +132,15 @@ void Data::Save()
 		loginfo("Opened save-file \"{}\"", name);
 
 		_status = "Writing save...";
+		// write string hashmap
+		{
+			sizt_t sz = GetStringHashmapSize(); // record length
+			_actionrecord_offset = 0;
+			_actionrecord_len = sz;
+			auto sbf = Records::CreateRecordHeaderStringHashmap(_actionrecord_len, _actionrecord_offset);
+			WriteStringHasmap(sbf, _actionrecord_offset, _actionrecord_len);
+		}
+
 		// write session data
 		{
 			std::shared_lock<std::shared_mutex> guard(_hashmaplock);
@@ -613,6 +623,17 @@ void Data::LoadIntern(std::filesystem::path path)
 								_record = rtype;
 								// create the correct record type
 								switch (rtype) {
+								case 'STRH':
+									{
+										bool res = ReadStringHashmap(buf, _actionrecord_offset, rlen);
+										if (_actionrecord_offset > rlen)
+											res = false;
+										if (res) {
+										} else {
+											logcritical("Failed to read String Hashmap");
+										}
+									}
+								break;
 								case FormType::Input:
 									{
 										//logdebug("Read Record:      Input");
@@ -654,7 +675,7 @@ void Data::LoadIntern(std::filesystem::path path)
 										//logdebug("Read Record:      ExclusionTree");
 										auto excl = CreateForm<ExclusionTree>();
 										bool res = excl->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
-										if (offset > rlen)
+										if (_actionrecord_offset > rlen)
 											res = false;
 										if (res) {
 											stats._ExclTree++;
@@ -669,7 +690,7 @@ void Data::LoadIntern(std::filesystem::path path)
 										//logdebug("Read Record:      Generator");
 										auto gen = CreateForm<Generator>();
 										bool res = gen->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
-										if (offset > rlen)
+										if (_actionrecord_offset > rlen)
 											res = false;
 										if (res) {
 											stats._Generator++;
@@ -684,7 +705,7 @@ void Data::LoadIntern(std::filesystem::path path)
 										//logdebug("Read Record:      Session");
 										auto session = CreateForm<Session>();
 										bool res = session->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
-										if (offset > rlen)
+										if (_actionrecord_offset > rlen)
 											res = false;
 										if (res) {
 											stats._Session++;
@@ -699,7 +720,7 @@ void Data::LoadIntern(std::filesystem::path path)
 										//logdebug("Read Record:      Settings");
 										auto sett = CreateForm<Settings>();
 										bool res = sett->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
-										if (offset > rlen)
+										if (_actionrecord_offset > rlen)
 											res = false;
 										if (res) {
 											stats._Settings++;
@@ -726,7 +747,7 @@ void Data::LoadIntern(std::filesystem::path path)
 										//logdebug("Read Record:      TaskController");
 										auto tcontrol = CreateForm<TaskController>();
 										bool res = tcontrol->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
-										if (offset > rlen)
+										if (_actionrecord_offset > rlen)
 											res = false;
 										if (res) {
 											stats._TaskController++;
@@ -741,7 +762,7 @@ void Data::LoadIntern(std::filesystem::path path)
 										//logdebug("Read Record:      ExecutionHandler");
 										auto exec = CreateForm<ExecutionHandler>();
 										bool res = exec->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
-										if (offset > rlen)
+										if (_actionrecord_offset > rlen)
 											res = false;
 										if (res) {
 											stats._ExecutionHandler++;
@@ -756,7 +777,7 @@ void Data::LoadIntern(std::filesystem::path path)
 										//logdebug("Read Record:      Oracle");
 										auto oracle = CreateForm<Oracle>();
 										bool res = oracle->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
-										if (offset > rlen)
+										if (_actionrecord_offset > rlen)
 											res = false;
 										if (res) {
 											stats._Oracle++;
@@ -772,7 +793,7 @@ void Data::LoadIntern(std::filesystem::path path)
 										//logdebug("Read Record:      SessionData");
 										auto sessdata = CreateForm<SessionData>();
 										bool res = sessdata->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
-										if (offset > rlen)
+										if (_actionrecord_offset > rlen)
 											res = false;
 										if (res) {
 											stats._SessionData++;
@@ -1217,6 +1238,49 @@ std::pair<std::string, bool> Data::GetStringFromID(FormID id)
 		return { itr->second, true };
 	} else
 		return { "", false };
+}
+
+size_t Data::GetStringHashmapSize()
+{
+	size_t size = 0;
+	size += 4; // version
+	size += 8; // number of entries
+	for (auto [id, str] : _stringHashmap.left)
+	{
+		size += 8, // id
+		size += Buffer::CalcStringLength(str); // string
+	}
+	return size;
+}
+
+bool Data::WriteStringHasmap(unsigned char* buffer, size_t& offset, size_t length)
+{
+	static int32_t version = 0x1;
+	Buffer::Write(version, buffer, offset);
+	Buffer::WriteSize(_stringHashmap.left.size(), buffer, offset);
+	for (auto [id, str] : _stringHashmap.left)
+	{
+		Buffer::Write(id, buffer, offset);
+		Buffer::Write(str, buffer, offset);
+	}
+	return true;
+}
+
+bool Data::ReadStringHashmap(unsigned char* buffer, size_t& offset, size_t length)
+{
+	int32_t version = Buffer::ReadInt32(buffer, offset);
+	switch (version)
+	{
+	case 0x1:
+		size_t num = Buffer::ReadSize(buffer, offset);
+		for (size_t i = 0; i < num; i++)
+		{
+			_stringHashmap.insert(StringHashmap::value_type(Buffer::ReadUInt64(buffer, offset), Buffer::ReadString(buffer, offset)));
+			if (offset >= length)
+				break;
+		}
+		return true;
+	}
 }
 
 void Data::Visit(std::function<VisitAction(std::shared_ptr<Form>)> visitor)

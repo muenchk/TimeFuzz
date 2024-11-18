@@ -162,6 +162,12 @@ private:
 
 	void RegisterForms();
 
+	size_t GetStringHashmapSize();
+
+	bool WriteStringHasmap(unsigned char* buffer, size_t& offset, size_t length);
+
+	bool ReadStringHashmap(unsigned char* buffer, size_t& offset, size_t length);
+
 public:
 
 	bool _globalTasks = false;

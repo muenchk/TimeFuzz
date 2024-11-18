@@ -11,6 +11,18 @@ class ExecutionHandler;
 class Records
 {
 public:
+	static unsigned char* CreateRecordHeaderStringHashmap(size_t& length, size_t& offset)
+	{
+		unsigned char* buf = 0;
+		offset = 0;
+		buf = new unsigned char[length + 8 + 4];
+		//length = sz + 8 + 4;
+		Buffer::WriteSize(sz, buf, offset);
+		Buffer::Write((int32_t)'STRH', buf, offset);
+		length = sz + 8 + 4;
+		return buf;
+	}
+
 	/// <summary>
 	/// Creates a new record and returns the length in [length]
 	/// </summary>
