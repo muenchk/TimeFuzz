@@ -210,7 +210,7 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 				}
 			}
 			// get the _input sequence from the derivationtree
-			if (input->derive->_valid) {
+			if (input->derive->_valid && input->GetSequenceLength() == 0) {
 				if (input->derive->_root->Type() == DerivationTree::NodeType::Terminal) {
 					input->AddEntry(((DerivationTree::TerminalNode*)(input->derive->_root))->_content);
 				} else {
@@ -264,7 +264,7 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 				}
 				input->SetGenerated();
 				profile(TimeProfiling, "Time taken for input Generation");
-				if ((int64_t)input->Length() != input->derive->_sequenceNodes && input->GetTrimmedLength() != -1 && (int32_t)input->Length() != input->GetTrimmedLength())
+				if ((int64_t)input->Length() != input->derive->_sequenceNodes || input->GetTrimmedLength() != -1 && (int32_t)input->Length() != input->GetTrimmedLength())
 					logwarn("The input length is different from the generated sequence. Length: {}, Expected: {}", input->Length(), input->derive->_sequenceNodes);
 				if ((int64_t)input->Length() == 0)
 					logwarn("The input length is 0.");

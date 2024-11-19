@@ -129,7 +129,7 @@ bool GrammarNode::ReadData(unsigned char* buffer, size_t& offset, size_t /*lengt
 			size_t plen = Buffer::ReadSize(buffer, offset);
 			std::vector<uint64_t> par;
 			for (int32_t i = 0; i < plen; i++) {
-				exp.push_back(Buffer::ReadUInt64(buffer, offset));
+				par.push_back(Buffer::ReadUInt64(buffer, offset));
 			}
 			resolver->AddTask([this, par, resolver]() {
 				for (int32_t i = 0; i < par.size(); i++) {
@@ -1072,6 +1072,7 @@ void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<Der
 	dtree->_parent._length = length;
 	dtree->_parent._stop = stop;
 	dtree->_parent._complement = complement;
+	dtree->_sequenceNodes = 0;
 	dtree->_parent.method = DerivationTree::ParentTree::Method::DD;
 	dtree->_grammarID = stree->_grammarID;
 
@@ -1221,19 +1222,19 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t targetlength
 	std::mt19937 randan((unsigned int)seed);
 
 	// begin: insert start node 
-	if (_tree->_root->_flags & GrammarNode::NodeFlags::ProduceSequence) {
+	if (_tree->_root->IsSequence()) {
 		nnode = new DerivationTree::NonTerminalNode;
 		dtree->_nodes.insert(nnode);
 		nnode->_grammarID = _tree->_root->_id;
 		dtree->_root = nnode;
 		seq++;
 		qseqnonterminals.push_back({ nnode, _tree->_root });
-	} else if (_tree->_root->_flags & GrammarNode::NodeFlags::ProduceNonTerminals) {
+	} else if (_tree->_root->_type == GrammarNode::NodeType::NonTerminal) {
 		nnode = new DerivationTree::NonTerminalNode;
 		dtree->_nodes.insert(nnode);
 		nnode->_grammarID = _tree->_root->_id;
 		dtree->_root = nnode;
-		qnonterminals.push_back({ nnode, _tree->_root });
+		qseqnonterminals.push_back({ nnode, _tree->_root });
 	} else {
 		ttnode = new DerivationTree::TerminalNode;
 		dtree->_nodes.insert(ttnode);
@@ -1575,9 +1576,15 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 
 	if (sinput->IsTrimmed())
 	{
+		Extract(sinput->derive, dtree, 0, sinput->GetTrimmedLength() - trackback, sinput->Length(), false);
+	} else
+		Extract(sinput->derive, dtree, 0, sinput->Length() - trackback, sinput->Length(), false);
+	
+	/*if (sinput->IsTrimmed())
+	{
 		// if the input is trimmed, extract the source tree of the given length instead
 		Extract(sinput->derive, dtree, 0, sinput->GetTrimmedLength(), sinput->Length(), false);
-	}else
+	} else
 	{
 		// ----- COPY THE SOURCE TREE -----
 		dtree->_sequenceNodes = 0;
@@ -1631,7 +1638,7 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 				}
 			}
 		}
-	}
+	}*/
 
 
 	std::stack<DerivationTree::NonTerminalNode*> path;
@@ -1654,7 +1661,8 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 						continue;
 					}
 				}
-			}
+			} else
+				tmp = nullptr;
 		}
 	};
 
@@ -1705,7 +1713,7 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 			}
 		}
 	};
-
+	/*
 	int32_t deletednodes = 0;
 	while (deletednodes < trackback) {
 		DerivationTree::NonTerminalNode* tmp;
@@ -1744,18 +1752,18 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 			logcritical("Tree is malformed, or completely deleted, cannot expand");
 			return;
 		}
-	}
+	}*/
 
 	// now that we have deleted what we had to delete, if there are still nodes in path, then we go from there
 	// if that isn't the case we have to get the right-most path, cut the lowest sequence node, and backtrack until we find
 	// a node that expands into multiple sequence nodes, and can get started from there
 
 	// we cannot start on a sequence node
-	while (path.size() > 0 && path.top()->Type() == DerivationTree::NodeType::Sequence)
+	while (path.size() > 0 && (path.top()->Type() == DerivationTree::NodeType::Sequence || path.top()->Type() == DerivationTree::NodeType::Terminal))
 		path.pop();
 
 	DerivationTree::NonTerminalNode* root;
-	if (path.size() > 0)
+	/* if (path.size() > 0)
 	{
 		root = path.top();
 		// delete path it takes up ram
@@ -1766,7 +1774,10 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 		if (itr != _tree->_hashmap.end()) {
 			gnode = itr->second;
 		}
-	} else {
+	} else {*/
+
+		while (path.size() > 0)
+			path.pop();
 		bool found = false;
 		while (found == false) {
 			findRightPath((DerivationTree::NonTerminalNode*)dtree->_root);
@@ -1784,7 +1795,7 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 							for (auto exp : gnode->_expansions)
 							{
 								// find one that has multiple nodes with ProduceSequence flag
-								int32_t c = 0;
+								int32_t c = 60;
 								for (auto nd : exp->_nodes)
 									if (nd->_flags & GrammarNode::NodeFlags::ProduceSequence)
 										c++;
@@ -1805,7 +1816,7 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 		// delete path it takes up ram
 		while (path.size() > 0)
 			path.pop();
-	}
+	//}
 
 	// count of generated sequence nodes
 	int32_t seq = 0;
@@ -1823,7 +1834,7 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 
 	// generated sequence nodes
 	seq = 0;
-	dtree->_sequenceNodes -= deletednodes;
+	dtree->_sequenceNodes -= trackback;
 
 	DeriveFromNode(dtree, qnonterminals, qseqnonterminals, randan, seq);
 
@@ -1861,7 +1872,11 @@ size_t Grammar::GetStaticSize(int32_t version)
 	                        + 8                     // nextid
 	                        + 4                     // numcycles
 	                        + 1                     // valid
-	                        + 8;                    // root id
+	                        + 8                     // root id
+	                        + 4                     // _extension_min
+	                        + 4                     // _extension_max
+	                        + 4                     // _backtrack_min
+	                        + 4;                    // _backtrack_max
 	static size_t size0x2 = size0x1;
 	switch (version)
 	{
@@ -1924,6 +1939,10 @@ bool Grammar::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::WriteSize(_tree->_terminals.size(), buffer, offset);
 	for (auto& node : _tree->_terminals)
 		Buffer::Write(node->_id, buffer, offset);
+	Buffer::Write(_extension_min, buffer, offset);
+	Buffer::Write(_extension_max, buffer, offset);
+	Buffer::Write(_backtrack_min, buffer, offset);
+	Buffer::Write(_backtrack_max, buffer, offset);
 	return true;
 }
 
@@ -1993,6 +2012,11 @@ bool Grammar::ReadData(unsigned char* buffer, size_t& offset, size_t length, Loa
 						logcritical("cannot find terminal node {}", id);
 				}
 			}
+			_extension_min = Buffer::ReadInt32(buffer, offset);
+			_extension_max = Buffer::ReadInt32(buffer, offset);
+			_backtrack_min = Buffer::ReadInt32(buffer, offset);
+			_backtrack_max = Buffer::ReadInt32(buffer, offset);
+
 			lresolve->Resolve();
 			delete lresolve;
 

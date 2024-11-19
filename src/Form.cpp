@@ -49,7 +49,7 @@ void Form::UnlockRead()
 
 size_t Form::GetStaticSize(int32_t /*version*/)
 {
-	return 8; // _formid
+	return 8 + 8; // _formid, _flags
 }
 
 size_t Form::GetDynamicSize()
@@ -60,11 +60,13 @@ size_t Form::GetDynamicSize()
 bool Form::WriteData(unsigned char* buffer, size_t &offset)
 {
 	Buffer::Write(_formid, buffer, offset);
+	Buffer::Write(_flags, buffer, offset);
 	return true;
 }
 
 bool Form::ReadData(unsigned char* buffer, size_t &offset, size_t /*length*/, LoadResolver* /*resolver*/)
 {
 	_formid = Buffer::ReadUInt64(buffer, offset);
+	_flags = Buffer::ReadUInt64(buffer, offset);
 	return true;
 }

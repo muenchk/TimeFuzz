@@ -17,9 +17,9 @@ public:
 		offset = 0;
 		buf = new unsigned char[length + 8 + 4];
 		//length = sz + 8 + 4;
-		Buffer::WriteSize(sz, buf, offset);
+		Buffer::WriteSize(length, buf, offset);
 		Buffer::Write((int32_t)'STRH', buf, offset);
-		length = sz + 8 + 4;
+		length += 8 + 4;
 		return buf;
 	}
 

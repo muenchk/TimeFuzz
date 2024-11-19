@@ -323,7 +323,9 @@ size_t Oracle::GetStaticSize(int32_t version)
 	                        + 8                     // LoracleStr size
 	                        + 8                     // LoraclePath size
 	                        + 8                     // LcmdargsStr size
-	                        + 8;                    // LcmdargsPath size
+	                        + 8                     // LcmdargsPath size
+	                        + 8                     // LscriptargsStr size
+	                        + 8;                    // LscriptargsPath size
 	switch (version)
 	{
 	case 0x1:
@@ -335,7 +337,7 @@ size_t Oracle::GetStaticSize(int32_t version)
 
 size_t Oracle::GetDynamicSize()
 {
-	return GetStaticSize(classversion) + Buffer::CalcStringLength(_path.string()) + Buffer::CalcStringLength(_luaOracleStr) + Buffer::CalcStringLength(_luaOraclePath.string()) + Buffer::CalcStringLength(_luaCmdArgsStr) + Buffer::CalcStringLength(_luaCmdArgsPath.string());
+	return GetStaticSize(classversion) + Buffer::CalcStringLength(_path.string()) + Buffer::CalcStringLength(_luaOracleStr) + Buffer::CalcStringLength(_luaOraclePath.string()) + Buffer::CalcStringLength(_luaCmdArgsStr) + Buffer::CalcStringLength(_luaCmdArgsPath.string()) + Buffer::CalcStringLength(_luaScriptArgsStr) + Buffer::CalcStringLength(_luaScriptArgsPath.string());
 }
 
 bool Oracle::WriteData(unsigned char* buffer, size_t& offset)
@@ -353,6 +355,11 @@ bool Oracle::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(_luaCmdArgsStr, buffer, offset);
 	if (std::filesystem::exists(_luaCmdArgsPath))
 		Buffer::Write(_luaCmdArgsPath.string(), buffer, offset);
+	else
+		Buffer::Write(std::string(""), buffer, offset);
+	Buffer::Write(_luaScriptArgsStr, buffer, offset);
+	if (std::filesystem::exists(_luaScriptArgsPath))
+		Buffer::Write(_luaScriptArgsPath.string(), buffer, offset);
 	else
 		Buffer::Write(std::string(""), buffer, offset);
 	return true;
@@ -381,6 +388,12 @@ bool Oracle::ReadData(unsigned char* buffer, size_t& offset, size_t length, Load
 			path = Buffer::ReadString(buffer, offset);
 			if (path.empty() == false)
 				SetLuaCmdArgs(std::filesystem::path(path));
+			_luaScriptArgsStr = Buffer::ReadString(buffer, offset);
+			if (_luaScriptArgsStr.empty() == false)
+				SetLuaScriptArgs(_luaScriptArgsStr);
+			path = Buffer::ReadString(buffer, offset);
+			if (path.empty() == false)
+				SetLuaScriptArgs(std::filesystem::path(path));
 			// init lua from settings to support cross-platform stuff out of the boc
 			resolver->AddTask([this, resolver]() {
 				auto sett = resolver->ResolveFormID<Settings>(Data::StaticFormIDs::Settings);
@@ -394,6 +407,11 @@ bool Oracle::ReadData(unsigned char* buffer, size_t& offset, size_t length, Load
 					logcritical("Lua Oracle script cannot be found.");
 				}
 				SetLuaOracle(path);
+				path = std::filesystem::path(sett->oracle.lua_path_script);
+				if (!std::filesystem::exists(path)) {
+					logcritical("Lua ScriptArgs script cannot be found.");
+				}
+				SetLuaScriptArgs(path);
 			});
 			return true;
 		}

@@ -132,28 +132,34 @@ void Data::Save()
 		loginfo("Opened save-file \"{}\"", name);
 
 		_status = "Writing save...";
-		// write string hashmap
-		{
-			sizt_t sz = GetStringHashmapSize(); // record length
-			_actionrecord_offset = 0;
-			_actionrecord_len = sz;
-			auto sbf = Records::CreateRecordHeaderStringHashmap(_actionrecord_len, _actionrecord_offset);
-			WriteStringHasmap(sbf, _actionrecord_offset, _actionrecord_len);
-		}
 
 		// write session data
 		{
 			std::shared_lock<std::shared_mutex> guard(_hashmaplock);
 			loginfo("Saving {} records...", _hashmap.size());
-			_actionloadsave_max = _hashmap.size();
+			_actionloadsave_max = _hashmap.size() + 1;
 			_actionloadsave_current = 0;
 			{
 				size_t len = 8;
 				size_t offset = 0;
 				unsigned char* buffer = new unsigned char[len];
-				Buffer::WriteSize(_hashmap.size(), buffer, offset);
+				Buffer::WriteSize(_hashmap.size() + 1 /*string Hashmap*/, buffer, offset);
 				save.write((char*)buffer, len);
 				delete[] buffer;
+			}
+			// write string hashmap [its coded as a type of record]
+			{
+				size_t sz = GetStringHashmapSize();  // record length
+				_actionrecord_offset = 0;
+				_actionrecord_len = sz;
+				auto sbf = Records::CreateRecordHeaderStringHashmap(_actionrecord_len, _actionrecord_offset);
+				WriteStringHasmap(sbf, _actionrecord_offset, _actionrecord_len);
+				loginfo("Wrote string hashmap. {} entries.", _stringHashmap.left.size());
+				_actionloadsave_current++;
+				save.write((char*)sbf, _actionrecord_len);
+				if (fsave.bad())
+					logcritical("critical error in underlying savefile");
+				delete sbf;
 			}
 			for (auto& [formid, form] : _hashmap) {
 				_actionrecord_len = 0;
@@ -629,6 +635,7 @@ void Data::LoadIntern(std::filesystem::path path)
 										if (_actionrecord_offset > rlen)
 											res = false;
 										if (res) {
+											loginfo("Read String Hashmap. {} entries.", _stringHashmap.left.size());
 										} else {
 											logcritical("Failed to read String Hashmap");
 										}
@@ -1253,7 +1260,7 @@ size_t Data::GetStringHashmapSize()
 	return size;
 }
 
-bool Data::WriteStringHasmap(unsigned char* buffer, size_t& offset, size_t length)
+bool Data::WriteStringHasmap(unsigned char* buffer, size_t& offset, size_t)
 {
 	static int32_t version = 0x1;
 	Buffer::Write(version, buffer, offset);
@@ -1275,12 +1282,17 @@ bool Data::ReadStringHashmap(unsigned char* buffer, size_t& offset, size_t lengt
 		size_t num = Buffer::ReadSize(buffer, offset);
 		for (size_t i = 0; i < num; i++)
 		{
-			_stringHashmap.insert(StringHashmap::value_type(Buffer::ReadUInt64(buffer, offset), Buffer::ReadString(buffer, offset)));
+			// do this as the resolve direction of functions in another function call is from right to left
+			// which would seriously mess up the buffer
+			FormID id = Buffer::ReadUInt64(buffer, offset);
+			std::string str = Buffer::ReadString(buffer, offset);
+			_stringHashmap.insert(StringHashmap::value_type(id, str));
 			if (offset >= length)
 				break;
 		}
 		return true;
 	}
+	return false;
 }
 
 void Data::Visit(std::function<VisitAction(std::shared_ptr<Form>)> visitor)

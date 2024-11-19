@@ -188,6 +188,11 @@ public:
 	/// <returns></returns>
 	size_t Length();
 	/// <summary>
+	/// returns the current length of the seque´nce
+	/// </summary>
+	/// <returns></returns>
+	size_t GetSequenceLength();
+	/// <summary>
 	/// converts the input to a string
 	/// </summary>
 	/// <param name="index"></param>

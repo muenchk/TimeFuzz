@@ -331,6 +331,11 @@ size_t Input::Length()
 	return _sequence.size();
 }
 
+size_t Input::GetSequenceLength()
+{
+	return _sequence.size();
+}
+
 std::string& Input::operator[](size_t index)
 {
 	auto itr = begin();
