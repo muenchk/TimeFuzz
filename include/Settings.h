@@ -41,7 +41,7 @@ class Settings : public Form
 {
 private:
 	bool initialized = false;
-	const int32_t classversion = 0x3;
+	const int32_t classversion = 0x1;
 	/// <summary>
 	/// skip reading from savefile
 	/// </summary>
@@ -239,13 +239,13 @@ public:
 		/// by backtracking a certain number of nodes and expanding the tree afterwards, this setting
 		/// provide the minimum amount of sequence nodes to be backtracked [cannot be set less than one]
 		/// </summary>
-		int32_t IterativeConstruction_Extension_Backtrack_min = 1;
+		int32_t IterativeConstruction_Extension_Backtrack_min = 0;
 
 		/// <summary>
 		/// This sets the maximum number of sequence nodes to be backtracked when extending an unfinished
 		/// input
 		/// </summary>
-		int32_t IterativeConstruction_Extension_Backtrack_max = 10;
+		int32_t IterativeConstruction_Extension_Backtrack_max = 0;
 
 		/// <summary>
 		/// When iteratively construction inputs, failing input must be backtracked before they can be 
@@ -295,6 +295,22 @@ public:
 		/// </summary>
 		double optimizationLossThreshold = 0.05f;
 		const char* optimizationLossThreshold_NAME = "OptmizationLossThreshold";
+
+		/// <summary>
+		/// For [PrimaryScore] and [SecondaryScore] focused delta debugging only.
+		/// Generated inputs primary score is approximated by using the monotonity of the primary Score function.
+		/// An input for which an extended version exists, must have less than or equal the primary score of the 
+		/// shortest extension that exists.
+		/// </summary>
+		bool approximativeTestExecution = true;
+		const char* approximativeTestExecution_NAME = "ApproximativeTestExecution";
+
+		/// <summary>
+		/// For [PrimaryScore] and [SecondaryScore] focused delta debugging only.
+		/// Generated inputs minimum approximated score must be greater than [Delta Debugged inputs primary score * thisvalue]
+		/// </summary>
+		double approximativeExecutionThreshold = 0.2f;
+		const char* approximativeExecutionThreshold_NAME = "ApproximativeExecutionThreshold";
 	};
 
 	DeltaDebugging dd;
@@ -336,6 +352,25 @@ public:
 		/// </summary>
 		float generationtweakmax = 10;
 		const char* generationtweakmax_NAME = "GenerationTweakMax";
+
+		/// <summary>
+		/// The number of inputs that get delta debugged at the end of a generation
+		/// </summary>
+		int32_t numberOfInputsToDeltaDebugPerGeneration = 5;
+		const char* numberOfInputsToDeltaDebugPerGeneration_NAME = "NumberOfInputsToDeltaDebugPerGeneration";
+
+		/// <summary>
+		/// Whether backtracking may be used on failing inputs, [also includes failing inputs in delta debugging]
+		/// </summary>
+		bool allowBacktrackFailedInputs = true;
+		const char* allowBacktrackFailedInputs_NAME = "AllowBacktrackingFailedInputs";
+
+		/// <summary>
+		/// The number of inputs that are being carried over from one generation to the next as sources for input
+		/// extension and backtracking
+		/// </summary>
+		int32_t numberOfSourcesPerGeneration = 20;
+		const char* numberOfSourcesPerGeneration_NAME = "NumberOfSourcesPerGeneration";
 	};
 
 	Generation generation;

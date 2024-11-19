@@ -104,6 +104,10 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "DeltaDebugging:          ", dd.allowScoreOptimization_NAME, dd.allowScoreOptimization);
 	dd.optimizationLossThreshold = ini.GetDoubleValue("DeltaDebugging", dd.optimizationLossThreshold_NAME, dd.optimizationLossThreshold);
 	loginfo("{}{} {}", "DeltaDebugging:          ", dd.optimizationLossThreshold_NAME, dd.optimizationLossThreshold);
+	dd.approximativeTestExecution = ini.GetBoolValue("DeltaDebugging", dd.approximativeTestExecution_NAME, dd.approximativeTestExecution);
+	loginfo("{}{} {}", "DeltaDebugging:          ", dd.approximativeTestExecution_NAME, dd.approximativeTestExecution);
+	dd.approximativeExecutionThreshold = ini.GetDoubleValue("DeltaDebugging", dd.approximativeExecutionThreshold_NAME, dd.approximativeExecutionThreshold);
+	loginfo("{}{} {}", "DeltaDebugging:          ", dd.approximativeExecutionThreshold_NAME, dd.approximativeExecutionThreshold);
 
 	// generation
 	generation.generationsize = (int32_t)ini.GetLongValue("Generation", generation.generationsize_NAME, generation.generationsize);
@@ -120,6 +124,13 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "Generation:       ", generation.generationtweakstart_NAME, generation.generationtweakstart);
 	generation.generationtweakmax = (float)ini.GetDoubleValue("Generation", generation.generationtweakmax_NAME, generation.generationtweakmax);
 	loginfo("{}{} {}", "Generation:       ", generation.generationtweakmax_NAME, generation.generationtweakmax);
+
+	generation.allowBacktrackFailedInputs = ini.GetBoolValue("Generation", generation.allowBacktrackFailedInputs_NAME, generation.allowBacktrackFailedInputs);
+	loginfo("{}{} {}", "Generation:       ", generation.allowBacktrackFailedInputs_NAME, generation.allowBacktrackFailedInputs);
+	generation.numberOfInputsToDeltaDebugPerGeneration = (int32_t)ini.GetLongValue("Generation", generation.numberOfInputsToDeltaDebugPerGeneration_NAME, generation.numberOfInputsToDeltaDebugPerGeneration);
+	loginfo("{}{} {}", "Generation:       ", generation.numberOfInputsToDeltaDebugPerGeneration_NAME, generation.numberOfInputsToDeltaDebugPerGeneration);
+	generation.numberOfSourcesPerGeneration = (int32_t)ini.GetLongValue("Generation", generation.numberOfSourcesPerGeneration_NAME, generation.numberOfSourcesPerGeneration);
+	loginfo("{}{} {}", "Generation:       ", generation.numberOfSourcesPerGeneration_NAME, generation.numberOfSourcesPerGeneration);
 
 	// endconditions
 	conditions.use_foundnegatives = ini.GetBoolValue("EndConditions", conditions.use_foundnegatives_NAME, conditions.use_foundnegatives);
@@ -251,7 +262,15 @@ void Settings::Save(std::wstring _path)
 		"\\\\ Algorithm to use for delta debugging.\n"
 		"0 = Standard - DDmin developed by Andreas Zeller executing subsets and their complements");
 	ini.SetBoolValue("DeltaDebugging", dd.allowScoreOptimization_NAME, (long)dd.allowScoreOptimization, "\\\\ Allows the application of Delta debugging to reduce generated inputs while optimizing their score instead of reproducing their result.");
-	ini.SetDoubleValue("DeltaDebugging", dd.optimizationLossThreshold_NAME, dd.optimizationLossThreshold , "\\\\ The maximum loss when optimizing score to be considered a success.");
+	ini.SetDoubleValue("DeltaDebugging", dd.optimizationLossThreshold_NAME, dd.optimizationLossThreshold, "\\\\ The maximum loss when optimizing score to be considered a success.");
+	ini.SetBoolValue("DeltaDebugging", dd.approximativeTestExecution_NAME, dd.approximativeTestExecution,
+		"\\\\ [For Primary Score Optimization only]\n"
+		"\\\\ Generated inputs primary score is approximated by using the monotonity of the primary score function.\n"
+		"\\\\ An input for which an extended version exists, must have less than or equal the primary score \n"
+		"\\\\ of the shortest extension that exists.");
+	ini.SetDoubleValue("DeltaDebugging", dd.approximativeExecutionThreshold_NAME, dd.approximativeExecutionThreshold,
+		"\\\\ [For Primary Score Optimization only]\n"
+		"\\\\ Generated inputs minimum approximated score must be greater than [Delta Debugged inputs primary score * thisvalue].\n");
 
 
 	// generation
@@ -263,6 +282,14 @@ void Settings::Save(std::wstring _path)
 	ini.SetLongValue("Generation", generation.generationsize_NAME, generation.generationsize, "\\\\ Maximum generated inputs per generation cycle.");
 	ini.SetDoubleValue("Generation", generation.generationtweakstart_NAME, generation.generationtweakstart, "\\\\ Starting parameter for automatic generationsize scaling.");
 	ini.SetDoubleValue("Generation", generation.generationtweakmax_NAME, generation.generationtweakmax, "\\\\ Max parameter for automatic generationsize scaling.");
+
+	ini.SetBoolValue("Generation", generation.allowBacktrackFailedInputs_NAME, generation.allowBacktrackFailedInputs,
+		"\\\\ Allows backtrackng on failed inputs to generate new inputs");
+	ini.SetLongValue("Generation", generation.numberOfInputsToDeltaDebugPerGeneration_NAME, generation.numberOfInputsToDeltaDebugPerGeneration, "\\\\ This defines the number of inputs that are minimized using delta debugging after a generation has been finished.");
+	ini.SetLongValue("Generation", generation.numberOfSourcesPerGeneration_NAME, generation.numberOfSourcesPerGeneration, 
+		"\\\\ In each generation new inputs are generated from a few sources, which\n"
+		"\\\\ stem from prior generations. This setting defines the number of inputs\n"
+		"\\\\ that are carries over from one generation into the next as sources.");
 
 	// endconditions
 	ini.SetBoolValue("EndConditions", conditions.use_foundnegatives_NAME, conditions.use_foundnegatives, "\\\\ Stop execution after foundnegatives failing inputs have been found.");
@@ -296,59 +323,56 @@ void Settings::Save(std::wstring _path)
 
 size_t Settings::GetStaticSize(int32_t version)
 {
-	size_t size0x1 = Form::GetDynamicSize()  // form base size
-	                 + 4                     // version
-	                 + 4                     // oracle
-	                 + 1                     // General::usehardwarethreads
-	                 + 4                     // General::numthreads
-	                 + 4                     // General::numcomputingthreads
-	                 + 4                     // General::concurrenttests
-	                 + 8                     // General::memory_limit
-	                 + 8                     // General::memory_softlimit
-	                 + 8                     // General::memory_sweep_period
-	                 + 1                     // SaveFiles::enablesaves
-	                 + 8                     // SaveFiles::autosave_every_tests
-	                 + 8                     // SaveFiles::autosave_every_seconds
-	                 + 4                     // SaveFiles::compressionLevel
-	                 + 1                     // SaveFiles::compressionExtreme
-	                 + 1                     // Optimization::constructinputsiteratively
-	                 + 1                     // Methods::deltadebugging
-	                 + 4                     // Generation::generationsize
-	                 + 4                     // Generation::generationtweakstart
-	                 + 4                     // Generation::generationtweakmax
-	                 + 1                     // EndConditions::use_foundnegatives
-	                 + 8                     // EndConditions::foundnegatives
-	                 + 1                     // EndConditions::use_foundpositives
-	                 + 8                     // EndConditions::foundpositives
-	                 + 1                     // EndConditions::use_timeout
-	                 + 8                     // EndConditions::timeout
-	                 + 1                     // EndConditions::use_overalltests
-	                 + 8                     // EndConditions::overalltests
-	                 + 1                     // Tests::executeFragments
-	                 + 1                     // Tests::use_testtimeout
-	                 + 8                     // Tests::testtimeout
-	                 + 1                     // Tests::use_fragmenttimeout
-	                 + 8                     // Tests::fragmenttimeout
-	                 + 1                     // Tests::storePUToutput
-	                 + 1                     // Tests::storePUToutputSuccessful
-	                 + 8;                    // Tests::maxUsedMemory
-	size_t size0x2 = size0x1;                // prior version size
-	size_t size0x3 = size0x2                 // prior version size
-	                 // + 1 // DeltaDebugging::deltadebugging - is already included
+	size_t size0x1 = 4     // version
+	                 + 4   // oracle
+	                 + 1   // General::usehardwarethreads
+	                 + 4   // General::numthreads
+	                 + 4   // General::numcomputingthreads
+	                 + 4   // General::concurrenttests
+	                 + 8   // General::memory_limit
+	                 + 8   // General::memory_softlimit
+	                 + 8   // General::memory_sweep_period
+	                 + 1   // SaveFiles::enablesaves
+	                 + 8   // SaveFiles::autosave_every_tests
+	                 + 8   // SaveFiles::autosave_every_seconds
+	                 + 4   // SaveFiles::compressionLevel
+	                 + 1   // SaveFiles::compressionExtreme
+	                 + 1   // Optimization::constructinputsiteratively
+	                 + 1   // DeltaDebugging::deltadebugging
 	                 + 8   // DeltaDebugging::executeAboveLength
 	                 + 4   // DeltaDebugging::mode
 	                 + 1   // DeltaDebugging::allowScoreOptimization
 	                 + 8   // DeltaDebugging::optimizationLossThreshold
+	                 + 1   // DeltaDebugging::approximativeTestExecution
+	                 + 8   // DeltaDebugging::approximativeExecutionThreshold
+	                 + 4   // Generation::generationsize
+	                 + 4   // Generation::generationtweakstart
+	                 + 4   // Generation::generationtweakmax
 	                 + 4   // Generation::activeGeneratedInputs
-	                 + 1;  // Generation::generationalMode
+	                 + 1   // Generation::generationalMode
+	                 + 1   // Generation::allowBacktrackFailedInputs
+	                 + 4   // Generation::numberOfInputsToDeltaDebugPerGeneration
+	                 + 4   // Generation::numberOfSourcesPerGeneration
+	                 + 1   // EndConditions::use_foundnegatives
+	                 + 8   // EndConditions::foundnegatives
+	                 + 1   // EndConditions::use_foundpositives
+	                 + 8   // EndConditions::foundpositives
+	                 + 1   // EndConditions::use_timeout
+	                 + 8   // EndConditions::timeout
+	                 + 1   // EndConditions::use_overalltests
+	                 + 8   // EndConditions::overalltests
+	                 + 1   // Tests::executeFragments
+	                 + 1   // Tests::use_testtimeout
+	                 + 8   // Tests::testtimeout
+	                 + 1   // Tests::use_fragmenttimeout
+	                 + 8   // Tests::fragmenttimeout
+	                 + 1   // Tests::storePUToutput
+	                 + 1   // Tests::storePUToutputSuccessful
+	                 + 8;  // Tests::maxUsedMemory
 
 	switch (version) {
 	case 0x1:
 		return size0x1;
-	case 0x2:
-		return size0x2;
-	case 0x3:
-		return size0x3;
 	default:
 		return 0;
 	}
@@ -356,7 +380,8 @@ size_t Settings::GetStaticSize(int32_t version)
 
 size_t Settings::GetDynamicSize()
 {
-	return GetStaticSize(classversion)                             // static size
+	return Form::GetDynamicSize()                                  // form stuff
+	       + GetStaticSize(classversion)                           // static size
 	       + Buffer::CalcStringLength(oracle.oraclepath.string())  // oraclepath
 	       + Buffer::CalcStringLength(saves.savepath)              // General::savepath
 	       + Buffer::CalcStringLength(oracle.lua_path_cmd)         // Oracle::lua_path_cmd
@@ -401,12 +426,17 @@ bool Settings::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write((int32_t)dd.mode, buffer, offset);
 	Buffer::Write(dd.allowScoreOptimization, buffer, offset);
 	Buffer::Write(dd.optimizationLossThreshold, buffer, offset);
+	Buffer::Write(dd.approximativeTestExecution, buffer, offset);
+	Buffer::Write(dd.approximativeExecutionThreshold, buffer, offset);
 	// generation
 	Buffer::Write(generation.generationsize, buffer, offset);
 	Buffer::Write(generation.generationtweakstart, buffer, offset);
 	Buffer::Write(generation.generationtweakmax, buffer, offset);
 	Buffer::Write(generation.activeGeneratedInputs, buffer, offset);
 	Buffer::Write(generation.generationalMode, buffer, offset);
+	Buffer::Write(generation.allowBacktrackFailedInputs, buffer, offset);
+	Buffer::Write(generation.numberOfInputsToDeltaDebugPerGeneration, buffer, offset);
+	Buffer::Write(generation.numberOfSourcesPerGeneration, buffer, offset);
 	// endconditions
 	Buffer::Write(conditions.use_foundnegatives, buffer, offset);
 	Buffer::Write(conditions.foundnegatives, buffer, offset);
@@ -435,57 +465,6 @@ bool Settings::ReadData(unsigned char* buffer, size_t& offset, size_t length, Lo
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
 	case 0x1:
-	case 0x2:
-		{
-			Form::ReadData(buffer, offset, length, resolver);
-			// oracle
-			oracle.oracle = (::Oracle::PUTType)Buffer::ReadInt32(buffer, offset);
-			oracle.oraclepath = std::filesystem::path(Buffer::ReadString(buffer, offset));
-			// general
-			general.usehardwarethreads = Buffer::ReadBool(buffer, offset);
-			general.numthreads = Buffer::ReadInt32(buffer, offset);
-			general.numcomputingthreads = Buffer::ReadInt32(buffer, offset);
-			general.concurrenttests = Buffer::ReadInt32(buffer, offset);
-			// saves
-			saves.enablesaves = Buffer::ReadBool(buffer, offset);
-			saves.autosave_every_tests = Buffer::ReadInt64(buffer, offset);
-			saves.autosave_every_seconds = Buffer::ReadInt64(buffer, offset);
-			saves.savepath = Buffer::ReadString(buffer, offset);
-			saves.compressionLevel = Buffer::ReadInt32(buffer, offset);
-			saves.compressionExtreme = Buffer::ReadBool(buffer, offset);
-			// optimization
-			optimization.constructinputsiteratively = Buffer::ReadBool(buffer, offset);
-			// methods
-			dd.deltadebugging = Buffer::ReadBool(buffer, offset);
-			// generation
-			generation.generationsize = Buffer::ReadInt32(buffer, offset);
-			generation.generationstep = (int32_t)std::lround(std::log(generation.generationsize) / std::log(1.3));
-			if (generation.generationstep < 10)
-				generation.generationstep = 10;
-			generation.generationtweakstart = Buffer::ReadFloat(buffer, offset);
-			generation.generationtweakmax = Buffer::ReadFloat(buffer, offset);
-			// endconditions
-			conditions.use_foundnegatives = Buffer::ReadBool(buffer, offset);
-			conditions.foundnegatives = Buffer::ReadUInt64(buffer, offset);
-			conditions.use_foundpositives = Buffer::ReadBool(buffer, offset);
-			conditions.foundpositives = Buffer::ReadInt64(buffer, offset);
-			conditions.use_timeout = Buffer::ReadBool(buffer, offset);
-			conditions.timeout = Buffer::ReadUInt64(buffer, offset);
-			conditions.use_overalltests = Buffer::ReadBool(buffer, offset);
-			conditions.overalltests = Buffer::ReadUInt64(buffer, offset);
-			// tests
-			tests.executeFragments = Buffer::ReadBool(buffer, offset);
-			tests.use_testtimeout = Buffer::ReadBool(buffer, offset);
-			tests.testtimeout = Buffer::ReadInt64(buffer, offset);
-			tests.use_fragmenttimeout = Buffer::ReadBool(buffer, offset);
-			tests.fragmenttimeout = Buffer::ReadInt64(buffer, offset);
-			tests.storePUToutput = Buffer::ReadBool(buffer, offset);
-			tests.storePUToutputSuccessful = Buffer::ReadBool(buffer, offset);
-			tests.maxUsedMemory = Buffer::ReadInt64(buffer, offset);
-			return true;
-		}
-		break;
-	case 0x3:
 		{
 			Form::ReadData(buffer, offset, length, resolver);
 			// oracle
@@ -519,6 +498,8 @@ bool Settings::ReadData(unsigned char* buffer, size_t& offset, size_t length, Lo
 			dd.mode = (::DeltaDebugging::DDMode)Buffer::ReadInt32(buffer, offset);
 			dd.allowScoreOptimization = Buffer::ReadBool(buffer, offset);
 			dd.optimizationLossThreshold = Buffer::ReadDouble(buffer, offset);
+			dd.approximativeTestExecution = Buffer::ReadBool(buffer, offset);
+			dd.approximativeExecutionThreshold = Buffer::ReadDouble(buffer, offset);
 			// generation
 			generation.generationsize = Buffer::ReadInt32(buffer, offset);
 			generation.generationstep = (int32_t)std::lround(std::log(generation.generationsize) / std::log(1.3));
@@ -528,6 +509,9 @@ bool Settings::ReadData(unsigned char* buffer, size_t& offset, size_t length, Lo
 			generation.generationtweakmax = Buffer::ReadFloat(buffer, offset);
 			generation.activeGeneratedInputs = Buffer::ReadInt32(buffer, offset);
 			generation.generationalMode = Buffer::ReadBool(buffer, offset);
+			generation.allowBacktrackFailedInputs = Buffer::ReadBool(buffer, offset);
+			generation.numberOfInputsToDeltaDebugPerGeneration = Buffer::ReadInt32(buffer, offset);
+			generation.numberOfSourcesPerGeneration = Buffer::ReadInt32(buffer, offset);
 			// endconditions
 			conditions.use_foundnegatives = Buffer::ReadBool(buffer, offset);
 			conditions.foundnegatives = Buffer::ReadUInt64(buffer, offset);

@@ -738,8 +738,7 @@ int32_t ExecutionHandler::GetStoppingTests()
 
 size_t ExecutionHandler::GetStaticSize(int32_t version)
 {
-	static size_t size0x1 = Form::GetDynamicSize()  // form base size
-	                        + 4                     // version
+	static size_t size0x1 = 4                       // version
 	                        + 1                     // enableFragments
 	                        + 8                     // waittimeL
 	                        + 1                     // cleared
@@ -756,7 +755,8 @@ size_t ExecutionHandler::GetStaticSize(int32_t version)
 
 size_t ExecutionHandler::GetDynamicSize()
 {
-	return GetStaticSize(classversion) + 8 /*len of ids*/ + _stoppingTests.size() * 8 + _runningTests.size() * 8 + _waitingTests.size() * 8 + _waitingTestsExec.size() * 8;
+	return Form::GetDynamicSize()  // form stuff
+		+ GetStaticSize(classversion) + 8 /*len of ids*/ + _stoppingTests.size() * 8 + _runningTests.size() * 8 + _waitingTests.size() * 8 + _waitingTestsExec.size() * 8;
 }
 
 bool ExecutionHandler::WriteData(unsigned char* buffer, size_t& offset)

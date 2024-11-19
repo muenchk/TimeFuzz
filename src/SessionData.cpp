@@ -84,6 +84,11 @@ int64_t SessionData::GetAddTestFails()
 	return _addtestFails;
 }
 
+int64_t SessionData::GetExcludedApproximation()
+{
+	return _generatedExcludedApproximation;
+}
+
 double SessionData::GetGenerationFailureRate() 
 {
 	return _failureRate;
@@ -97,41 +102,35 @@ TestExitStats& SessionData::GetTestExitStats()
 size_t SessionData::GetStaticSize(int32_t version)
 {
 	static size_t size0x1 = 4     // version
-	                     + 8   // _positiveInputNumbers
-	                     + 8   // _negativeInputNumbers
-	                     + 8   // _unfinishedInputNumbers
-	                     + 8   // _undefinedInputnNumbers
-	                     + 8   // listsize _positiveInputs
-	                     + 8   // listsize _negativeInputs
-	                     + 8   // listsize _unfinishedInputs
-	                     + 8   // listsize _undefinedInputs
-	                     + 8   // buffer size _recentfails
-	                     + 8   // _generationfails
-	                     + 8   // _generatedInputs
-	                     + 8   // _generatedWithPrefix
-	                     + 8;  // lastchecks
-	static size_t size0x2 = size0x1  // size of existing stuff from version 1
-	                        + 8      // exitstats.natural
-	                        + 8      // exitstats.lastinput
-	                        + 8      // exitstats.terminated
-	                        + 8      // exitstats.timeout
-	                        + 8      // exitstats.fragmenttimeout
-	                        + 8      // exitstats.memory
-	                        + 8      // exitstats.initerror
-	                        + 8      // failureRate
-	                        + 8;     // addTestFails
-	static size_t size0x3 = size0x2                   // size of existing stuff from version 1 and 2
-	                        + Form::GetDynamicSize()  // form size
-	                        + 8                       // grammar id
-	                        + 8;                      // generation ID
+	                        + 8   // _positiveInputNumbers
+	                        + 8   // _negativeInputNumbers
+	                        + 8   // _unfinishedInputNumbers
+	                        + 8   // _undefinedInputnNumbers
+	                        + 8   // listsize _positiveInputs
+	                        + 8   // listsize _negativeInputs
+	                        + 8   // listsize _unfinishedInputs
+	                        + 8   // listsize _undefinedInputs
+	                        + 8   // buffer size _recentfails
+	                        + 8   // _generationfails
+	                        + 8   // _generatedInputs
+	                        + 8   // _generatedWithPrefix
+	                        + 8   // lastchecks
+	                        + 8   // exitstats.natural
+	                        + 8   // exitstats.lastinput
+	                        + 8   // exitstats.terminated
+	                        + 8   // exitstats.timeout
+	                        + 8   // exitstats.fragmenttimeout
+	                        + 8   // exitstats.memory
+	                        + 8   // exitstats.initerror
+	                        + 8   // failureRate
+	                        + 8   // addTestFails
+	                        + 8   // grammar id
+	                        + 8   // generation ID
+	                        + 8;  // lastGenerationID
 
 	switch (version) {
 	case 0x1:
 		return size0x1;
-	case 0x2:
-		return size0x2;
-	case 0x3:
-		return size0x3;
 	default:
 		return 0;
 	}
@@ -139,7 +138,8 @@ size_t SessionData::GetStaticSize(int32_t version)
 
 size_t SessionData::GetDynamicSize()
 {
-	return GetStaticSize(classversion) +    // static class size
+	return Form::GetDynamicSize()           // form stuff
+	       + GetStaticSize(classversion) +  // static class size
 	       _positiveInputs.size() * 8       // list elements are uint64_t
 	       + _negativeInputs.size() * 16    // two list elements: uint64_t, double
 	       + _unfinishedInputs.size() * 16  // two list elements: uint64_t, double
@@ -218,6 +218,11 @@ std::shared_ptr<Generation> SessionData::GetGeneration(FormID generationID)
 	}
 }
 
+std::shared_ptr<Generation> SessionData::GetLastGeneration()
+{
+	return GetGeneration(_lastGenerationID);
+}
+
 void SessionData::SetNewGeneration()
 {
 	if (_settings->generation.generationalMode) {
@@ -230,11 +235,14 @@ void SessionData::SetNewGeneration()
 		newgen->SetMaxSimultaneuosGeneration(_settings->generation.generationstep);
 		newgen->SetMaxActiveInputs(_settings->generation.activeGeneratedInputs);
 		oldgen = _generation.exchange(newgen);
-		if (oldgen)
+		if (oldgen) {
 			newgen->SetGenerationNumber(oldgen->GetGenerationNumber() + 1);  // increment generation
+			_lastGenerationID = oldgen->GetFormID();
+		}
 		else
 			newgen->SetGenerationNumber(1);  // first generation
 		_generationEnding = false;
+		_generationID = newgen->GetFormID();
 	}
 }
 
@@ -357,6 +365,7 @@ bool SessionData::WriteData(unsigned char* buffer, size_t& offset)
 		Buffer::Write(_generation.load()->GetFormID(), buffer, offset);
 	else
 		Buffer::Write((FormID)0, buffer, offset);
+	Buffer::Write(_lastGenerationID, buffer, offset);
 	return true;
 }
 
@@ -440,24 +449,6 @@ bool SessionData::ReadData(unsigned char* buffer, size_t& offset, size_t length,
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
 	case 0x1:
-		return ReadData0x1(buffer, offset, length, resolver);
-	case 0x2:
-		{
-			bool res = ReadData0x1(buffer, offset, length, resolver);
-			if (!res)
-				return res;
-			exitstats.natural = Buffer::ReadUInt64(buffer, offset);
-			exitstats.lastinput = Buffer::ReadUInt64(buffer, offset);
-			exitstats.terminated = Buffer::ReadUInt64(buffer, offset);
-			exitstats.timeout = Buffer::ReadUInt64(buffer, offset);
-			exitstats.fragmenttimeout = Buffer::ReadUInt64(buffer, offset);
-			exitstats.memory = Buffer::ReadUInt64(buffer, offset);
-			exitstats.initerror = Buffer::ReadUInt64(buffer, offset);
-			_failureRate = Buffer::ReadDouble(buffer, offset);
-			_addtestFails = Buffer::ReadInt64(buffer, offset);
-			return true;
-		}
-	case 0x3:
 		{
 			Form::ReadData(buffer, offset, length, resolver);
 			bool res = ReadData0x1(buffer, offset, length, resolver);
@@ -491,6 +482,7 @@ bool SessionData::ReadData(unsigned char* buffer, size_t& offset, size_t length,
 				for (auto gen : gens)
 					this->_generations.insert_or_assign(gen->GetFormID(), gen);
 			});
+			_lastGenerationID = Buffer::ReadUInt64(buffer, offset);
 			return true;
 		}
 	default:

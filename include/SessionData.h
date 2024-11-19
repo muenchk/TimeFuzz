@@ -120,8 +120,18 @@ class SessionData : public Form
 
 	void AddInput(std::shared_ptr<Input>& input, EnumType list, double optionalweight = 0.0f);
 
+	/// <summary>
+	/// map holding all prior generations for fast access
+	/// </summary>
+	std::unordered_map<FormID, std::shared_ptr<Generation>> _generations;
+	/// <summary>
+	/// indicates whether the current generation is ending, aka. the end generation callback has been deployed
+	/// </summary>
+	std::atomic<bool> _generationEnding = false;
+
 	std::atomic<std::shared_ptr<Generation>> _generation;
 	FormID _generationID;
+	FormID _lastGenerationID = 0;
 
 	friend class SessionFunctions;
 	friend class SessionStatistics;
@@ -173,6 +183,10 @@ public:
 	/// </summary>
 	std::atomic<int64_t> _generatedWithPrefix = 0;
 	/// <summary>
+	/// Number of inputs that were generated but not run due to exclusion by core approximation
+	/// </summary>
+	std::atomic<int64_t> _generatedExcludedApproximation = 0;
+	/// <summary>
 	/// Number of tests that couldn't be added
 	/// </summary>
 	std::atomic<int64_t> _addtestFails = 0;
@@ -195,14 +209,7 @@ public:
 	std::chrono::steady_clock::time_point _cleanup;
 	std::chrono::seconds _cleanup_period = std::chrono::seconds(60);
 
-	/// <summary>
-	/// map holding all prior generations for fast access
-	/// </summary>
-	std::unordered_map<FormID, std::shared_ptr<Generation>> _generations;
-
-	std::atomic<bool> _generationEnding = false;
-
-	const int32_t classversion = 0x3;
+	const int32_t classversion = 0x1;
 
 	inline static bool _registeredFactories = false;
 
@@ -265,6 +272,11 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	std::shared_ptr<Generation> GetGeneration(FormID generationID);
+	/// <summary>
+	/// Returns the last generation
+	/// </summary>
+	/// <returns></returns>
+	std::shared_ptr<Generation> GetLastGeneration();
 
 	/// <summary>
 	/// Sets up a new generation
@@ -304,6 +316,10 @@ public:
 	{
 		_generatedinputs++;
 	}
+	void IncExcludedApproximation()
+	{
+		_generatedExcludedApproximation++;
+	}
 
 	/// <summary>
 	/// returns the number of attempts that failed at generating any inputs
@@ -325,6 +341,11 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	int64_t GetAddTestFails();
+	/// <summary>
+	/// returns the number of inputs excluded based on primary score approximation
+	/// </summary>
+	/// <returns></returns>
+	int64_t GetExcludedApproximation();
 	/// <summary>
 	/// returns the failure rate of input generation
 	/// </summary>

@@ -340,9 +340,10 @@ public:
 	void Clear();
 
 	/// <summary>
-	/// saves the current state of the program to a savefile
+	/// saves the current state of the program to a savefile and calls a callback afterwards
 	/// </summary>
-	void Save();
+	/// <param name="callback"></param>
+	void Save(std::shared_ptr<Functions::BaseFunction> callback);
 
 	/// <summary>
 	/// sets the unique name of the saves

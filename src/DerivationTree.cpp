@@ -5,9 +5,7 @@
 
 size_t DerivationTree::GetStaticSize(int32_t version)
 {
-	size_t size0x1 = Form::GetDynamicSize()  // form size
-	                 + 4;                    // version
-	size_t size0x2 = size0x1                 // bisherige größe
+	size_t size0x1 = 4                      // version
 	                 + 8                     // grammarID
 	                 + 1                     // regenerate
 	                 + 4                     // seed
@@ -23,8 +21,6 @@ size_t DerivationTree::GetStaticSize(int32_t version)
 	switch (version) {
 	case 0x1:
 		return size0x1;
-	case 0x2:
-		return size0x2;
 	default:
 		return 0;
 	}
@@ -32,7 +28,8 @@ size_t DerivationTree::GetStaticSize(int32_t version)
 
 size_t DerivationTree::GetDynamicSize()
 {
-	return GetStaticSize(classversion);
+	return Form::GetDynamicSize()  // form stuff
+	       + GetStaticSize(classversion);
 }
 
 bool DerivationTree::WriteData(unsigned char* buffer, size_t& offset)
@@ -55,12 +52,8 @@ bool DerivationTree::WriteData(unsigned char* buffer, size_t& offset)
 bool DerivationTree::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
-	switch (version)
-	{
+	switch (version) {
 	case 0x1:
-		Form::ReadData(buffer, offset, length, resolver);
-		return true;
-	case 0x2:
 		Form::ReadData(buffer, offset, length, resolver);
 		_grammarID = Buffer::ReadUInt64(buffer, offset);
 		_regenerate = Buffer::ReadBool(buffer, offset);

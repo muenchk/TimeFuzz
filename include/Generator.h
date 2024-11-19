@@ -49,7 +49,7 @@ public:
 
 private:
 
-	const int32_t classversion = 0x2;
+	const int32_t classversion = 0x1;
 
 	std::shared_ptr<Grammar> _grammar;
 };

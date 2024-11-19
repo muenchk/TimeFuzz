@@ -65,7 +65,7 @@ void Data::SetSavePath(std::filesystem::path path)
 	_savepath = path;
 }
 
-void Data::Save()
+void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 {
 	_runtime += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - _sessionBegin);
 	_actionloadsave = true;
@@ -130,6 +130,22 @@ void Data::Save()
 			sbuf = new Streambuf(&fsave);
 		std::ostream save(sbuf);
 		loginfo("Opened save-file \"{}\"", name);
+
+		// here we are going to save the callbac we are supposed to call, so that we can call it even if the 
+		// program end after this save
+		// we are allocating a flat 256 bytes for this, the callback shouldn't be larger than this
+		{
+			size_t len = 256;
+			size_t offset = 0;
+			unsigned char* buffer = new unsigned char[len];
+			if (callback) {
+				Buffer::Write(true, buffer, offset);
+				callback->WriteData(buffer, offset);
+			} else
+				Buffer::Write(false, buffer, offset);
+			save.write((char*)buffer, len);
+			delete[] buffer;
+		}
 
 		_status = "Writing save...";
 
@@ -314,6 +330,11 @@ void Data::Save()
 		logcritical("Cannot open new savefile");
 	}
 
+	if (callback) {
+		auto sessdata = CreateForm<SessionData>();
+		sessdata->_controller->AddTask(callback);
+	}
+
 	loginfo("Saved Records:");
 	loginfo("Input: {}", stats._Input);
 	loginfo("Grammar: {}", stats._Grammar);
@@ -449,6 +470,8 @@ void Data::LoadIntern(std::filesystem::path path)
 	_actionloadsave_max = 0;
 	_actionrecord_len = 0;
 	_actionrecord_offset = 0;
+	// callback after load
+	std::shared_ptr<Functions::BaseFunction> callback;
 	StartProfiling;
 	SaveStats stats;
 	std::ifstream fsave = std::ifstream(path, std::ios_base::in | std::ios_base::binary);
@@ -534,6 +557,21 @@ void Data::LoadIntern(std::filesystem::path path)
 				std::istream save(sbuf);
 
 				bool fileerror = false;
+				// load callback if it exists
+				{
+					size_t length = 256;
+					offset = 0;
+					save.read((char*)buffer, length);
+					if (save.gcount() == (std::streamsize)length) {
+						if (Buffer::ReadBool(buffer, offset)) {
+							callback = Functions::BaseFunction::Create(buffer, offset, length, _lresolve);
+						}
+					} else {
+						logcritical("Save file does not appear to have the proper format: failed to read callback information");
+						fileerror = true;
+					}
+				}
+
 				// read hashmap and progress information
 				_actionloadsave_max = 0;
 				_actionloadsave_current = 0;
@@ -565,11 +603,6 @@ void Data::LoadIntern(std::filesystem::path path)
 						int32_t rtype = 0;
 						bool cbuf = false;
 						while (fileerror == false && _actionloadsave_current < _actionloadsave_max) {
-							if (_actionloadsave_current < 400)
-								Logging::EnableDebug = false;
-							else
-								Logging::EnableDebug = true;
-							//logdebug("Load record: {}", _actionloadsave_current);
 							rlen = 0;
 							rtype = 0;
 							// read length of record, type of record
@@ -874,6 +907,7 @@ void Data::LoadIntern(std::filesystem::path path)
 		_status = "Resolving Records...";
 		loginfo("Resolving records.");
 		_actionloadsave_max = _lresolve->TaskCount();
+		_actionloadsave_current = 0;
 		_lresolve->Resolve(_actionloadsave_current);
 
 		loginfo("Resolved records.");
@@ -888,6 +922,11 @@ void Data::LoadIntern(std::filesystem::path path)
 		// unregister ourselves from the lua wrapper if we registered ourselves above
 		if (registeredLua)
 			Lua::UnregisterThread();
+		// add savecallback to taskcontroller
+		if (callback) {
+			sessdata->_controller->AddTask(callback);
+		}
+
 		loginfo("Resolved late records.");
 		loginfo("Loaded session");
 	} else

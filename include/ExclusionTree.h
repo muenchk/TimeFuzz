@@ -79,11 +79,18 @@ public:
 	/// <returns></returns>
 	bool HasPrefix(std::shared_ptr<Input> input, FormID& prefixID);
 
+	/// <summary>
+	/// checks if the input has a prefix that is in the tree, it also checks whether there is an extension of the input and returns the shortest one.
+	/// </summary>
+	/// <param name="input"></param>
+	/// <returns></returns>
+	std::tuple<bool, FormID, bool, FormID> HasPrefixAndShortestExtension(std::shared_ptr<Input> input);
+
 	void Init(std::shared_ptr<SessionData> sessiondata);
 
 	~ExclusionTree();
 
-	const int32_t classversion = 0x3;
+	const int32_t classversion = 0x1;
 
 	#pragma region InheritedForm
 

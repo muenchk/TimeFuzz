@@ -212,9 +212,10 @@ namespace DeltaDebugging
 		}
 	}
 
-	std::vector<std::shared_ptr<Input>> DeltaController::GenerateSplits(int32_t number)
+	std::vector<std::shared_ptr<Input>> DeltaController::GenerateSplits(int32_t number, std::vector<DeltaInformation>& splitinfo)
 	{
 		StartProfiling;
+		double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
 		std::vector<std::shared_ptr<Input>> splits;
 		// calculate the ideal size we would get from the current level
 		int32_t tmp = (int32_t)(std::trunc(_input->Length() / number));
@@ -226,6 +227,18 @@ namespace DeltaDebugging
 		int32_t splitbegin = 0;
 		auto itr = _input->begin();
 		for (int32_t i = 0; i < number; i++) {
+			DeltaInformation df;
+			df.positionbegin = splitbegin;
+			if (i == number - 1)
+				df.length = (int32_t)_input->Length() - splitbegin;
+			else
+				df.length = splitsize;
+			df.complement = false;
+			splitinfo.push_back(df);
+			// skip inputs that are beneath the min exec length
+			if (df.length < _sessiondata->_settings->dd.executeAboveLength)
+				continue;
+
 			auto inp = _sessiondata->data->CreateForm<Input>();
 			inp->SetFlag(Form::FormFlags::DoNotFree);
 			if (i == number -1)
@@ -233,58 +246,70 @@ namespace DeltaDebugging
 			else
 				inp->SetParentSplitInformation(_input->GetFormID(), splitbegin, splitsize, false);
 
-			// try to find derivation tree for our input
-			inp->derive = _sessiondata->data->CreateForm<DerivationTree>();
-			inp->derive->_inputID = inp->GetFormID();
-
-			_sessiondata->_grammar->Extract(_input->derive, inp->derive, inp->GetParentSplitBegin(), inp->GetParentSplitLength(), _input->Length(), inp->GetParentSplitComplement());
-			if (inp->derive->_valid == false) {
-				// the input cannot be derived from the given grammar
-				logwarn("The split cannot be derived from the grammar.");
-				_sessiondata->data->DeleteForm(inp->derive);
-				_sessiondata->data->DeleteForm(inp);
-				continue;
-			}
-
-			splits.push_back(inp);
-			splits[i]->SetGenerated();
 			if (i == number - 1) {
 				// add rest of _input to split
 				while (itr != _input->end()) {
-					splits[i]->AddEntry(*itr);
+					inp->AddEntry(*itr);
 					itr++;
 					splitbegin++;
 				}
 			} else {
 				// add a specific number of strings to _input
 				for (int32_t x = 0; x < splitsize; x++) {
-					splits[i]->AddEntry(*itr);
+					inp->AddEntry(*itr);
 					itr++;
 					splitbegin++;
 				}
 			}
-		}
-		profile(TimeProfiling, "Time taken for split generation.");
-		return splits;
-	}
 
-	std::vector<std::shared_ptr<Input>> DeltaController::GenerateComplements(std::vector<std::shared_ptr<Input>>& splits)
-	{
-		StartProfiling;
-		std::vector<std::shared_ptr<Input>> complements;
-		for (int32_t i = 0; i < (int32_t)splits.size(); i++) {
-			DeltaInformation dcmpl;
-			dcmpl.positionbegin = (int32_t)splits[i]->GetParentSplitBegin();
-			dcmpl.length = (int32_t)splits[i]->GetParentSplitLength();
-			dcmpl.complement = true;
-			auto inp = _sessiondata->data->CreateForm<Input>();
-			inp->SetFlag(Form::FormFlags::DoNotFree);
-			inp->SetParentSplitInformation(_input->GetFormID(), dcmpl.positionbegin, dcmpl.length, dcmpl.complement);
+			// check against exclusion tree
+			if (_sessiondata->_settings->dd.approximativeTestExecution && _params->GetGoal() == DDGoal::MaximizePrimaryScore) {
+				auto [hasPrefix, prefixID, hasextension, extensionID] = _sessiondata->_excltree->HasPrefixAndShortestExtension(inp);
+				if (hasextension) {
+					auto parent = _sessiondata->data->LookupFormID<Input>(extensionID);
+					if (parent && parent->GetPrimaryScore() > approxthreshold) {
+						// do the other stuff
+					} else {
+						_sessiondata->IncExcludedApproximation();
+						_sessiondata->data->DeleteForm(inp);
+						continue;
+					}
+				} else {
+					if (hasPrefix == false) {
+						// do the other stuff
+					} else {
+						_sessiondata->IncGeneratedWithPrefix();
+						_tests++;
+						if (prefixID != 0) {
+							auto ptr = _sessiondata->data->LookupFormID<Input>(prefixID);
+							if (ptr)
+								_activeInputs.insert(ptr);
+						}
+						_sessiondata->data->DeleteForm(inp);
+						continue;
+					}
+				}
+			} else {
+				FormID prefixID = 0;
+				bool hasPrefix = _sessiondata->_excltree->HasPrefix(inp, prefixID);
+				if (hasPrefix == false) {
+					// do the other stuff
+				} else {
+					_sessiondata->IncGeneratedWithPrefix();
+					_tests++;
+					if (prefixID != 0) {
+						auto ptr = _sessiondata->data->LookupFormID<Input>(prefixID);
+						if (ptr)
+							_activeInputs.insert(ptr);
+					}
+					_sessiondata->data->DeleteForm(inp);
+					continue;
+				}
+			}			
 
 			// try to find derivation tree for our input
 			inp->derive = _sessiondata->data->CreateForm<DerivationTree>();
 			inp->derive->_inputID = inp->GetFormID();
-
 			_sessiondata->_grammar->Extract(_input->derive, inp->derive, inp->GetParentSplitBegin(), inp->GetParentSplitLength(), _input->Length(), inp->GetParentSplitComplement());
 			if (inp->derive->_valid == false) {
 				// the input cannot be derived from the given grammar
@@ -294,8 +319,35 @@ namespace DeltaDebugging
 				continue;
 			}
 
-			complements.push_back(inp);
-			complements[i]->SetGenerated();
+			inp->SetGenerated();
+			inp->SetGenerationTime(_sessiondata->data->GetRuntime());
+			inp->SetGenerationID(_sessiondata->GetCurrentGenerationID());
+			splits.push_back(inp);
+
+		}
+		profile(TimeProfiling, "Time taken for split generation.");
+		return splits;
+	}
+
+	std::vector<std::shared_ptr<Input>> DeltaController::GenerateComplements(std::vector<DeltaInformation>& splitinfo)
+	{
+		StartProfiling;
+		double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
+		std::vector<std::shared_ptr<Input>> complements;
+		for (int32_t i = 0; i < (int32_t)splitinfo.size(); i++) {
+			DeltaInformation dcmpl;
+			dcmpl.positionbegin = (int32_t)splitinfo[i].positionbegin;
+			dcmpl.length = (int32_t)splitinfo[i].length;
+			dcmpl.complement = true;
+
+			if ((int32_t)_input->Length() - dcmpl.length < _sessiondata->_settings->dd.executeAboveLength)
+				continue;
+
+			auto inp = _sessiondata->data->CreateForm<Input>();
+			inp->SetFlag(Form::FormFlags::DoNotFree);
+			inp->SetParentSplitInformation(_input->GetFormID(), dcmpl.positionbegin, dcmpl.length, dcmpl.complement);
+
+			// extract the new input first so we can check against the exclusion tree
 			size_t count = 0;
 			auto itr = _input->begin();
 			while (itr != _input->end())
@@ -303,10 +355,73 @@ namespace DeltaDebugging
 				// if the current position is less then the beginning of the split itself, or if it is after the split
 				// sequence is over
 				if (count < dcmpl.positionbegin || count >= (size_t)(dcmpl.positionbegin + dcmpl.length))
-					complements[i]->AddEntry(*itr);
+					inp->AddEntry(*itr);
 				count++;
 				itr++;
 			}
+
+			// check against exclusion tree
+			if (_sessiondata->_settings->dd.approximativeTestExecution && _params->GetGoal() == DDGoal::MaximizePrimaryScore) {
+				auto [hasPrefix, prefixID, hasextension, extensionID] = _sessiondata->_excltree->HasPrefixAndShortestExtension(inp);
+				if (hasextension) {
+					auto parent = _sessiondata->data->LookupFormID<Input>(extensionID);
+					if (parent && parent->GetPrimaryScore() > approxthreshold) {
+						// do the other stuff
+					} else {
+						_sessiondata->IncExcludedApproximation();
+						_sessiondata->data->DeleteForm(inp);
+						continue;
+					}
+				} else {
+					if (hasPrefix == false) {
+						// do the other stuff
+					} else {
+						_sessiondata->IncGeneratedWithPrefix();
+						_tests++;
+						if (prefixID != 0) {
+							auto ptr = _sessiondata->data->LookupFormID<Input>(prefixID);
+							if (ptr)
+								_activeInputs.insert(ptr);
+						}
+						_sessiondata->data->DeleteForm(inp);
+						continue;
+					}
+				}
+			} else {
+				FormID prefixID = 0;
+				bool hasPrefix = _sessiondata->_excltree->HasPrefix(inp, prefixID);
+				if (hasPrefix == false) {
+					// do the other stuff
+				} else {
+					_sessiondata->IncGeneratedWithPrefix();
+					_tests++;
+					if (prefixID != 0) {
+						auto ptr = _sessiondata->data->LookupFormID<Input>(prefixID);
+						if (ptr)
+							_activeInputs.insert(ptr);
+					}
+					_sessiondata->data->DeleteForm(inp);
+					continue;
+				}
+			}			
+
+			// try to find derivation tree for our input
+			inp->derive = _sessiondata->data->CreateForm<DerivationTree>();
+			inp->derive->_inputID = inp->GetFormID();
+
+			_sessiondata->_grammar->Extract(_input->derive, inp->derive, inp->GetParentSplitBegin(), inp->GetParentSplitLength(), _input->Length(), inp->GetParentSplitComplement());
+			if (inp->derive->_valid == false) {
+				// the input cannot be derived from the given grammar
+				logwarn("The split cannot be derived from the grammar.");
+				_sessiondata->data->DeleteForm(inp->derive);
+				_sessiondata->data->DeleteForm(inp);
+				continue;
+			}
+
+			inp->SetGenerated();
+			inp->SetGenerationTime(_sessiondata->data->GetRuntime());
+			inp->SetGenerationID(_sessiondata->GetCurrentGenerationID());
+			complements.push_back(inp);
 		}
 		profile(TimeProfiling, "Time taken for complement generation.");
 		return complements;
@@ -325,20 +440,23 @@ namespace DeltaDebugging
 	void DeltaController::StandardGenerateNextLevel()
 	{
 		StartProfiling;
-		auto splits = GenerateSplits(_level);
-		auto complements = GenerateComplements(splits);
+		std::vector<DeltaInformation> splitinfo;
+		auto splits = GenerateSplits(_level, splitinfo);
+		auto complements = GenerateComplements(splitinfo);
+		
+		double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
 		// set internals
 		_tests = 0;
 		_remainingtests = (int32_t)splits.size() + (int32_t)complements.size();
 		// temp
-		auto addtests = [this](std::vector<std::shared_ptr<Input>>& splits) {
-			FormID prefixID = 0;
+		auto addtests = [this, approxthreshold](std::vector<std::shared_ptr<Input>>& splits) {
 			int32_t fails = 0;
 			for (int32_t i = 0; i < (int32_t)splits.size(); i++) {
-				// only execute _input if the length is above our settings and 
+				// only execute _input if the length is above our settings and
 				// it isn't present in the exclusiontree
-				if (_sessiondata->_settings->dd.executeAboveLength < (int64_t)splits[i]->Length()) {
-					if (_sessiondata->_excltree->HasPrefix(splits[i], prefixID) == false) {
+
+				/* auto procPrefix = [this, &splits, &fails, &i](bool hasPrefix, FormID prefixID) {
+					if (hasPrefix == false) {
 						auto call = dynamic_pointer_cast<Functions::DDTestCallback>(Functions::DDTestCallback::Create());
 						call->_DDcontroller = _self;
 						call->_input = splits[i];
@@ -355,15 +473,60 @@ namespace DeltaDebugging
 						_sessiondata->IncGeneratedWithPrefix();
 						fails++;
 						_tests++;
-						if (prefixID != 0)
-						{
+						if (prefixID != 0) {
 							auto ptr = _sessiondata->data->LookupFormID<Input>(prefixID);
 							if (ptr)
 								_activeInputs.insert(ptr);
 						}
+						_sessiondata->data->DeleteForm(splits[i]);
 					}
-				} else
+				};
+
+				if (_sessiondata->_settings->dd.approximativeTestExecution && _params->GetGoal() == DDGoal::MaximizePrimaryScore) {
+					auto [hasPrefix, prefixID, hasextension, extensionID] = _sessiondata->_excltree->HasPrefixAndShortestExtension(splits[i]);
+					if (hasextension) {
+						auto parent = _sessiondata->data->LookupFormID<Input>(extensionID);
+						if (parent && parent->GetPrimaryScore() > approxthreshold) {
+							auto call = dynamic_pointer_cast<Functions::DDTestCallback>(Functions::DDTestCallback::Create());
+							call->_DDcontroller = _self;
+							call->_input = splits[i];
+							call->_sessiondata = _sessiondata;
+							// add the tests bypassing regular tests so we can get this done with as fast as possible
+							if (_sessiondata->_exechandler->AddTest(splits[i], call, _params->bypassTests) == false) {
+								fails++;
+								_sessiondata->IncAddTestFails();
+								_sessiondata->data->DeleteForm(splits[i]);
+								call->Dispose();
+							} else
+								_activeInputs.insert(splits[i]);
+						} else {
+							fails++;
+							_sessiondata->IncExcludedApproximation();
+							_sessiondata->data->DeleteForm(splits[i]);
+						}
+						continue;
+					}
+					else
+					{
+						procPrefix(hasPrefix, prefixID);
+					}
+				} else {
+					FormID prefixID = 0;
+					bool hasPrefix = _sessiondata->_excltree->HasPrefix(splits[i], prefixID);
+					procPrefix(hasPrefix, prefixID);
+				}*/
+				auto call = dynamic_pointer_cast<Functions::DDTestCallback>(Functions::DDTestCallback::Create());
+				call->_DDcontroller = _self;
+				call->_input = splits[i];
+				call->_sessiondata = _sessiondata;
+				// add the tests bypassing regular tests so we can get this done with as fast as possible
+				if (_sessiondata->_exechandler->AddTest(splits[i], call, _params->bypassTests) == false) {
 					fails++;
+					_sessiondata->IncAddTestFails();
+					_sessiondata->data->DeleteForm(splits[i]);
+					call->Dispose();
+				} else
+					_activeInputs.insert(splits[i]);
 			}
 			_remainingtests -= fails;
 		};
@@ -662,8 +825,7 @@ namespace DeltaDebugging
 
 	size_t DeltaController::GetStaticSize(int32_t version)
 	{
-		static size_t size0x1 = Form::GetDynamicSize()  // base form size
-		                        + 4                     // version
+		static size_t size0x1 = 4                       // version
 		                        + 4                     // tasks
 		                        + 4                     // remainingtasks
 		                        + 4                     // tests
@@ -686,11 +848,12 @@ namespace DeltaDebugging
 
 	size_t DeltaController::GetDynamicSize()
 	{
-		size_t sz = GetStaticSize(classversion)                                                      // static elements
-		            + 8 /*size of results*/ + (8 + 8 + 4) * _results.size()                          // formids, loss, and level in results
-		            + 8 /*size of activeInputs*/ + 8 * _activeInputs.size()                          // formids in activeInputs
-		            + 8 /*size of completedTests*/ + 8 * _completedTests.size()                      //formids in completedTests
-		            + 4 /*goal type*/ + 8;                                                           /*class size*/
+		size_t sz = Form::GetDynamicSize()                                       // form stuff
+		            + GetStaticSize(classversion)                                // static elements
+		            + 8 /*size of results*/ + (8 + 8 + 4) * _results.size()      // formids, loss, and level in results
+		            + 8 /*size of activeInputs*/ + 8 * _activeInputs.size()      // formids in activeInputs
+		            + 8 /*size of completedTests*/ + 8 * _completedTests.size()  //formids in completedTests
+		            + 4 /*goal type*/ + 8;                                       /*class size*/
 
 		switch (_params->GetGoal()) {
 		case DDGoal::MaximizePrimaryScore:

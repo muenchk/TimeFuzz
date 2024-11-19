@@ -551,8 +551,7 @@ void Test::InValidatePreExec()
 
 size_t Test::GetStaticSize(int32_t version)
 {
-	static size_t size0x1 = Form::GetDynamicSize()  // form base size
-	                        + 4                     // version
+	static size_t size0x1 = 4                     // version
 	                        + 1                     // _running
 	                        + 8                     // _starttime
 	                        + 8                     // _endtime
@@ -574,7 +573,8 @@ size_t Test::GetStaticSize(int32_t version)
 
 size_t Test::GetDynamicSize()
 {
-	size_t sz = GetStaticSize(classversion);
+	size_t sz = Form::GetDynamicSize()  // form stuff
+	            + GetStaticSize(classversion);
 	sz += Buffer::CalcStringLength(_lastwritten);
 	sz += Buffer::ListBasic::GetListLength(_reactiontime);
 	sz += Buffer::CalcStringLength(_output);
@@ -735,6 +735,7 @@ namespace Functions
 			// ----- SESSION STUFF -----
 			SessionFunctions::TestEnd(_sessiondata, _input);
 		}
+		_input->UnsetFlag(Form::FormFlags::DoNotFree);
 		// schedule test generation
 		SessionFunctions::GenerateTests(_sessiondata);
 		// perform master checks
@@ -784,6 +785,7 @@ namespace Functions
 		// thus we don't want to actually save the test and the _input,
 		// but delete it instead
 		SessionFunctions::TestEnd(_sessiondata, _input, true);
+		_input->UnsetFlag(Form::FormFlags::DoNotFree);
 	}
 }
 

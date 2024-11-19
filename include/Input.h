@@ -20,7 +20,7 @@ class Input : public Form
 {
 	friend class SessionFunctions;
 
-	const int32_t classversion = 0x4;
+	const int32_t classversion = 0x1;
 	#pragma region InheritedForm
 public:
 	size_t GetStaticSize(int32_t version = 0x1) override;
@@ -105,6 +105,16 @@ private:
 	/// The ID of the generation this input belongs to
 	/// </summary>
 	FormID _generationID = 0;
+
+	/// <summary>
+	/// number of inputs that have been derived from this input
+	/// </summary>
+	uint64_t _derivedInputs = 0;
+
+	/// <summary>
+	/// runtime at which this input was generated
+	/// </summary>
+	std::chrono::nanoseconds _generationTime = std::chrono::nanoseconds(0);
 
 public:
 	struct Flags
@@ -363,6 +373,32 @@ public:
 	/// </summary>
 	/// <param name="genID"></param>
 	void SetGenerationID(FormID genID);
+
+	/// <summary>
+	/// Increments the number of inputs derived from this one
+	/// </summary>
+	void IncDerivedInputs()
+	{
+		std::unique_lock<std::shared_mutex> guard(_lock);
+		_derivedInputs++;
+	}
+	/// <summary>
+	/// Returns the number of inputs derived from this one
+	/// </summary>
+	uint64_t GetDerivedInputs() {
+		std::shared_lock<std::shared_mutex> guard(_lock);
+		return _derivedInputs;
+	}
+
+	/// <summary>
+	/// Sets the runtime at which this input was generated
+	/// </summary>
+	/// <param name="genTime"></param>
+	void SetGenerationTime(std::chrono::nanoseconds genTime)
+	{
+		std::unique_lock<std::shared_mutex> guard(_lock);
+		_generationTime = genTime;
+	}
 
 private:
 	/// <summary>

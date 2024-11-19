@@ -77,6 +77,7 @@ struct SessionStatus
 	int64_t gen_generatedInputs = 0;
 	int64_t gen_generationFails = 0;
 	int64_t gen_generatedWithPrefix = 0;
+	int64_t gen_excludedApprox = 0;
 	int64_t gen_addtestfails = 0;
 	double gen_failureRate = 0.f;
 
@@ -170,6 +171,8 @@ public:
 	void UI_FindDeltaDebugging(UI::UIDeltaDebugging& dd);
 	void UI_FindAllDeltaDebugging(std::vector<UI::UIDeltaDebugging>& ddvector, size_t& length);
 
+	void UI_GetThreadStatus(std::vector<TaskController::ThreadStatus>& status);
+
 	/// <summary>
 	/// Returns a string with information about the session
 	/// </summary>
@@ -262,7 +265,7 @@ private:
 	/// <summary>
 	/// class version
 	/// </summary>
-	const int32_t classversion = 0x2;
+	const int32_t classversion = 0x1;
 
 	/// <summary>
 	/// Returns the size of the classes static members

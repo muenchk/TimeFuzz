@@ -30,17 +30,12 @@ void Generator::RegisterFactories()
 
 size_t Generator::GetStaticSize(int32_t version)
 {
-	static size_t size0x1 = 4  // version
-	                        + Form::GetDynamicSize(); // _formid
-	static size_t size0x2 = 4                          // version
-	                        + Form::GetDynamicSize()   // _formid
+	static size_t size0x1 = 4                          // version
 	                        + 8;                       // Grammar Form ID
 	switch (version)
 	{
 	case 0x1:
 		return size0x1;
-	case 0x2:
-		return size0x2;
 	default:
 		return 0;
 	}
@@ -48,7 +43,8 @@ size_t Generator::GetStaticSize(int32_t version)
 
 size_t Generator::GetDynamicSize()
 {
-	return GetStaticSize(classversion);
+	return Form::GetDynamicSize()  // form stuff
+	       + GetStaticSize(classversion);
 }
 
 bool Generator::WriteData(unsigned char* buffer, size_t& offset)
@@ -67,9 +63,6 @@ bool Generator::ReadData(unsigned char* buffer, size_t& offset, size_t length, L
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
 	case 0x1:
-		Form::ReadData(buffer, offset, length, resolver);
-		return true;
-	case 0x2:
 		{
 			Form::ReadData(buffer, offset, length, resolver);
 			FormID gram = Buffer::ReadUInt64(buffer, offset);
@@ -112,9 +105,11 @@ void DummyGenerate(std::shared_ptr<Input>& input)
 
 bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar> grammar, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> parent)
 {
-	bool hasParentDoNotFreeFlag = false;
-	bool hasParentTreeDoNotFreeFlag = false;
 	StartProfiling;
+
+	FlagHolder inputflag(input, Form::FormFlags::DoNotFree);
+	FlagHolder parentflag;
+	FlagHolder parenttreeflag;
 	std::shared_ptr<Grammar> gram = _grammar;
 	if (grammar)
 		gram = grammar;
@@ -128,8 +123,6 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 			input->derive->Lock();
 			if (input->derive->_valid == false) {
 				if (input->HasFlag(Input::Flags::GeneratedGrammarParent)) {
-					// -------- NOT DONE ---------
-
 					// implement derivation from a parent derivationtree here
 					if (input->derive && input->derive->_regenerate == true)
 					{
@@ -143,14 +136,10 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 					if (!parent) {
 						input->derive->Unlock();
 						input->Unlock();
-						if (hasParentDoNotFreeFlag)
-							parent->UnsetFlag(Form::FormFlags::DoNotFree);
 						return false;
 					} else {
-						if (hasParentDoNotFreeFlag = parent->HasFlag(Form::FormFlags::DoNotFree); !hasParentDoNotFreeFlag)
-							parent->SetFlag(Form::FormFlags::DoNotFree);
-						if (hasParentTreeDoNotFreeFlag = parent->derive->HasFlag(Form::FormFlags::DoNotFree); !hasParentDoNotFreeFlag)
-							parent->derive->SetFlag(Form::FormFlags::DoNotFree);
+						parentflag = FlagHolder(parent, Form::FormFlags::DoNotFree);
+						parenttreeflag = FlagHolder(parent->derive, Form::FormFlags::DoNotFree);
 					}
 					// we have a valid parent so make sure to generate it if it isn't already so we can generate this input
 					if (parent->GetGenerated() == false) {
@@ -162,10 +151,6 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 							profile(TimeProfiling, "Time taken for input Generation");
 							input->derive->Unlock();
 							input->Unlock();
-							if (hasParentDoNotFreeFlag)
-								parent->UnsetFlag(Form::FormFlags::DoNotFree);
-							if (hasParentTreeDoNotFreeFlag)
-								parent->derive->UnsetFlag(Form::FormFlags::DoNotFree);
 							return false;
 						}
 					}
@@ -178,6 +163,7 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 							gram->Extend(parent, input->derive, false, input->derive->_targetlen, input->derive->_seed);
 					}
 					else {
+						// this is a new input
 						std::uniform_int_distribution<signed> dist(1000, 10000);
 						int32_t sequencelen = dist(randan);
 						// now extend input
@@ -187,10 +173,10 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 							gram->Extend(parent, input->derive, false, sequencelen, (unsigned int)(std::chrono::system_clock::now().time_since_epoch().count()));
 						// set parent information and flags
 						input->SetParentGenerationInformation(parent->GetFormID());
+						// increase number of inputs derived from parent
+						parent->IncDerivedInputs();
 					}
 					// free the parents DerivationTree
-					if (hasParentTreeDoNotFreeFlag)
-						parent->derive->UnsetFlag(Form::FormFlags::DoNotFree);
 
 				} else {
 					if (input->derive && input->derive->_regenerate == true) {
@@ -264,18 +250,16 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 				}
 				input->SetGenerated();
 				profile(TimeProfiling, "Time taken for input Generation");
-				if ((int64_t)input->Length() != input->derive->_sequenceNodes || input->GetTrimmedLength() != -1 && (int32_t)input->Length() != input->GetTrimmedLength())
-					logwarn("The input length is different from the generated sequence. Length: {}, Expected: {}", input->Length(), input->derive->_sequenceNodes);
+				if ((int64_t)input->Length() != input->derive->_sequenceNodes && (!input->IsTrimmed() || (int64_t)input->Length() != input->GetTrimmedLength()))
+					logwarn("The input length is different from the generated sequence. Length: {}, Expected: {}, Trimmed: {}", input->Length(), input->derive->_sequenceNodes, input->GetTrimmedLength());
 				if ((int64_t)input->Length() == 0)
 					logwarn("The input length is 0.");
 
 				input->derive->Unlock();
 				input->Unlock();
-				if (hasParentDoNotFreeFlag)
-					parent->UnsetFlag(Form::FormFlags::DoNotFree);
 				return true;
-			} else
-				;
+			} else if (input->derive->_valid && input->GetSequenceLength() > 0)
+				input->SetGenerated();
 			input->derive->Unlock();
 		} else {
 			// the input has beeen created by delta debuggging, so reconstruct it
@@ -284,12 +268,9 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 			if (!parent) {
 				profile(TimeProfiling, "Time taken for input Generation");
 				input->Unlock();
-				if (hasParentDoNotFreeFlag)
-					parent->UnsetFlag(Form::FormFlags::DoNotFree);
 				return false;
 			} else {
-				if (hasParentDoNotFreeFlag = parent->HasFlag(Form::FormFlags::DoNotFree); !hasParentDoNotFreeFlag)
-					parent->SetFlag(Form::FormFlags::DoNotFree);
+				parentflag = FlagHolder(parent, Form::FormFlags::DoNotFree);
 			}
 			// we have a valid parent so make sure to generate it if it isn't already so we can generate this input
 			if (parent->GetGenerated() == false) {
@@ -300,8 +281,6 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 					logwarn("Cannot generate input as parent input cannot be regenerated")
 						profile(TimeProfiling, "Time taken for input Generation");
 					input->Unlock();
-					if (hasParentDoNotFreeFlag)
-						parent->UnsetFlag(Form::FormFlags::DoNotFree);
 					return false;
 				}
 			}
@@ -315,73 +294,63 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 					// the input cannot be derived from the given grammar
 					logwarn("The input {} cannot be derived from the grammar.", Utility::GetHex(input->GetFormID()));
 					input->Unlock();
-					if (hasParentDoNotFreeFlag)
-						parent->UnsetFlag(Form::FormFlags::DoNotFree);
 					return false;
 				}
 			}
 			input->derive->Unlock();
 
-			// we have all we need, so iterate over input sequence and generate our input
-			if (input->GetParentSplitComplement())
-			{
-				// input is a complement
-				int64_t count = 0;
-				int64_t posBegin = input->GetParentSplitBegin();
-				int64_t length = input->GetParentSplitLength();
-				auto itr = parent->begin();
-				while (itr != parent->end()) {
-					// if the current position is less then the beginning of the split itself, or if it is after the split
-					// sequence is over
-					if (count < posBegin || count >= posBegin + length)
+			if (input->derive->_valid && input->GetSequenceLength() == 0) {
+				// we have all we need, so iterate over input sequence and generate our input
+				if (input->GetParentSplitComplement()) {
+					// input is a complement
+					int64_t count = 0;
+					int64_t posBegin = input->GetParentSplitBegin();
+					int64_t length = input->GetParentSplitLength();
+					auto itr = parent->begin();
+					while (itr != parent->end()) {
+						// if the current position is less then the beginning of the split itself, or if it is after the split
+						// sequence is over
+						if (count < posBegin || count >= posBegin + length)
+							input->AddEntry(*itr);
+						count++;
+						itr++;
+					}
+					input->SetGenerated();
+					profile(TimeProfiling, "Time taken for input Generation");
+					input->Unlock();
+					return true;
+				} else {
+					// input is the subset itself
+					int64_t count = 0;
+					int64_t posBegin = input->GetParentSplitBegin();
+					int64_t length = input->GetParentSplitLength();
+					auto itr = parent->begin();
+					while (itr != parent->end() && count < posBegin) {
+						itr++;
+						count++;
+					}
+					while (itr != parent->end() && count < posBegin + length) {
 						input->AddEntry(*itr);
-					count++;
-					itr++;
-				}
-				input->SetGenerated();
-				profile(TimeProfiling, "Time taken for input Generation");
-				input->Unlock();
-				if (hasParentDoNotFreeFlag)
-					parent->UnsetFlag(Form::FormFlags::DoNotFree);
-				return true;
-			}
-			else
-			{
-				// input is the subset itself
-				int64_t count = 0;
-				int64_t posBegin = input->GetParentSplitBegin();
-				int64_t length = input->GetParentSplitLength();
-				auto itr = parent->begin();
-				while (itr != parent->end() && count < posBegin)
-				{
-					itr++;
-					count++;
-				}
-				while (itr != parent->end() && count < posBegin + length)
-				{
-					input->AddEntry(*itr);
-					itr++;
-					count++;
-				}
-				input->SetGenerated();
+						itr++;
+						count++;
+					}
+					input->SetGenerated();
 
-				profile(TimeProfiling, "Time taken for input Generation");
-				if ((int32_t)input->Length() != length)
-					logwarn("The input length is different from the generated sequence. Length: {}, Expected: {}", input->Length(), input->derive->_sequenceNodes);
-				if ((int32_t)input->Length() == 0)
-					logwarn("The input length is 0.");
+					profile(TimeProfiling, "Time taken for input Generation");
+					if ((int32_t)input->Length() != length)
+						logwarn("The input length is different from the generated sequence. Length: {}, Expected: {}", input->Length(), input->derive->_sequenceNodes);
+					if ((int32_t)input->Length() == 0)
+						logwarn("The input length is 0.");
 
+					input->SetGenerated();
+					input->Unlock();
+					return true;
+				}
+			} else if (input->derive->_valid)
 				input->SetGenerated();
-				input->Unlock();
-				if (hasParentDoNotFreeFlag)
-					parent->UnsetFlag(Form::FormFlags::DoNotFree);
-				return true;
-			}
 		}
 		profile(TimeProfiling, "Time taken for input Generation");
 		input->Unlock();
-		if (hasParentDoNotFreeFlag)
-			parent->UnsetFlag(Form::FormFlags::DoNotFree);
 		return false;
 	} else {
 		DummyGenerate(input);
@@ -390,8 +359,6 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 	profile(TimeProfiling, "Time taken for input Generation");
 	if ((int32_t)input->Length() != input->derive->_sequenceNodes)
 		logwarn("The input length is different from the generated sequence. Length: {}, Expected: {}", input->Length(), input->derive->_sequenceNodes);
-	if (hasParentDoNotFreeFlag)
-		parent->UnsetFlag(Form::FormFlags::DoNotFree);
 	return true;
 }
 

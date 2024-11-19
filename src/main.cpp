@@ -470,6 +470,7 @@ int32_t main(int32_t argc, char** argv)
 		bool showTopK = true;
 		bool showProfiling = true;
 		bool showDeltaDebugging = true;
+		bool showThreadStatus = true;
 
 		while (!glfwWindowShouldClose(window) && !stop) {
 			// Poll and handle events (inputs, window resize, etc.)
@@ -503,6 +504,7 @@ int32_t main(int32_t argc, char** argv)
 					ImGui::Checkbox("Top K inputs window", &showTopK);
 					ImGui::Checkbox("Profiling window", &showProfiling);
 					ImGui::Checkbox("Delta Debugging window", &showDeltaDebugging);
+					ImGui::Checkbox("Show Thread Status", &showThreadStatus);
 					ImGui::Text("Latency: %.3f ms, FPS: %.1f", 1000.0f / io.Framerate, io.Framerate);
 				}
 				ImGui::End();
@@ -612,39 +614,66 @@ int32_t main(int32_t argc, char** argv)
 				if (wopen) {
 					if (displayadd) {
 						ImGui::SeparatorText("Exclusion Tree");
-						ImGui::Text("Depth:                %lld", status.excl_depth);
-						ImGui::Text("Nodes:                %llu", status.excl_nodecount);
-						ImGui::Text("Leaves:               %llu", status.excl_leafcount);
+						ImGui::Text("Depth:                   %lld", status.excl_depth);
+						ImGui::Text("Nodes:                   %llu", status.excl_nodecount);
+						ImGui::Text("Leaves:                  %llu", status.excl_leafcount);
 
 						ImGui::SeparatorText("Task Controller");
-						ImGui::Text("Waiting [All]:        %d", status.task_waiting);
-						ImGui::Text("Waiting [Medium]:     %d", status.task_waiting_medium);
-						ImGui::Text("Waiting [Light]:      %d", status.task_waiting_light);
-						ImGui::Text("Completed:            %llu", status.task_completed);
+						ImGui::Text("Waiting [All]:           %d", status.task_waiting);
+						ImGui::Text("Waiting [Medium]:        %d", status.task_waiting_medium);
+						ImGui::Text("Waiting [Light]:         %d", status.task_waiting_light);
+						ImGui::Text("Completed:               %llu", status.task_completed);
 
 						ImGui::SeparatorText("Execution Handler");
-						ImGui::Text("Waiting:              %d", status.exec_waiting);
-						ImGui::Text("Initialized:          %d", status.exec_initialized);
-						ImGui::Text("Running:              %d", status.exec_running);
-						ImGui::Text("Stopping:             %d", status.exec_stopping);
+						ImGui::Text("Waiting:                 %d", status.exec_waiting);
+						ImGui::Text("Initialized:             %d", status.exec_initialized);
+						ImGui::Text("Running:                 %d", status.exec_running);
+						ImGui::Text("Stopping:                %d", status.exec_stopping);
 
 						ImGui::SeparatorText("Generation");
-						ImGui::Text("Generated Inputs:     %lld", status.gen_generatedInputs);
-						ImGui::Text("Excluded with Prefix: %lld", status.gen_generatedWithPrefix);
-						ImGui::Text("Generation Fails:     %lld", status.gen_generationFails);
-						ImGui::Text("Add Test Fails:       %lld", status.gen_addtestfails);
-						ImGui::Text("Failure Rate:         %llf", status.gen_failureRate);
+						ImGui::Text("Generated Inputs:        %lld", status.gen_generatedInputs);
+						ImGui::Text("Excluded with Prefix:    %lld", status.gen_generatedWithPrefix);
+						ImGui::Text("Excluded Approximation:  %lld", status.gen_excludedApprox);
+						ImGui::Text("Generation Fails:        %lld", status.gen_generationFails);
+						ImGui::Text("Add Test Fails:          %lld", status.gen_addtestfails);
+						ImGui::Text("Failure Rate:            %llf", status.gen_failureRate);
 
 						ImGui::SeparatorText("Test exit stats");
-						ImGui::Text("Natural:              %llu", status.exitstats.natural);
-						ImGui::Text("Last Input:           %llu", status.exitstats.lastinput);
-						ImGui::Text("Terminated:           %llu", status.exitstats.terminated);
-						ImGui::Text("Timeout:              %llu", status.exitstats.timeout);
-						ImGui::Text("Fragment Timeout:     %llu", status.exitstats.fragmenttimeout);
-						ImGui::Text("Memory:               %llu", status.exitstats.memory);
-						ImGui::Text("Init error:           %llu", status.exitstats.initerror);
+						ImGui::Text("Natural:                 %llu", status.exitstats.natural);
+						ImGui::Text("Last Input:              %llu", status.exitstats.lastinput);
+						ImGui::Text("Terminated:              %llu", status.exitstats.terminated);
+						ImGui::Text("Timeout:                 %llu", status.exitstats.timeout);
+						ImGui::Text("Fragment Timeout:        %llu", status.exitstats.fragmenttimeout);
+						ImGui::Text("Memory:                  %llu", status.exitstats.memory);
+						ImGui::Text("Init error:              %llu", status.exitstats.initerror);
 					} else {
 						ImGui::Text("Not available");
+					}
+				}
+				ImGui::End();
+			}
+
+			if (showThreadStatus) {
+				static bool wopen = true;
+				ImGui::Begin("Thread Status", &wopen);
+				if (wopen)
+				{
+					auto toString = [](TaskController::ThreadStatus stat) {
+						switch (stat) {
+						case TaskController::ThreadStatus::Initializing:
+							return "Intializing";
+						case TaskController::ThreadStatus::Running:
+							return "Running";
+						case TaskController::ThreadStatus::Waiting:
+							return "Waiting";
+						}
+						return "None";
+					};
+					static std::vector<TaskController::ThreadStatus> stati;
+					session->UI_GetThreadStatus(stati);
+					for (size_t i = 0; i < stati.size(); i++)
+					{
+						ImGui::Text("Status: %s", toString(stati[i]));
 					}
 				}
 				ImGui::End();
@@ -682,13 +711,14 @@ int32_t main(int32_t argc, char** argv)
 						//PushStyleCompact
 						//...
 						//PopStyleCompact
-						if (ImGui::BeginTable("itemtable", 7, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * rownum), 0.0f)) {
+						if (ImGui::BeginTable("itemtable", 8, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * rownum), 0.0f)) {
 							ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputID);
 							ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputLength);
 							ImGui::TableSetupColumn("Primary Score", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputPrimaryScore);
 							ImGui::TableSetupColumn("Secondary Score", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputSecondaryScore);
 							ImGui::TableSetupColumn("Result", ImGuiTableColumnFlags_WidthFixed, 120.0f, UI::UIInput::ColumnID::InputResult);
 							ImGui::TableSetupColumn("Flags", ImGuiTableColumnFlags_WidthFixed, 80.0f, UI::UIInput::ColumnID::InputFlags);
+							ImGui::TableSetupColumn("Generation", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputGenerationNum);
 							ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputAction);
 							ImGui::TableSetupScrollFreeze(0, 1);
 							ImGui::TableHeadersRow();
@@ -722,6 +752,8 @@ int32_t main(int32_t argc, char** argv)
 										ImGui::Text("Unfinished");
 									ImGui::TableNextColumn();
 									ImGui::TextUnformatted(Utility::GetHexFill(item->flags).c_str());
+									ImGui::TableNextColumn();
+									ImGui::Text("%6d", item->generationNumber);
 									ImGui::TableNextColumn();
 									if (ImGui::SmallButton("Replay")) {
 										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1), item->id);

@@ -4,6 +4,13 @@
 #include <shared_mutex>
 #include <string>
 #include <memory>
+#include <set>
+#include <map>
+#include <unordered_map>
+
+#include <boost/bimap.hpp>
+#include <boost/bimap/multiset_of.hpp>
+#include <boost/bimap/set_of.hpp>
 
 typedef uint64_t FormID;
 
@@ -44,9 +51,17 @@ public:
 		};
 	};
 
+private:
+	const int32_t formversion = 0x1;
+
 protected:
 	FormID _formid = 0;
-	EnumType _flags = FormFlags::None;
+	std::multiset<EnumType> _flags;
+	EnumType _flagsAlloc = FormFlags::None;
+
+	//typedef boost::bimap<boost::bimaps::multiset_of<FormID>, boost::bimaps::multiset_of<EnumType>> FlagMap;
+	//FlagMap _flags;
+	//EnumType _flags = FormFlags::None;
 	std::shared_mutex _lock;
 
 public:
@@ -132,24 +147,22 @@ public:
 	/// </summary>
 	void UnlockRead();
 
-	virtual void SetFlag(EnumType flag)
-	{
-		_flags |= flag;
-	}
-	virtual void UnsetFlag(EnumType flag)
-	{
-		_flags = _flags & (0xFFFFFFFFFFFFFFFF xor flag);
-	}
+	//virtual void SetFlag(EnumType flag, FormID setterID);
 
-	virtual bool HasFlag(EnumType flag)
-	{
-		return _flags & flag;
-	}
+	//virtual void UnsetFlag(EnumType flag, FormID setterID);
 
-	virtual EnumType GetFlags()
+	virtual void SetFlag(EnumType flag);
+
+	virtual void UnsetFlag(EnumType flag);
+
+	virtual bool HasFlag(EnumType flag);
+
+	virtual EnumType GetFlags();
+
+	/* virtual EnumType GetFlags()
 	{
 		return _flags;
-	}
+	}*/
 
 	template<class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 	T* As()
@@ -158,6 +171,35 @@ public:
 			return dynamic_cast<T*>(this);
 		else
 			return nullptr;
+	}
+};
+
+class FlagHolder
+{
+	EnumType _flag;
+	std::shared_ptr<Form> _form;
+
+public:
+	FlagHolder()
+	{
+
+	}
+
+	FlagHolder(std::shared_ptr<Form> form, EnumType flag)
+	{
+		if (form) {
+			_form = form;
+			_flag = flag;
+			_form->SetFlag(flag);
+		}
+	}
+
+	~FlagHolder()
+	{
+		if (_form) {
+			_form->UnsetFlag(_flag);
+			_form.reset();
+		}
 	}
 };
  

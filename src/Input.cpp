@@ -13,45 +13,29 @@
 
 size_t Input::GetStaticSize(int32_t version)
 {
-	static size_t size0x1 = Form::GetDynamicSize()  // form base size
-	                        + 4 +                   // version
-	                        1 +                     // _hasfinished
-	                        1 +                     // _trimmed
-	                        8 +                     // _executiontime
-	                        4 +                     // _exitcode
-	                        sizeof(EnumType) +      // _oracleResult
-	                        8 +                     // test
-	                        8;                      // derivationtree
-
-	static size_t size0x2 = Form::GetDynamicSize()  // form base size
-	                        + 4 +                   // version
-	                        1 +                     // _hasfinished
-	                        1 +                     // _trimmed
-	                        8 +                     // _executiontime
-	                        4 +                     // _exitcode
-	                        sizeof(EnumType) +      // _oracleResult
-	                        8 +                     // test
-	                        8 +                     // derivationtree
-	                        8 +                     // _primaryScore
-	                        8 +                     // _secondaryScore
-	                        8;                      // trimmedLength
-	static size_t size0x4 = size0x2                 // prior version size
-	                        + 8                     // _parent.parentInput
-	                        + 8                     // _parent.positionBegin
-	                        + 8                     // _parent.length
-	                        + 1                     // _parent.complement
-	                        + 8;                    // generationID
+	static size_t size0x1 = 4 +                 // version
+	                        1 +                 // _hasfinished
+	                        1 +                 // _trimmed
+	                        8 +                 // _executiontime
+	                        4 +                 // _exitcode
+	                        sizeof(EnumType) +  // _oracleResult
+	                        8 +                 // test
+	                        8 +                 // derivationtree
+	                        8 +                 // _primaryScore
+	                        8 +                 // _secondaryScore
+	                        8                   // trimmedLength
+	                        + 8                 // _parent.parentInput
+	                        + 8                 // _parent.positionBegin
+	                        + 8                 // _parent.length
+	                        + 1                 // _parent.complement
+	                        + 8                 // generationID
+	                        + 8                 // derivedInputs
+	                        + 8;                // generationTime
 
 	switch (version)
 	{
 	case 0x1:
 		return size0x1;
-	case 0x2:
-		return size0x2;
-	case 0x3:
-		return size0x2;
-	case 0x4:
-		return size0x4;
 	default:
 		return 0;
 	}
@@ -59,7 +43,8 @@ size_t Input::GetStaticSize(int32_t version)
 
 size_t Input::GetDynamicSize()
 {
-	size_t size = GetStaticSize(classversion);
+	size_t size = Form::GetDynamicSize()  // form stuff
+	              + GetStaticSize(classversion);
 	size += Buffer::CalcStringLength(_stringrep);
 	if (HasFlag(Form::FormFlags::DoNotFree)) {  // if do not free flag is present this input is needed for something and won't be checked for regeneration
 		size += Buffer::List::GetListLength(_sequence);
@@ -98,63 +83,8 @@ bool Input::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(_parent.length, buffer, offset);
 	Buffer::Write(_parent.complement, buffer, offset);
 	Buffer::Write(_generationID, buffer, offset);
-
-	return true;
-}
-
-bool Input::ReadData0x1(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
-{
-	// if the current length is smaller stan the minimal size of the class then return false
-	if (length < GetStaticSize(0x1))
-		return false;
-	//logdebug("ReadData FormData");
-	Form::ReadData(buffer, offset, length, resolver);
-	//logdebug("ReadData Basic Data");
-	// static init
-	_pythonconverted = false;
-	_pythonstring = "";
-	// end
-	_hasfinished = Buffer::ReadBool(buffer, offset);
-	_trimmed = Buffer::ReadBool(buffer, offset);
-	_executiontime = Buffer::ReadNanoSeconds(buffer, offset);
-	_exitcode = Buffer::ReadInt32(buffer, offset);
-	_oracleResult = Buffer::ReadUInt64(buffer, offset);
-	FormID testid = Buffer::ReadUInt64(buffer, offset);
-	resolver->AddTask([this, resolver, testid]() {
-		this->test = resolver->ResolveFormID<Test>(testid);
-	});
-	FormID deriveid = Buffer::ReadUInt64(buffer, offset);
-	resolver->AddTask([this, resolver, deriveid]() {
-		this->derive = resolver->ResolveFormID<DerivationTree>(deriveid);
-	});
-	//logdebug("ReadData string rep");
-	// get _stringrep
-	//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
-	//	return false;
-	_stringrep = Buffer::ReadString(buffer, offset);
-	//logdebug("ReadData _sequence, offset {}, len {}", offset, length);
-	// read _sequence
-	//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::List::GetListLength(buffer, offset))
-	//	return false;
-	Buffer::List::ReadList(_sequence, buffer, offset);
-	//logdebug("ReadData orig _sequence, offset {}, len {}", offset, length);
-	// read _orig_sequence
-	//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::List::GetListLength(buffer, offset))
-	//	return false;
-	Buffer::List::ReadList(_orig_sequence, buffer, offset);
-	//logdebug("ReadData finish");
-	return true;
-}
-
-bool Input::ReadData0x2(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
-{
-	bool res = true;
-	res &= ReadData0x1(buffer, offset, length, resolver);
-	if (!res)
-		return res;
-	_primaryScore = Buffer::ReadDouble(buffer, offset);
-	_secondaryScore = Buffer::ReadDouble(buffer, offset);
-	_trimmedlength = Buffer::ReadInt64(buffer, offset);
+	Buffer::Write(_derivedInputs, buffer, offset);
+	Buffer::Write(_generationTime, buffer, offset);
 	return true;
 }
 
@@ -165,45 +95,8 @@ bool Input::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadR
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
 	case 0x1:
-		return ReadData0x1(buffer, offset, length, resolver);
-	case 0x2:
-		return ReadData0x2(buffer, offset, length, resolver);
-	case 0x3:
 		{
-			if (length < GetStaticSize(0x1))
-				return false;
-			//logdebug("ReadData FormData");
-			Form::ReadData(buffer, offset, length, resolver);
-			//logdebug("ReadData Basic Data");
-			// static init
-			_pythonconverted = false;
-			_pythonstring = "";
-			// end
-			_hasfinished = Buffer::ReadBool(buffer, offset);
-			_trimmed = Buffer::ReadBool(buffer, offset);
-			_executiontime = Buffer::ReadNanoSeconds(buffer, offset);
-			_exitcode = Buffer::ReadInt32(buffer, offset);
-			_oracleResult = Buffer::ReadUInt64(buffer, offset);
-			FormID testid = Buffer::ReadUInt64(buffer, offset);
-			resolver->AddTask([this, resolver, testid]() {
-				this->test = resolver->ResolveFormID<Test>(testid);
-			});
-			FormID deriveid = Buffer::ReadUInt64(buffer, offset);
-			resolver->AddTask([this, resolver, deriveid]() {
-				this->derive = resolver->ResolveFormID<DerivationTree>(deriveid);
-			});
-			//logdebug("ReadData string rep");
-			// get _stringrep
-			//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
-			//	return false;
-			_stringrep = Buffer::ReadString(buffer, offset);
-			_primaryScore = Buffer::ReadDouble(buffer, offset);
-			_secondaryScore = Buffer::ReadDouble(buffer, offset);
-		}
-		return true;
-	case 0x4:
-		{
-			if (length < GetStaticSize(0x1))
+			if (length < GetStaticSize(version))
 				return false;
 			Form::ReadData(buffer, offset, length, resolver);
 			// static init
@@ -234,11 +127,14 @@ bool Input::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadR
 			}
 			_primaryScore = Buffer::ReadDouble(buffer, offset);
 			_secondaryScore = Buffer::ReadDouble(buffer, offset);
+			_trimmedlength = Buffer::ReadInt64(buffer, offset);
 			_parent.parentInput = Buffer::ReadUInt64(buffer, offset);
 			_parent.positionBegin = Buffer::ReadInt64(buffer, offset);
 			_parent.length = Buffer::ReadInt64(buffer, offset);
 			_parent.complement = Buffer::ReadBool(buffer, offset);
 			_generationID = Buffer::ReadUInt64(buffer, offset);
+			_derivedInputs = Buffer::ReadUInt64(buffer, offset);
+			_generationTime = Buffer::ReadNanoSeconds(buffer, offset);
 		}
 		return true;
 	default:

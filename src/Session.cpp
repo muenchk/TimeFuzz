@@ -207,7 +207,7 @@ void Session::StopSession(bool savesession)
 		return;
 	logmessage("Stopping session.");
 	if (savesession)
-		data->Save();
+		data->Save({});
 
 	// set abort -> session controller should automatically stop
 	_abort = true;
@@ -239,7 +239,7 @@ void Session::DestroySession()
 void Session::Save()
 {
 	if (data)
-		data->Save();
+		data->Save({});
 }
 
 void Session::SetSessionEndCallback(std::function<void()> callback)
@@ -587,6 +587,7 @@ void Session::GetStatus(SessionStatus& status)
 		// Generation
 		status.gen_generatedInputs = _sessiondata->GetGeneratedInputs();
 		status.gen_generatedWithPrefix = _sessiondata->GetGeneratedPrefix();
+		status.gen_excludedApprox = _sessiondata->GetExcludedApproximation();
 		status.gen_generationFails = _sessiondata->GetGenerationFails();
 		status.gen_failureRate = _sessiondata->GetGenerationFailureRate();
 		status.gen_addtestfails = _sessiondata->GetAddTestFails();
@@ -636,20 +637,11 @@ bool Session::SetRunning(bool state)
 
 size_t Session::GetStaticSize(int32_t version)
 {
-	// size0x1 is inaccurate due to code changes and cannot be reliably used
-	size_t size0x1 = Form::GetDynamicSize()  // form size
-	                 + 4                     // version
-	                 + 8;                    // grammar id
-	                 //+ _sessiondata->GetStaticSize(0x2);  // session data
-
-	size_t size0x2 = Form::GetDynamicSize()  // form size
-	                 + 4;                    // version
+	size_t size0x1 = 4;                    // version
 
 	switch (version) {
 	case 0x1:
 		return size0x1;
-	case 0x2:
-		return size0x2;
 	default:
 		return 0;
 	}
@@ -657,7 +649,8 @@ size_t Session::GetStaticSize(int32_t version)
 
 size_t Session::GetDynamicSize()
 {
-	return GetStaticSize(classversion);
+	return Form::GetDynamicSize()  // form stuff
+	       + GetStaticSize(classversion);
 }
 
 bool Session::WriteData(unsigned char* buffer, size_t& offset)
@@ -672,15 +665,6 @@ bool Session::ReadData(unsigned char* buffer, size_t& offset, size_t length, Loa
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
 	case 0x1:
-		{
-			Form::ReadData(buffer, offset, length, resolver);
-			FormID _ = Buffer::ReadUInt64(buffer, offset);
-			_sessiondata = data->CreateForm<SessionData>();
-			_sessiondata->data = data;
-			_sessiondata->ReadData(buffer, offset, length, resolver);
-			return true;
-		}
-	case 0x2:
 		{
 			Form::ReadData(buffer, offset, length, resolver);
 			return true;
@@ -739,6 +723,7 @@ void Session::UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k)
 		vector[i].secondaryScore = vec[i]->GetSecondaryScore();
 		vector[i].result = (UI::Result)vec[i]->GetOracleResult();
 		vector[i].flags = vec[i]->GetFlags();
+		vector[i].generationNumber = _sessiondata->GetGeneration(vec[i]->GetGenerationID())->GetGenerationNumber();
 	}
 }
 
@@ -804,4 +789,9 @@ void Session::UI_FindAllDeltaDebugging(std::vector<UI::UIDeltaDebugging>& ddvect
 			}
 		}
 	}
+}
+
+void Session::UI_GetThreadStatus(std::vector<TaskController::ThreadStatus>& status)
+{
+	_sessiondata->_controller->GetThreadStatus(status);
 }

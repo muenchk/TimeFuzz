@@ -1577,8 +1577,63 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 	if (sinput->IsTrimmed())
 	{
 		Extract(sinput->derive, dtree, 0, sinput->GetTrimmedLength() - trackback, sinput->Length(), false);
-	} else
+	} else if (trackback > 0)
 		Extract(sinput->derive, dtree, 0, sinput->Length() - trackback, sinput->Length(), false);
+	else if (trackback == 0)
+	{
+		// ----- COPY THE SOURCE TREE -----
+		dtree->_sequenceNodes = 0;
+		std::stack<std::pair<DerivationTree::NonTerminalNode*, DerivationTree::NonTerminalNode*>> nodestack;
+		if (stree->_root->Type() == DerivationTree::NodeType::Sequence) {
+			nnode = new DerivationTree::SequenceNode;
+			dtree->_nodes.insert(nnode);
+			nnode->_grammarID = ((DerivationTree::SequenceNode*)stree->_root)->_grammarID;
+			dtree->_root = nnode;
+			nodestack.push({ nnode, (DerivationTree::NonTerminalNode*)stree->_root });
+		} else if (stree->_root->Type() == DerivationTree::NodeType::NonTerminal) {
+			nnode = new DerivationTree::NonTerminalNode;
+			dtree->_nodes.insert(nnode);
+			nnode->_grammarID = ((DerivationTree::NonTerminalNode*)stree->_root)->_grammarID;
+			dtree->_root = nnode;
+			nodestack.push({ nnode, (DerivationTree::NonTerminalNode*)stree->_root });
+		} else {
+			ttnode = new DerivationTree::TerminalNode;
+			dtree->_nodes.insert(ttnode);
+			ttnode->_grammarID = ((DerivationTree::NonTerminalNode*)stree->_root)->_grammarID;
+			dtree->_root = ttnode;
+			ttnode->_content = _tree->_root->_identifier;
+		}
+		while (nodestack.size() > 0) {
+			auto [dnode, snode] = nodestack.top();
+			nodestack.pop();
+			for (int32_t i = 0; i < (int32_t)snode->_children.size(); i++) {
+				switch (snode->_children[i]->Type()) {
+				case DerivationTree::NodeType::NonTerminal:
+					tnnode = new DerivationTree::NonTerminalNode;
+					tnnode->_grammarID = ((DerivationTree::NonTerminalNode*)snode->_children[i])->_grammarID;
+					dnode->_children.push_back(tnnode);
+					dtree->_nodes.insert(tnnode);
+					nodestack.push({ tnnode, (DerivationTree::NonTerminalNode*)snode->_children[i] });
+					break;
+				case DerivationTree::NodeType::Sequence:
+					tnnode = new DerivationTree::SequenceNode;
+					tnnode->_grammarID = ((DerivationTree::SequenceNode*)snode->_children[i])->_grammarID;
+					dnode->_children.push_back(tnnode);
+					dtree->_nodes.insert(tnnode);
+					dtree->_sequenceNodes++;
+					nodestack.push({ tnnode, (DerivationTree::SequenceNode*)snode->_children[i] });
+					break;
+				case DerivationTree::NodeType::Terminal:
+					ttnode = new DerivationTree::TerminalNode;
+					ttnode->_grammarID = ((DerivationTree::TerminalNode*)snode->_children[i])->_grammarID;
+					ttnode->_content = ((DerivationTree::TerminalNode*)snode->_children[i])->_content;
+					dnode->_children.push_back(ttnode);
+					dtree->_nodes.insert(ttnode);
+					break;
+				}
+			}
+		}
+	}
 	
 	/*if (sinput->IsTrimmed())
 	{
@@ -1867,8 +1922,7 @@ void Grammar::RegisterFactories()
 
 size_t Grammar::GetStaticSize(int32_t version)
 {
-	static size_t size0x1 = Form::GetDynamicSize()  // form base size
-	                        + 4                     // version
+	static size_t size0x1 = 4                     // version
 	                        + 8                     // nextid
 	                        + 4                     // numcycles
 	                        + 1                     // valid
@@ -1891,7 +1945,8 @@ size_t Grammar::GetStaticSize(int32_t version)
 
 size_t Grammar::GetDynamicSize()
 {
-	size_t sz = GetStaticSize() + Buffer::VectorBasic::GetVectorSize(_tree->_ruleorder);
+	size_t sz = Form::GetDynamicSize()  // form stuff
+	            + GetStaticSize() + Buffer::VectorBasic::GetVectorSize(_tree->_ruleorder);
 	// hashmap
 	sz += 8;
 	for (auto& [id, node] : _tree->_hashmap)

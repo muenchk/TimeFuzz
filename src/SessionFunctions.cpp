@@ -8,6 +8,7 @@
 #include "Processes.h"
 #include "DeltaDebugging.h"
 #include "Generation.h"
+#include "Form.h"
 
 #include <mutex>
 #include <boost/circular_buffer.hpp>
@@ -145,7 +146,7 @@ void SessionFunctions::GenerateInput(std::shared_ptr<Input>& input, std::shared_
 		input = GenerateInput(sessiondata);
 }
 
-void SessionFunctions::SaveCheck(std::shared_ptr<SessionData>& sessiondata)
+void SessionFunctions::SaveCheck(std::shared_ptr<SessionData>& sessiondata, bool generationEnd)
 {
 	// check whether to save at all
 	if (!sessiondata->_settings->saves.enablesaves)
@@ -156,6 +157,15 @@ void SessionFunctions::SaveCheck(std::shared_ptr<SessionData>& sessiondata)
 	bool save = false;
 	{
 		std::unique_lock<std::mutex> guard(savelock);
+		if (generationEnd)
+		{
+			// if we are performing a generation end check, just do it and skip the rest
+			auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
+			callback->_sessiondata = sessiondata;
+			callback->_afterSave = true;
+			std::thread(SaveSession_Async, sessiondata, callback).detach();
+			return;
+		}
 		// check whether we should save now
 		if (sessiondata->_settings->saves.autosave_every_seconds > 0 && std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - autosavetime).count() >= sessiondata->_settings->saves.autosave_every_seconds) {
 			// set new last save-time
@@ -175,10 +185,10 @@ void SessionFunctions::SaveCheck(std::shared_ptr<SessionData>& sessiondata)
 		return;
 
 	// perform the save
-	std::thread(SaveSession_Async, sessiondata).detach();
+	std::thread(SaveSession_Async, sessiondata, std::shared_ptr<Functions::BaseFunction>{}).detach();
 }
 
-void SessionFunctions::SaveSession_Async(std::shared_ptr<SessionData> sessiondata)
+void SessionFunctions::SaveSession_Async(std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Functions::BaseFunction> callback)
 {
 	loginfo("Master Save Session");
 	// async function that simply initiates the save
@@ -186,7 +196,7 @@ void SessionFunctions::SaveSession_Async(std::shared_ptr<SessionData> sessiondat
 	// if the save is orchestrated by a _callback within the TaskController
 	// if we would allow it, the saving function that stops the taskcontroller temporarily
 	// would deadlock itself
-	sessiondata->data->Save();
+	sessiondata->data->Save(callback);
 }
 
 bool SessionFunctions::EndCheck(std::shared_ptr<SessionData>& sessiondata)
@@ -236,7 +246,7 @@ void SessionFunctions::EndSession_Async(std::shared_ptr<SessionData> sessiondata
 	// async function that ends the session itself
 
 	// force save
-	session->data->Save();
+	session->data->Save({});
 
 	// end the session
 
@@ -422,11 +432,9 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 		sessiondata->data->DeleteForm(input);
 		std::cout << "Delete Done\n";
 
-		input->UnsetFlag(Form::FormFlags::DoNotFree);
 		return;
 	}
 	if (input->test->_skipOracle) {
-		input->UnsetFlag(Form::FormFlags::DoNotFree);
 		return;
 	}
 
@@ -451,7 +459,6 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 			sessiondata->GetGeneration(input->GetGenerationID())->RemoveDDInput(input);
 		else
 			sessiondata->GetGeneration(input->GetGenerationID())->RemoveGeneratedInput(input);
-		input->UnsetFlag(Form::FormFlags::DoNotFree);
 		return;
 	}
 	// check whether _output should be stored
@@ -534,7 +541,6 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 		break;
 	}
 
-	input->UnsetFlag(Form::FormFlags::DoNotFree);
 	return;
 }
 
@@ -678,6 +684,8 @@ namespace Functions
 			int64_t failcount = 0;
 			int64_t gencount = 0;
 
+			auto gen = _sessiondata->GetCurrentGeneration();
+
 			// generate new inputs while we have too few inputs waiting for execution
 			// break the loop if we have accumulated too many failures
 			// try to generate new inputs for a maximum of 1000 times
@@ -689,7 +697,7 @@ namespace Functions
 			//_sessiondata->_settings->generation.generationsize > (int64_t)_sessiondata->_exechandler->WaitingTasks() && failcount < (int64_t)_sessiondata->GENERATION_RETRIES && gencount < _sessiondata->_settings->generation.generationstep
 			while (_sessiondata->CheckNumberInputsToGenerate(generated, failcount, generate) > 0) {
 				loginfo("[MasterGenerationCallback] inner loop");
-				std::mt19937 randan((uint32_t)std::chrono::steady_clock::now().time_since_epoch().count());
+				/*std::mt19937 randan((uint32_t)std::chrono::steady_clock::now().time_since_epoch().count());
 				std::uniform_int_distribution<signed> dist(0, 1);
 				if (dist(randan) == 0 && _sessiondata->GetTopK_Unfinished(1).size() > 0) {
 					auto parent = _sessiondata->GetTopK_Unfinished(1)[0];
@@ -698,7 +706,23 @@ namespace Functions
 					parent->UnsetFlag(Form::FormFlags::DoNotFree);
 				}
 				else
+					input = SessionFunctions::GenerateInput(_sessiondata);*/
+				if (gen->HasSources())
+				{
+					auto parent = gen->GetRandomSource();
+					bool resetflag = false;
+					if (!parent->HasFlag(Form::FormFlags::DoNotFree)) {
+						parent->SetFlag(Form::FormFlags::DoNotFree);
+						resetflag = true;
+					}
+					input = SessionFunctions::ExtendInput(_sessiondata, parent);
+					if (resetflag)
+						parent->UnsetFlag(Form::FormFlags::DoNotFree);
+				} else
 					input = SessionFunctions::GenerateInput(_sessiondata);
+				// set input generation time
+				input->SetGenerationTime(_sessiondata->data->GetRuntime());
+				input->SetGenerationID(_sessiondata->GetCurrentGenerationID());
 				if (input) {
 					logdebug("[MasterGenerationCallback] prefix tree");
 					if (_sessiondata->_excltree->HasPrefix(input) == false) {
@@ -812,15 +836,32 @@ namespace Functions
 		// if all delta controllers are finished the transtion will begin
 
 		// get top 5 percent generated inputs //_sessiondata->_settings->generation.generationsize * 0.05
-		auto topk = _sessiondata->GetTopK((int32_t)(10));
+		std::vector<std::shared_ptr<Input>> topk;
+		if (_sessiondata->_settings->generation.allowBacktrackFailedInputs)
+			topk = _sessiondata->GetTopK((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));
+		else
+			topk = _sessiondata->GetTopK_Unfinished((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));
 
+		// indicates whether we were able to start delta debugging
+		bool begun = false;
 		for (auto ptr : topk)
 		{
 			auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
 			callback->_sessiondata = _sessiondata;
 			auto ddcontroller = SessionFunctions::BeginDeltaDebugging(_sessiondata, ptr, callback, false);
-			if (ddcontroller)
+			if (ddcontroller) {
 				_sessiondata->GetCurrentGeneration()->AddDDController(ddcontroller);
+				begun = true;
+			}
+		}
+
+		if (begun == false)
+		{
+			// we haven't been able to start delta debugging, so add Generation Finished callback ourselves
+
+			auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
+			callback->_sessiondata = _sessiondata;
+			_sessiondata->_controller->AddTask(callback);
 		}
 	}
 
@@ -854,24 +895,49 @@ namespace Functions
 
 	void GenerationFinishedCallback::Run()
 	{
-		if (_sessiondata->GetCurrentGeneration()->IsDeltaDebuggingActive() == false)
-		{
-			_sessiondata->SetNewGeneration();
+		if (_afterSave == false) {
+			if (_sessiondata->GetCurrentGeneration()->IsDeltaDebuggingActive() == false) {
 
-			// copy sources to new generation
-			// ------------------------------
-			// ------------------------------
-			// ------------------------------
-			// ------------------------------
-			// ------------------------------
-			// ------------------------------
-			// ------------------------------
-			// ------------------------------
-			// ------------------------------
-			// ------------------------------
-			// ------------------------------
+				SessionFunctions::SaveCheck(_sessiondata, true);
+				SessionFunctions::MasterControl(_sessiondata);
+			}
+		} else {
+			loginfo("Initializing New Generation");
+				_sessiondata->SetNewGeneration();
+			loginfo("Gather new sources");
+			// determine new sources and copy them
+			std::set<std::shared_ptr<Input>, FormIDLess<Input>> sources;
+			std::set<std::shared_ptr<Input>, InputGainGreater> inputs;
+			// frac is the fraction of the max score that we are check for in this iteration
+			double frac = 0.05;
+			double maxPrimary = 0.0f;
+			auto topk = _sessiondata->GetTopK(1);
+			if (topk.size() > 0)
+				maxPrimary = topk[0]->GetPrimaryScore();
+			// if the maxPrimary is 0 just run loop a single time since 0 is the minimal value for primaryScore
+			if (maxPrimary == 0.0f)
+				frac = 1.0f;
+			while ((int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration && frac <= 1.0) {
+				loginfo("Iteration with fractal: {}, and maxPrimaryScore: {}", frac, maxPrimary);
+				inputs.clear();
+				// we don't filter for secondary score at this point
+				_sessiondata->GetLastGeneration()->GetAllInputs<InputGainGreater>(inputs, true, (maxPrimary - (maxPrimary * frac)), 0);
+				auto itr = inputs.begin();
+				while (itr != inputs.end() && (int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration) {
+					if (sources.contains(*itr) == false) {
+						sources.insert(*itr);
+						loginfo("Found New Source: {}", Utility::PrintForm(*itr));
+					}
+					itr++;
+				}
+				frac += 0.05f;
+			}
+			// we now have the set of new sources
+			auto gen = _sessiondata->GetCurrentGeneration();
+			for (auto input : sources)
+				gen->AddSource(input);
 
-			SessionFunctions::MasterControl(_sessiondata);
+			// now we can continue with our generation as normal
 			SessionFunctions::GenerateTests(_sessiondata);
 		}
 	}
@@ -883,6 +949,7 @@ namespace Functions
 		resolver->AddTask([this, sessid, resolver]() {
 			this->_sessiondata = resolver->ResolveFormID<SessionData>(sessid);
 		});
+		_afterSave = Buffer::ReadBool(buffer, offset);
 		return true;
 	}
 
@@ -890,12 +957,13 @@ namespace Functions
 	{
 		BaseFunction::WriteData(buffer, offset);
 		Buffer::Write(_sessiondata->GetFormID(), buffer, offset);  // +8
+		Buffer::Write(_afterSave, buffer, offset);                 // +1
 		return true;
 	}
 
 	size_t GenerationFinishedCallback::GetLength()
 	{
-		return BaseFunction::GetLength() + 8;
+		return BaseFunction::GetLength() + 8 + 1;
 	}
 
 	void GenerationFinishedCallback::Dispose()

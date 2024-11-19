@@ -261,8 +261,7 @@ int32_t TaskController::GetWaitingMediumJobs()
 
 size_t TaskController::GetStaticSize(int32_t version)
 {
-	static size_t size0x1 = Form::GetDynamicSize()  // form base size
-	                        + 4                     // version
+	static size_t size0x1 = 4                     // version
 	                        + 1                     // terminate
 	                        + 1                     // wait
 	                        + 1                     // active
@@ -288,7 +287,8 @@ size_t TaskController::GetDynamicSize()
 			sz += task->GetLength();
 		}
 	}
-	return GetStaticSize(classversion) + sz;
+	return Form::GetDynamicSize()  // form stuff
+	       + GetStaticSize(classversion) + sz;
 }
 
 bool TaskController::WriteData(unsigned char* buffer, size_t& offset)
@@ -392,3 +392,10 @@ void TaskController::Thaw()
 	loginfo("Resumed execution.");
 }
 
+void TaskController::GetThreadStatus(std::vector<ThreadStatus>& status)
+{
+	if (status.size() < _status.size())
+		status.resize(_status.size());
+	for (int32_t i = 0; i < (int32_t)_status.size(); i++)
+		status[i] = _status[i];
+}

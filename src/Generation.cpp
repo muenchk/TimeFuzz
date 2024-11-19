@@ -4,7 +4,11 @@
 #include "Input.h"
 #include "DeltaDebugging.h"
 
-
+Generation::Generation()
+{
+	randan = std::mt19937((unsigned int)std::chrono::steady_clock::now().time_since_epoch().count());
+	_sourcesDistr = std::uniform_int_distribution<signed>(0, 0);
+}
 
 int64_t Generation::GetSize()
 {
@@ -164,12 +168,41 @@ bool Generation::IsDeltaDebuggingActive()
 	return result;
 }
 
+bool Generation::HasSources()
+{
+	return _sources.size() > 0;
+}
+
+int32_t Generation::GetNumberOfSources()
+{
+	return (int32_t)_sources.size();
+}
+
+std::vector<std::shared_ptr<Input>> Generation::GetSources()
+{
+	return _sources;
+}
+
+std::shared_ptr<Input> Generation::GetRandomSource()
+{
+	if (HasSources())
+	{
+		return _sources[_sourcesDistr(randan)];
+	} else
+		return {};
+}
+
+void Generation::AddSource(std::shared_ptr<Input> input)
+{
+	_sources.push_back(input);
+	_sourcesDistr = std::uniform_int_distribution<signed>(0, (uint32_t)_sources.size() - 1);
+}
+
 #pragma region FORM
 
 size_t Generation::GetStaticSize(int32_t version)
 {
-	static size_t size0x1 = Form::GetDynamicSize()  // form size
-	                        + 4                     // version
+	static size_t size0x1 = 4                     // version
 	                        + 8                     // size
 	                        + 8                     // generatedSize
 	                        + 8                     // ddSize
@@ -189,10 +222,12 @@ size_t Generation::GetStaticSize(int32_t version)
 
 size_t Generation::GetDynamicSize()
 {
-	return GetStaticSize(classversion)        // static size
+	return Form::GetDynamicSize()             // form stuff
+	       + GetStaticSize(classversion)      // static size
 	       + 8 + 8 * _generatedInputs.size()  // sizeof() + formids in generatedInputs
 	       + 8 + 8 * _ddInputs.size()         // sizeof() + formids in ddInputs
-	       + 8 + 8 * _ddControllers.size();   // sizeof() + formids in _ddControllers
+	       + 8 + 8 * _ddControllers.size()    // sizeof() + formids in _ddControllers
+	       + 8 + 8 * _sources.size();         // sizeof() + formids in _sources
 }
 
 bool Generation::WriteData(unsigned char* buffer, size_t& offset)
@@ -220,6 +255,13 @@ bool Generation::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::WriteSize(_ddControllers.size(), buffer, offset);
 	for (auto& [id, _] : _ddControllers)
 		Buffer::Write(id, buffer, offset);
+	// _sources
+	Buffer::WriteSize(_sources.size(), buffer, offset);
+	for (auto& input : _sources)
+		if (input)
+			Buffer::Write(input->GetFormID(), buffer, offset);
+		else
+			Buffer::Write((FormID)0, buffer, offset);
 	return true;
 }
 
@@ -252,7 +294,12 @@ bool Generation::ReadData(unsigned char* buffer, size_t& offset, size_t length, 
 		std::vector<FormID> ddCon;
 		for (int64_t i = 0; i < (int64_t)size; i++)
 			ddCon.push_back(Buffer::ReadUInt64(buffer, offset));
-		resolver->AddTask([this, genInp, ddInp, ddCon, resolver]() {
+		// _sources
+		size = Buffer::ReadSize(buffer, offset);
+		std::vector<FormID> sc;
+		for (int64_t i = 0; i < (int64_t)size; i++)
+			sc.push_back(Buffer::ReadUInt64(buffer, offset));
+		resolver->AddTask([this, genInp, ddInp, ddCon, sc, resolver]() {
 			for (int64_t i = 0; i < (int64_t)genInp.size(); i++)
 			{
 				auto shared = resolver->ResolveFormID<Input>(genInp[i]);
@@ -268,6 +315,12 @@ bool Generation::ReadData(unsigned char* buffer, size_t& offset, size_t length, 
 				auto shared = resolver->ResolveFormID<DeltaDebugging::DeltaController>(ddCon[i]);
 				if (shared)
 					_ddControllers.insert_or_assign(shared->GetFormID(), shared);
+			}
+			for (int64_t i = 0; i < (int64_t)sc.size(); i++)
+			{
+				auto shared = resolver->ResolveFormID<Input>(sc[i]);
+				if (shared)
+					_sources.push_back(shared);
 			}
 		});
 		return true;

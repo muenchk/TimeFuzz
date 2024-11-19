@@ -11,7 +11,7 @@ class DerivationTree : public Form
 {
 
 private:
-	const int32_t classversion = 0x2;
+	const int32_t classversion = 0x1;
 
 	void ClearInternal();
 

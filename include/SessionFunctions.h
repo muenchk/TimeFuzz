@@ -25,6 +25,14 @@ class Session;
 class Input;
 class SessionData;
 
+struct InputGainGreater
+{
+	bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
+	{
+		return (lhs->GetPrimaryScore() / lhs->Length()) > (rhs->GetPrimaryScore() / rhs->Length());
+	}
+};
+
 namespace Functions
 {
 	class MasterGenerationCallback : public BaseFunction
@@ -75,6 +83,7 @@ namespace Functions
 	{
 	public:
 		std::shared_ptr<SessionData> _sessiondata;
+		bool _afterSave = false;
 
 		void Run() override;
 		static uint64_t GetTypeStatic() { return 'SEFI'; }
@@ -123,7 +132,7 @@ public:
 	/// <summary>
 	/// This function checks whether we need to save the session and performs the save
 	/// </summary>
-	static void SaveCheck(std::shared_ptr<SessionData>& sessiondata);
+	static void SaveCheck(std::shared_ptr<SessionData>& sessiondata, bool generationEnd = false);
 
 	/// <summary>
 	/// This function checks whether we have achieved our goals and initiates the end of the session
@@ -180,7 +189,7 @@ private:
 	/// <summary>
 	/// Async Function that will save the session, since we are likely operating from inside the taskcontroller
 	/// </summary>
-	static void SaveSession_Async(std::shared_ptr<SessionData> sessiondata);
+	static void SaveSession_Async(std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Functions::BaseFunction> callback);
 };
 
 class SessionStatistics

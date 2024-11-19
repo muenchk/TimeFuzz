@@ -316,8 +316,7 @@ std::string Oracle::GetScriptArgs(lua_State* L, Test* test)
 
 size_t Oracle::GetStaticSize(int32_t version)
 {
-	static size_t size0x1 = Form::GetDynamicSize()  // form base size
-	                        + 4                     // version
+	static size_t size0x1 = 4                     // version
 	                        + 4                     // type
 	                        + 1                     // valid
 	                        + 8                     // LoracleStr size
@@ -337,7 +336,8 @@ size_t Oracle::GetStaticSize(int32_t version)
 
 size_t Oracle::GetDynamicSize()
 {
-	return GetStaticSize(classversion) + Buffer::CalcStringLength(_path.string()) + Buffer::CalcStringLength(_luaOracleStr) + Buffer::CalcStringLength(_luaOraclePath.string()) + Buffer::CalcStringLength(_luaCmdArgsStr) + Buffer::CalcStringLength(_luaCmdArgsPath.string()) + Buffer::CalcStringLength(_luaScriptArgsStr) + Buffer::CalcStringLength(_luaScriptArgsPath.string());
+	return Form::GetDynamicSize()  // form stuff
+	       + GetStaticSize(classversion) + Buffer::CalcStringLength(_path.string()) + Buffer::CalcStringLength(_luaOracleStr) + Buffer::CalcStringLength(_luaOraclePath.string()) + Buffer::CalcStringLength(_luaCmdArgsStr) + Buffer::CalcStringLength(_luaCmdArgsPath.string()) + Buffer::CalcStringLength(_luaScriptArgsStr) + Buffer::CalcStringLength(_luaScriptArgsPath.string());
 }
 
 bool Oracle::WriteData(unsigned char* buffer, size_t& offset)

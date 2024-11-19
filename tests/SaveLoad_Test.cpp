@@ -182,7 +182,7 @@ int main(/*int argc, char** argv*/)
 
 	sess->data->SetSaveName("test");
 	sess->data->SetSavePath("./saves");
-	sess->data->Save();
+	sess->data->Save({});
 	execution.reset();
 	controller.reset();
 	sett.reset();

@@ -136,6 +136,72 @@ bool ExclusionTree::HasPrefix(std::shared_ptr<Input> input, FormID& prefixID)
 	return false;
 }
 
+std::tuple<bool, FormID, bool, FormID> ExclusionTree::HasPrefixAndShortestExtension(std::shared_ptr<Input> input)
+{
+	if (input.get() == nullptr)
+		return { false, 0, false, 0 };
+
+	//std::shared_lock<std::shared_mutex> guard(_lock);
+
+	FormID prefixID = 0;
+
+	TreeNode* node = root;
+	auto itr = input->begin();
+	size_t count = 0;
+	while (itr != input->end()) {
+		FormID stringID = _sessiondata->data->GetIDFromString(*itr);
+		if (auto child = node->HasChild(stringID); child != nullptr) {
+			if (child->_isLeaf) {
+				child->_visitcount++;  // this will lead to races, but as we do not need a precise number, a few races don't matter
+				prefixID = child->_InputID;
+				return { true, prefixID, false, 0 };  // if the child is a leaf, then we have found an excluded prefix
+			}
+			node = child;
+		} else {
+			// there is no matching child, so the _input does not have an excluded prefix
+			return { false, 0, false, 0 };
+		}
+		itr++;
+		count++;
+		// do this here because the loop will exit
+		if (count == input->Length()) {
+			// if the current depth is identical to our length and the result is unfinished
+			// we are trying to run a test a second time
+			if (node->_result == OracleResult::Unfinished) {
+				prefixID = node->_InputID;
+				return { true, prefixID, false, 0 };
+			}
+		}
+	}
+	// if we got here we are in the middle of the tree. The current node is neither a leaf 
+	// nor is it an unfinished input, so we have no information about our input readily available.
+	
+	// we will now commence breath-first search to find the shortest extension of our input, and
+	// return that if we find one
+
+	std::queue<TreeNode*> nodequeue;
+	nodequeue.push(node);
+	while (nodequeue.size() > 0)
+	{
+		node = nodequeue.front();
+		nodequeue.pop();
+		// if the node is a leaf we have found the shortest extension and can return a result
+		if (node->_isLeaf)
+			return { false, 0, true, node->_InputID };
+		// if the node represents an unfinished result we also have found the shortest extension
+		else if (node->_result == OracleResult::Unfinished)
+			return { false, 0, true, node->_InputID };
+		else
+		{
+			// the node isn' a leaf, so add it's children to the stack and continue
+			for (auto treenode : node->_children)
+				nodequeue.push(treenode);
+		}
+	}
+
+	return { false, 0, false, 0 };
+}
+
 void ExclusionTree::DeleteChildren(TreeNode* node)
 {
 	exclwlock;
@@ -202,8 +268,7 @@ uint64_t ExclusionTree::GetLeafCount()
 
 size_t ExclusionTree::GetStaticSize(int32_t version)
 {
-	static size_t size0x1 = Form::GetDynamicSize()  // form base size
-	                        + 4                     // version
+	static size_t size0x1 = 4                       // version
 	                        + 8                     // nextid
 	                        + 8                     // root children count
 	                        + 1                     // root isLeaf
@@ -214,10 +279,6 @@ size_t ExclusionTree::GetStaticSize(int32_t version)
 	{
 	case 0x1:
 		return size0x1;
-	case 0x2:
-		return size0x1;
-	case 0x3:
-		return size0x1;
 	default:
 		return 0;
 	}
@@ -225,7 +286,8 @@ size_t ExclusionTree::GetStaticSize(int32_t version)
 
 size_t ExclusionTree::GetDynamicSize()
 {
-	size_t sz = GetStaticSize();
+	size_t sz = Form::GetDynamicSize()  // form stuff
+	            + GetStaticSize();
 	// root children
 	sz += 8 * root->_children.size();
 	for (auto& [id, node] : hashmap)
@@ -272,113 +334,6 @@ bool ExclusionTree::ReadData(unsigned char* buffer, size_t& offset, size_t lengt
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
 	case 0x1:
-		{
-			Form::ReadData(buffer, offset, length, resolver);
-			nextid = Buffer::ReadUInt64(buffer, offset);
-			size_t rch = Buffer::ReadSize(buffer, offset);
-			// root
-			root->_id = 0;
-			std::vector<uint64_t> rchid;
-			for (int32_t i = 0; i < (int32_t)rch; i++)
-				rchid.push_back(Buffer::ReadUInt64(buffer, offset));
-			root->_isLeaf = Buffer::ReadBool(buffer, offset);
-			// hashmap
-			hashmap.clear();
-			size_t smap = Buffer::ReadSize(buffer, offset);
-			for (int64_t i = 0; i < (int64_t)smap; i++) {
-				if (offset > length)
-					return false;
-				TreeNode* node = new TreeNode();
-				node->_id = Buffer::ReadUInt64(buffer, offset);
-				node->_stringID = resolver->_data->GetIDFromString(Buffer::ReadString(buffer, offset));
-				node->_visitcount = Buffer::ReadUInt64(buffer, offset);
-				uint64_t sch = Buffer::ReadSize(buffer, offset);
-				for (int32_t c = 0; c < (int32_t)sch; c++)
-					node->_childrenids.push_back(Buffer::ReadUInt64(buffer, offset));
-				node->_isLeaf = Buffer::ReadBool(buffer, offset);
-				hashmap.insert({ node->_id, node });
-			}
-			// rest
-			depth = Buffer::ReadInt64(buffer, offset);
-			leafcount = Buffer::ReadUInt64(buffer, offset);
-			// hashmap complete init all the links
-			for (auto& [id, node] : hashmap) {
-				for (int32_t i = 0; i < node->_childrenids.size(); i++) {
-					TreeNode* nnode = hashmap.at(node->_childrenids[i]);
-					if (nnode) {
-						node->_children.push_back(nnode);
-					} else
-						logcritical("cannot resolve nodeid {}", node->_childrenids[i]);
-				}
-				node->_childrenids.clear();
-			}
-			for (int32_t i = 0; i < rchid.size(); i++) {
-				TreeNode* node = hashmap.at(rchid[i]);
-				if (node) {
-					root->_children.push_back(node);
-				} else
-					logcritical("cannot resolve nodeid {}", rchid[i]);
-			}
-			// get sessiondata
-			resolver->AddTask([this, resolver]() {
-				_sessiondata = resolver->_data->CreateForm<SessionData>();
-			});
-			return true;
-		}
-	case 0x2:
-		{
-			Form::ReadData(buffer, offset, length, resolver);
-			nextid = Buffer::ReadUInt64(buffer, offset);
-			size_t rch = Buffer::ReadSize(buffer, offset);
-			// root
-			root->_id = 0;
-			std::vector<uint64_t> rchid;
-			for (int32_t i = 0; i < (int32_t)rch; i++)
-				rchid.push_back(Buffer::ReadUInt64(buffer, offset));
-			root->_isLeaf = Buffer::ReadBool(buffer, offset);
-			// hashmap
-			hashmap.clear();
-			size_t smap = Buffer::ReadSize(buffer, offset);
-			for (int64_t i = 0; i < (int64_t)smap; i++) {
-				if (offset > length)
-					return false;
-				TreeNode* node = new TreeNode();
-				node->_id = Buffer::ReadUInt64(buffer, offset);
-				node->_stringID = resolver->_data->GetIDFromString(Buffer::ReadString(buffer, offset));
-				node->_visitcount = Buffer::ReadUInt64(buffer, offset);
-				uint64_t sch = Buffer::ReadSize(buffer, offset);
-				for (int32_t c = 0; c < (int32_t)sch; c++)
-					node->_childrenids.push_back(Buffer::ReadUInt64(buffer, offset));
-				node->_isLeaf = Buffer::ReadBool(buffer, offset);
-				node->_result = (OracleResult)Buffer::ReadInt32(buffer, offset);
-				node->_InputID = Buffer::ReadUInt64(buffer, offset);
-				hashmap.insert({ node->_id, node });
-			}
-			// rest
-			depth = Buffer::ReadInt64(buffer, offset);
-			leafcount = Buffer::ReadUInt64(buffer, offset);
-			// hashmap complete init all the links
-			for (auto& [id, node] : hashmap) {
-				for (int32_t i = 0; i < node->_childrenids.size(); i++) {
-					TreeNode* nnode = hashmap.at(node->_childrenids[i]);
-					if (nnode) {
-						node->_children.push_back(nnode);
-					} else
-						logcritical("cannot resolve nodeid {}", node->_childrenids[i]);
-				}
-				node->_childrenids.clear();
-			}
-			for (int32_t i = 0; i < rchid.size(); i++) {
-				TreeNode* node = hashmap.at(rchid[i]);
-				if (node) {
-					root->_children.push_back(node);
-				} else
-					logcritical("cannot resolve nodeid {}", rchid[i]);
-			}
-			return true;
-		}
-		break;
-	case 0x3:
 		{
 			Form::ReadData(buffer, offset, length, resolver);
 			nextid = Buffer::ReadUInt64(buffer, offset);

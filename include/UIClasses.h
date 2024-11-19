@@ -44,6 +44,7 @@ namespace UI
 			InputSecondaryScore,
 			InputResult,
 			InputFlags,
+			InputGenerationNum,
 			InputAction,
 		};
 
@@ -52,6 +53,7 @@ namespace UI
 		double primaryScore;
 		double secondaryScore;
 		EnumType flags;
+		int32_t generationNumber; 
 		UI::Result result;
 	};
 

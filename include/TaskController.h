@@ -82,6 +82,8 @@ public:
 	int32_t GetWaitingLightJobs();
 	int32_t GetWaitingMediumJobs();
 
+	void GetThreadStatus(std::vector<ThreadStatus>& status);
+
 	#pragma region InheritedForm
 
 	size_t GetDynamicSize() override;

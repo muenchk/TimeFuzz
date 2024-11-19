@@ -229,8 +229,8 @@ namespace DeltaDebugging
 		/// </summary>
 		/// <param name="number"></param>
 		/// <returns></returns>
-		std::vector<std::shared_ptr<Input>> GenerateSplits(int32_t number);
-		std::vector<std::shared_ptr<Input>> GenerateComplements(std::vector<std::shared_ptr<Input>>& splits);
+		std::vector<std::shared_ptr<Input>> GenerateSplits(int32_t number, std::vector<DeltaInformation>& splitinfo);
+		std::vector<std::shared_ptr<Input>> GenerateComplements(std::vector<DeltaInformation>& splitinfo);
 
 
 		/// <summary>

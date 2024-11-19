@@ -1,6 +1,7 @@
 #include "Form.h"
 
 #include <unordered_map>
+#include <random>
 
 class Input;
 namespace DeltaDebugging
@@ -11,6 +12,8 @@ namespace DeltaDebugging
 class Generation : public Form
 {
 public:
+	Generation();
+
 	/// <summary>
 	/// Returns the total size of this generation
 	/// </summary>
@@ -119,6 +122,32 @@ public:
 	/// <returns></returns>
 	bool IsDeltaDebuggingActive();
 
+	/// <summary>
+	/// returns whether this generation has sources
+	/// </summary>
+	/// <returns></returns>
+	bool HasSources();
+	/// <summary>
+	/// Returns the number of sources available in this generation
+	/// </summary>
+	/// <returns></returns>
+	int32_t GetNumberOfSources();
+	/// <summary>
+	/// Returns the sources of this generation
+	/// </summary>
+	/// <returns></returns>
+	std::vector<std::shared_ptr<Input>> GetSources();
+	/// <summary>
+	/// Returns a random source for expansion
+	/// </summary>
+	/// <returns></returns>
+	std::shared_ptr<Input> GetRandomSource();
+	/// <summary>
+	/// Adds a new source to the generation
+	/// </summary>
+	/// <param name="input"></param>
+	void AddSource(std::shared_ptr<Input> input);
+
 private:
 	/// <summary>
 	/// total size of this generation
@@ -165,12 +194,60 @@ private:
 	/// </summary>
 	std::unordered_map<FormID, std::shared_ptr<DeltaDebugging::DeltaController>> _ddControllers;
 
+	/// <summary>
+	/// vector holding the source inputs for this generation. The sources are used as basis for input expansion.
+	/// </summary>
+	std::vector<std::shared_ptr<Input>> _sources;
+
+	/// <summary>
+	/// random engine
+	/// </summary>
+	/// <param name="seed"></param>
+	/// <returns></returns>
+	std::mt19937 randan;
+	/// <summary>
+	/// random distribution for _sources
+	/// </summary>
+	std::uniform_int_distribution<signed> _sourcesDistr;
+
 	int32_t _generationNumber = 0;
 
 	#pragma region FORM
 private:
 	const int32_t classversion = 0x1;
 	static inline bool _registeredFactories = false;
+
+public: // templates
+
+	template <typename Less>
+	void GetAllInputs(std::set<std::shared_ptr<Input>, Less>& output, bool includeSources)
+	{
+		for (auto [id, input] : _generatedInputs)
+			output.insert(input);
+		for (auto [id, input] : _ddInputs)
+			output.insert(input);
+		if (includeSources)
+			for (auto input : _sources)
+				output.insert(_sources);
+	}
+
+	template <typename Less>
+	void GetAllInputs(std::set<std::shared_ptr<Input>, Less>& output, bool includeSources, double minPrimaryScore, double minSecondaryScore)
+	{
+		for (auto [id, input] : _generatedInputs) {
+			if (input->GetPrimaryScore() >= minPrimaryScore && input->GetSecondaryScore() >= minSecondaryScore)
+				output.insert(input);
+		}
+		for (auto [id, input] : _ddInputs) {
+			if (input->GetPrimaryScore() >= minPrimaryScore && input->GetSecondaryScore() >= minSecondaryScore)
+				output.insert(input);
+		}
+		if (includeSources)
+			for (auto input : _sources) {
+				if (input->GetPrimaryScore() >= minPrimaryScore && input->GetSecondaryScore() >= minSecondaryScore)
+					output.insert(input);
+			}
+	}
 
 public:
 	/// <summary>
