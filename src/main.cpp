@@ -698,7 +698,7 @@ int32_t main(int32_t argc, char** argv)
 			{
 				static bool wopen = true;
 				ImGui::Begin("Generation", &wopen);
-				if (wopen)
+				if (wopen && session->Loaded())
 				{
 					static std::vector<std::pair<FormID, FormID>> generations;
 					static size_t numgenerations;
@@ -709,7 +709,9 @@ int32_t main(int32_t argc, char** argv)
 						changed = true;
 						session->UI_GetGenerations(generations, numgenerations);
 						session->UI_GetCurrentGeneration(ActiveGeneration);
-						selection = { ActiveGeneration.GetFormID(), ActiveGeneration.GetGenerationNumber() };
+						if (ActiveGeneration.Initialized()) {
+							selection = { ActiveGeneration.GetFormID(), ActiveGeneration.GetGenerationNumber() };
+						}
 					}
 
 					static std::string preview;

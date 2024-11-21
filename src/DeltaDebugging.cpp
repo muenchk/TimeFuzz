@@ -282,8 +282,10 @@ namespace DeltaDebugging
 						_tests++;
 						if (prefixID != 0) {
 							auto ptr = _sessiondata->data->LookupFormID<Input>(prefixID);
-							if (ptr)
+							if (ptr) {
 								_activeInputs.insert(ptr);
+								ptr->SetFlag(Form::FormFlags::DoNotFree);
+							}
 						}
 						_sessiondata->data->DeleteForm(inp);
 						continue;
@@ -299,8 +301,10 @@ namespace DeltaDebugging
 					_tests++;
 					if (prefixID != 0) {
 						auto ptr = _sessiondata->data->LookupFormID<Input>(prefixID);
-						if (ptr)
+						if (ptr) {
 							_activeInputs.insert(ptr);
+							ptr->SetFlag(Form::FormFlags::DoNotFree);
+						}
 					}
 					_sessiondata->data->DeleteForm(inp);
 					continue;
@@ -380,8 +384,10 @@ namespace DeltaDebugging
 						_tests++;
 						if (prefixID != 0) {
 							auto ptr = _sessiondata->data->LookupFormID<Input>(prefixID);
-							if (ptr)
+							if (ptr) {
 								_activeInputs.insert(ptr);
+								ptr->SetFlag(Form::FormFlags::DoNotFree);
+							}
 						}
 						_sessiondata->data->DeleteForm(inp);
 						continue;
@@ -397,8 +403,10 @@ namespace DeltaDebugging
 					_tests++;
 					if (prefixID != 0) {
 						auto ptr = _sessiondata->data->LookupFormID<Input>(prefixID);
-						if (ptr)
+						if (ptr) {
 							_activeInputs.insert(ptr);
+							ptr->SetFlag(Form::FormFlags::DoNotFree);
+						}
 					}
 					_sessiondata->data->DeleteForm(inp);
 					continue;
@@ -440,7 +448,15 @@ namespace DeltaDebugging
 	void DeltaController::StandardGenerateNextLevel()
 	{
 		StartProfiling;
-		FlagHolder inputflag(_input, Form::FormFlags::DoNotFree);
+
+		// insurance
+		if (_input->GetGenerated() == false) {
+			// we are trying to add an _input that hasn't been generated or regenerated
+			// try the generate it and if it succeeds add the test
+			SessionFunctions::GenerateInput(_input, _sessiondata);
+			if (_input->GetGenerated() == false)
+				Finish();
+		}
 
 		std::vector<DeltaInformation> splitinfo;
 		auto splits = GenerateSplits(_level, splitinfo);
@@ -1013,14 +1029,21 @@ namespace DeltaDebugging
 					// results
 					for (size_t i = 0; i < res.size(); i++) {
 						auto ptr = resolver->ResolveFormID<Input>(res[i]);
-						if (ptr)
+						if (ptr) {
 							_results.insert_or_assign(ptr, std::pair<double, int32_t>{ resloss[i], reslevel[i] });
+							if (ptr->HasFlag(Form::FormFlags::DoNotFree) == false) {
+								ptr->SetFlag(Form::FormFlags::DoNotFree);
+							}
+						}
 					}
 					// activeInputs
 					for (size_t i = 0; i < actI.size(); i++) {
 						auto ptr = resolver->ResolveFormID<Input>(actI[i]);
-						if (ptr)
+						if (ptr) {
 							_activeInputs.insert(ptr);
+							if (ptr->HasFlag(Form::FormFlags::DoNotFree) == false) 
+								ptr->SetFlag(Form::FormFlags::DoNotFree);
+						}
 					}
 				});
 				// completedTests
