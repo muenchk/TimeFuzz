@@ -26,21 +26,6 @@ class Utility
 public:
 
 	/// <summary>
-	/// Prints a form
-	/// </summary>
-	/// <typeparam name="T"></typeparam>
-	/// <typeparam name=""></typeparam>
-	/// <param name="form"></param>
-	/// <returns></returns>
-	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
-	static std::string PrintForm(std::shared_ptr<T> form)
-	{
-		if (!form)
-			return "None";
-		return std::string("[") + typeid(T).name() + "<" + Utility::GetHex(form->GetFormID()) + ">]";
-	}
-
-	/// <summary>
 	/// Converts all symbols in a string into lower case
 	/// </summary>
 	/// <param name="s"></param>
@@ -283,3 +268,4 @@ public:
 
 	static std::string ReadFile(std::filesystem::path path);
 };
+

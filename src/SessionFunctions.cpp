@@ -9,6 +9,7 @@
 #include "DeltaDebugging.h"
 #include "Generation.h"
 #include "Form.h"
+#include "Input.h"
 
 #include <mutex>
 #include <boost/circular_buffer.hpp>
@@ -441,12 +442,13 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 	// add this input to the current generation
 	if (input->HasFlag(Input::Flags::GeneratedDeltaDebugging))
 		sessiondata->GetGeneration(input->GetGenerationID())->AddDDInput(input);
-	else
+	else {
 		sessiondata->GetGeneration(input->GetGenerationID())->AddGeneratedInput(input);
 
-	// if the inputs generation matches the current generation, initiate the end of the current iteration
-	if (input->GetGenerationID() == sessiondata->GetCurrentGenerationID())
-		sessiondata->CheckGenerationEnd();
+		// if the inputs generation matches the current generation, initiate the end of the current iteration
+		if (input->GetGenerationID() == sessiondata->GetCurrentGenerationID())
+			sessiondata->CheckGenerationEnd();
+	}
 
 	// calculate oracle result
 	bool stateerror = false;
@@ -909,7 +911,7 @@ namespace Functions
 			std::set<std::shared_ptr<Input>, FormIDLess<Input>> sources;
 			std::set<std::shared_ptr<Input>, InputGainGreater> inputs;
 			// frac is the fraction of the max score that we are check for in this iteration
-			double frac = 0.05;
+			double frac = _sessiondata->_settings->dd.optimizationLossThreshold;
 			double maxPrimary = 0.0f;
 			auto topk = _sessiondata->GetTopK(1);
 			if (topk.size() > 0)
@@ -926,11 +928,11 @@ namespace Functions
 				while (itr != inputs.end() && (int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration) {
 					if (sources.contains(*itr) == false) {
 						sources.insert(*itr);
-						loginfo("Found New Source: {}", Utility::PrintForm(*itr));
+						loginfo("Found New Source: {}", Input::PrintForm(*itr));
 					}
 					itr++;
 				}
-				frac += 0.05f;
+				frac += _sessiondata->_settings->dd.optimizationLossThreshold;
 			}
 			// we now have the set of new sources
 			auto gen = _sessiondata->GetCurrentGeneration();

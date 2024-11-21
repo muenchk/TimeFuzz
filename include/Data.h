@@ -158,7 +158,7 @@ private:
 	/// Loads a savefile, where [name] is the fully qualified filename
 	/// </summary>
 	/// <param name="name"></param>
-	void LoadIntern(std::filesystem::path path);
+	void LoadIntern(std::filesystem::path path, bool skipSettings);
 
 	void RegisterForms();
 
@@ -361,14 +361,14 @@ public:
 	/// Loads the last savefile with the uniquename [name]
 	/// </summary>
 	/// <param name="name"></param>
-	void Load(std::string name);
+	void Load(std::string name, bool skipSettings = false);
 	
 	/// <summary>
 	/// Loads the [number]-th savefile with the uniquename [name]
 	/// </summary>
 	/// <param name="name"></param>
 	/// <param name="number"></param>
-	void Load(std::string name, int32_t number);
+	void Load(std::string name, int32_t number, bool skipSettings = false);
 
 };
 

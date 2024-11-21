@@ -543,6 +543,12 @@ namespace DeltaDebugging
 		profile(TimeProfiling, "Time taken to generate next dd level.");
 	}
 
+	void DeltaController::ScoreProgressGenerateNextLevel()
+	{
+		StartProfiling;
+		std::vector<DeltaInformation> splitinfo;
+	}
+
 	void DeltaController::StandardEvaluateLevel()
 	{
 		// lambda that clears the DoNotFree flags on inputs that are no longer needed

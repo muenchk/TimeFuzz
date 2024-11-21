@@ -592,6 +592,148 @@ void Input::SetGenerationID(FormID genID)
 	_generationID = genID;
 }
 
+std::chrono::nanoseconds Input::GetExecutionTime()
+{
+	if (_hasfinished)
+		return _executiontime;
+	else
+		return std::chrono::nanoseconds(-1);
+}
+
+int32_t Input::GetExitCode()
+{
+	if (_hasfinished)
+		return _exitcode;
+	else
+		return -1;
+}
+
+bool Input::Finished()
+{
+	return _hasfinished;
+}
+
+EnumType Input::GetOracleResult()
+{
+	return _oracleResult;
+}
+
+double Input::GetPrimaryScore()
+{
+	return _primaryScore;
+}
+
+double Input::GetSecondaryScore()
+{
+	return _secondaryScore;
+}
+
+int64_t Input::GetTrimmedLength()
+{
+	return _trimmedlength;
+}
+
+bool Input::IsTrimmed()
+{
+	return _trimmed;
+}
+
+void Input::IncDerivedInputs()
+{
+	std::unique_lock<std::shared_mutex> guard(_lock);
+	_derivedInputs++;
+}
+
+uint64_t Input::GetDerivedInputs()
+{
+	std::shared_lock<std::shared_mutex> guard(_lock);
+	return _derivedInputs;
+}
+
+void Input::SetGenerationTime(std::chrono::nanoseconds genTime)
+{
+	std::unique_lock<std::shared_mutex> guard(_lock);
+	_generationTime = genTime;
+}
+
+bool Input::IsIndividualPrimaryScoresEnabled()
+{
+	return _enablePrimaryScoreIndividual;
+}
+
+bool Input::IsIndividualSecondaryScoresEnabled()
+{
+	return _enableSecondaryScoreIndividual;
+}
+
+size_t Input::GetIndividualPrimaryScoresLength()
+{
+	return _primaryScoreIndividual.size();
+}
+
+size_t Input::GetIndividualSecondaryScoresLength()
+{
+	return _secondaryScoreIndividual.size();
+}
+
+double Input::GetIndividualPrimaryScore(size_t position)
+{
+	if (_enablePrimaryScoreIndividual && position < _primaryScoreIndividual.size())
+		return _primaryScoreIndividual[position];
+	else
+		return -1.0f;
+}
+
+double Input::GetIndividualSecondaryScore(size_t position)
+{
+	if (_enableSecondaryScoreIndividual && position < _secondaryScoreIndividual.size())
+		return _secondaryScoreIndividual[position];
+	else
+		return -1.0f;
+}
+
+template <class T>
+std::vector<std::pair<size_t, size_t>> ExtractRanges(std::vector<T> range)
+{
+	if (range.size() > 0) {
+		std::vector<std::pair<size_t, size_t>> ranges;
+		size_t begin = 0;
+		size_t length = 0;
+		double lastvalue = range[0];
+		for (size_t current = 1; current < range.size(); current++) {
+			if (range[current] == lastvalue)
+				length++;
+			else {
+				// it's not identical so all elements within the range from begin until begin + length have the same value
+				// if the length is longer than 1 element, consider it valid for our purposes
+				if (length > 1)
+					ranges.push_back({ begin, length });
+				length = 0;
+				begin = current;
+			}
+			lastvalue = range[current];
+		}
+		return ranges;
+	} else
+		return {};
+}
+
+std::vector<std::pair<size_t, size_t>> Input::FindIndividualPrimaryScoreRangesWithoutChanges()
+{
+	if (_enablePrimaryScoreIndividual == false)
+		return {};
+	else
+		return ExtractRanges<double>(_primaryScoreIndividual);
+}
+
+std::vector<std::pair<size_t, size_t>> Input::FindIndividualSecondaryScoreRangesWithoutChanges()
+{
+	if (_enableSecondaryScoreIndividual == false)
+		return {};
+	else
+		return ExtractRanges<double>(_secondaryScoreIndividual);
+}
+
 #pragma region LuaFunctions
 
 void Input::RegisterLuaFunctions(lua_State* L)
@@ -613,7 +755,11 @@ void Input::RegisterLuaFunctions(lua_State* L)
 	lua_register(L, "Input_GetReactionTimeNext", Input::lua_GetReactionTimeNext);
 	lua_register(L, "Input_SetPrimaryScore", Input::lua_SetPrimaryScore);
 	lua_register(L, "Input_SetSecondaryScore", Input::lua_SetSecondaryScore);
-	
+
+	lua_register(L, "Input_EnablePrimaryScoreIndividual", Input::lua_EnablePrimaryScoreIndividual);
+	lua_register(L, "Input_EnableSecondaryScoreIndividual", Input::lua_EnableSecondaryScoreIndividual);
+	lua_register(L, "Input_AddPrimaryScoreIndividual", Input::lua_AddPrimaryScoreIndividual);
+	lua_register(L, "Input_AddSecondaryScoreIndividual", Input::lua_AddSecondaryScoreIndividual);
 }
 
 int Input::lua_ConvertToPython(lua_State* L)
@@ -786,6 +932,40 @@ int Input::lua_SetSecondaryScore(lua_State* L)
 	lua_Number score = lua_tonumber(L, 2);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
 	input->_secondaryScore = score;
+	return 0;
+}
+
+int Input::lua_EnablePrimaryScoreIndividual(lua_State* L)
+{
+	Input* input = (Input*)lua_touserdata(L, 1);
+	luaL_argcheck(L, input != nullptr, 1, "input expected");
+	input->_enablePrimaryScoreIndividual = true;
+	return 0;
+}
+
+int Input::lua_EnableSecondaryScoreIndividual(lua_State* L)
+{
+	Input* input = (Input*)lua_touserdata(L, 1);
+	luaL_argcheck(L, input != nullptr, 1, "input expected");
+	input->_enableSecondaryScoreIndividual = true;
+	return 0;
+}
+
+int Input::lua_AddPrimaryScoreIndividual(lua_State* L)
+{
+	Input* input = (Input*)lua_touserdata(L, 1);
+	lua_Number score = lua_tonumber(L, 2);
+	luaL_argcheck(L, input != nullptr, 1, "input expected");
+	input->_primaryScoreIndividual.push_back(score);
+	return 0;
+}
+
+int Input::lua_AddSecondaryScoreIndividual(lua_State* L)
+{
+	Input* input = (Input*)lua_touserdata(L, 1);
+	lua_Number score = lua_tonumber(L, 2);
+	luaL_argcheck(L, input != nullptr, 1, "input expected");
+	input->_secondaryScoreIndividual.push_back(score);
 	return 0;
 }
 

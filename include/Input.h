@@ -79,6 +79,24 @@ private:
 	/// </summary>
 	double _secondaryScore = 0.f;
 
+	/// <summary>
+	/// stores the individual primary score values to all executed entries of [sequence]
+	/// </summary>
+	std::vector<double> _primaryScoreIndividual;
+	/// <summary>
+	/// stores the individual secondary score values to all executed entries of [sequence]
+	/// </summary>
+	std::vector<double> _secondaryScoreIndividual;
+
+	/// <summary>
+	/// whether the individual storage of primary score values is enabled
+	/// </summary>
+	bool _enablePrimaryScoreIndividual = false;
+	/// <summary>
+	/// whether the individual storage of secondary score values is enabled
+	/// </summary>
+	bool _enableSecondaryScoreIndividual = false;
+
 	friend ExecutionHandler;
 	friend Test;
 
@@ -157,6 +175,11 @@ public:
 			/// Input has been created as a result of splitting another input
 			/// </summary>
 			GeneratedDeltaDebugging = 1 << 7,
+			/// <summary>
+			/// This Flag indicates that primary score ranges may not be deleted, but need to be saved.
+			/// If this flag is not present, FreeMemory may delete the values
+			/// </summary>
+			KeepIndividualScores = 1 << 8,
 		};
 	};
 
@@ -181,6 +204,11 @@ public:
 	static int lua_GetReactionTimeNext(lua_State* L);
 	static int lua_SetPrimaryScore(lua_State* L);
 	static int lua_SetSecondaryScore(lua_State* L);
+
+	static int lua_EnablePrimaryScoreIndividual(lua_State* L);
+	static int lua_EnableSecondaryScoreIndividual(lua_State* L);
+	static int lua_AddPrimaryScoreIndividual(lua_State* L);
+	static int lua_AddSecondaryScoreIndividual(lua_State* L);
 
 	static void RegisterLuaFunctions(lua_State* L);
 
@@ -247,59 +275,54 @@ public:
 	/// Returns the execution time of the test if it has already finished, otherwise -1
 	/// </summary>
 	/// <returns></returns>
-	inline std::chrono::nanoseconds GetExecutionTime()
-	{
-		if (_hasfinished)
-			return _executiontime;
-		else
-			return std::chrono::nanoseconds(-1);
-	}
+	std::chrono::nanoseconds GetExecutionTime();
 
 	/// <summary>
 	/// Returns the exitcode of the test if it has already finished, otherwise -1
 	/// </summary>
 	/// <returns></returns>
-	inline int32_t GetExitCode()
-	{
-		if (_hasfinished)
-			return _exitcode;
-		else
-			return -1;
-	}
+	int32_t GetExitCode();
 
 	/// <summary>
 	/// Returns whether the corresponding test has finished
 	/// </summary>
 	/// <returns></returns>
-	inline bool Finished()
-	{
-		return _hasfinished;
-	}
+	bool Finished();
 
 	/// <summary>
 	/// Returns the oracle result
 	/// </summary>
 	/// <returns></returns>
-	inline EnumType GetOracleResult()
-	{
-		return _oracleResult;
-	}
+	EnumType GetOracleResult();
 
-	inline double GetPrimaryScore()
-	{
-		return _primaryScore;
-	}
+	/// <summary>
+	/// returns the primary score of the input
+	/// </summary>
+	double GetPrimaryScore();
 
-	inline double GetSecondaryScore()
-	{
-		return _secondaryScore;
-	}
+	/// <summary>
+	/// returns the secondary score of the input
+	/// </summary>
+	/// <returns></returns>
+	double GetSecondaryScore();
 
+	/// <summary>
+	/// trims the input to the given length
+	/// </summary>
+	/// <param name="executed"></param>
 	void TrimInput(int32_t executed);
 
-	int64_t GetTrimmedLength() { return _trimmedlength; }
+	/// <summary>
+	/// returns the trimmed length of the input. [If the input isn't trimmed, returns -1]
+	/// </summary>
+	/// <returns></returns>
+	int64_t GetTrimmedLength();
 
-	bool IsTrimmed() { return _trimmed; }
+	/// <summary>
+	/// returns whether the input has been trimmed
+	/// </summary>
+	/// <returns></returns>
+	bool IsTrimmed();
 
 	/// <summary>
 	/// Parses inputs from a python file.
@@ -377,27 +400,39 @@ public:
 	/// <summary>
 	/// Increments the number of inputs derived from this one
 	/// </summary>
-	void IncDerivedInputs()
-	{
-		std::unique_lock<std::shared_mutex> guard(_lock);
-		_derivedInputs++;
-	}
+	void IncDerivedInputs();
 	/// <summary>
 	/// Returns the number of inputs derived from this one
 	/// </summary>
-	uint64_t GetDerivedInputs() {
-		std::shared_lock<std::shared_mutex> guard(_lock);
-		return _derivedInputs;
-	}
+	uint64_t GetDerivedInputs();
 
 	/// <summary>
 	/// Sets the runtime at which this input was generated
 	/// </summary>
 	/// <param name="genTime"></param>
-	void SetGenerationTime(std::chrono::nanoseconds genTime)
+	void SetGenerationTime(std::chrono::nanoseconds genTime);
+
+	bool IsIndividualPrimaryScoresEnabled();
+
+	bool IsIndividualSecondaryScoresEnabled();
+
+	size_t GetIndividualPrimaryScoresLength();
+
+	size_t GetIndividualSecondaryScoresLength();
+
+	double GetIndividualPrimaryScore(size_t position);
+
+	double GetIndividualSecondaryScore(size_t position);
+
+	std::vector<std::pair<size_t, size_t>> FindIndividualPrimaryScoreRangesWithoutChanges();
+
+	std::vector<std::pair<size_t, size_t>> FindIndividualSecondaryScoreRangesWithoutChanges();
+
+	static std::string PrintForm(std::shared_ptr<Input> form)
 	{
-		std::unique_lock<std::shared_mutex> guard(_lock);
-		_generationTime = genTime;
+		if (!form)
+			return "None";
+		return std::string("[") + typeid(Input).name() + "<" + Utility::GetHex(form->GetFormID()) + "><Length:" + std::to_string(form->Length()) + "><PrimScore:" + std::to_string(form->GetPrimaryScore()) + "><SeconScore:" + std::to_string(form->GetSecondaryScore()) + ">]";
 	}
 
 private:

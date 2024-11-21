@@ -397,6 +397,7 @@ bool Oracle::ReadData(unsigned char* buffer, size_t& offset, size_t length, Load
 			// init lua from settings to support cross-platform stuff out of the boc
 			resolver->AddTask([this, resolver]() {
 				auto sett = resolver->ResolveFormID<Settings>(Data::StaticFormIDs::Settings);
+				Set(sett->oracle.oracle, sett->oracle.oraclepath);
 				auto path = std::filesystem::path(sett->oracle.lua_path_cmd);
 				if (!std::filesystem::exists(path)) {
 					logcritical("Lua CmdArgs script cannot be found.");

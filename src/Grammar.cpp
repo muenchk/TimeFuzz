@@ -880,6 +880,7 @@ void GrammarTree::InsertParseNodes()
 		nnode->_type = GrammarNode::NodeType::NonTerminal;
 		nnode->_id = GetNextID();
 		nnode->_identifier = std::string("'ParseNode") + std::to_string(nnode->_id);
+		_nonterminals.insert(nnode);
 		_hashmap.insert_or_assign(nnode->_id, nnode);
 		_hashmap_parsenodes.insert(nnode->_id);
 		_ruleorder.push_back(nnode->_id);
@@ -913,7 +914,37 @@ void GrammarTree::InsertParseNodes()
 	GatherFlags(_root, {}, true);
 }
 
+void GrammarTree::FixRoot()
+{
+	if (_root->_expansions.size() > 1 ||
+		(_root->_expansions.size() == 1 &&
+			(_root->_expansions[0]->_nodes.size() > 1 ||
+				_root->_expansions[0]->_nodes.size() == 1 &&
+					_root->_expansions[0]->_nodes[0]->IsLeaf()))) {
+		auto node = std::make_shared<GrammarNode>();
+		node->_derivation = _root->_identifier;
+		node->_type = GrammarNode::NodeType::NonTerminal;
+		node->_id = GetNextID();
+		node->_identifier = std::string("'FixedStart");
+		_hashmap.insert_or_assign(node->_id, node);
+		_nonterminals.insert(node);
+		_ruleorder.push_back(node->_id);
+		
+		auto exp = std::make_shared<GrammarExpansion>();
+		exp->_weight = 0;
+		exp->_nonterminals++;
+		exp->_nodes.push_back(_root);
+		_root->_parents.insert(exp);
+		exp->_id = GetNextID();
+		_hashmap_expansions.insert_or_assign(exp->_id, exp);
+		node->_expansions.push_back(exp);
+		exp->_parent = node;
 
+		_root = node;
+
+		GatherFlags(_root, {}, true);
+	}
+}
 
 
 
@@ -1019,6 +1050,9 @@ void Grammar::ParseScala(std::filesystem::path path)
 		// all symbols have been read and added to the tree
 		// now construct the tree
 		_tree->Construct();
+
+		// fix root symbol if necessary
+		_tree->FixRoot();
 		
 		logdebug("constructed grammar");
 

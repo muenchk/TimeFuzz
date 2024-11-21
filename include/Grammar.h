@@ -331,6 +331,12 @@ private:
 	/// from the resulting parse tree
 	/// </summary>
 	void InsertParseNodes();
+
+	/// <summary>
+	/// Grammars are required to have a specfic form. This function assures that the start symbol (root) only
+	/// derives into one other non-terminal symbol
+	/// </summary>
+	void FixRoot();
 };
 
 class Grammar : public Form

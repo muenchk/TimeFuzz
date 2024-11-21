@@ -33,13 +33,38 @@ std::shared_ptr<Session> Session::CreateSession()
 
 void Session::LoadSession_Async(Data* dat, std::string name, int32_t number, LoadSessionArgs* args)
 {
+	bool skipSettings = false;
+	if (args && args->reloadSettings)
+		skipSettings = true;
 	if (number == -1)
-		dat->Load(name);
+		dat->Load(name, skipSettings);
 	else
-		dat->Load(name, number);
+		dat->Load(name, number, skipSettings);
 	auto session = dat->CreateForm<Session>();
 	session->_self = session;
 	session->_loaded = true;
+	if (args && args->loadNewGrammar)
+	{
+		auto sessdata = dat->CreateForm<SessionData>();
+		// load grammar
+		auto oldgrammar = sessdata->_grammar;
+		sessdata->_grammar = dat->CreateForm<Grammar>();
+		sessdata->_grammar->SetGenerationParameters(
+			sessdata->_settings->methods.IterativeConstruction_Extension_Backtrack_min,
+			sessdata->_settings->methods.IterativeConstruction_Extension_Backtrack_max,
+			sessdata->_settings->methods.IterativeConstruction_Backtrack_Backtrack_min,
+			sessdata->_settings->methods.IterativeConstruction_Backtrack_Backtrack_max);
+		sessdata->_grammar->ParseScala(sessdata->_settings->oracle.grammar_path);
+		if (!sessdata->_grammar->IsValid()) {
+			logcritical("Grammar isn't valid. Re-setting old grammar.");
+			dat->DeleteForm(sessdata->_grammar);
+			sessdata->_grammar = oldgrammar;
+		}
+		else
+		{
+			sessdata->_generator->SetGrammar(sessdata->_grammar);
+		}
+	}
 	bool error = false;
 	if (args && args->startSession == true)
 		session->StartLoadedSession(error, args->reloadSettings, args->settingsPath);
@@ -70,6 +95,7 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, LoadSessionArgs&
 		asyncargs->startSession = loadargs.startSession;
 		asyncargs->reloadSettings = loadargs.reloadSettings;
 		asyncargs->settingsPath = loadargs.settingsPath;
+		asyncargs->loadNewGrammar = loadargs.loadNewGrammar;
 		if (loadargs.reloadSettings)
 			sett->SkipRead();
 	}
@@ -674,23 +700,10 @@ bool Session::ReadData(unsigned char* buffer, size_t& offset, size_t length, Loa
 	}
 }
 
-
-void Session::SetInternals(std::shared_ptr<Oracle> oracle, std::shared_ptr<TaskController> controller, std::shared_ptr<ExecutionHandler> exechandler, std::shared_ptr<Generator> generator, std::shared_ptr<Grammar> grammar, std::shared_ptr<Settings> settings, std::shared_ptr<ExclusionTree> excltree)
-{
-	_sessiondata->_oracle = oracle;
-	_sessiondata->_controller = controller;
-	_sessiondata->_exechandler = exechandler;
-	_sessiondata->_generator = generator;
-	_sessiondata->_grammar = grammar;
-	_sessiondata->_settings = settings;
-	_sessiondata->_excltree = excltree;
-}
-
 void Session::Delete(Data*)
 {
 	Clear();
 }
-
 
 void Session::Replay(FormID inputid)
 {
@@ -793,5 +806,7 @@ void Session::UI_FindAllDeltaDebugging(std::vector<UI::UIDeltaDebugging>& ddvect
 
 void Session::UI_GetThreadStatus(std::vector<TaskController::ThreadStatus>& status)
 {
+	if (!_loaded)
+		return;
 	_sessiondata->_controller->GetThreadStatus(status);
 }

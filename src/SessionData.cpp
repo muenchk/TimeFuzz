@@ -114,6 +114,7 @@ size_t SessionData::GetStaticSize(int32_t version)
 	                        + 8   // _generationfails
 	                        + 8   // _generatedInputs
 	                        + 8   // _generatedWithPrefix
+	                        + 8   // _generatedExcludedApproximation
 	                        + 8   // lastchecks
 	                        + 8   // exitstats.natural
 	                        + 8   // exitstats.lastinput
@@ -346,8 +347,8 @@ bool SessionData::WriteData(unsigned char* buffer, size_t& offset)
 	Buffer::Write(_generationfails, buffer, offset);
 	Buffer::Write(_generatedinputs, buffer, offset);
 	Buffer::Write(_generatedWithPrefix, buffer, offset);
+	Buffer::Write(_generatedExcludedApproximation, buffer, offset);
 	Buffer::Write(_lastchecks, buffer, offset);
-	// -----VERSION 2-----
 	Buffer::Write(exitstats.natural, buffer, offset);
 	Buffer::Write(exitstats.lastinput, buffer, offset);
 	Buffer::Write(exitstats.terminated, buffer, offset);
@@ -440,6 +441,7 @@ bool SessionData::ReadData0x1(unsigned char* buffer, size_t& offset, size_t /*le
 	_generationfails = Buffer::ReadInt64(buffer, offset);
 	_generatedinputs = Buffer::ReadInt64(buffer, offset);
 	_generatedWithPrefix = Buffer::ReadInt64(buffer, offset);
+	_generatedExcludedApproximation = Buffer::ReadInt64(buffer, offset);
 	_lastchecks = Buffer::ReadTime(buffer, offset);
 	return true;
 }

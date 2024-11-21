@@ -4,6 +4,7 @@
 
 #include "Logging.h"
 #include "Utility.h"
+#include "Input.h"
 
 std::vector<std::string> Utility::SplitString(std::string str, char delimiter, bool removeEmpty, bool escape, char escapesymbol, bool allowdisableescape, char disablechar)
 {

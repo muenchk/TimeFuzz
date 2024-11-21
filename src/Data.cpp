@@ -354,7 +354,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 	profile(TimeProfiling, "Saving session");
 }
 
-void Data::Load(std::string name)
+void Data::Load(std::string name, bool skipSettings)
 {
 	StartProfiling;
 	_status = "Finding save files...";
@@ -399,7 +399,7 @@ void Data::Load(std::string name)
 	{
 		_uniquename = name;
 		_savenumber = number + 1;
-		LoadIntern(fullname);
+		LoadIntern(fullname, skipSettings);
 	} else {
 		_actionloadsave = false;
 		_status = "No savefiles found.";
@@ -408,7 +408,7 @@ void Data::Load(std::string name)
 	}
 }
 
-void Data::Load(std::string name, int32_t number)
+void Data::Load(std::string name, int32_t number, bool skipSettings)
 {
 	StartProfiling;
 	_status = "Finding save files...";
@@ -454,7 +454,7 @@ void Data::Load(std::string name, int32_t number)
 	if (found) {
 		_uniquename = name;
 		_savenumber = highest + 1;
-		LoadIntern(fullname);
+		LoadIntern(fullname, skipSettings);
 	} else {
 		_actionloadsave = false;
 		_status = "No savefiles found.";
@@ -463,7 +463,7 @@ void Data::Load(std::string name, int32_t number)
 	}
 }
 
-void Data::LoadIntern(std::filesystem::path path)
+void Data::LoadIntern(std::filesystem::path path, bool skipSettings)
 {
 	_status = "Load save file....";
 	_actionloadsave = true;
@@ -757,16 +757,20 @@ void Data::LoadIntern(std::filesystem::path path)
 									break;
 								case FormType::Settings:
 									{
-										//logdebug("Read Record:      Settings");
-										auto sett = CreateForm<Settings>();
-										bool res = sett->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
-										if (_actionrecord_offset > rlen)
-											res = false;
-										if (res) {
-											stats._Settings++;
+										if (!skipSettings) {
+											//logdebug("Read Record:      Settings");
+											auto sett = CreateForm<Settings>();
+											bool res = sett->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
+											if (_actionrecord_offset > rlen)
+												res = false;
+											if (res) {
+												stats._Settings++;
+											} else {
+												stats._Fail++;
+												logcritical("Failed Record:    Settings");
+											}
 										} else {
-											stats._Fail++;
-											logcritical("Failed Record:    Settings");
+											loginfo("Skipped Reading Record:    Settings");
 										}
 									}
 									break;

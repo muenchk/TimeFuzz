@@ -35,6 +35,7 @@ public:
 	static inline bool _reloadConfig = false;
 	static inline std::filesystem::path workdir = L"";
 	static inline bool _debug = false;
+	static inline bool _updateGrammar = false;
 };
 
 class Settings : public Form

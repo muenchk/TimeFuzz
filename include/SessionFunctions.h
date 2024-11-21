@@ -17,8 +17,10 @@
 #include <stdexcept>
 #include <chrono>
 
+
 #include "Function.h"
 #include "DeltaDebugging.h"
+#include "Logging.h"
 
 // external class definitions
 class Session;
@@ -29,7 +31,16 @@ struct InputGainGreater
 {
 	bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
 	{
-		return (lhs->GetPrimaryScore() / lhs->Length()) > (rhs->GetPrimaryScore() / rhs->Length());
+		//return (lhs->GetPrimaryScore() / lhs->Length()) > (rhs->GetPrimaryScore() / rhs->Length());
+		// exponential ratios
+		// the ratio itself is the result of an exponential e^x, we want to get this x
+		// first we add 1 to the ratio value, so 1 is the minimal value, then get the logarithm
+		double oldleft = (lhs->Length() / lhs->GetPrimaryScore());
+		double oldright = (rhs->Length() / rhs->GetPrimaryScore());
+		double left = std::log((lhs->Length() / lhs->GetPrimaryScore()) + 1);
+		double right = std::log((rhs->Length() / rhs->GetPrimaryScore()) + 1);
+		logwarn("Compare Values.\tOL: {},\tOR: {},\tNL: {},\tNR: {}", oldleft, oldright, left, right);
+		return left < right;
 	}
 };
 

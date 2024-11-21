@@ -68,6 +68,7 @@ void StartSession()
 	LoadSessionArgs args;
 	args.reloadSettings = CmdArgs::_reloadConfig;
 	args.settingsPath = CmdArgs::_settingspath;
+	args.loadNewGrammar = CmdArgs::_updateGrammar;
 
 	if (CmdArgs::_load) {
 		args.startSession = true;
@@ -143,6 +144,7 @@ int32_t main(int32_t argc, char** argv)
 		"    --logtoconsole             - Writes all logging output to the console\n"
 		"    --separatelogfiles         - Writes logfiles to \"/logs\" and uses timestamps in the logname\n"
 		"    --create-conf <PATH>       - Writes a default configuration file to the current folder\n"
+		"    --update-grammar           - Loads a new grammar and sets it as the default grammar for generation\n"
 		"    --debug                    - Enable debug logging\n";
 
 	std::string logpath = "";
@@ -179,6 +181,9 @@ int32_t main(int32_t argc, char** argv)
 			}
 		} else if (option.find("--reloadconfig") != std::string::npos) {
 			std::cout << "Parameter: --reloadconfig\n";
+			CmdArgs::_updateGrammar = true;
+		} else if (option.find("--update-grammar") != std::string::npos) {
+			std::cout << "Parameter: --update-grammar\n";
 			CmdArgs::_reloadConfig = true;
 		} else if (option.find("--logtoconsole") != std::string::npos) {
 			std::cout << "Parameter: --logtoconsole\n";

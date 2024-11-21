@@ -23,6 +23,7 @@ struct LoadSessionArgs
 {
 	bool startSession = false;
 	bool reloadSettings = false;
+	bool loadNewGrammar = false;
 	std::wstring settingsPath = L"";
 };
 
@@ -295,7 +296,6 @@ private:
 	/// <returns></returns>
 	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 
-	void SetInternals(std::shared_ptr<Oracle> oracle, std::shared_ptr<TaskController> controller, std::shared_ptr<ExecutionHandler> exechandler, std::shared_ptr<Generator> generator, std::shared_ptr<Grammar> grammar, std::shared_ptr<Settings> settings, std::shared_ptr<ExclusionTree> excltree);
 	/// <summary>
 	/// Returns the class type
 	/// </summary>

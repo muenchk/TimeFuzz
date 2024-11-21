@@ -172,6 +172,26 @@ public:
 		else
 			return nullptr;
 	}
+
+	/// <summary>
+	/// Prints a form
+	/// </summary>
+	/// <typeparam name="T"></typeparam>
+	/// <typeparam name=""></typeparam>
+	/// <param name="form"></param>
+	/// <returns></returns>
+	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+	static std::string PrintForm(std::shared_ptr<T> form)
+	{
+		auto GetHex = [](uint64_t val) {
+			std::stringstream ss;
+			ss << std::hex << val;
+			return ss.str();
+		};
+		if (!form)
+			return "None";
+		return std::string("[") + typeid(T).name() + "<" + GetHex(form->GetFormID()) + ">]";
+	}
 };
 
 class FlagHolder

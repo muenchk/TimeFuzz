@@ -1,0 +1,8 @@
+stuff to save
+
+Input:
+	_primaryScoreIndividual
+	_secondaryScoreIndividual
+	_enablePrimaryScoreIndividual
+	_enableSecondaryScoreIndividual
+

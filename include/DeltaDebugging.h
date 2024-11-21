@@ -246,6 +246,13 @@ namespace DeltaDebugging
 		/// </summary>
 		void StandardEvaluateLevel();
 
+
+		void ScoreProgressGenerateFirstLevel();
+
+		void ScoreProgressGenerateNextLevel();
+
+		void ScoreProgressEvaluateLevel();
+
 		/// <summary>
 		/// generic cleanup operations
 		/// </summary>
@@ -314,3 +321,99 @@ namespace DeltaDebugging
 		void Clear();
 	};
 }
+
+
+class RangeIterator
+{
+	std::vector<std::pair<size_t, size_t>>* _ranges;
+	bool _skipfirst = true;
+	/// <summary>
+	/// Absolute position relative to length
+	/// </summary>
+	size_t _position = 0;
+	/// <summary>
+	/// current range
+	/// </summary>
+	size_t _posX = 0;
+	/// <summary>
+	/// current position in range
+	/// </summary>
+	size_t _posY = 0;
+	/// <summary>
+	/// total length
+	/// </summary>
+	size_t _length = 0;
+
+public:
+	RangeIterator(std::vector<std::pair<size_t, size_t>>& ranges,bool skipfirst)
+	{
+		_ranges = &ranges;
+		_skipfirst = skipfirst;
+		_length = GetLength();
+	}
+	/// <summary>
+	/// returns the length of all non-unique items in the range
+	/// </summary>
+	/// <returns></returns>
+	size_t GetLength()
+	{
+		// don't count the first element, it is suspected to be unique
+		size_t total = 0;
+		for (size_t i = 0; i < _ranges->size(); i++)
+		{
+			if (_skipfirst)
+				total += _ranges->at(i).second - 1;
+			else
+				total += _ranges->at(i).second;
+		}
+		return total;
+	}
+
+	/// <summary>
+	/// Returns the next range with size [length]
+	/// This function iterastes over all individual ranges in this iterator
+	/// </summary>
+	/// <param name="length"></param>
+	/// <returns></returns>
+	std::vector<size_t> GetRange(size_t length)
+	{
+		std::vector<size_t> result;
+		while (length > 0 && _position < _length)
+		{
+			result.push_back(_ranges->at(_posX).first + _posY);
+			_posY++;
+			if (_posY >= _ranges->at(_posX).second) {
+				_posX++;
+				_posY = 0;
+			}
+			length--;
+			_position++;
+		}
+		return result;
+	}
+
+	/// <summary>
+	/// Returns a list of ranges that are at most [maxsize] long.
+	/// It does not concatenate ranges in this list iterator, instead if they are shorter than [maxsize] they are returned completely
+	/// </summary>
+	/// <param name="maxsize"></param>
+	/// <returns></returns>
+	std::vector<std::pair<size_t, size_t>> GetRanges(size_t maxsize)
+	{
+		std::vector<std::pair<size_t, size_t>> result;
+		for (size_t i = 0; i < _ranges->size(); i++)
+		{
+			if (_ranges->at(i).second < maxsize) {
+				if (_skipfirst)
+					result.push_back({ _ranges->at(i).first + 1, _ranges->at(i).second - 1 });
+				else
+					result.push_back({ _ranges->at(i).first, _ranges->at(i).second });
+			}
+			else
+			{
+
+			}
+
+		}
+	}
+};
