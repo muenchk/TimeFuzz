@@ -199,6 +199,11 @@ class FlagHolder
 	EnumType _flag;
 	std::shared_ptr<Form> _form;
 
+	FlagHolder(FlagHolder&) = delete;
+	FlagHolder(FlagHolder&&) = delete;
+	FlagHolder& operator=(const FlagHolder&) = delete;
+	FlagHolder& operator=(const FlagHolder&&) = delete;
+
 public:
 	FlagHolder()
 	{

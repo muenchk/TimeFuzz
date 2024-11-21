@@ -375,7 +375,7 @@ int32_t main(int32_t argc, char** argv)
 		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
 																		//glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
 #endif
-		GLFWwindow* window = glfwCreateWindow(1280, 1280, windowtitle.c_str(), nullptr, nullptr);
+		GLFWwindow* window = glfwCreateWindow(1920, 1280, windowtitle.c_str(), nullptr, nullptr);
 		if (window == nullptr)
 			return 1;
 		glfwMakeContextCurrent(window);

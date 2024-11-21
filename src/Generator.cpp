@@ -108,8 +108,8 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 	StartProfiling;
 
 	FlagHolder inputflag(input, Form::FormFlags::DoNotFree);
-	FlagHolder parentflag;
-	FlagHolder parenttreeflag;
+	std::unique_ptr<FlagHolder> parentflag;
+	std::unique_ptr<FlagHolder> parenttreeflag;
 	std::shared_ptr<Grammar> gram = _grammar;
 	if (grammar)
 		gram = grammar;
@@ -138,8 +138,8 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 						input->Unlock();
 						return false;
 					} else {
-						parentflag = FlagHolder(parent, Form::FormFlags::DoNotFree);
-						parenttreeflag = FlagHolder(parent->derive, Form::FormFlags::DoNotFree);
+						parentflag = std::make_unique<FlagHolder>(parent, Form::FormFlags::DoNotFree);
+						parenttreeflag = std::make_unique<FlagHolder>(parent->derive, Form::FormFlags::DoNotFree);
 					}
 					// we have a valid parent so make sure to generate it if it isn't already so we can generate this input
 					if (parent->GetGenerated() == false) {
@@ -270,7 +270,7 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 				input->Unlock();
 				return false;
 			} else {
-				parentflag = FlagHolder(parent, Form::FormFlags::DoNotFree);
+				parentflag = std::make_unique<FlagHolder>(parent, Form::FormFlags::DoNotFree);
 			}
 			// we have a valid parent so make sure to generate it if it isn't already so we can generate this input
 			if (parent->GetGenerated() == false) {
