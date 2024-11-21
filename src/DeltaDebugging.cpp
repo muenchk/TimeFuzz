@@ -440,6 +440,8 @@ namespace DeltaDebugging
 	void DeltaController::StandardGenerateNextLevel()
 	{
 		StartProfiling;
+		FlagHolder inputflag(_input, Form::FormFlags::DoNotFree);
+
 		std::vector<DeltaInformation> splitinfo;
 		auto splits = GenerateSplits(_level, splitinfo);
 		auto complements = GenerateComplements(splitinfo);
@@ -696,8 +698,11 @@ namespace DeltaDebugging
 				auto rinputs = sortprimary();
 				_activeInputs.clear();
 
-				auto loss = [this](std::shared_ptr<Input> input) {
-					return 1 - (input->GetPrimaryScore() / this->_origInput->GetPrimaryScore());
+				double _primary = _origInput->GetPrimaryScore() > _input->GetPrimaryScore() ?
+				                      _origInput->GetPrimaryScore() :
+				                      _input->GetPrimaryScore();
+				auto loss = [_primary](std::shared_ptr<Input> input) {
+					return 1 - (input->GetPrimaryScore() / _primary);
 				};
 
 				std::vector<std::shared_ptr<Input>> passing;

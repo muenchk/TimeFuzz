@@ -9,6 +9,9 @@ namespace DeltaDebugging
 	class DeltaController;
 }
 
+class Generation;
+class Input;
+
 typedef uint64_t EnumType;
 
 namespace UI
@@ -123,5 +126,30 @@ namespace UI
 
 	private:
 		std::shared_ptr<DeltaDebugging::DeltaController> _ddcontroller;
+	};
+
+	class UIGeneration
+	{
+	public:
+		FormID GetFormID();
+		int64_t GetSize();
+		int64_t GetGeneratedSize();
+		int64_t GetDDSize();
+		int64_t GetTargetSize();
+		int64_t GetActiveInputs();
+		int64_t GetNumberOfSources();
+		void GetSources(std::vector<UIInput>& inputs);
+		int64_t GetGenerationNumber();
+		void GetDDControllers(std::vector<UIDeltaDebugging>& dd, size_t& size);
+
+		void SetGeneration(std::shared_ptr<Generation> generation);
+
+		bool Initialized();
+	private:
+		std::shared_ptr<Generation> _generation;
+		std::vector<std::shared_ptr<Input>> sources;
+		std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> _ddcontrollers;
+		bool hasbegun = false;
+		size_t lastddcontrollers = 0;
 	};
 }

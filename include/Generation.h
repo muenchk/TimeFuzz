@@ -109,6 +109,11 @@ public:
 	/// </summary>
 	/// <param name=""></param>
 	void SetMaxActiveInputs(int64_t activeInputs);
+	/// <summary>
+	/// Returns the number of inputs currently active
+	/// </summary>
+	/// <returns></returns>
+	int64_t GetActiveInputs();
 
 	/// <summary>
 	/// Returns whether the current session is active or finished
@@ -138,6 +143,11 @@ public:
 	/// <returns></returns>
 	std::vector<std::shared_ptr<Input>> GetSources();
 	/// <summary>
+	/// Returns the sources of this generation
+	/// </summary>
+	/// <returns></returns>
+	void GetSources(std::vector<std::shared_ptr<Input>>& sources);
+	/// <summary>
 	/// Returns a random source for expansion
 	/// </summary>
 	/// <returns></returns>
@@ -147,6 +157,17 @@ public:
 	/// </summary>
 	/// <param name="input"></param>
 	void AddSource(std::shared_ptr<Input> input);
+
+	/// <summary>
+	/// Returns the ddcontrollers active in this generation
+	/// </summary>
+	/// <param name="controllers"></param>
+	void GetDDControllers(std::vector<std::shared_ptr<DeltaDebugging::DeltaController>>& controllers);
+	/// <summary>
+	/// returns the number of ddcontrollers in this instance
+	/// </summary>
+	/// <returns></returns>
+	size_t GetNumberOfDDControllers();
 
 private:
 	/// <summary>

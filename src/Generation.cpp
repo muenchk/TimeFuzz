@@ -150,6 +150,11 @@ void Generation::SetMaxActiveInputs(int64_t activeInputs)
 	_maxActiveInputs = activeInputs;
 }
 
+int64_t Generation::GetActiveInputs()
+{
+	return _activeInputs.load();
+}
+
 void Generation::SetMaxSimultaneuosGeneration(int64_t generationstep)
 {
 	_maxSimultaneousGeneration = generationstep;
@@ -183,6 +188,14 @@ std::vector<std::shared_ptr<Input>> Generation::GetSources()
 	return _sources;
 }
 
+void Generation::GetSources(std::vector<std::shared_ptr<Input>>& sources)
+{
+	if (sources.size() < _sources.size())
+		sources.resize(_sources.size());
+	for (size_t i = 0; i < _sources.size(); i++)
+		sources[i] = _sources[i];
+}
+
 std::shared_ptr<Input> Generation::GetRandomSource()
 {
 	if (HasSources())
@@ -197,6 +210,26 @@ void Generation::AddSource(std::shared_ptr<Input> input)
 	_sources.push_back(input);
 	_sourcesDistr = std::uniform_int_distribution<signed>(0, (uint32_t)_sources.size() - 1);
 }
+
+void Generation::GetDDControllers(std::vector<std::shared_ptr<DeltaDebugging::DeltaController>>& controllers)
+{
+	if (_ddControllers.size() > controllers.size())
+		controllers.resize(_ddControllers.size());
+	auto itr = _ddControllers.begin();
+	int i = 0;
+	while (itr != _ddControllers.end())
+	{
+		controllers[i] = itr->second;
+		i++;
+		itr++;
+	}
+}
+
+size_t Generation::GetNumberOfDDControllers()
+{
+	return _ddControllers.size();
+}
+
 
 #pragma region FORM
 

@@ -168,11 +168,50 @@ public:
 
 	void UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k);
 
+	/// <summary>
+	/// Begins delta debugging the given input
+	/// </summary>
+	/// <param name="inputid"></param>
+	/// <returns></returns>
 	UI::UIDeltaDebugging UI_StartDeltaDebugging(FormID inputid);
+	/// <summary>
+	/// finds an active delta debugging instance
+	/// </summary>
+	/// <param name="dd"></param>
 	void UI_FindDeltaDebugging(UI::UIDeltaDebugging& dd);
+	/// <summary>
+	/// finds all active delta debugging instances
+	/// </summary>
+	/// <param name="ddvector"></param>
+	/// <param name="length"></param>
 	void UI_FindAllDeltaDebugging(std::vector<UI::UIDeltaDebugging>& ddvector, size_t& length);
-
+	/// <summary>
+	/// returns the threadstatus of the taskcontroller
+	/// </summary>
+	/// <param name="status"></param>
 	void UI_GetThreadStatus(std::vector<TaskController::ThreadStatus>& status);
+	/// <summary>
+	/// Returns the formids of all generations in this session
+	/// </summary>
+	/// <param name="generations"></param>
+	void UI_GetGenerations(std::vector<std::pair<FormID, FormID>>& generations, size_t& size);
+	/// <summary>
+	/// returns the generation with the given ID
+	/// </summary>
+	/// <param name="genID"></param>
+	/// <param name="gen"></param>
+	void UI_GetGeneration(FormID genID, UI::UIGeneration& gen);
+	/// <summary>
+	/// returns the generation with the given number
+	/// </summary>
+	/// <param name="genID"></param>
+	/// <param name="gen"></param>
+	void UI_GetGenerationByNumber(FormID genNumber, UI::UIGeneration& gen);
+	/// <summary>
+	/// returns the current generation
+	/// </summary>
+	/// <param name="gen"></param>
+	void UI_GetCurrentGeneration(UI::UIGeneration& gen);
 
 	/// <summary>
 	/// Returns a string with information about the session

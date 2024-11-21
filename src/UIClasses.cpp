@@ -1,5 +1,6 @@
 #include "UIClasses.h"
 #include "DeltaDebugging.h"
+#include "Generation.h"
 
 #include <vector>
 
@@ -147,4 +148,87 @@ void UIDeltaDebugging::GetActiveInputs(std::vector<UIInput>& inputs, size_t& siz
 void UIDeltaDebugging::SetDeltaController(std::shared_ptr<DeltaController> controller)
 {
 	_ddcontroller = controller;
+}
+
+FormID UIGeneration::GetFormID()
+{
+	return _generation->GetFormID();
+}
+
+int64_t UIGeneration::GetSize()
+{
+	return _generation->GetSize();
+}
+
+int64_t UIGeneration::GetGeneratedSize()
+{
+	return _generation->GetGeneratedSize();
+}
+
+int64_t UIGeneration::GetDDSize()
+{
+	return _generation->GetDDSize();
+}
+
+
+int64_t UIGeneration::GetTargetSize() 
+{
+	return _generation->GetTargetSize();
+}
+int64_t UIGeneration::GetActiveInputs() 
+{
+	int64_t active = _generation->GetActiveInputs();
+	// sources are added before a generation actually begins
+	if (!hasbegun && active > 0)
+		hasbegun = true;
+	return active;
+}
+int64_t UIGeneration::GetNumberOfSources()
+{
+	return _generation->GetNumberOfSources();
+}
+void UIGeneration::GetSources(std::vector<UIInput>& inputs)
+{ 
+	if (!hasbegun)
+	{
+		_generation->GetSources(sources);
+		if (inputs.size() < sources.size())
+			inputs.resize(sources.size());
+		for (size_t i = 0; i < sources.size(); i++) {
+			inputs[i].id = sources[i]->GetFormID();
+			inputs[i].length = sources[i]->Length();
+			inputs[i].primaryScore = sources[i]->GetPrimaryScore();
+			inputs[i].secondaryScore = sources[i]->GetSecondaryScore();
+			inputs[i].result = (UI::Result)sources[i]->GetOracleResult();
+			inputs[i].flags = sources[i]->GetFlags();
+		}
+	}
+}
+int64_t UIGeneration::GetGenerationNumber() 
+{
+	return _generation->GetGenerationNumber();
+}
+void UIGeneration::GetDDControllers(std::vector<UIDeltaDebugging>& dd, size_t& size) 
+{
+	if (lastddcontrollers == _generation->GetNumberOfDDControllers())
+		return;
+	_generation->GetDDControllers(_ddcontrollers);
+	lastddcontrollers = _generation->GetNumberOfDDControllers();
+	size = lastddcontrollers;
+	if (dd.size() < _ddcontrollers.size())
+		dd.resize(_ddcontrollers.size());
+	for (size_t i = 0; i < _ddcontrollers.size(); i++)
+	{
+		dd[i].SetDeltaController(_ddcontrollers[i]);
+	}
+}
+
+void UIGeneration::SetGeneration(std::shared_ptr<Generation> generation) 
+{
+	_generation = generation;
+}
+
+bool UIGeneration::Initialized()
+{
+	return _generation.operator bool();
 }

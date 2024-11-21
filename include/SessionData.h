@@ -273,10 +273,20 @@ public:
 	/// <returns></returns>
 	std::shared_ptr<Generation> GetGeneration(FormID generationID);
 	/// <summary>
+	/// Returns the specified generation
+	/// </summary>
+	/// <returns></returns>
+	std::shared_ptr<Generation> GetGenerationByNumber(FormID generationNumber);
+	/// <summary>
 	/// Returns the last generation
 	/// </summary>
 	/// <returns></returns>
 	std::shared_ptr<Generation> GetLastGeneration();
+	/// <summary>
+	/// Returns the FormIDs of all generations
+	/// </summary>
+	/// <param name="generations"></param>
+	void GetGenerationIDs(std::vector<std::pair<FormID, FormID>>& generations, size_t& size);
 
 	/// <summary>
 	/// Sets up a new generation

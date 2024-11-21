@@ -476,6 +476,7 @@ int32_t main(int32_t argc, char** argv)
 		bool showProfiling = true;
 		bool showDeltaDebugging = true;
 		bool showThreadStatus = true;
+		bool showGeneration = true;
 
 		while (!glfwWindowShouldClose(window) && !stop) {
 			// Poll and handle events (inputs, window resize, etc.)
@@ -499,6 +500,12 @@ int32_t main(int32_t argc, char** argv)
 			session->GetStatus(status);
 			displayadd = true;
 
+			static UI::UIGeneration ActiveGeneration;
+
+			static std::vector<UI::UIDeltaDebugging> ddcontrollers;
+			static size_t numddcontrollers = 0;
+			bool updatedddcontrollers = false;
+
 			// show control window
 			{
 				static bool wopen = true;
@@ -510,6 +517,7 @@ int32_t main(int32_t argc, char** argv)
 					ImGui::Checkbox("Profiling window", &showProfiling);
 					ImGui::Checkbox("Delta Debugging window", &showDeltaDebugging);
 					ImGui::Checkbox("Show Thread Status", &showThreadStatus);
+					ImGui::Checkbox("Show Generation window", &showThreadStatus);
 					ImGui::Text("Latency: %.3f ms, FPS: %.1f", 1000.0f / io.Framerate, io.Framerate);
 				}
 				ImGui::End();
@@ -521,8 +529,9 @@ int32_t main(int32_t argc, char** argv)
 				ImGui::Begin("Status", &wopen);
 				if (!wopen) {
 					loginfo("UI window has been closed, exiting application.");
-					if (session->Finished() == false && session->Loaded() == true)
+					if (session->Finished() == false && session->Loaded() == true) {
 						session->StopSession(false);
+					}
 					exit(ExitCodes::Success);
 				}
 				if (session->Loaded() == false && session->GetLastError() == ExitCodes::StartupError) {
@@ -681,6 +690,139 @@ int32_t main(int32_t argc, char** argv)
 						ImGui::Text("Status: %s", toString(stati[i]));
 					}
 				}
+				ImGui::End();
+			}
+
+			// show window with information about generations
+			if (showGeneration)
+			{
+				static bool wopen = true;
+				ImGui::Begin("Generation", &wopen);
+				if (wopen)
+				{
+					static std::vector<std::pair<FormID, FormID>> generations;
+					static size_t numgenerations;
+					static std::pair<FormID, FormID> selection = { 0, 0 };
+					static bool changed = false;
+					if (!ActiveGeneration.Initialized())
+					{
+						changed = true;
+						session->UI_GetGenerations(generations, numgenerations);
+						session->UI_GetCurrentGeneration(ActiveGeneration);
+						selection = { ActiveGeneration.GetFormID(), ActiveGeneration.GetGenerationNumber() };
+					}
+
+					static std::string preview;
+					if (changed) {
+						changed = false;
+						if (ActiveGeneration.Initialized())
+							preview = std::to_string(ActiveGeneration.GetGenerationNumber());
+						else
+							preview = "None";
+					}
+
+					if (ImGui::BeginCombo("Generations", preview.c_str()))
+					{
+						session->UI_GetGenerations(generations, numgenerations);
+						if (numgenerations == 0)
+						{
+							const bool is_selected = true;
+							ImGui::Selectable("None", is_selected);
+						}
+						else
+						{
+							for (size_t i = 0; i < numgenerations; i++)
+							{
+								const bool is_selected = (selection.first == generations[i].first);
+								if (ImGui::Selectable(Utility::GetHexFill(generations[i].second).c_str(), is_selected))
+								{
+									session->UI_GetGeneration(generations[i].first, ActiveGeneration);
+									changed = true;
+								}
+								if (is_selected)
+									ImGui::SetItemDefaultFocus();
+							}
+						}
+						ImGui::EndCombo();
+					}
+
+					if (ActiveGeneration.Initialized())
+					{
+						// update stuff
+						static std::vector<UI::UIInput> sources;
+						ActiveGeneration.GetSources(sources);
+						static int64_t numsources;
+						numsources = ActiveGeneration.GetNumberOfSources();
+						ActiveGeneration.GetDDControllers(ddcontrollers, numddcontrollers);
+
+						// build ui 
+						ImGui::Text("Generation Number:          %lld", ActiveGeneration.GetGenerationNumber());
+						ImGui::Text("Total Size:                 %lld", ActiveGeneration.GetSize());
+						ImGui::Text("Generated Size: %lld", ActiveGeneration.GetGeneratedSize());
+						ImGui::SameLine(300);
+						ImGui::Text("Target Size:    %lld", ActiveGeneration.GetTargetSize());
+						ImGui::Text("DD Size:                    %lld", ActiveGeneration.GetDDSize());
+						ImGui::Text("Active Inputs:              %lld", ActiveGeneration.GetActiveInputs());
+						ImGui::Text("Number of DD controllers:   %lld", numddcontrollers);
+						ImGui::NewLine();
+						ImGui::Text("Source Inputs: %lld", numsources);
+						static ImGuiTableFlags flags =
+							ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable | ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_ScrollY;
+
+						// do something with sources
+						if (ImGui::BeginTable("Sources", 7, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 2), 0.0f)) {
+							ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputID);
+							ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputLength);
+							ImGui::TableSetupColumn("Primary Score", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputPrimaryScore);
+							ImGui::TableSetupColumn("Secondary Score", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputSecondaryScore);
+							ImGui::TableSetupColumn("Result", ImGuiTableColumnFlags_WidthFixed, 120.0f, UI::UIInput::ColumnID::InputResult);
+							ImGui::TableSetupColumn("Flags", ImGuiTableColumnFlags_WidthFixed, 80.0f, UI::UIInput::ColumnID::InputFlags);
+							ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputAction);
+							ImGui::TableSetupScrollFreeze(0, 1);
+							ImGui::TableHeadersRow();
+
+							// DO SOME SORTING
+
+							// use clipper for large vertical lists
+							ImGuiListClipper clipper;
+							clipper.Begin((int32_t)numsources);
+							while (clipper.Step()) {
+								for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
+									auto item = &sources[i];
+									ImGui::PushID((uint32_t)item->id);
+									ImGui::TableNextRow();
+									ImGui::TableNextColumn();
+									ImGui::Text("%8llx", item->id);
+									ImGui::TableNextColumn();
+									ImGui::Text("%10lu", item->length);
+									ImGui::TableNextColumn();
+									ImGui::Text("%10.2f", item->primaryScore);
+									ImGui::TableNextColumn();
+									ImGui::Text("%10.2f", item->secondaryScore);
+									ImGui::TableNextColumn();
+									if (item->result == UI::Result::Failing)
+										ImGui::Text("Failing");
+									else if (item->result == UI::Result::Passing)
+										ImGui::Text("Passing");
+									else if (item->result == UI::Result::Running)
+										ImGui::Text("Running");
+									else
+										ImGui::Text("Unfinished");
+									ImGui::TableNextColumn();
+									ImGui::TextUnformatted(Utility::GetHexFill(item->flags).c_str());
+									ImGui::TableNextColumn();
+									if (ImGui::SmallButton("Replay")) {
+										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1), item->id);
+										th.detach();
+									}
+									ImGui::PopID();
+								}
+							}
+							ImGui::EndTable();
+						}
+					}
+				} else
+					session->UI_GetCurrentGeneration(ActiveGeneration);
 				ImGui::End();
 			}
 
@@ -876,12 +1018,10 @@ int32_t main(int32_t argc, char** argv)
 					static size_t numresults;
 					static UI::UIInput input;
 					static UI::UIInput origInput;
-					static std::vector<UI::UIDeltaDebugging> ddvector;
-					static size_t numdd = 0;
 					static UI::UIDeltaDebugging dd;
 					static bool changed = false;
 					// try to find active deltadebugging
-					if (dd.Initialized() == false || dd.Finished() == true)
+					if (ActiveGeneration.Initialized() && (dd.Initialized() == false || dd.Finished() == true))
 					{
 						changed = true;
 						session->UI_FindDeltaDebugging(dd);
@@ -896,33 +1036,31 @@ int32_t main(int32_t argc, char** argv)
 							preview = "None";
 					}
 
-					if (ImGui::BeginCombo("Active DD Sessions", preview.c_str()))
-					{
-						session->UI_FindAllDeltaDebugging(ddvector, numdd);
-						if (numdd == 0)
-						{
-							const bool is_selected = true;
-							ImGui::Selectable("None", is_selected);
-							if (is_selected)
-								ImGui::SetItemDefaultFocus();
-						}
-						else
-						{
-							for (size_t i = 0; i < numdd; i++)
-							{
-								const bool is_selected = (dd.GetFormID() == ddvector[i].GetFormID());
-								if (ImGui::Selectable(Utility::GetHexFill(ddvector[i].GetFormID()).c_str(), is_selected)) {
-									dd = ddvector[i];
-									changed = true;
-								}
+					if (ActiveGeneration.Initialized()) {
+						if (ImGui::BeginCombo("Active DD Sessions", preview.c_str())) {
+							if (!updatedddcontrollers)
+								ActiveGeneration.GetDDControllers(ddcontrollers, numddcontrollers);
+							if (numddcontrollers == 0) {
+								const bool is_selected = true;
+								ImGui::Selectable("None", is_selected);
 								if (is_selected)
 									ImGui::SetItemDefaultFocus();
+							} else {
+								for (size_t i = 0; i < numddcontrollers; i++) {
+									const bool is_selected = (dd.GetFormID() == ddcontrollers[i].GetFormID());
+									if (ImGui::Selectable(Utility::GetHexFill(ddcontrollers[i].GetFormID()).c_str(), is_selected)) {
+										dd = ddcontrollers[i];
+										changed = true;
+									}
+									if (is_selected)
+										ImGui::SetItemDefaultFocus();
+								}
 							}
+							ImGui::EndCombo();
 						}
-						ImGui::EndCombo();
 					}
 
-					if (dd.Initialized())
+					if (dd.Initialized() && ActiveGeneration.Initialized())
 					{
 						// update stuff
 						dd.GetInput(input);

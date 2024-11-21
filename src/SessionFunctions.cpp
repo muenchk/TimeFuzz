@@ -252,7 +252,6 @@ void SessionFunctions::EndSession_Async(std::shared_ptr<SessionData> sessiondata
 	// end the session
 
 	// set abort flag to catch all threads that try to escape
-	session->_abort = true;
 	session->StopSession(false);
 }
 

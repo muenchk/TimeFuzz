@@ -810,3 +810,31 @@ void Session::UI_GetThreadStatus(std::vector<TaskController::ThreadStatus>& stat
 		return;
 	_sessiondata->_controller->GetThreadStatus(status);
 }
+
+void Session::UI_GetGenerations(std::vector<std::pair<FormID, FormID>>& generations, size_t& size)
+{
+	if (!_loaded)
+		return;
+	_sessiondata->GetGenerationIDs(generations, size);
+}
+
+void Session::UI_GetGeneration(FormID id, UI::UIGeneration& gen)
+{
+	if (!_loaded)
+		return;
+	gen.SetGeneration(_sessiondata->GetGeneration(id));
+}
+
+void Session::UI_GetCurrentGeneration(UI::UIGeneration& gen)
+{
+	if (!_loaded)
+		return;
+	gen.SetGeneration(_sessiondata->GetCurrentGeneration());
+}
+
+void Session::UI_GetGenerationByNumber(FormID genNumber, UI::UIGeneration& gen)
+{
+	if (!_loaded)
+		return;
+	gen.SetGeneration(_sessiondata->GetGenerationByNumber(genNumber));
+}

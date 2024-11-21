@@ -219,9 +219,39 @@ std::shared_ptr<Generation> SessionData::GetGeneration(FormID generationID)
 	}
 }
 
+std::shared_ptr<Generation> SessionData::GetGenerationByNumber(FormID generationNumber)
+{
+	if (_settings->generation.generationalMode)
+	{
+		auto itr = _generations.begin();
+		while (itr != _generations.end())
+		{
+			if (itr->second->GetGenerationNumber() == generationNumber)
+				return itr->second;
+		}
+	}
+	static Generation gen;
+	static std::shared_ptr<Generation> genptr = std::shared_ptr<Generation>(std::addressof(gen));
+	return genptr;
+}
+
 std::shared_ptr<Generation> SessionData::GetLastGeneration()
 {
 	return GetGeneration(_lastGenerationID);
+}
+
+void SessionData::GetGenerationIDs(std::vector<std::pair<FormID, FormID>>& gens, size_t& size)
+{
+	if (_generations.size() > gens.size())
+		gens.resize(_generations.size());
+	size = _generations.size();
+	int i = 0;
+	auto itr = _generations.begin();
+	while (itr != _generations.end() && (size_t)i < size)
+	{
+		gens[i] = { itr->first, itr->second->GetGenerationNumber() };
+		itr++;
+	}
 }
 
 void SessionData::SetNewGeneration()
