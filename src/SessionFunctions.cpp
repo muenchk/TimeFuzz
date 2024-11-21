@@ -255,11 +255,9 @@ void SessionFunctions::EndSession_Async(std::shared_ptr<SessionData> sessiondata
 	session->StopSession(false);
 }
 
-Data::VisitAction HandleInput(std::shared_ptr<Form> form)
+Data::VisitAction HandleForms(std::shared_ptr<Form> form)
 {
-	if (auto input = form->As<Input>(); input != nullptr) {
-		input->FreeMemory();
-	}
+	form->FreeMemory();
 	return Data::VisitAction::None;
 }
 
@@ -267,7 +265,7 @@ void SessionFunctions::ReclaimMemory(std::shared_ptr<SessionData>& sessiondata)
 {
 	StartProfiling;
 	sessiondata->_lastMemorySweep = std::chrono::steady_clock::now();
-	sessiondata->data->Visit(HandleInput);
+	sessiondata->data->Visit(HandleForms);
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
 	uint64_t mem = Processes::GetProcessMemory(getpid());

@@ -838,3 +838,10 @@ void Session::UI_GetGenerationByNumber(FormID genNumber, UI::UIGeneration& gen)
 		return;
 	gen.SetGeneration(_sessiondata->GetGenerationByNumber(genNumber));
 }
+
+uint64_t Session::UI_GetMemoryUsage()
+{
+	if (!_loaded)
+		return 0;
+	return _sessiondata->GetUsedMemory();
+}

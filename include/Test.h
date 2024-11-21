@@ -262,6 +262,8 @@ public:
 	void Clear() override;
 	static void RegisterFactories();
 
+	void FreeMemory() override;
+
 
 private:
 	inline static bool _registeredFactories = false;

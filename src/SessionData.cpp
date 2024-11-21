@@ -316,6 +316,11 @@ void SessionData::FailNumberInputsToGenerate(int64_t fails, int64_t)
 		_generation.load()->FailGeneration(fails);
 }
 
+uint64_t SessionData::GetUsedMemory()
+{
+	return _memory_mem;
+}
+
 bool SessionData::WriteData(unsigned char* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);

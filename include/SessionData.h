@@ -150,7 +150,7 @@ public:
 	/// </summary>
 	const double GENERATION_WEIGHT_LIMIT = 0.9f;
 
-	private:
+private:
 	/// <summary>
 	/// the period of end session and save checks are performed
 	/// </summary>
@@ -366,6 +366,12 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	TestExitStats& GetTestExitStats();
+
+	/// <summary>
+	/// Returns the currently used memory in MB
+	/// </summary>
+	/// <returns></returns>
+	uint64_t GetUsedMemory();
 
 	std::vector<std::shared_ptr<Input>> GetTopK(int32_t k);
 	std::vector<std::shared_ptr<Input>> GetTopK_Unfinished(int32_t k);

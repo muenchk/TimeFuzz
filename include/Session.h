@@ -214,6 +214,12 @@ public:
 	void UI_GetCurrentGeneration(UI::UIGeneration& gen);
 
 	/// <summary>
+	/// Returns the currently used memory in MB
+	/// </summary>
+	/// <returns></returns>
+	uint64_t UI_GetMemoryUsage();
+
+	/// <summary>
 	/// Returns a string with information about the session
 	/// </summary>
 	/// <returns></returns>

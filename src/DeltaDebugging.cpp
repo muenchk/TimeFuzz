@@ -36,6 +36,7 @@ namespace Functions
 		}
 
 		_DDcontroller->CallbackTest(_input);
+		_input->test->UnsetFlag(Form::FormFlags::DoNotFree);
 
 		// ----- SESSION STUFF -----
 		// contrary to normal test cases, we do not need to generate new tests as this
@@ -161,6 +162,7 @@ namespace DeltaDebugging
 		_totaltests = 0;
 		_callback = callback;
 		input->SetFlag(Form::FormFlags::DoNotFree);
+		input->derive->SetFlag(Form::FormFlags::DoNotFree);
 		input->SetFlag(Input::Flags::DeltaDebugged);
 		if (input->GetGenerated() == false) {
 			// we are trying to add an _input that hasn't been generated or regenerated
@@ -285,6 +287,8 @@ namespace DeltaDebugging
 							if (ptr) {
 								_activeInputs.insert(ptr);
 								ptr->SetFlag(Form::FormFlags::DoNotFree);
+								if (ptr->derive)
+									ptr->derive->SetFlag(Form::FormFlags::DoNotFree);
 							}
 						}
 						_sessiondata->data->DeleteForm(inp);
@@ -304,6 +308,8 @@ namespace DeltaDebugging
 						if (ptr) {
 							_activeInputs.insert(ptr);
 							ptr->SetFlag(Form::FormFlags::DoNotFree);
+							if (ptr->derive)
+								ptr->derive->SetFlag(Form::FormFlags::DoNotFree);
 						}
 					}
 					_sessiondata->data->DeleteForm(inp);
@@ -313,6 +319,7 @@ namespace DeltaDebugging
 
 			// try to find derivation tree for our input
 			inp->derive = _sessiondata->data->CreateForm<DerivationTree>();
+			inp->derive->SetFlag(Form::FormFlags::DoNotFree);
 			inp->derive->_inputID = inp->GetFormID();
 			_sessiondata->_grammar->Extract(_input->derive, inp->derive, inp->GetParentSplitBegin(), inp->GetParentSplitLength(), _input->Length(), inp->GetParentSplitComplement());
 			if (inp->derive->_valid == false) {
@@ -387,6 +394,8 @@ namespace DeltaDebugging
 							if (ptr) {
 								_activeInputs.insert(ptr);
 								ptr->SetFlag(Form::FormFlags::DoNotFree);
+								if (ptr->derive)
+									ptr->derive->SetFlag(Form::FormFlags::DoNotFree);
 							}
 						}
 						_sessiondata->data->DeleteForm(inp);
@@ -406,6 +415,8 @@ namespace DeltaDebugging
 						if (ptr) {
 							_activeInputs.insert(ptr);
 							ptr->SetFlag(Form::FormFlags::DoNotFree);
+							if (ptr->derive)
+								ptr->derive->SetFlag(Form::FormFlags::DoNotFree);
 						}
 					}
 					_sessiondata->data->DeleteForm(inp);
@@ -415,6 +426,7 @@ namespace DeltaDebugging
 
 			// try to find derivation tree for our input
 			inp->derive = _sessiondata->data->CreateForm<DerivationTree>();
+			inp->derive->SetFlag(Form::FormFlags::DoNotFree);
 			inp->derive->_inputID = inp->GetFormID();
 
 			_sessiondata->_grammar->Extract(_input->derive, inp->derive, inp->GetParentSplitBegin(), inp->GetParentSplitLength(), _input->Length(), inp->GetParentSplitComplement());
@@ -574,8 +586,11 @@ namespace DeltaDebugging
 			for (auto ptr : _completedTests)
 			{
 				// if the ptr is not in the list of results
-				if (_results.find(ptr) == _results.end())
+				if (_results.find(ptr) == _results.end()) {
 					ptr->UnsetFlag(Form::FormFlags::DoNotFree);
+					if (ptr->derive)
+						ptr->derive->UnsetFlag(Form::FormFlags::DoNotFree);
+				}
 			}
 			_completedTests.clear();
 		};
@@ -839,9 +854,14 @@ namespace DeltaDebugging
 
 	void DeltaController::Finish()
 	{
-		for (auto [ptr, pair] : _results)
+		for (auto [ptr, pair] : _results) {
 			ptr->UnsetFlag(Form::FormFlags::DoNotFree);
+			if (ptr->derive)
+				ptr->derive->UnsetFlag(Form::FormFlags::DoNotFree);
+		}
 		_origInput->UnsetFlag(Form::FormFlags::DoNotFree);
+		if (_origInput->derive)
+			_origInput->derive->UnsetFlag(Form::FormFlags::DoNotFree);
 		_activeInputs.clear();
 		_completedTests.clear();
 		if (_callback) {
@@ -1025,7 +1045,13 @@ namespace DeltaDebugging
 					_sessiondata = resolver->ResolveFormID<SessionData>(Data::StaticFormIDs::SessionData);
 					_self = resolver->ResolveFormID<DeltaController>(this->GetFormID());
 					_input = resolver->ResolveFormID<Input>(input);
+					if (_input->HasFlag(Form::FormFlags::DoNotFree) == false) {
+						_input->SetFlag(Form::FormFlags::DoNotFree);
+					}
 					_origInput = resolver->ResolveFormID<Input>(origInput);
+					if (_origInput->HasFlag(Form::FormFlags::DoNotFree) == false) {
+						_origInput->SetFlag(Form::FormFlags::DoNotFree);
+					}
 					// results
 					for (size_t i = 0; i < res.size(); i++) {
 						auto ptr = resolver->ResolveFormID<Input>(res[i]);

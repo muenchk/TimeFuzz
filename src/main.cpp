@@ -511,6 +511,8 @@ int32_t main(int32_t argc, char** argv)
 				static bool wopen = true;
 				ImGui::Begin("Control", &wopen);
 				if (wopen) {
+					ImGui::Text("Memory Usage:    %lluMB", session->UI_GetMemoryUsage());
+					ImGui::NewLine();
 					ImGui::Checkbox("Status window", &showStatusWindow);
 					ImGui::Checkbox("Avanced status window", &showAdvancedWindow);
 					ImGui::Checkbox("Top K inputs window", &showTopK);

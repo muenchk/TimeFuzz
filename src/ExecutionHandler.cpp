@@ -279,6 +279,7 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 		id = _nextid++;
 	}
 	std::shared_ptr<Test> test = _sessiondata->data->CreateForm<Test>();
+	test->SetFlag(Form::FormFlags::DoNotFree);
 	test->Init(callback, id);
 	if (test->_exitreason & Test::ExitReason::InitError) {
 		_sessiondata->data->DeleteForm(test);

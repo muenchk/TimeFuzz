@@ -685,12 +685,32 @@ void Test::Delete(Data*)
 void Test::Clear()
 {
 	_running = false;
+	_cmdArgs = "";
+	_scriptArgs = "";
 	_input.reset();
 	InValidate();
 	if (_callback)
 	{
 		_callback->Dispose();
 		_callback.reset();
+	}
+}
+
+void Test::FreeMemory()
+{
+	if (TryLock()) {
+		if (HasFlag(Form::FormFlags::DoNotFree) == false)
+		{
+			if (_storeoutput == false)
+				_output = "";
+			_scriptArgs = "";
+			_scriptArgs.shrink_to_fit();
+			_cmdArgs = "";
+			_cmdArgs.shrink_to_fit();
+			_lastwritten = "";
+			_lastwritten.shrink_to_fit();
+		}
+		Form::Unlock();
 	}
 }
 
@@ -736,6 +756,7 @@ namespace Functions
 			SessionFunctions::TestEnd(_sessiondata, _input);
 		}
 		_input->UnsetFlag(Form::FormFlags::DoNotFree);
+		_input->test->UnsetFlag(Form::FormFlags::DoNotFree);
 		// schedule test generation
 		SessionFunctions::GenerateTests(_sessiondata);
 		// perform master checks
@@ -786,6 +807,7 @@ namespace Functions
 		// but delete it instead
 		SessionFunctions::TestEnd(_sessiondata, _input, true);
 		_input->UnsetFlag(Form::FormFlags::DoNotFree);
+		_input->test->UnsetFlag(Form::FormFlags::DoNotFree);
 	}
 }
 

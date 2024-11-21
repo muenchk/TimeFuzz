@@ -478,11 +478,6 @@ void Input::FreeMemory()
 			if (_generatedSequence && test && test->IsValid() == false && !test->_callback) {
 				_generatedSequence = false;
 
-				if (derive) {
-					// automatically sets derive to invalid
-					if (derive->_valid)
-						derive->FreeMemory();
-				}
 				_sequence.clear();
 				_orig_sequence.clear();
 			}
@@ -496,9 +491,7 @@ void Input::FreeMemory()
 		// reset python string
 		_pythonconverted = false;
 		_pythonstring = "";
-		// reset test _itr
-		if (test)
-			test->_itr = _sequence.end();
+		_pythonstring.shrink_to_fit();
 
 		Form::Unlock();
 	}
