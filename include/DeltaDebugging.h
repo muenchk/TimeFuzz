@@ -9,6 +9,7 @@
 #include <set>
 
 class SessionData;
+class RangeIterator;
 
 namespace DeltaDebugging
 {
@@ -68,7 +69,11 @@ namespace DeltaDebugging
 		/// Expected effectiveness: very low
 		/// </summary>
 		Standard = 0,
-
+		/// <summary>
+		/// Custom imlementation that attempts to remove parts of the input where no progress in terms of primary score
+		/// is being made
+		/// </summary>
+		ScoreProgress = 1 << 0,
 	};
 
 	enum class DDGoal
@@ -225,6 +230,21 @@ namespace DeltaDebugging
 		};
 
 		/// <summary>
+		/// generates a single complement
+		/// </summary>
+		/// <param name="begin"></param>
+		/// <param name="end"></param>
+		/// <param name="approxthreshold"></param>
+		/// <returns></returns>
+		std::shared_ptr<Input> GetComplement(int32_t begin, int32_t end, double approxthreshold);
+		bool CheckInput(std::shared_ptr<Input> inp, double approxthreshold);
+		/// <summary>
+		/// Add tests to the sessions executionhanler
+		/// </summary>
+		/// <param name="inputs"></param>
+		void AddTests(std::vector<std::shared_ptr<Input>>& inputs);
+
+		/// <summary>
 		/// Generates [number] subset from [::_input]
 		/// </summary>
 		/// <param name="number"></param>
@@ -246,6 +266,12 @@ namespace DeltaDebugging
 		/// </summary>
 		void StandardEvaluateLevel();
 
+		/// <summary>
+		/// Generates subsets from [::_input] with maximum removed length being size
+		/// </summary>
+		/// <param name="splitinfo"></param>
+		/// <returns></returns>
+		std::vector<std::shared_ptr<Input>> ScoreProgressGenerateComplements(int32_t size);
 
 		void ScoreProgressGenerateFirstLevel();
 
@@ -293,6 +319,8 @@ namespace DeltaDebugging
 
 		std::shared_ptr<Input> _input;
 
+		std::vector<std::pair<size_t, size_t>> _inputRanges;
+
 		std::shared_ptr<SessionData> _sessiondata;
 
 		std::shared_ptr<DeltaController> _self;
@@ -304,6 +332,8 @@ namespace DeltaDebugging
 		std::mutex _completedTestsLock;
 
 		std::shared_ptr<Functions::BaseFunction> _callback;
+
+		double _bestScore = 0.0f;
 
 		/// <summary>
 		/// start parameters of the instance
@@ -343,13 +373,27 @@ class RangeIterator
 	/// total length
 	/// </summary>
 	size_t _length = 0;
+	/// <summary>
+	/// longest range
+	/// </summary>
+	size_t _maxRange = 0;
 
 public:
-	RangeIterator(std::vector<std::pair<size_t, size_t>>& ranges,bool skipfirst)
+	RangeIterator(std::vector<std::pair<size_t, size_t>>* ranges,bool skipfirst)
 	{
-		_ranges = &ranges;
+		_ranges = ranges;
 		_skipfirst = skipfirst;
 		_length = GetLength();
+
+		// calc max range
+		size_t result = 0;
+		for (size_t i = 0; i < _ranges->size(); i++) {
+			if (_skipfirst && result < _ranges->at(i).second - 1)
+				result = _ranges->at(i).second - 1;
+			else if (_skipfirst == false && result < _ranges->at(i).second)
+				result = _ranges->at(i).second;
+		}
+		_maxRange = result;
 	}
 	/// <summary>
 	/// returns the length of all non-unique items in the range
@@ -411,9 +455,49 @@ public:
 			}
 			else
 			{
+				auto [begin, length] = _ranges->at(i);
+				size_t position = 0;
+				if (_skipfirst)
+					position = 1;
+				while (position < length) {
+					if (length - position > maxsize)
+						result.push_back({ begin + position, maxsize });
+					else
+						result.push_back({ begin + position, length - position });
 
+					position += maxsize;
+				}
 			}
-
 		}
+		return result;
+	}
+	std::vector<std::pair<size_t, size_t>> GetRangesAbove(size_t minsize)
+	{
+		std::vector<std::pair<size_t, size_t>> result;
+		for (size_t i = 0; i < _ranges->size(); i++) {
+			if (_ranges->at(i).second > minsize) {
+				if (_skipfirst)
+					result.push_back({ _ranges->at(i).first + 1, _ranges->at(i).second - 1 });
+				else
+					result.push_back({ _ranges->at(i).first, _ranges->at(i).second });
+			} else {
+				auto [begin, length] = _ranges->at(i);
+				size_t position = 0;
+				if (_skipfirst)
+					position = 1;
+				while (position < length) {
+					if (length - position > minsize)
+						result.push_back({ begin + position, minsize });
+
+					position += minsize;
+				}
+			}
+		}
+		return result;
+	}
+
+	size_t GetMaxRange()
+	{
+		return _maxRange;
 	}
 };

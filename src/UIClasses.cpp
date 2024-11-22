@@ -42,6 +42,8 @@ std::string UIDeltaDebugging::GetMode()
 	{
 	case DDMode::Standard:
 		return "Standard";
+	case DDMode::ScoreProgress:
+		return "ScoreProgress";
 	}
 	return "Unknown";
 }
@@ -189,7 +191,7 @@ int64_t UIGeneration::GetNumberOfSources()
 }
 void UIGeneration::GetSources(std::vector<UIInput>& inputs)
 { 
-	if (!hasbegun)
+	if (hasbegun)
 	{
 		_generation->GetSources(sources);
 		if (inputs.size() < sources.size())

@@ -826,6 +826,8 @@ bool ExecutionHandler::ReadData(unsigned char* buffer, size_t& offset, size_t le
 				for (int32_t i = 0; i < (int32_t)ids.size(); i++) {
 					if (ids[i] != 0) {
 						auto test = resolver->ResolveFormID<Test>(ids[i]);
+						if (test->HasFlag(Form::FormFlags::DoNotFree) == false)
+							test->SetFlag(Form::FormFlags::DoNotFree);
 						test->Init(test->_callback, test->_identifier);
 						// since we found a test we still need to execute, we need to make sure that our _input contains a valid _input sequence
 						// and regenerate it if not

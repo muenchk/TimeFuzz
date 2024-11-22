@@ -1,10 +1,10 @@
 {
-    "version": 2,
-    "cmakeMinimumRequired": {
-        "major": 3,
-        "minor": 21,
-        "patch": 0
-    },
+  "version": 2,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
   "configurePresets": [
     {
       "name": "base",
@@ -255,6 +255,20 @@
         "CMAKE_BUILD_TYPE": {
           "type": "STRING",
           "value": "Release"
+        }
+      }
+    },
+    {
+      "name": "kali-debug",
+      "inherits": [
+        "linux"
+      ],
+      "displayName": "Kali",
+      "binaryDir": "${sourceDir}/buildKaliDebug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": {
+          "type": "STRING",
+          "value": "Debug"
         }
       }
     },

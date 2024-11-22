@@ -1,6 +1,6 @@
 build/
 buildLinux/
-buildKali/
+buildKali*
 buildall/
 buildRelease/
 .vs/

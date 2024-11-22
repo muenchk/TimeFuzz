@@ -171,8 +171,27 @@ namespace DeltaDebugging
 			if (input->GetGenerated() == false)
 				return false;
 		}
-		if (input->Length() == 0) 
+		if (input->Length() == 0)
 			return false;
+		switch (_params->GetGoal())
+		{
+		case DDGoal::MaximizePrimaryScore:
+			_bestScore = _input->GetPrimaryScore();
+			break;
+		case DDGoal::MaximizeSecondaryScore:
+			_bestScore = _input->GetSecondaryScore();
+			break;
+		case DDGoal::ReproduceResult:
+			switch (((ReproduceResult*)_params)->secondarygoal) {
+			case DDGoal::MaximizePrimaryScore:
+				_bestScore = _input->GetPrimaryScore();
+				break;
+			case DDGoal::MaximizeSecondaryScore:
+				_bestScore = _input->GetSecondaryScore();
+				break;
+			}
+			break;
+		}
 		switch (_params->mode) {
 		case DDMode::Standard:
 			{
@@ -180,6 +199,16 @@ namespace DeltaDebugging
 				// it uses division of the _input in form of binary search and executes the
 				// subsets and its complements
 				StandardGenerateFirstLevel();
+			}
+			break;
+		case DDMode::ScoreProgress:
+			{
+				// custom mode
+				// it uses division of the _input in form of binary search and only removes subsets form the input
+				// that show no primary progress
+				// executes only complements
+				_inputRanges = _input->FindIndividualPrimaryScoreRangesWithoutChanges();
+				ScoreProgressGenerateFirstLevel();
 			}
 			break;
 		}
@@ -210,6 +239,9 @@ namespace DeltaDebugging
 		switch (_params->mode) {
 		case DDMode::Standard:
 			StandardEvaluateLevel();
+			break;
+		case DDMode::ScoreProgress:
+			ScoreProgressEvaluateLevel();
 			break;
 		}
 	}
@@ -264,7 +296,7 @@ namespace DeltaDebugging
 				}
 			}
 
-			// check against exclusion tree
+			/*// check against exclusion tree
 			if (_sessiondata->_settings->dd.approximativeTestExecution && _params->GetGoal() == DDGoal::MaximizePrimaryScore) {
 				auto [hasPrefix, prefixID, hasextension, extensionID] = _sessiondata->_excltree->HasPrefixAndShortestExtension(inp);
 				if (hasextension) {
@@ -332,12 +364,140 @@ namespace DeltaDebugging
 
 			inp->SetGenerated();
 			inp->SetGenerationTime(_sessiondata->data->GetRuntime());
-			inp->SetGenerationID(_sessiondata->GetCurrentGenerationID());
-			splits.push_back(inp);
+			inp->SetGenerationID(_sessiondata->GetCurrentGenerationID());*/
+			if (CheckInput(inp, approxthreshold))
+				splits.push_back(inp);
 
 		}
 		profile(TimeProfiling, "Time taken for split generation.");
 		return splits;
+	}
+
+	bool DeltaController::CheckInput(std::shared_ptr<Input> inp, double approxthreshold)
+	{
+		// check against exclusion tree
+		if (_sessiondata->_settings->dd.approximativeTestExecution && _params->GetGoal() == DDGoal::MaximizePrimaryScore) {
+			auto [hasPrefix, prefixID, hasextension, extensionID] = _sessiondata->_excltree->HasPrefixAndShortestExtension(inp);
+			if (hasextension) {
+				auto parent = _sessiondata->data->LookupFormID<Input>(extensionID);
+				if (parent && parent->GetPrimaryScore() > approxthreshold) {
+					// do the other stuff
+				} else {
+					_sessiondata->IncExcludedApproximation();
+					_sessiondata->data->DeleteForm(inp);
+					return false;
+				}
+			} else {
+				if (hasPrefix == false) {
+					// do the other stuff
+				} else {
+					_sessiondata->IncGeneratedWithPrefix();
+					_tests++;
+					if (prefixID != 0) {
+						auto ptr = _sessiondata->data->LookupFormID<Input>(prefixID);
+						if (ptr) {
+							_activeInputs.insert(ptr);
+							ptr->SetFlag(Form::FormFlags::DoNotFree);
+							if (ptr->derive)
+								ptr->derive->SetFlag(Form::FormFlags::DoNotFree);
+						}
+					}
+					_sessiondata->data->DeleteForm(inp);
+					return false;
+				}
+			}
+		} else {
+			FormID prefixID = 0;
+			bool hasPrefix = _sessiondata->_excltree->HasPrefix(inp, prefixID);
+			if (hasPrefix == false) {
+				// do the other stuff
+			} else {
+				_sessiondata->IncGeneratedWithPrefix();
+				_tests++;
+				if (prefixID != 0) {
+					auto ptr = _sessiondata->data->LookupFormID<Input>(prefixID);
+					if (ptr) {
+						_activeInputs.insert(ptr);
+						ptr->SetFlag(Form::FormFlags::DoNotFree);
+						if (ptr->derive)
+							ptr->derive->SetFlag(Form::FormFlags::DoNotFree);
+					}
+				}
+				_sessiondata->data->DeleteForm(inp);
+				return false;
+			}
+		}
+
+		// try to find derivation tree for our input
+		inp->derive = _sessiondata->data->CreateForm<DerivationTree>();
+		inp->derive->SetFlag(Form::FormFlags::DoNotFree);
+		inp->derive->_inputID = inp->GetFormID();
+
+		_sessiondata->_grammar->Extract(_input->derive, inp->derive, inp->GetParentSplitBegin(), inp->GetParentSplitLength(), _input->Length(), inp->GetParentSplitComplement());
+		if (inp->derive->_valid == false) {
+			// the input cannot be derived from the given grammar
+			logwarn("The split cannot be derived from the grammar.");
+			_sessiondata->data->DeleteForm(inp->derive);
+			_sessiondata->data->DeleteForm(inp);
+			return false;
+		}
+
+		inp->SetGenerated();
+		inp->SetGenerationTime(_sessiondata->data->GetRuntime());
+		inp->SetGenerationID(_sessiondata->GetCurrentGenerationID());
+		return true;
+	}
+
+	std::shared_ptr<Input> DeltaController::GetComplement(int32_t begin, int32_t end, double approxthreshold)
+	{
+		DeltaInformation dcmpl;
+		dcmpl.positionbegin = (int32_t)begin;
+		dcmpl.length = (int32_t)end;
+		dcmpl.complement = true;
+
+		if ((int32_t)_input->Length() - dcmpl.length < _sessiondata->_settings->dd.executeAboveLength)
+			return {};
+
+		auto inp = _sessiondata->data->CreateForm<Input>();
+		inp->SetFlag(Form::FormFlags::DoNotFree);
+		inp->SetParentSplitInformation(_input->GetFormID(), dcmpl.positionbegin, dcmpl.length, dcmpl.complement);
+
+		// extract the new input first so we can check against the exclusion tree
+		size_t count = 0;
+		auto itr = _input->begin();
+		while (itr != _input->end()) {
+			// if the current position is less then the beginning of the split itself, or if it is after the split
+			// sequence is over
+			if (count < dcmpl.positionbegin || count >= (size_t)(dcmpl.positionbegin + dcmpl.length))
+				inp->AddEntry(*itr);
+			count++;
+			itr++;
+		}
+
+		if (CheckInput(inp, approxthreshold))
+			return inp;
+		else
+			return {};
+	}
+
+	void DeltaController::AddTests(std::vector<std::shared_ptr<Input>>& inputs)
+	{
+		int32_t fails = 0;
+		for (int32_t i = 0; i < (int32_t)inputs.size(); i++) {
+			auto call = dynamic_pointer_cast<Functions::DDTestCallback>(Functions::DDTestCallback::Create());
+			call->_DDcontroller = _self;
+			call->_input = inputs[i];
+			call->_sessiondata = _sessiondata;
+			// add the tests bypassing regular tests so we can get this done with as fast as possible
+			if (_sessiondata->_exechandler->AddTest(inputs[i], call, _params->bypassTests) == false) {
+				fails++;
+				_sessiondata->IncAddTestFails();
+				_sessiondata->data->DeleteForm(inputs[i]);
+				call->Dispose();
+			} else
+				_activeInputs.insert(inputs[i]);
+		}
+		_remainingtests -= fails;
 	}
 
 	std::vector<std::shared_ptr<Input>> DeltaController::GenerateComplements(std::vector<DeltaInformation>& splitinfo)
@@ -346,7 +506,8 @@ namespace DeltaDebugging
 		double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
 		std::vector<std::shared_ptr<Input>> complements;
 		for (int32_t i = 0; i < (int32_t)splitinfo.size(); i++) {
-			DeltaInformation dcmpl;
+			auto inp = GetComplement((int32_t)splitinfo[i].positionbegin, (int32_t)splitinfo[i].length, approxthreshold);
+			/*DeltaInformation dcmpl;
 			dcmpl.positionbegin = (int32_t)splitinfo[i].positionbegin;
 			dcmpl.length = (int32_t)splitinfo[i].length;
 			dcmpl.complement = true;
@@ -440,8 +601,9 @@ namespace DeltaDebugging
 
 			inp->SetGenerated();
 			inp->SetGenerationTime(_sessiondata->data->GetRuntime());
-			inp->SetGenerationID(_sessiondata->GetCurrentGenerationID());
-			complements.push_back(inp);
+			inp->SetGenerationID(_sessiondata->GetCurrentGenerationID());*/
+			if (inp)
+				complements.push_back(inp);
 		}
 		profile(TimeProfiling, "Time taken for complement generation.");
 		return complements;
@@ -479,89 +641,8 @@ namespace DeltaDebugging
 		_tests = 0;
 		_remainingtests = (int32_t)splits.size() + (int32_t)complements.size();
 		// temp
-		auto addtests = [this, approxthreshold](std::vector<std::shared_ptr<Input>>& splits) {
-			int32_t fails = 0;
-			for (int32_t i = 0; i < (int32_t)splits.size(); i++) {
-				// only execute _input if the length is above our settings and
-				// it isn't present in the exclusiontree
-
-				/* auto procPrefix = [this, &splits, &fails, &i](bool hasPrefix, FormID prefixID) {
-					if (hasPrefix == false) {
-						auto call = dynamic_pointer_cast<Functions::DDTestCallback>(Functions::DDTestCallback::Create());
-						call->_DDcontroller = _self;
-						call->_input = splits[i];
-						call->_sessiondata = _sessiondata;
-						// add the tests bypassing regular tests so we can get this done with as fast as possible
-						if (_sessiondata->_exechandler->AddTest(splits[i], call, _params->bypassTests) == false) {
-							fails++;
-							_sessiondata->IncAddTestFails();
-							_sessiondata->data->DeleteForm(splits[i]);
-							call->Dispose();
-						} else
-							_activeInputs.insert(splits[i]);
-					} else {
-						_sessiondata->IncGeneratedWithPrefix();
-						fails++;
-						_tests++;
-						if (prefixID != 0) {
-							auto ptr = _sessiondata->data->LookupFormID<Input>(prefixID);
-							if (ptr)
-								_activeInputs.insert(ptr);
-						}
-						_sessiondata->data->DeleteForm(splits[i]);
-					}
-				};
-
-				if (_sessiondata->_settings->dd.approximativeTestExecution && _params->GetGoal() == DDGoal::MaximizePrimaryScore) {
-					auto [hasPrefix, prefixID, hasextension, extensionID] = _sessiondata->_excltree->HasPrefixAndShortestExtension(splits[i]);
-					if (hasextension) {
-						auto parent = _sessiondata->data->LookupFormID<Input>(extensionID);
-						if (parent && parent->GetPrimaryScore() > approxthreshold) {
-							auto call = dynamic_pointer_cast<Functions::DDTestCallback>(Functions::DDTestCallback::Create());
-							call->_DDcontroller = _self;
-							call->_input = splits[i];
-							call->_sessiondata = _sessiondata;
-							// add the tests bypassing regular tests so we can get this done with as fast as possible
-							if (_sessiondata->_exechandler->AddTest(splits[i], call, _params->bypassTests) == false) {
-								fails++;
-								_sessiondata->IncAddTestFails();
-								_sessiondata->data->DeleteForm(splits[i]);
-								call->Dispose();
-							} else
-								_activeInputs.insert(splits[i]);
-						} else {
-							fails++;
-							_sessiondata->IncExcludedApproximation();
-							_sessiondata->data->DeleteForm(splits[i]);
-						}
-						continue;
-					}
-					else
-					{
-						procPrefix(hasPrefix, prefixID);
-					}
-				} else {
-					FormID prefixID = 0;
-					bool hasPrefix = _sessiondata->_excltree->HasPrefix(splits[i], prefixID);
-					procPrefix(hasPrefix, prefixID);
-				}*/
-				auto call = dynamic_pointer_cast<Functions::DDTestCallback>(Functions::DDTestCallback::Create());
-				call->_DDcontroller = _self;
-				call->_input = splits[i];
-				call->_sessiondata = _sessiondata;
-				// add the tests bypassing regular tests so we can get this done with as fast as possible
-				if (_sessiondata->_exechandler->AddTest(splits[i], call, _params->bypassTests) == false) {
-					fails++;
-					_sessiondata->IncAddTestFails();
-					_sessiondata->data->DeleteForm(splits[i]);
-					call->Dispose();
-				} else
-					_activeInputs.insert(splits[i]);
-			}
-			_remainingtests -= fails;
-		};
-		addtests(splits);
-		addtests(complements);
+		AddTests(splits);
+		AddTests(complements);
 		// check if all the input results are already known
 		if (_remainingtests == 0) {
 			// start new callback to avoid blocking for too long, and to avoid reentry into the lock as
@@ -571,12 +652,6 @@ namespace DeltaDebugging
 			_sessiondata->_controller->AddTask(callback);
 		}
 		profile(TimeProfiling, "Time taken to generate next dd level.");
-	}
-
-	void DeltaController::ScoreProgressGenerateNextLevel()
-	{
-		StartProfiling;
-		std::vector<DeltaInformation> splitinfo;
 	}
 
 	void DeltaController::StandardEvaluateLevel()
@@ -729,11 +804,8 @@ namespace DeltaDebugging
 				auto rinputs = sortprimary();
 				_activeInputs.clear();
 
-				double _primary = _origInput->GetPrimaryScore() > _input->GetPrimaryScore() ?
-				                      _origInput->GetPrimaryScore() :
-				                      _input->GetPrimaryScore();
-				auto loss = [_primary](std::shared_ptr<Input> input) {
-					return 1 - (input->GetPrimaryScore() / _primary);
+				auto loss = [this](std::shared_ptr<Input> input) {
+					return 1 - (input->GetPrimaryScore() / _bestScore);
 				};
 
 				std::vector<std::shared_ptr<Input>> passing;
@@ -771,6 +843,8 @@ namespace DeltaDebugging
 				} else {
 					// set new base _input
 					_input = passing[0];
+					if (_bestScore < _input->GetPrimaryScore())
+						_bestScore = _input->GetPrimaryScore();
 					// adjust level
 					_level = std::max(_level - 1, 2);
 					// run next generation
@@ -842,6 +916,8 @@ namespace DeltaDebugging
 				} else {
 					// set new base _input
 					_input = passing[0];
+					if (_bestScore < _input->GetSecondaryScore())
+						_bestScore = _input->GetSecondaryScore();
 					// adjust level
 					_level = std::max(_level - 1, 2);
 					// run next generation
@@ -849,6 +925,168 @@ namespace DeltaDebugging
 				}
 			}
 			break;
+		}
+	}
+
+	std::vector<std::shared_ptr<Input>> DeltaController::ScoreProgressGenerateComplements(int32_t level)
+	{
+		StartProfiling;
+		double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
+		std::vector<std::shared_ptr<Input>> complements;
+		RangeIterator rangeIterator(&_inputRanges, true);
+		size_t size = rangeIterator.GetLength() / level;
+		
+		auto ranges = rangeIterator.GetRangesAbove(size);
+		for (size_t i = 0; i < ranges.size(); i++)
+		{
+			auto [begin, length] = ranges[i];
+
+			auto inp = GetComplement((int32_t)begin, (int32_t)length, approxthreshold);
+			if (inp)
+				complements.push_back(inp);
+		}
+
+
+		profile(TimeProfiling, "Time taken for complement generation");
+		return complements;
+	}
+
+	void DeltaController::ScoreProgressGenerateFirstLevel()
+	{
+		// level is the max size of ranges that can be removed from an input
+		_level = 2;
+
+		ScoreProgressGenerateNextLevel();
+	}
+
+	void DeltaController::ScoreProgressGenerateNextLevel()
+	{
+		StartProfiling;
+
+		// insurance
+		if (_input->GetGenerated() == false) {
+			// we are trying to add an _input that hasn't been generated or regenerated
+			// try the generate it and if it succeeds add the test
+			SessionFunctions::GenerateInput(_input, _sessiondata);
+			if (_input->GetGenerated() == false)
+				Finish();
+		}
+
+		auto complements = ScoreProgressGenerateComplements(_level);
+		// set internals
+		_tests = 0;
+		_remainingtests = (int32_t)complements.size();
+
+		AddTests(complements);
+
+		// check if all the input results are already known
+		if (_remainingtests == 0)
+		{
+			// start new callback to avoid blocking for too long, and to avoid reentry into the lock as
+			// the Evaluation Methods are blocking
+			auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
+			callback->_DDcontroller = _self;
+			_sessiondata->_controller->AddTask(callback);
+		}
+		profile(TimeProfiling, "Time taken to generate next dd level.");
+	}
+
+	void DeltaController::ScoreProgressEvaluateLevel()
+	{
+		// lambda that clears the DoNotFree flags on inputs that are no longer needed
+		auto clearFlags = [this]() {
+			for (auto ptr : _completedTests) {
+				// if the ptr is not in the list of results
+				if (_results.find(ptr) == _results.end()) {
+					ptr->UnsetFlag(Form::FormFlags::DoNotFree);
+					if (ptr->derive)
+						ptr->derive->UnsetFlag(Form::FormFlags::DoNotFree);
+				}
+			}
+			_completedTests.clear();
+		};
+
+		std::unique_lock<std::shared_mutex> guard(_lock);
+		switch (_params->GetGoal()) {
+		case DDGoal::None:
+			// some weird shenanigans that should not happen at all
+			Finish();
+			break;
+		case DDGoal::ReproduceResult:
+		case DDGoal::MaximizeSecondaryScore:
+		case DDGoal::MaximizePrimaryScore:
+			// there is only one option for this method anyway
+			{
+				MaximizePrimaryScore* mpparams = (MaximizePrimaryScore*)_params;
+
+				struct PrimaryLess
+				{
+					bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
+					{
+						return lhs->GetPrimaryScore() > rhs->GetPrimaryScore();
+					}
+				};
+
+				// automatically sorted based on the primary score
+				// begin() -> end() == higher score -> lower score
+				auto sortprimary = [this]() {
+					std::set<std::shared_ptr<Input>, PrimaryLess> res;
+					auto itr = _completedTests.begin();
+					while (itr != _completedTests.end()) {
+						res.insert(*itr);
+						itr++;
+					}
+					return res;
+				};
+				auto rinputs = sortprimary();
+				_activeInputs.clear();
+
+				double _primary = _origInput->GetPrimaryScore() > _input->GetPrimaryScore() ?
+				                      _origInput->GetPrimaryScore() :
+				                      _input->GetPrimaryScore();
+				auto loss = [_primary](std::shared_ptr<Input> input) {
+					return 1 - (input->GetPrimaryScore() / _primary);
+				};
+				std::vector<std::shared_ptr<Input>> passing;
+				std::vector<double> ploss;
+				auto itr = rinputs.begin();
+				while (itr != rinputs.end()) {
+					double l = loss(*itr);
+					if (l < mpparams->acceptableLoss) {
+						passing.push_back(*itr);
+						ploss.push_back(l);
+						_results.insert_or_assign(*itr, std::pair<double, int32_t>{ l, _level });
+					}
+					itr++;
+				}
+				// we have found all results, so free all inputs that we do not need anymore
+				clearFlags();
+
+				if (passing.size() == 0) {
+					if (_level >= (int32_t)RangeIterator(&_inputRanges, true).GetMaxRange()) {
+						// we have already reached the maximum level
+						// so we are effectively done with delta debugging.
+						// Since our results are naturally integrated into the overall database we
+						// don't need to do anything, but set the finished flag and we are done
+						_finished = true;
+						Finish();
+						return;
+					}
+
+					// no inputs were found that reproduce the original result
+					// so we increase the level and try new sets of inputs
+					_level = std::min(_level * 2, (int32_t)RangeIterator(&_inputRanges, true).GetMaxRange());
+					ScoreProgressGenerateNextLevel();
+				} else {
+					// set new base _input
+					_input = passing[0];
+					auto initranges = _input->FindIndividualPrimaryScoreRangesWithoutChanges();
+					// adjust level
+					_level = std::max(_level -1, 2);
+					// run next generation
+					ScoreProgressGenerateNextLevel();
+				}
+			}
 		}
 	}
 

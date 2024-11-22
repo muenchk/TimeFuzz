@@ -251,6 +251,7 @@ void SessionData::GetGenerationIDs(std::vector<std::pair<FormID, FormID>>& gens,
 	{
 		gens[i] = { itr->first, itr->second->GetGenerationNumber() };
 		itr++;
+		i++;
 	}
 }
 

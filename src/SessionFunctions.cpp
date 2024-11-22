@@ -257,6 +257,8 @@ void SessionFunctions::EndSession_Async(std::shared_ptr<SessionData> sessiondata
 
 Data::VisitAction HandleForms(std::shared_ptr<Form> form)
 {
+	if (form->GetType() == FormType::DevTree)
+		return Data::VisitAction::None;
 	form->FreeMemory();
 	return Data::VisitAction::None;
 }
@@ -581,6 +583,8 @@ std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDeb
 {
 	DeltaDebugging::DDGoal goal = DeltaDebugging::DDGoal::MaximizePrimaryScore;
 	DeltaDebugging::DDMode mode = sessiondata->_settings->dd.mode;
+	if (input->IsIndividualPrimaryScoresEnabled())
+		mode = DeltaDebugging::DDMode::ScoreProgress;
 	DeltaDebugging::DDParameters* params = nullptr;
 	switch (goal)
 	{
@@ -606,6 +610,7 @@ std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDeb
 		}
 		break;
 	}
+	params->mode = mode;
 	params->bypassTests = bypassTests;
 	params->minimalSubsetSize = (int32_t)sessiondata->_settings->dd.executeAboveLength + 1;
 	auto control = sessiondata->data->CreateForm<DeltaDebugging::DeltaController>();
@@ -829,35 +834,41 @@ namespace Functions
 
 	void GenerationEndCallback::Run()
 	{
-		// this callback calculates the top k inputs that will be kept for future generation of new inputs
-		// it will start k delta controllers for the top k inputs
-		// the callback for the delta controllers are instance of GenerationFinishedCallback
-		// if all delta controllers are finished the transtion will begin
+		if (_sessiondata->_settings->dd.deltadebugging) {
+			// this callback calculates the top k inputs that will be kept for future generation of new inputs
+			// it will start k delta controllers for the top k inputs
+			// the callback for the delta controllers are instance of GenerationFinishedCallback
+			// if all delta controllers are finished the transtion will begin
 
-		// get top 5 percent generated inputs //_sessiondata->_settings->generation.generationsize * 0.05
-		std::vector<std::shared_ptr<Input>> topk;
-		if (_sessiondata->_settings->generation.allowBacktrackFailedInputs)
-			topk = _sessiondata->GetTopK((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));
-		else
-			topk = _sessiondata->GetTopK_Unfinished((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));
+			// get top 5 percent generated inputs //_sessiondata->_settings->generation.generationsize * 0.05
+			std::vector<std::shared_ptr<Input>> topk;
+			if (_sessiondata->_settings->generation.allowBacktrackFailedInputs)
+				topk = _sessiondata->GetTopK((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));
+			else
+				topk = _sessiondata->GetTopK_Unfinished((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));
 
-		// indicates whether we were able to start delta debugging
-		bool begun = false;
-		for (auto ptr : topk)
-		{
-			auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
-			callback->_sessiondata = _sessiondata;
-			auto ddcontroller = SessionFunctions::BeginDeltaDebugging(_sessiondata, ptr, callback, false);
-			if (ddcontroller) {
-				_sessiondata->GetCurrentGeneration()->AddDDController(ddcontroller);
-				begun = true;
+			// indicates whether we were able to start delta debugging
+			bool begun = false;
+			for (auto ptr : topk) {
+				auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
+				callback->_sessiondata = _sessiondata;
+				auto ddcontroller = SessionFunctions::BeginDeltaDebugging(_sessiondata, ptr, callback, false);
+				if (ddcontroller) {
+					_sessiondata->GetCurrentGeneration()->AddDDController(ddcontroller);
+					begun = true;
+				}
+			}
+
+			if (begun == false) {
+				// we haven't been able to start delta debugging, so add Generation Finished callback ourselves
+
+				auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
+				callback->_sessiondata = _sessiondata;
+				_sessiondata->_controller->AddTask(callback);
 			}
 		}
-
-		if (begun == false)
+		else
 		{
-			// we haven't been able to start delta debugging, so add Generation Finished callback ourselves
-
 			auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
 			callback->_sessiondata = _sessiondata;
 			_sessiondata->_controller->AddTask(callback);

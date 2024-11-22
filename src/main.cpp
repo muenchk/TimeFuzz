@@ -519,7 +519,7 @@ int32_t main(int32_t argc, char** argv)
 					ImGui::Checkbox("Profiling window", &showProfiling);
 					ImGui::Checkbox("Delta Debugging window", &showDeltaDebugging);
 					ImGui::Checkbox("Show Thread Status", &showThreadStatus);
-					ImGui::Checkbox("Show Generation window", &showThreadStatus);
+					ImGui::Checkbox("Show Generation window", &showGeneration);
 					ImGui::Text("Latency: %.3f ms, FPS: %.1f", 1000.0f / io.Framerate, io.Framerate);
 				}
 				ImGui::End();
@@ -774,7 +774,7 @@ int32_t main(int32_t argc, char** argv)
 							ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable | ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_ScrollY;
 
 						// do something with sources
-						if (ImGui::BeginTable("Sources", 7, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 2), 0.0f)) {
+						if (ImGui::BeginTable("Sources", 7, flags, ImVec2(0.0f, 0.0f), 0.0f)) {
 							ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputID);
 							ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputLength);
 							ImGui::TableSetupColumn("Primary Score", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputPrimaryScore);
@@ -789,7 +789,7 @@ int32_t main(int32_t argc, char** argv)
 
 							// use clipper for large vertical lists
 							ImGuiListClipper clipper;
-							clipper.Begin((int32_t)numsources);
+							clipper.Begin((int32_t)numsources <= sources.size() ? (int32_t)numsources : (int32_t)sources.size());
 							while (clipper.Step()) {
 								for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
 									auto item = &sources[i];
@@ -1025,10 +1025,14 @@ int32_t main(int32_t argc, char** argv)
 					static UI::UIDeltaDebugging dd;
 					static bool changed = false;
 					// try to find active deltadebugging
-					if (ActiveGeneration.Initialized() && (dd.Initialized() == false || dd.Finished() == true))
-					{
+					if (ActiveGeneration.Initialized() && dd.Initialized() == false) {
+						if (!updatedddcontrollers) {
+							ActiveGeneration.GetDDControllers(ddcontrollers, numddcontrollers);
+							updatedddcontrollers = true;
+						}
 						changed = true;
-						session->UI_FindDeltaDebugging(dd);
+						if (ddcontrollers.size() > 0)
+							dd = ddcontrollers[0];
 					}
 
 					static std::string preview;
@@ -1042,8 +1046,10 @@ int32_t main(int32_t argc, char** argv)
 
 					if (ActiveGeneration.Initialized()) {
 						if (ImGui::BeginCombo("Active DD Sessions", preview.c_str())) {
-							if (!updatedddcontrollers)
+							if (!updatedddcontrollers) {
 								ActiveGeneration.GetDDControllers(ddcontrollers, numddcontrollers);
+								updatedddcontrollers = true;
+							}
 							if (numddcontrollers == 0) {
 								const bool is_selected = true;
 								ImGui::Selectable("None", is_selected);
