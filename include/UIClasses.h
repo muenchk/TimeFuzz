@@ -91,7 +91,8 @@ namespace UI
 			InputResult,
 			InputFlags,
 			InputAction,
-			InputLoss,
+			InputLossPrimary,
+			InputLossSecondary,
 			InputLevel,
 		};
 
@@ -100,7 +101,8 @@ namespace UI
 		double primaryScore;
 		double secondaryScore;
 		UI::Result result;
-		double loss;
+		double primaryLoss;
+		double secondaryLoss;
 		int32_t level;
 		EnumType flags;
 	};

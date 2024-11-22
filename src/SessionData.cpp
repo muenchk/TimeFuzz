@@ -190,6 +190,67 @@ std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Unfinished(int32_t k)
 	return ret;
 }
 
+std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Secondary(int32_t k)
+{
+	if (k == 1)
+	{
+		auto itr = std::max_element(_unfinishedInputs.begin(), _unfinishedInputs.end(), [](std::shared_ptr<InputNode> lhs, std::shared_ptr<InputNode> rhs) {
+			if (lhs->secondary == rhs->secondary)
+				return lhs->primary > rhs->primary;
+			else
+				return lhs->secondary > rhs->secondary;
+			});
+		auto itra = std::max_element(_negativeInputs.begin(), _negativeInputs.end(), [](std::shared_ptr<InputNode> lhs, std::shared_ptr<InputNode> rhs) {
+			if (lhs->secondary == rhs->secondary)
+				return lhs->primary > rhs->primary;
+			else
+				return lhs->secondary > rhs->secondary;
+		});
+		if (itr == _unfinishedInputs.end() && itra == _negativeInputs.end())
+			return {};
+		else if (itr == _unfinishedInputs.end())
+			return { (*itra)->input.lock() };
+		else if (itra == _negativeInputs.end())
+			return { (*itr)->input.lock() };
+		else
+			return {
+				std::max(*itr, *itra, [](std::shared_ptr<InputNode> lhs, std::shared_ptr<InputNode> rhs) {
+					if (lhs->secondary == rhs->secondary)
+						return lhs->primary > rhs->primary;
+					else
+						return lhs->secondary > rhs->secondary;
+				})->input.lock()
+			};
+	}
+	else
+	{
+		std::multiset<std::shared_ptr<InputNode>, InputNodeLessSecondary> set;
+		std::vector<std::shared_ptr<Input>> ret;
+		int32_t count = 0;
+		auto itr = _unfinishedInputs.begin();
+		while (itr != _unfinishedInputs.end()) {
+			set.insert(*itr);
+			itr++;
+			count++;
+		}
+		count = 0;
+		itr = _negativeInputs.begin();
+		while (itr != _negativeInputs.end()) {
+			set.insert(*itr);
+			itr++;
+			count++;
+		}
+		count = 0;
+		itr = set.begin();
+		while (count < k && itr != set.end()) {
+			ret.push_back((*itr)->input.lock());
+			itr++;
+			count++;
+		}
+		return ret;
+	}
+}
+
 std::shared_ptr<Generation> SessionData::GetCurrentGeneration()
 {
 	if (_settings->generation.generationalMode)
@@ -427,10 +488,10 @@ bool SessionData::ReadData0x1(unsigned char* buffer, size_t& offset, size_t /*le
 		tmp = Buffer::ReadUInt64(buffer, offset);
 		negInp[i] = { tmp, Buffer::ReadDouble(buffer, offset) };
 	}
-	resolver->AddTask([&_negInputs = _negativeInputs, negInp, resolver]() {
+	resolver->AddLateTask([&_negInputs = _negativeInputs, negInp, resolver]() {
 		for (int64_t i = 0; i < (int64_t)negInp.size(); i++) {
 			auto shared = resolver->ResolveFormID<Input>(negInp[i].first);
-			if (shared) {
+			if (shared && shared->derive && shared->test) {
 				auto node = std::make_shared<InputNode>();
 				node->input = shared;
 				node->weight = negInp[i].second;
@@ -448,10 +509,10 @@ bool SessionData::ReadData0x1(unsigned char* buffer, size_t& offset, size_t /*le
 		tmp = Buffer::ReadUInt64(buffer, offset);
 		unfInp[i] = { tmp, Buffer::ReadDouble(buffer, offset) };
 	}
-	resolver->AddTask([&_unfInputs = _unfinishedInputs, unfInp, resolver]() {
+	resolver->AddLateTask([&_unfInputs = _unfinishedInputs, unfInp, resolver]() {
 		for (int64_t i = 0; i < (int64_t)unfInp.size(); i++) {
 			auto shared = resolver->ResolveFormID<Input>(unfInp[i].first);
-			if (shared) {
+			if (shared && shared->derive && shared->test) {
 				auto node = std::make_shared<InputNode>();
 				node->input = shared;
 				node->weight = unfInp[i].second;

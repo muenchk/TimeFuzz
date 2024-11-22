@@ -176,18 +176,24 @@ namespace DeltaDebugging
 		switch (_params->GetGoal())
 		{
 		case DDGoal::MaximizePrimaryScore:
-			_bestScore = _input->GetPrimaryScore();
+			_bestScore = { _input->GetPrimaryScore(), 0.0f };
 			break;
 		case DDGoal::MaximizeSecondaryScore:
-			_bestScore = _input->GetSecondaryScore();
+			_bestScore = { 0.0f, _input->GetSecondaryScore() };
+			break;
+		case DDGoal::MaximizeBothScores:
+			_bestScore = { _input->GetPrimaryScore(), _input->GetSecondaryScore() };
 			break;
 		case DDGoal::ReproduceResult:
 			switch (((ReproduceResult*)_params)->secondarygoal) {
 			case DDGoal::MaximizePrimaryScore:
-				_bestScore = _input->GetPrimaryScore();
+				_bestScore = { _input->GetPrimaryScore(), 0.0f };
 				break;
 			case DDGoal::MaximizeSecondaryScore:
-				_bestScore = _input->GetSecondaryScore();
+				_bestScore = { 0.0f, _input->GetSecondaryScore() };
+				break;
+			case DDGoal::MaximizeBothScores:
+				_bestScore = { _input->GetPrimaryScore(), _input->GetSecondaryScore() };
 				break;
 			}
 			break;
@@ -658,8 +664,7 @@ namespace DeltaDebugging
 	{
 		// lambda that clears the DoNotFree flags on inputs that are no longer needed
 		auto clearFlags = [this]() {
-			for (auto ptr : _completedTests)
-			{
+			for (auto ptr : _completedTests) {
 				// if the ptr is not in the list of results
 				if (_results.find(ptr) == _results.end()) {
 					ptr->UnsetFlag(Form::FormFlags::DoNotFree);
@@ -669,6 +674,15 @@ namespace DeltaDebugging
 			}
 			_completedTests.clear();
 		};
+
+		auto lossPrimary = [this](std::shared_ptr<Input> input) {
+			return 1 - (input->GetPrimaryScore() / _bestScore.first);
+		};
+
+		auto lossSecondary = [this](std::shared_ptr<Input> input) {
+			return 1 - (input->GetSecondaryScore() / _bestScore.second);
+		};
+
 
 		std::unique_lock<std::shared_mutex> guard(_lock);
 		switch (_params->GetGoal()) {
@@ -685,7 +699,7 @@ namespace DeltaDebugging
 					while (itr != _activeInputs.end()) {
 						if (oracle == (*itr)->GetOracleResult()) {
 							res.push_back(*itr);
-							_results.insert_or_assign(*itr, std::pair<double, int32_t>{ 0, _level });
+							_results.insert_or_assign(*itr, std::tuple<double, double, int32_t>{ 0, 0, _level });
 						}
 						itr++;
 					}
@@ -786,7 +800,7 @@ namespace DeltaDebugging
 				{
 					bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
 					{
-						return lhs->GetPrimaryScore() > rhs->GetPrimaryScore();
+						return lhs->GetPrimaryScore() == rhs->GetPrimaryScore() ? lhs->GetSecondaryScore() > rhs->GetSecondaryScore() : lhs->GetPrimaryScore() > rhs->GetPrimaryScore();
 					}
 				};
 
@@ -804,20 +818,15 @@ namespace DeltaDebugging
 				auto rinputs = sortprimary();
 				_activeInputs.clear();
 
-				auto loss = [this](std::shared_ptr<Input> input) {
-					return 1 - (input->GetPrimaryScore() / _bestScore);
-				};
-
 				std::vector<std::shared_ptr<Input>> passing;
 				std::vector<double> ploss;
 				auto itr = rinputs.begin();
-				while (itr != rinputs.end())
-				{
-					double l = loss(*itr);
+				while (itr != rinputs.end()) {
+					double l = lossPrimary(*itr);
 					if (l < mpparams->acceptableLoss) {
 						passing.push_back(*itr);
 						ploss.push_back(l);
-						_results.insert_or_assign(*itr, std::pair<double, int32_t>{ l, _level });
+						_results.insert_or_assign(*itr, std::tuple<double, double, int32_t>{ l, 0.0f, _level });
 					}
 					itr++;
 				}
@@ -843,8 +852,8 @@ namespace DeltaDebugging
 				} else {
 					// set new base _input
 					_input = passing[0];
-					if (_bestScore < _input->GetPrimaryScore())
-						_bestScore = _input->GetPrimaryScore();
+					if (_bestScore.first < _input->GetPrimaryScore())
+						_bestScore = { _input->GetPrimaryScore(), 0.0f };
 					// adjust level
 					_level = std::max(_level - 1, 2);
 					// run next generation
@@ -860,7 +869,7 @@ namespace DeltaDebugging
 				{
 					bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
 					{
-						return lhs->GetSecondaryScore() > rhs->GetSecondaryScore();
+						return lhs->GetSecondaryScore() == rhs->GetSecondaryScore() ? lhs->GetPrimaryScore() > rhs->GetSecondaryScore() : lhs->GetSecondaryScore() > rhs->GetSecondaryScore();
 					}
 				};
 
@@ -878,19 +887,15 @@ namespace DeltaDebugging
 				auto rinputs = sortprimary();
 				_activeInputs.clear();
 
-				auto loss = [this](std::shared_ptr<Input> input) {
-					return 1 - (input->GetSecondaryScore() / this->_origInput->GetSecondaryScore());
-				};
-
 				std::vector<std::shared_ptr<Input>> passing;
 				std::vector<double> ploss;
 				auto itr = rinputs.begin();
 				while (itr != rinputs.end()) {
-					double l = loss(*itr);
+					double l = lossSecondary(*itr);
 					if (l < mpparams->acceptableLossSecondary) {
 						passing.push_back(*itr);
 						ploss.push_back(l);
-						_results.insert_or_assign(*itr, std::pair<double, int32_t>{ l, _level });
+						_results.insert_or_assign(*itr, std::tuple<double, double, int32_t>{ 0.0f, l, _level });
 					}
 					itr++;
 				}
@@ -916,8 +921,78 @@ namespace DeltaDebugging
 				} else {
 					// set new base _input
 					_input = passing[0];
-					if (_bestScore < _input->GetSecondaryScore())
-						_bestScore = _input->GetSecondaryScore();
+					if (_bestScore.second < _input->GetSecondaryScore())
+						_bestScore = { 0.0f, _input->GetSecondaryScore() };
+					// adjust level
+					_level = std::max(_level - 1, 2);
+					// run next generation
+					StandardGenerateNextLevel();
+				}
+			}
+			break;
+		case DDGoal::MaximizeBothScores:
+			{
+				MaximizeBothScores* mbparams = (MaximizeBothScores*)_params;
+
+				struct PrimaryLess
+				{
+					bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
+					{
+						return lhs->GetPrimaryScore() == rhs->GetPrimaryScore() ? lhs->GetSecondaryScore() > rhs->GetSecondaryScore() : lhs->GetPrimaryScore() > rhs->GetPrimaryScore();
+					}
+				};
+
+				// automatically sorted based on the primary score
+				// begin() -> end() == higher score -> lower score
+				auto sortprimary = [this]() {
+					std::set<std::shared_ptr<Input>, PrimaryLess> res;
+					auto itr = _activeInputs.begin();
+					while (itr != _activeInputs.end()) {
+						res.insert(*itr);
+						itr++;
+					}
+					return res;
+				};
+				auto rinputs = sortprimary();
+				_activeInputs.clear();
+
+				std::vector<std::shared_ptr<Input>> passing;
+				std::vector<std::pair<double, double>> ploss;
+				auto itr = rinputs.begin();
+				while (itr != rinputs.end()) {
+					double priml = lossPrimary(*itr);
+					double seconl = lossSecondary(*itr);
+					if (priml < mbparams->acceptableLossPrimary && seconl < mbparams->acceptableLossSecondary) {
+						passing.push_back(*itr);
+						ploss.push_back({priml, seconl});
+						_results.insert_or_assign(*itr, std::tuple<double, double, int32_t>{ priml, seconl, _level });
+					}
+					itr++;
+				}
+
+				// we have found all results, so free all inputs that we do not need anymore
+				clearFlags();
+
+				if (passing.size() == 0) {
+					if (_level >= (int32_t)_input->Length()) {
+						// we have already reached the maximum level
+						// so we are effectively done with delta debugging.
+						// Since our results are naturally integrated into the overall database we
+						// don't need to do anything, but set the finished flag and we are done
+						_finished = true;
+						Finish();
+						return;
+					}
+
+					// no inputs were found that reproduce the original result
+					// so we increase the level and try new sets of inputs
+					_level = std::min(_level * 2, (int32_t)_input->Length());
+					StandardGenerateNextLevel();
+				} else {
+					// set new base _input
+					_input = passing[0];
+					if (_bestScore.first < _input->GetPrimaryScore())
+						_bestScore = { _input->GetPrimaryScore(), 0.0f };
 					// adjust level
 					_level = std::max(_level - 1, 2);
 					// run next generation
@@ -1006,87 +1081,136 @@ namespace DeltaDebugging
 			_completedTests.clear();
 		};
 
+		auto lossPrimary = [this](std::shared_ptr<Input> input) {
+			return 1 - (input->GetPrimaryScore() / _bestScore.first);
+		};
+
+		auto lossSecondary = [this](std::shared_ptr<Input> input) {
+			return 1 - (input->GetSecondaryScore() / _bestScore.second);
+		};
+
 		std::unique_lock<std::shared_mutex> guard(_lock);
-		switch (_params->GetGoal()) {
-		case DDGoal::None:
-			// some weird shenanigans that should not happen at all
-			Finish();
-			break;
-		case DDGoal::ReproduceResult:
-		case DDGoal::MaximizeSecondaryScore:
-		case DDGoal::MaximizePrimaryScore:
-			// there is only one option for this method anyway
+
+		struct PrimaryLess
+		{
+			bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
 			{
-				MaximizePrimaryScore* mpparams = (MaximizePrimaryScore*)_params;
+				return lhs->GetPrimaryScore() == rhs->GetPrimaryScore() ? lhs->GetSecondaryScore() > rhs->GetSecondaryScore() : lhs->GetPrimaryScore() > rhs->GetPrimaryScore();
+			}
+		};
 
-				struct PrimaryLess
-				{
-					bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
-					{
-						return lhs->GetPrimaryScore() > rhs->GetPrimaryScore();
-					}
-				};
+		struct SecondaryLess
+		{
+			bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
+			{
+				return lhs->GetSecondaryScore() == rhs->GetSecondaryScore() ? lhs->GetPrimaryScore() > rhs->GetSecondaryScore() : lhs->GetSecondaryScore() > rhs->GetSecondaryScore();
+			}
+		};
 
-				// automatically sorted based on the primary score
-				// begin() -> end() == higher score -> lower score
-				auto sortprimary = [this]() {
-					std::set<std::shared_ptr<Input>, PrimaryLess> res;
-					auto itr = _completedTests.begin();
-					while (itr != _completedTests.end()) {
-						res.insert(*itr);
-						itr++;
-					}
-					return res;
-				};
-				auto rinputs = sortprimary();
-				_activeInputs.clear();
+		// automatically sorted based on the primary score
+		// begin() -> end() == higher score -> lower score
+		auto sortprimary = [this]() {
+			std::set<std::shared_ptr<Input>, PrimaryLess> res;
+			auto itr = _completedTests.begin();
+			while (itr != _completedTests.end()) {
+				res.insert(*itr);
+				itr++;
+			}
+			return res;
+		};
+		auto sortsecondary = [this]() {
+			std::set<std::shared_ptr<Input>, SecondaryLess> res;
+			auto itr = _completedTests.begin();
+			while (itr != _completedTests.end()) {
+				res.insert(*itr);
+				itr++;
+			}
+			return res;
+		};
 
-				double _primary = _origInput->GetPrimaryScore() > _input->GetPrimaryScore() ?
-				                      _origInput->GetPrimaryScore() :
-				                      _input->GetPrimaryScore();
-				auto loss = [_primary](std::shared_ptr<Input> input) {
-					return 1 - (input->GetPrimaryScore() / _primary);
-				};
-				std::vector<std::shared_ptr<Input>> passing;
-				std::vector<double> ploss;
+		std::vector<std::shared_ptr<Input>> passing;
+		std::vector<std::pair<double, double>> ploss;
+		switch (_params->GetGoal()) {
+		case DDGoal::MaximizeSecondaryScore:
+			{
+				MaximizeSecondaryScore* msparams = (MaximizeSecondaryScore*)_params;
+				auto rinputs = sortsecondary();
 				auto itr = rinputs.begin();
 				while (itr != rinputs.end()) {
-					double l = loss(*itr);
-					if (l < mpparams->acceptableLoss) {
+					double l = lossSecondary(*itr);
+					if (l < msparams->acceptableLossSecondary) {
 						passing.push_back(*itr);
-						ploss.push_back(l);
-						_results.insert_or_assign(*itr, std::pair<double, int32_t>{ l, _level });
+						ploss.push_back({ 0.0f, l });
+						_results.insert_or_assign(*itr, std::tuple<double, double, int32_t>{ l, 0.0f, _level });
 					}
 					itr++;
 				}
-				// we have found all results, so free all inputs that we do not need anymore
-				clearFlags();
-
-				if (passing.size() == 0) {
-					if (_level >= (int32_t)RangeIterator(&_inputRanges, true).GetMaxRange()) {
-						// we have already reached the maximum level
-						// so we are effectively done with delta debugging.
-						// Since our results are naturally integrated into the overall database we
-						// don't need to do anything, but set the finished flag and we are done
-						_finished = true;
-						Finish();
-						return;
+			}
+			break;
+		case DDGoal::MaximizePrimaryScore:
+			{
+				MaximizePrimaryScore* mpparams = (MaximizePrimaryScore*)_params;
+				auto rinputs = sortprimary();
+				auto itr = rinputs.begin();
+				while (itr != rinputs.end()) {
+					double l = lossPrimary(*itr);
+					if (l < mpparams->acceptableLoss) {
+						passing.push_back(*itr);
+						ploss.push_back({ l, 0.0f });
+						_results.insert_or_assign(*itr, std::tuple<double, double, int32_t>{ l, 0.0f, _level });
 					}
-
-					// no inputs were found that reproduce the original result
-					// so we increase the level and try new sets of inputs
-					_level = std::min(_level * 2, (int32_t)RangeIterator(&_inputRanges, true).GetMaxRange());
-					ScoreProgressGenerateNextLevel();
-				} else {
-					// set new base _input
-					_input = passing[0];
-					auto initranges = _input->FindIndividualPrimaryScoreRangesWithoutChanges();
-					// adjust level
-					_level = std::max(_level -1, 2);
-					// run next generation
-					ScoreProgressGenerateNextLevel();
+					itr++;
 				}
 			}
+			break;
+		case DDGoal::MaximizeBothScores:
+			{
+				MaximizeBothScores* mbparams = (MaximizeBothScores*)_params;
+				auto rinputs = sortprimary();
+				auto itr = rinputs.begin();
+				while (itr != rinputs.end()) {
+					double priml = lossPrimary(*itr);
+					double seconl = lossSecondary(*itr);
+					if (priml < mbparams->acceptableLossPrimary && seconl < mbparams->acceptableLossSecondary) {
+						passing.push_back(*itr);
+						ploss.push_back({ priml, seconl });
+						_results.insert_or_assign(*itr, std::tuple<double, double, int32_t>{ priml, seconl, _level });
+					}
+					itr++;
+				}
+			}
+			break;
+		}
+		_activeInputs.clear();
+
+		// we have found all results, so free all inputs that we do not need anymore
+		clearFlags();
+
+		if (passing.size() == 0) {
+			if (_level >= (int32_t)RangeIterator(&_inputRanges, true).GetMaxRange()) {
+				// we have already reached the maximum level
+				// so we are effectively done with delta debugging.
+				// Since our results are naturally integrated into the overall database we
+				// don't need to do anything, but set the finished flag and we are done
+				_finished = true;
+				Finish();
+				return;
+			}
+
+			// no inputs were found that reproduce the original result
+			// so we increase the level and try new sets of inputs
+			_level = std::min(_level * 2, (int32_t)RangeIterator(&_inputRanges, true).GetMaxRange());
+			ScoreProgressGenerateNextLevel();
+		} else {
+			// set new base _input
+			_input = passing[0];
+			if (_bestScore.first < _input->GetPrimaryScore())
+				_bestScore = { _input->GetPrimaryScore(), _input->GetSecondaryScore() };
+			auto initranges = _input->FindIndividualPrimaryScoreRangesWithoutChanges();
+			// adjust level
+			_level = std::max(_level - 1, 2);
+			// run next generation
+			ScoreProgressGenerateNextLevel();
 		}
 	}
 
@@ -1110,22 +1234,36 @@ namespace DeltaDebugging
 
 	size_t DeltaController::GetStaticSize(int32_t version)
 	{
-		static size_t size0x1 = 4                       // version
-		                        + 4                     // tasks
-		                        + 4                     // remainingtasks
-		                        + 4                     // tests
-		                        + 4                     // remainingtests
-		                        + 4                     // totaltests
-		                        + 1                     // finished
-		                        + 8                     // origInput
-		                        + 8                     // _input
-		                        + 4                     // level
-		                        + 1;                    // has callback
+		static size_t size0x1 = 4      // version
+		                        + 4    // tasks
+		                        + 4    // remainingtasks
+		                        + 4    // tests
+		                        + 4    // remainingtests
+		                        + 4    // totaltests
+		                        + 1    // finished
+		                        + 8    // origInput
+		                        + 8    // _input
+		                        + 4    // level
+		                        + 1;   // has callback
+		static size_t size0x2 = 4      // version
+		                        + 4    // tasks
+		                        + 4    // remainingtasks
+		                        + 4    // tests
+		                        + 4    // remainingtests
+		                        + 4    // totaltests
+		                        + 1    // finished
+		                        + 8    // origInput
+		                        + 8    // _input
+		                        + 4    // level
+		                        + 1    // has callback
+		                        + 16;  // best score
 
 		switch (version)
 		{
 		case 0x1:
 			return size0x1;
+		case 0x2:
+			return size0x2;
 		default:
 			return 0;
 		}
@@ -1135,7 +1273,7 @@ namespace DeltaDebugging
 	{
 		size_t sz = Form::GetDynamicSize()                                       // form stuff
 		            + GetStaticSize(classversion)                                // static elements
-		            + 8 /*size of results*/ + (8 + 8 + 4) * _results.size()      // formids, loss, and level in results
+		            + 8 /*size of results*/ + (8 + 8 + 8 + 4) * _results.size()  // formids, lossPrimary, lossSecondary, and level in results
 		            + 8 /*size of activeInputs*/ + 8 * _activeInputs.size()      // formids in activeInputs
 		            + 8 /*size of completedTests*/ + 8 * _completedTests.size()  //formids in completedTests
 		            + 4 /*goal type*/ + 8;                                       /*class size*/
@@ -1149,6 +1287,9 @@ namespace DeltaDebugging
 			break;
 		case DDGoal::MaximizeSecondaryScore:
 			sz += sizeof(MaximizeSecondaryScore);
+			break;
+		case DDGoal::MaximizeBothScores:
+			sz += sizeof(MaximizeBothScores);
 			break;
 		case DDGoal::None:
 			sz += sizeof(DDParameters);
@@ -1182,13 +1323,15 @@ namespace DeltaDebugging
 		Buffer::Write(_level, buffer, offset);
 		// results
 		Buffer::WriteSize(_results.size(), buffer, offset);
-		for (auto [ptr, pair] : _results) {
+		for (auto [ptr, tuple] : _results) {
 			if (ptr) {
 				Buffer::Write(ptr->GetFormID(), buffer, offset);
-				Buffer::Write(std::get<0>(pair), buffer, offset);
-				Buffer::Write(std::get<1>(pair), buffer, offset);
+				Buffer::Write(std::get<0>(tuple), buffer, offset);
+				Buffer::Write(std::get<1>(tuple), buffer, offset);
+				Buffer::Write(std::get<2>(tuple), buffer, offset);
 			} else {
 				Buffer::Write((FormID)0, buffer, offset);
+				Buffer::Write((double)0, buffer, offset);
 				Buffer::Write((double)0, buffer, offset);
 				Buffer::Write((int32_t)0, buffer, offset);
 			}
@@ -1232,8 +1375,16 @@ namespace DeltaDebugging
 			Buffer::Write(_params->minimalSubsetSize, buffer, offset);
 			Buffer::Write(_params->bypassTests, buffer, offset);
 			Buffer::Write((int32_t)_params->mode, buffer, offset);
-			Buffer::Write((int32_t)((MaximizeSecondaryScore*)_params)->acceptableLossPrimary, buffer, offset);
 			Buffer::Write((int32_t)((MaximizeSecondaryScore*)_params)->acceptableLossSecondary, buffer, offset);
+			break;
+		case DDGoal::MaximizeBothScores:
+			Buffer::WriteSize(sizeof(MaximizeBothScores), buffer, offset);
+			//Buffer::Write((unsigned char*)_params, buffer, offset, sizeof(MaximizeSecondaryScore));
+			Buffer::Write(_params->minimalSubsetSize, buffer, offset);
+			Buffer::Write(_params->bypassTests, buffer, offset);
+			Buffer::Write((int32_t)_params->mode, buffer, offset);
+			Buffer::Write((int32_t)((MaximizeBothScores*)_params)->acceptableLossPrimary, buffer, offset);
+			Buffer::Write((int32_t)((MaximizeBothScores*)_params)->acceptableLossSecondary, buffer, offset);
 			break;
 		case DDGoal::None:
 			Buffer::WriteSize(sizeof(DDParameters), buffer, offset);
@@ -1244,6 +1395,8 @@ namespace DeltaDebugging
 		Buffer::Write(_callback.operator bool(), buffer, offset);
 		if (_callback)
 			_callback->WriteData(buffer, offset);
+		Buffer::Write(_bestScore.first, buffer, offset);
+		Buffer::Write(_bestScore.second, buffer, offset);
 		return true;
 	}
 
@@ -1283,6 +1436,8 @@ namespace DeltaDebugging
 					_sessiondata = resolver->ResolveFormID<SessionData>(Data::StaticFormIDs::SessionData);
 					_self = resolver->ResolveFormID<DeltaController>(this->GetFormID());
 					_input = resolver->ResolveFormID<Input>(input);
+					_bestScore = { _input->GetPrimaryScore(),
+						_input->GetSecondaryScore() };
 					if (_input->HasFlag(Form::FormFlags::DoNotFree) == false) {
 						_input->SetFlag(Form::FormFlags::DoNotFree);
 					}
@@ -1294,7 +1449,10 @@ namespace DeltaDebugging
 					for (size_t i = 0; i < res.size(); i++) {
 						auto ptr = resolver->ResolveFormID<Input>(res[i]);
 						if (ptr) {
-							_results.insert_or_assign(ptr, std::pair<double, int32_t>{ resloss[i], reslevel[i] });
+							if (_params->GetGoal() == DDGoal::MaximizeSecondaryScore)
+								_results.insert_or_assign(ptr, std::tuple<double, double, int32_t>{ 0.0f, resloss[i], reslevel[i] });
+							else
+								_results.insert_or_assign(ptr, std::tuple<double, double, int32_t>{ resloss[i], 0.0f, reslevel[i] });
 							if (ptr->HasFlag(Form::FormFlags::DoNotFree) == false) {
 								ptr->SetFlag(Form::FormFlags::DoNotFree);
 							}
@@ -1353,7 +1511,7 @@ namespace DeltaDebugging
 					_params->minimalSubsetSize = Buffer::ReadInt32(buffer, offset);
 					_params->bypassTests = Buffer::ReadBool(buffer, offset);
 					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
-					((MaximizeSecondaryScore*)_params)->acceptableLossPrimary = Buffer::ReadFloat(buffer, offset);
+					static_cast<void>(Buffer::ReadFloat(buffer, offset));
 					((MaximizeSecondaryScore*)_params)->acceptableLossSecondary = Buffer::ReadFloat(buffer, offset);
 					break;
 				}
@@ -1363,7 +1521,133 @@ namespace DeltaDebugging
 				bool hascall = Buffer::ReadBool(buffer, offset);
 				if (hascall)
 					_callback = Functions::BaseFunction::Create(buffer, offset, length, resolver);
+				return true;
+			}
+			break;
+		case 0x2:
+			{
+				Form::ReadData(buffer, offset, length, resolver);
+				_tasks = Buffer::ReadInt32(buffer, offset);
+				_remainingtasks = Buffer::ReadInt32(buffer, offset);
+				_tests = Buffer::ReadInt32(buffer, offset);
+				_remainingtests = Buffer::ReadInt32(buffer, offset);
+				_totaltests = Buffer::ReadInt32(buffer, offset);
+				_finished = Buffer::ReadBool(buffer, offset);
+				FormID origInput = Buffer::ReadUInt64(buffer, offset);
+				FormID input = Buffer::ReadUInt64(buffer, offset);
+				_level = Buffer::ReadInt32(buffer, offset);
+				// results
+				size_t reslen = Buffer::ReadSize(buffer, offset);
+				std::vector<FormID> res;
+				std::vector<double> reslossprim;
+				std::vector<double> reslosssecon;
+				std::vector<int32_t> reslevel;
+				for (size_t i = 0; i < reslen; i++) {
+					res.push_back(Buffer::ReadUInt64(buffer, offset));
+					reslossprim.push_back(Buffer::ReadDouble(buffer, offset));
+					reslosssecon.push_back(Buffer::ReadDouble(buffer, offset));
+					reslevel.push_back(Buffer::ReadInt32(buffer, offset));
+				}
+				// activeInputs
+				size_t actIlen = Buffer::ReadSize(buffer, offset);
+				std::vector<FormID> actI;
+				for (size_t i = 0; i < actIlen; i++)
+					actI.push_back(Buffer::ReadUInt64(buffer, offset));
+				// resolver
+				resolver->AddTask([this, resolver, origInput, input, res, reslossprim, reslosssecon, reslevel, actI]() {
+					_sessiondata = resolver->ResolveFormID<SessionData>(Data::StaticFormIDs::SessionData);
+					_self = resolver->ResolveFormID<DeltaController>(this->GetFormID());
+					_input = resolver->ResolveFormID<Input>(input);
+					if (_input->HasFlag(Form::FormFlags::DoNotFree) == false) {
+						_input->SetFlag(Form::FormFlags::DoNotFree);
+					}
+					_origInput = resolver->ResolveFormID<Input>(origInput);
+					if (_origInput->HasFlag(Form::FormFlags::DoNotFree) == false) {
+						_origInput->SetFlag(Form::FormFlags::DoNotFree);
+					}
+					// results
+					for (size_t i = 0; i < res.size(); i++) {
+						auto ptr = resolver->ResolveFormID<Input>(res[i]);
+						if (ptr) {
+							_results.insert_or_assign(ptr, std::tuple<double, double, int32_t>{ reslossprim[i], reslosssecon[i], reslevel[i] });
+							if (ptr->HasFlag(Form::FormFlags::DoNotFree) == false) {
+								ptr->SetFlag(Form::FormFlags::DoNotFree);
+							}
+						}
+					}
+					// activeInputs
+					for (size_t i = 0; i < actI.size(); i++) {
+						auto ptr = resolver->ResolveFormID<Input>(actI[i]);
+						if (ptr) {
+							_activeInputs.insert(ptr);
+							if (ptr->HasFlag(Form::FormFlags::DoNotFree) == false)
+								ptr->SetFlag(Form::FormFlags::DoNotFree);
+						}
+					}
+				});
+				// completedTests
+				size_t cmpllen = Buffer::ReadSize(buffer, offset);
+				std::vector<FormID> complInp;
+				for (size_t i = 0; i < cmpllen; i++)
+					complInp.push_back(Buffer::ReadUInt64(buffer, offset));
+				resolver->AddTask([this, resolver, complInp]() {
+					for (size_t i = 0; i < complInp.size(); i++) {
+						auto ptr = resolver->ResolveFormID<Input>(complInp[i]);
+						if (ptr)
+							_completedTests.insert(ptr);
+					}
+				});
+				// params
+				DDGoal goal = (DDGoal)Buffer::ReadInt32(buffer, offset);
+				size_t sz = Buffer::ReadSize(buffer, offset);
+				//unsigned char* dat = Buffer::ReadBuffer(buffer, offset, sz);
+				switch (goal) {
+				case DDGoal::None:
+					_params = new DDParameters;
+					_params->minimalSubsetSize = Buffer::ReadInt32(buffer, offset);
+					_params->bypassTests = Buffer::ReadBool(buffer, offset);
+					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
+					break;
+				case DDGoal::ReproduceResult:
+					_params = new ReproduceResult;
+					_params->minimalSubsetSize = Buffer::ReadInt32(buffer, offset);
+					_params->bypassTests = Buffer::ReadBool(buffer, offset);
+					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
+					((ReproduceResult*)_params)->secondarygoal = (DDGoal)Buffer::ReadInt32(buffer, offset);
+					break;
+				case DDGoal::MaximizePrimaryScore:
+					_params = new MaximizePrimaryScore;
+					_params->minimalSubsetSize = Buffer::ReadInt32(buffer, offset);
+					_params->bypassTests = Buffer::ReadBool(buffer, offset);
+					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
+					((MaximizePrimaryScore*)_params)->acceptableLoss = Buffer::ReadFloat(buffer, offset);
+					break;
+				case DDGoal::MaximizeSecondaryScore:
+					_params = new MaximizeSecondaryScore;
+					_params->minimalSubsetSize = Buffer::ReadInt32(buffer, offset);
+					_params->bypassTests = Buffer::ReadBool(buffer, offset);
+					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
+					((MaximizeSecondaryScore*)_params)->acceptableLossSecondary = Buffer::ReadFloat(buffer, offset);
+					break;
+				case DDGoal::MaximizeBothScores:
+					_params = new MaximizeBothScores;
+					_params->minimalSubsetSize = Buffer::ReadInt32(buffer, offset);
+					_params->bypassTests = Buffer::ReadBool(buffer, offset);
+					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
+					((MaximizeBothScores*)_params)->acceptableLossPrimary = Buffer::ReadFloat(buffer, offset);
+					((MaximizeBothScores*)_params)->acceptableLossSecondary = Buffer::ReadFloat(buffer, offset);
+					break;
+				}
+				//memcpy((void*)_params, dat, sz);
+				//delete dat;
+				// _callback
+				bool hascall = Buffer::ReadBool(buffer, offset);
+				if (hascall)
+					_callback = Functions::BaseFunction::Create(buffer, offset, length, resolver);
 
+				double prim = Buffer::ReadDouble(buffer, offset);
+				_bestScore = { prim,
+					Buffer::ReadDouble(buffer, offset) };
 				return true;
 			}
 			break;

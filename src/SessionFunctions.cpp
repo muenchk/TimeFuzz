@@ -468,6 +468,11 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 	if (input->_hasfinished == false)
 		logwarn("Somehow its finished even though its not");
 
+	if (!input->test || !input->derive) {
+		logwarn("Input has neither test nor derivationtree");
+		return;
+	}
+
 	// check _input result
 	switch (input->GetOracleResult()) {
 	case OracleResult::Failing:
@@ -499,7 +504,8 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 			// -----Add _input to exclusion tree as result is fixed-----
 			sessiondata->_excltree->AddInput(input, OracleResult::Passing);
 
-
+			// -----Begin Delta Debugging the test with ReproduceResults-----
+			BeginDeltaDebugging(sessiondata, input, {}, true, DeltaDebugging::DDGoal::ReproduceResult);
 
 		}
 		break;
@@ -579,9 +585,10 @@ void SessionFunctions::GenerateTests(std::shared_ptr<SessionData>& sessiondata)
 	sessiondata->_controller->AddTask(callback);
 }
 
-std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDebugging(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback, bool bypassTests)
+std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDebugging(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback, bool bypassTests, DeltaDebugging::DDGoal goal, DeltaDebugging::DDGoal secondarygoal)
 {
-	DeltaDebugging::DDGoal goal = DeltaDebugging::DDGoal::MaximizePrimaryScore;
+	if (goal == DeltaDebugging::DDGoal::None)
+		goal = DeltaDebugging::DDGoal::MaximizeBothScores;
 	DeltaDebugging::DDMode mode = sessiondata->_settings->dd.mode;
 	if (input->IsIndividualPrimaryScoresEnabled())
 		mode = DeltaDebugging::DDMode::ScoreProgress;
@@ -598,6 +605,13 @@ std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDeb
 	case DeltaDebugging::DDGoal::MaximizeSecondaryScore:
 		{
 			DeltaDebugging::MaximizeSecondaryScore* par = new DeltaDebugging::MaximizeSecondaryScore;
+			par->acceptableLossSecondary = (float)sessiondata->_settings->dd.optimizationLossThreshold;
+			params = par;
+		}
+		break;
+	case DeltaDebugging::DDGoal::MaximizeBothScores:
+		{
+			DeltaDebugging::MaximizeBothScores* par = new DeltaDebugging::MaximizeBothScores;
 			par->acceptableLossPrimary = (float)sessiondata->_settings->dd.optimizationLossThreshold;
 			par->acceptableLossSecondary = (float)sessiondata->_settings->dd.optimizationLossThreshold;
 			params = par;
@@ -606,6 +620,7 @@ std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDeb
 	case DeltaDebugging::DDGoal::ReproduceResult:
 		{
 			DeltaDebugging::ReproduceResult* par = new DeltaDebugging::ReproduceResult;
+			par->secondarygoal = secondarygoal;
 			params = par;
 		}
 		break;
@@ -724,10 +739,10 @@ namespace Functions
 						parent->UnsetFlag(Form::FormFlags::DoNotFree);
 				} else
 					input = SessionFunctions::GenerateInput(_sessiondata);
-				// set input generation time
-				input->SetGenerationTime(_sessiondata->data->GetRuntime());
-				input->SetGenerationID(_sessiondata->GetCurrentGenerationID());
 				if (input) {
+					// set input generation time
+					input->SetGenerationTime(_sessiondata->data->GetRuntime());
+					input->SetGenerationID(_sessiondata->GetCurrentGenerationID());
 					logdebug("[MasterGenerationCallback] prefix tree");
 					if (_sessiondata->_excltree->HasPrefix(input) == false) {
 						gencount++;
@@ -834,7 +849,7 @@ namespace Functions
 
 	void GenerationEndCallback::Run()
 	{
-		if (_sessiondata->_settings->dd.deltadebugging) {
+		if (_sessiondata->_settings->dd.deltadebugging && _sessiondata->_settings->dd.allowScoreOptimization) {
 			// this callback calculates the top k inputs that will be kept for future generation of new inputs
 			// it will start k delta controllers for the top k inputs
 			// the callback for the delta controllers are instance of GenerationFinishedCallback
@@ -916,32 +931,71 @@ namespace Functions
 				_sessiondata->SetNewGeneration();
 			loginfo("Gather new sources");
 			// determine new sources and copy them
+
 			std::set<std::shared_ptr<Input>, FormIDLess<Input>> sources;
-			std::set<std::shared_ptr<Input>, InputGainGreater> inputs;
 			// frac is the fraction of the max score that we are check for in this iteration
 			double frac = _sessiondata->_settings->dd.optimizationLossThreshold;
-			double maxPrimary = 0.0f;
-			auto topk = _sessiondata->GetTopK(1);
-			if (topk.size() > 0)
-				maxPrimary = topk[0]->GetPrimaryScore();
-			// if the maxPrimary is 0 just run loop a single time since 0 is the minimal value for primaryScore
-			if (maxPrimary == 0.0f)
-				frac = 1.0f;
-			while ((int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration && frac <= 1.0) {
-				loginfo("Iteration with fractal: {}, and maxPrimaryScore: {}", frac, maxPrimary);
-				inputs.clear();
-				// we don't filter for secondary score at this point
-				_sessiondata->GetLastGeneration()->GetAllInputs<InputGainGreater>(inputs, true, (maxPrimary - (maxPrimary * frac)), 0);
-				auto itr = inputs.begin();
-				while (itr != inputs.end() && (int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration) {
-					if (sources.contains(*itr) == false) {
-						sources.insert(*itr);
-						loginfo("Found New Source: {}", Input::PrintForm(*itr));
-					}
-					itr++;
+			double max = 0.0f;
+
+			switch (_sessiondata->_settings->generation.sourcesType) {
+			case Settings::GenerationSourcesType::FilterLength:
+				{
 				}
-				frac += _sessiondata->_settings->dd.optimizationLossThreshold;
+				break;
+			case Settings::GenerationSourcesType::FilterPrimaryScore:
+				{
+					std::set<std::shared_ptr<Input>, InputGainGreaterPrimary> inputs;
+					auto topk = _sessiondata->GetTopK(1);
+					if (topk.size() > 0)
+						max = topk[0]->GetPrimaryScore();
+					// if the max is 0 just run loop a single time since 0 is the minimal value for primaryScore
+					if (max == 0.0f)
+						frac = 1.0f;
+					while ((int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration && frac <= 1.0) {
+						loginfo("Iteration with fractal: {}, and maxPrimaryScore: {}", frac, max);
+						inputs.clear();
+						// we don't filter for secondary score at this point
+						_sessiondata->GetLastGeneration()->GetAllInputs<InputGainGreaterPrimary>(inputs, true, (max - (max * frac)), 0);
+						auto itr = inputs.begin();
+						while (itr != inputs.end() && (int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration) {
+							if (sources.contains(*itr) == false) {
+								sources.insert(*itr);
+								loginfo("Found New Source: {}", Input::PrintForm(*itr));
+							}
+							itr++;
+						}
+						frac += _sessiondata->_settings->dd.optimizationLossThreshold;
+					}
+				}
+				break;
+			case Settings::GenerationSourcesType::FilterSecondaryScore:
+				{
+					std::set<std::shared_ptr<Input>, InputGainGreaterSecondary> inputs;
+					auto topk = _sessiondata->GetTopK_Secondary(1);
+					if (topk.size() > 0)
+						max = topk[0]->GetSecondaryScore();
+					// if the max is 0 just run loop a single time since 0 is the minimal value for primaryScore
+					if (max == 0.0f)
+						frac = 1.0f;
+					while ((int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration && frac <= 1.0) {
+						loginfo("Iteration with fractal: {}, and maxSecondaryScore: {}", frac, max);
+						inputs.clear();
+						// we don't filter for primary score at this point
+						_sessiondata->GetLastGeneration()->GetAllInputs<InputGainGreaterSecondary>(inputs, true, (max - (max * frac)), 0);
+						auto itr = inputs.begin();
+						while (itr != inputs.end() && (int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration) {
+							if (sources.contains(*itr) == false) {
+								sources.insert(*itr);
+								loginfo("Found New Source: {}", Input::PrintForm(*itr));
+							}
+							itr++;
+						}
+						frac += _sessiondata->_settings->dd.optimizationLossThreshold;
+					}
+				}
+				break;
 			}
+			
 			// we now have the set of new sources
 			auto gen = _sessiondata->GetCurrentGeneration();
 			for (auto input : sources)

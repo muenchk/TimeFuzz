@@ -31,6 +31,12 @@ class LoadResolver;
 class Data
 {
 public:
+	struct LoadSaveArgs
+	{
+		bool skipSettings = false;
+		bool skipExlusionTree = false;
+	};
+
 	struct StaticFormIDs
 	{
 		enum StaticFormID
@@ -158,7 +164,7 @@ private:
 	/// Loads a savefile, where [name] is the fully qualified filename
 	/// </summary>
 	/// <param name="name"></param>
-	void LoadIntern(std::filesystem::path path, bool skipSettings);
+	void LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs);
 
 	void RegisterForms();
 
@@ -208,7 +214,7 @@ public:
 	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 	std::shared_ptr<T> CreateForm()
 	{
-		loginfo("Create Form");
+		//loginfo("Create Form");
 		std::shared_ptr<T> ptr = std::make_shared<T>();
 		FormID formid = 0;
 		{
@@ -361,14 +367,14 @@ public:
 	/// Loads the last savefile with the uniquename [name]
 	/// </summary>
 	/// <param name="name"></param>
-	void Load(std::string name, bool skipSettings = false);
+	void Load(std::string name, LoadSaveArgs& loadArgs);
 	
 	/// <summary>
 	/// Loads the [number]-th savefile with the uniquename [name]
 	/// </summary>
 	/// <param name="name"></param>
 	/// <param name="number"></param>
-	void Load(std::string name, int32_t number, bool skipSettings = false);
+	void Load(std::string name, int32_t number, LoadSaveArgs& loadArgs);
 
 };
 

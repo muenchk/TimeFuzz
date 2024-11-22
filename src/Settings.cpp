@@ -13,6 +13,15 @@ Settings* Settings::GetSingleton()
 	return std::addressof(session);
 }
 
+std::filesystem::path Settings::GetOraclePath()
+{
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+	return oracle.oraclepath;
+#else
+	return oracle.oraclepath_Unix;
+#endif
+}
+
 void Settings::Load(std::wstring path, bool reload)
 {
 	if (initialized && !reload)
@@ -45,6 +54,8 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "Oracle:           ", oracle.oracle_NAME, ::Oracle::TypeString(oracle.oracle));
 	oracle.oraclepath = std::filesystem::path(ini.GetValue("Oracle", oracle.oraclepath_NAME, "."));
 	loginfo("{}{} {}", "Oracle:           ", oracle.oraclepath_NAME, oracle.oraclepath.string());
+	oracle.oraclepath_Unix = std::filesystem::path(ini.GetValue("Oracle", oracle.oraclepath_Unix_NAME, "."));
+	loginfo("{}{} {}", "Oracle:           ", oracle.oraclepath_Unix_NAME, oracle.oraclepath_Unix.string());
 	oracle.lua_path_cmd = std::string(ini.GetValue("Oracle", oracle.lua_path_cmd_NAME, oracle.lua_path_cmd.c_str()));
 	loginfo("{}{} {}", "Oracle:           ", oracle.lua_path_cmd_NAME, oracle.lua_path_cmd);
 	oracle.lua_path_script = std::string(ini.GetValue("Oracle", oracle.lua_path_script_NAME, oracle.lua_path_script.c_str()));
@@ -131,6 +142,13 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "Generation:       ", generation.numberOfInputsToDeltaDebugPerGeneration_NAME, generation.numberOfInputsToDeltaDebugPerGeneration);
 	generation.numberOfSourcesPerGeneration = (int32_t)ini.GetLongValue("Generation", generation.numberOfSourcesPerGeneration_NAME, generation.numberOfSourcesPerGeneration);
 	loginfo("{}{} {}", "Generation:       ", generation.numberOfSourcesPerGeneration_NAME, generation.numberOfSourcesPerGeneration);
+	generation.sourcesType = (GenerationSourcesType)ini.GetLongValue("Generation", generation.sourcesType_NAME, (int32_t)generation.sourcesType);
+	loginfo("{}{} {}", "Generation:       ", generation.sourcesType_NAME, (int32_t)generation.sourcesType);
+
+	generation.generationLengthMin = (int32_t)ini.GetLongValue("Generation", generation.generationLengthMin_NAME, generation.generationLengthMin);
+	loginfo("{}{} {}", "Generation:       ", generation.generationLengthMin_NAME, generation.generationLengthMin);
+	generation.generationLengthMax = (int32_t)ini.GetLongValue("Generation", generation.generationLengthMax_NAME, generation.generationLengthMax);
+	loginfo("{}{} {}", "Generation:       ", generation.generationLengthMax_NAME, generation.generationLengthMax);
 
 	// endconditions
 	conditions.use_foundnegatives = ini.GetBoolValue("EndConditions", conditions.use_foundnegatives_NAME, conditions.use_foundnegatives);
@@ -206,6 +224,7 @@ void Settings::Save(std::wstring _path)
 		"\\\\ \tSTDIN_Responsive\t-\tExecutes a responsive program. One input is given via STDIN at a time, and a response is awaited.\n"
 		"\\\\ \tSTDIN_Dump\t-\tExecutes an unresponsive program. All Inputs are dumped into the standardinput immediately.");
 	ini.SetValue("Oracle", oracle.oraclepath_NAME, oracle.oraclepath.string().c_str(), "\\\\ The path to the oracle.");
+	ini.SetValue("Oracle", oracle.oraclepath_Unix_NAME, oracle.oraclepath_Unix.string().c_str(), "\\\\ The path to the oracle.");
 	ini.SetValue("Oracle", oracle.lua_path_cmd_NAME, oracle.lua_path_cmd.c_str(), "\\\\ The lua script containing the cmdargs function.");
 	ini.SetValue("Oracle", oracle.lua_path_script_NAME, oracle.lua_path_script.c_str(), "\\\\ The lua script containing the ScriptArgs function.");
 	ini.SetValue("Oracle", oracle.lua_path_cmd_replay_NAME, oracle.lua_path_cmd_replay.c_str(), "\\\\ The lua script containing the cmdargs function for replay inputs.");
@@ -260,7 +279,8 @@ void Settings::Save(std::wstring _path)
 	ini.SetLongValue("DeltaDebugging", dd.executeAboveLength_NAME, (long)dd.executeAboveLength, "\\\\ Only executes subsets that are longer than this value to save on the number of tests executed.");
 	ini.SetLongValue("DeltaDebugging", dd.mode_NAME, (long)dd.mode,
 		"\\\\ Algorithm to use for delta debugging.\n"
-		"0 = Standard - DDmin developed by Andreas Zeller executing subsets and their complements");
+		"0 = Standard - DDmin developed by Andreas Zeller executing subsets and their complements\n"
+		"[currently not selectable, activate AllowScoreOptimization instead] 1 = ScoreProgress - DDmin based custom algorithm that removes entries with that show no score progress");
 	ini.SetBoolValue("DeltaDebugging", dd.allowScoreOptimization_NAME, (long)dd.allowScoreOptimization, "\\\\ Allows the application of Delta debugging to reduce generated inputs while optimizing their score instead of reproducing their result.");
 	ini.SetDoubleValue("DeltaDebugging", dd.optimizationLossThreshold_NAME, dd.optimizationLossThreshold, "\\\\ The maximum loss when optimizing score to be considered a success.");
 	ini.SetBoolValue("DeltaDebugging", dd.approximativeTestExecution_NAME, dd.approximativeTestExecution,
@@ -290,6 +310,12 @@ void Settings::Save(std::wstring _path)
 		"\\\\ In each generation new inputs are generated from a few sources, which\n"
 		"\\\\ stem from prior generations. This setting defines the number of inputs\n"
 		"\\\\ that are carries over from one generation into the next as sources.");
+	ini.SetLongValue("Generation", generation.sourcesType_NAME, (int32_t)generation.sourcesType,
+		"\\\\ 0 - Sources for the next generation are taken from the inputs with the best primary score.\n"
+		"\\\\ 1 - Sources for the next generation are taken from the inputs with the best secondary score.\n"
+		"\\\\ 2 - Sources for the next generation are taken from the longest inputs.\n");
+	ini.SetLongValue("Generation", generation.generationLengthMin_NAME, generation.generationLengthMin, "\\\\ Minimum input length generated in each generation.");
+	ini.SetLongValue("Generation", generation.generationLengthMax_NAME, generation.generationLengthMax, "\\\\ Maximum input length generated in each generation.");
 
 	// endconditions
 	ini.SetBoolValue("EndConditions", conditions.use_foundnegatives_NAME, conditions.use_foundnegatives, "\\\\ Stop execution after foundnegatives failing inputs have been found.");

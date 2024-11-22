@@ -178,6 +178,8 @@ void Oracle::ApplyLuaCommands(lua_State* L)
 		// run lua on script
 		if (luaL_dofile(L, _luaCmdArgsPath.string().c_str()) == LUA_OK) {
 			lua_pop(L, lua_gettop(L));
+		} else {
+			logwarn("Cmd Args lua Script could not be read successfully")
 		}
 	}
 
@@ -190,6 +192,8 @@ void Oracle::ApplyLuaCommands(lua_State* L)
 		// run lua on script
 		if (luaL_dofile(L, _luaOraclePath.string().c_str()) == LUA_OK) {
 			lua_pop(L, lua_gettop(L));
+		} else {
+			logwarn("Oracle lua Script could not be read successfully")
 		}
 	}
 
@@ -207,6 +211,8 @@ void Oracle::ApplyLuaCommands(lua_State* L)
 		// run lua on script
 		if (luaL_dofile(L, _luaScriptArgsPath.string().c_str()) == LUA_OK) {
 			lua_pop(L, lua_gettop(L));
+		} else {
+			logwarn("Script Args lua Script could not be read successfully")
 		}
 	}
 }
@@ -397,7 +403,7 @@ bool Oracle::ReadData(unsigned char* buffer, size_t& offset, size_t length, Load
 			// init lua from settings to support cross-platform stuff out of the boc
 			resolver->AddTask([this, resolver]() {
 				auto sett = resolver->ResolveFormID<Settings>(Data::StaticFormIDs::Settings);
-				Set(sett->oracle.oracle, sett->oracle.oraclepath);
+				Set(sett->oracle.oracle, sett->GetOraclePath());
 				auto path = std::filesystem::path(sett->oracle.lua_path_cmd);
 				if (!std::filesystem::exists(path)) {
 					logcritical("Lua CmdArgs script cannot be found.");

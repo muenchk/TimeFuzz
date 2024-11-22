@@ -27,7 +27,7 @@ class Session;
 class Input;
 class SessionData;
 
-struct InputGainGreater
+struct InputGainGreaterPrimary
 {
 	bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
 	{
@@ -37,10 +37,28 @@ struct InputGainGreater
 		// first we add 1 to the ratio value, so 1 is the minimal value, then get the logarithm
 		double oldleft = (lhs->Length() / lhs->GetPrimaryScore());
 		double oldright = (rhs->Length() / rhs->GetPrimaryScore());
-		double left = std::log((lhs->Length() / lhs->GetPrimaryScore()) + 1);
-		double right = std::log((rhs->Length() / rhs->GetPrimaryScore()) + 1);
-		logwarn("Compare Values.\tOL: {},\tOR: {},\tNL: {},\tNR: {}", oldleft, oldright, left, right);
+		//double left = std::log((lhs->Length() / lhs->GetPrimaryScore()) + 1);
+		//double right = std::log((rhs->Length() / rhs->GetPrimaryScore()) + 1);
+		//logwarn("Compare Values.\tOL: {},\tOR: {},\tNL: {},\tNR: {}", oldleft, oldright, left, right);
+		return oldleft < oldright;
+	}
+};
+
+struct InputGainGreaterSecondary
+{
+	bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
+	{
+		double left = (lhs->Length() / lhs->GetSecondaryScore());
+		double right = (rhs->Length() / rhs->GetSecondaryScore());
 		return left < right;
+	}
+};
+
+struct InputLengthGreater
+{
+	bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
+	{
+		return lhs->Length() > rhs->Length();
 	}
 };
 
@@ -189,7 +207,7 @@ public:
 	/// </summary>
 	/// <param name="sessiondata"></param>
 	/// <param name="input"></param>
-	static std::shared_ptr<DeltaDebugging::DeltaController> BeginDeltaDebugging(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback = {}, bool bypassTests = false);
+	static std::shared_ptr<DeltaDebugging::DeltaController> BeginDeltaDebugging(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback = {}, bool bypassTests = false, DeltaDebugging::DDGoal goal = DeltaDebugging::DDGoal::None, DeltaDebugging::DDGoal secondarygoal = DeltaDebugging::DDGoal::ReproduceResult);
 
 private:
 	/// <summary>

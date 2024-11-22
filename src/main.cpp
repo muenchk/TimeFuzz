@@ -69,6 +69,7 @@ void StartSession()
 	args.reloadSettings = CmdArgs::_reloadConfig;
 	args.settingsPath = CmdArgs::_settingspath;
 	args.loadNewGrammar = CmdArgs::_updateGrammar;
+	args.skipExclusionTree = CmdArgs::_doNotLoadExclusionTree;
 
 	if (CmdArgs::_load) {
 		args.startSession = true;
@@ -145,6 +146,7 @@ int32_t main(int32_t argc, char** argv)
 		"    --separatelogfiles         - Writes logfiles to \"/logs\" and uses timestamps in the logname\n"
 		"    --create-conf <PATH>       - Writes a default configuration file to the current folder\n"
 		"    --update-grammar           - Loads a new grammar and sets it as the default grammar for generation\n"
+		"    --No-ExclusionTree         - Skips the loading of data from the exclusion tree\n"
 		"    --debug                    - Enable debug logging\n";
 
 	std::string logpath = "";
@@ -266,6 +268,7 @@ int32_t main(int32_t argc, char** argv)
 				CmdArgs::_settingspath = Utility::ConvertToWideString(std::string_view{ argv[i + 1] }).value();
 				//printf("%ls\t%s\t%s\n", Utility::ConvertToWideString(std::string_view{ argv[i + 1] }).value().c_str(), argv[i + 1]);
 				Settings* settings = new Settings();
+				settings->Load(CmdArgs::_settingspath);
 				settings->Save(CmdArgs::_settingspath);
 				printf("Wrote default configuration file to the specified location: %ls\n", CmdArgs::_settingspath.c_str());
 				exit(ExitCodes::Success);
@@ -1197,7 +1200,7 @@ int32_t main(int32_t argc, char** argv)
 							ImGui::EndTable();
 						}
 						// results table
-						if (ImGui::BeginTable("Results", 9, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 10), 0.0f)) {
+						if (ImGui::BeginTable("Results", 10, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 10), 0.0f)) {
 						ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIDDResult::ColumnID::InputID);
 							ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIDDResult::ColumnID::InputLength);
 							ImGui::TableSetupColumn("Primary Score", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIDDResult::ColumnID::InputPrimaryScore);
@@ -1205,8 +1208,9 @@ int32_t main(int32_t argc, char** argv)
 							ImGui::TableSetupColumn("Result", ImGuiTableColumnFlags_WidthFixed, 120.0f, UI::UIDDResult::ColumnID::InputResult);
 							ImGui::TableSetupColumn("Flags", ImGuiTableColumnFlags_WidthFixed, 80.0f, UI::UIDDResult::ColumnID::InputFlags);
 							ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIDDResult::ColumnID::InputAction);
-							ImGui::TableSetupColumn("Level", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIDDResult::ColumnID::InputLoss);
-							ImGui::TableSetupColumn("Loss", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIDDResult::ColumnID::InputLevel);
+							ImGui::TableSetupColumn("Level", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIDDResult::ColumnID::InputLevel);
+							ImGui::TableSetupColumn("Loss (Primary)", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIDDResult::ColumnID::InputLossPrimary);
+							ImGui::TableSetupColumn("Loss (Secondary)", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIDDResult::ColumnID::InputLossSecondary);
 							ImGui::TableSetupScrollFreeze(0, 1);
 							ImGui::TableHeadersRow();
 
@@ -1247,7 +1251,9 @@ int32_t main(int32_t argc, char** argv)
 									ImGui::TableNextColumn();
 									ImGui::Text("%8d", item->level);
 									ImGui::TableNextColumn();
-									ImGui::Text("%2.4f", item->loss);
+									ImGui::Text("%2.4f", item->primaryLoss);
+									ImGui::TableNextColumn();
+									ImGui::Text("%2.4f", item->secondaryLoss);
 									ImGui::PopID();
 								}
 							}

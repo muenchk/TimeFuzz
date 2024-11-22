@@ -36,6 +36,7 @@ public:
 	static inline std::filesystem::path workdir = L"";
 	static inline bool _debug = false;
 	static inline bool _updateGrammar = false;
+	static inline bool _doNotLoadExclusionTree = false;
 };
 
 class Settings : public Form
@@ -49,6 +50,22 @@ private:
 	bool _skipread = false;
 
 public:
+	enum GenerationSourcesType
+	{
+		/// <summary>
+		/// Sources for the next generation are taken from the inputs with the best primary score
+		/// </summary>
+		FilterPrimaryScore = 0,
+		/// <summary>
+		/// Sources for the next generation are taken from the inputs with the best secondary score
+		/// </summary>
+		FilterSecondaryScore = 1 << 0,
+		/// <summary>
+		/// Sources for the next generation are taken from the longest inputs
+		/// </summary>
+		FilterLength = 1 << 1,
+	};
+
 	/// <summary>
 	/// Returns a singleton the the session
 	/// </summary>
@@ -100,6 +117,11 @@ public:
 		std::filesystem::path oraclepath;
 		const char* oraclepath_NAME = "Path";
 		/// <summary>
+		/// path the the oracle executing program/script OR the PUT itself
+		/// </summary>
+		std::filesystem::path oraclepath_Unix;
+		const char* oraclepath_Unix_NAME = "PathUnix";
+		/// <summary>
 		/// path to the lua script containing the cmd Args
 		/// </summary>
 		std::string lua_path_cmd = "LuaCmdArgs.lua";
@@ -127,6 +149,8 @@ public:
 	};
 
 	Settings::Oracle oracle;
+
+	std::filesystem::path GetOraclePath();
 
 	struct General
 	{
@@ -372,6 +396,21 @@ public:
 		/// </summary>
 		int32_t numberOfSourcesPerGeneration = 20;
 		const char* numberOfSourcesPerGeneration_NAME = "NumberOfSourcesPerGeneration";
+
+		GenerationSourcesType sourcesType = GenerationSourcesType::FilterPrimaryScore;
+		const char* sourcesType_NAME = "SourcesType";
+
+		/// <summary>
+		/// minimum input length generated (/ extended) in each generation
+		/// </summary>
+		int32_t generationLengthMin = 1000;
+		const char* generationLengthMin_NAME = "MinimumGenerationLength";
+
+		/// <summary>
+		/// maximum input length generated (/extended) in each generation
+		/// </summary>
+		int32_t generationLengthMax = 10000;
+		const char* generationLengthMax_NAME = "MaximumGenerationLength";
 	};
 
 	Generation generation;

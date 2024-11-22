@@ -68,6 +68,17 @@ class SessionData : public Form
 		}
 	};
 
+	struct InputNodeLessSecondary
+	{
+		bool operator()(const std::shared_ptr<InputNode>& lhs, const std::shared_ptr<InputNode>& rhs) const
+		{
+			if (lhs->secondary == rhs->secondary)
+				return lhs->primary > rhs->primary;
+			else
+				return lhs->secondary > rhs->secondary;
+		}
+	};
+
 	/// <summary>
 	/// total number of positive test results
 	/// </summary>
@@ -375,6 +386,7 @@ public:
 
 	std::vector<std::shared_ptr<Input>> GetTopK(int32_t k);
 	std::vector<std::shared_ptr<Input>> GetTopK_Unfinished(int32_t k);
+	std::vector<std::shared_ptr<Input>> GetTopK_Secondary(int32_t k);
 
 	#pragma region Form
 

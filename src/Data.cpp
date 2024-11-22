@@ -354,7 +354,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 	profile(TimeProfiling, "Saving session");
 }
 
-void Data::Load(std::string name, bool skipSettings)
+void Data::Load(std::string name, LoadSaveArgs& loadArgs)
 {
 	StartProfiling;
 	_status = "Finding save files...";
@@ -399,7 +399,7 @@ void Data::Load(std::string name, bool skipSettings)
 	{
 		_uniquename = name;
 		_savenumber = number + 1;
-		LoadIntern(fullname, skipSettings);
+		LoadIntern(fullname, loadArgs);
 	} else {
 		_actionloadsave = false;
 		_status = "No savefiles found.";
@@ -408,7 +408,7 @@ void Data::Load(std::string name, bool skipSettings)
 	}
 }
 
-void Data::Load(std::string name, int32_t number, bool skipSettings)
+void Data::Load(std::string name, int32_t number, LoadSaveArgs& loadArgs)
 {
 	StartProfiling;
 	_status = "Finding save files...";
@@ -454,7 +454,7 @@ void Data::Load(std::string name, int32_t number, bool skipSettings)
 	if (found) {
 		_uniquename = name;
 		_savenumber = highest + 1;
-		LoadIntern(fullname, skipSettings);
+		LoadIntern(fullname, loadArgs);
 	} else {
 		_actionloadsave = false;
 		_status = "No savefiles found.";
@@ -463,7 +463,7 @@ void Data::Load(std::string name, int32_t number, bool skipSettings)
 	}
 }
 
-void Data::LoadIntern(std::filesystem::path path, bool skipSettings)
+void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 {
 	_status = "Load save file....";
 	_actionloadsave = true;
@@ -677,36 +677,54 @@ void Data::LoadIntern(std::filesystem::path path, bool skipSettings)
 								case FormType::Input:
 									{
 										//logdebug("Read Record:      Input");
-										bool res = RegisterForm(Records::ReadRecord<Input>(buf, offset, _actionrecord_offset, rlen, _lresolve));
-										if (res) {
-											stats._Input++;
+										auto record = Records::ReadRecord<Input>(buf, offset, _actionrecord_offset, rlen, _lresolve);
+										if (record && record->HasFlag(Form::FormFlags::Deleted) == false) {
+											bool res = RegisterForm(record);
+											if (res) {
+												stats._Input++;
+											} else {
+												stats._Fail++;
+												logcritical("Failed Record:    Input");
+											}
 										} else {
 											stats._Fail++;
-											logcritical("Failed Record:    Input");
+											logcritical("Deleted Record:    Input");
 										}
 									}
 									break;
 								case FormType::Grammar:
 									{
 										//logdebug("Read Record:      Grammar");
-										bool res = RegisterForm(Records::ReadRecord<Grammar>(buf, offset, _actionrecord_offset, rlen, _lresolve));
-										if (res) {
-											stats._Grammar++;
+										auto record = Records::ReadRecord<Grammar>(buf, offset, _actionrecord_offset, rlen, _lresolve);
+										if (record && record->HasFlag(Form::FormFlags::Deleted) == false) {
+											bool res = RegisterForm(record);
+											if (res) {
+												stats._Grammar++;
+											} else {
+												stats._Fail++;
+												logcritical("Failed Record:    Grammar");
+											}
 										} else {
 											stats._Fail++;
-											logcritical("Failed Record:    Grammar");
+											logcritical("Deleted Record:    Grammar");
 										}
 									}
 									break;
 								case FormType::DevTree:
 									{
 										//logdebug("Read Record:      DerivationTree");
-										bool res = RegisterForm(Records::ReadRecord<DerivationTree>(buf, offset, _actionrecord_offset, rlen, _lresolve));
-										if (res) {
-											stats._DevTree++;
+										auto record = Records::ReadRecord<DerivationTree>(buf, offset, _actionrecord_offset, rlen, _lresolve);
+										if (record && record->HasFlag(Form::FormFlags::Deleted) == false) {
+											bool res = RegisterForm(record);
+											if (res) {
+												stats._DevTree++;
+											} else {
+												stats._Fail++;
+												logcritical("Failed Record:    DerivationTree");
+											}
 										} else {
 											stats._Fail++;
-											logcritical("Failed Record:    DerivationTree");
+											logcritical("Deleted Record:    DerivationTree");
 										}
 									}
 									break;
@@ -714,7 +732,7 @@ void Data::LoadIntern(std::filesystem::path path, bool skipSettings)
 									{
 										//logdebug("Read Record:      ExclusionTree");
 										auto excl = CreateForm<ExclusionTree>();
-										bool res = excl->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
+										bool res = excl->ReadData(buf, _actionrecord_offset, rlen, _lresolve, loadArgs.skipExlusionTree);
 										if (_actionrecord_offset > rlen)
 											res = false;
 										if (res) {
@@ -723,6 +741,8 @@ void Data::LoadIntern(std::filesystem::path path, bool skipSettings)
 											stats._Fail++;
 											logcritical("Failed Record:    ExclusionTree");
 										}
+										if (loadArgs.skipExlusionTree)
+											loginfo("Skipped Reading Record:	ExclusionTree");
 									}
 									break;
 								case FormType::Generator:
@@ -757,7 +777,7 @@ void Data::LoadIntern(std::filesystem::path path, bool skipSettings)
 									break;
 								case FormType::Settings:
 									{
-										if (!skipSettings) {
+										if (!loadArgs.skipSettings) {
 											//logdebug("Read Record:      Settings");
 											auto sett = CreateForm<Settings>();
 											bool res = sett->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
@@ -777,12 +797,18 @@ void Data::LoadIntern(std::filesystem::path path, bool skipSettings)
 								case FormType::Test:
 									{
 										//logdebug("Read Record:      Test");
-										bool res = RegisterForm(Records::ReadRecord<Test>(buf, offset, _actionrecord_offset, rlen, _lresolve));
-										if (res) {
-											stats._Test++;
+										auto record = Records::ReadRecord<Test>(buf, offset, _actionrecord_offset, rlen, _lresolve);
+										if (record && record->HasFlag(Form::FormFlags::Deleted) == false) {
+											bool res = RegisterForm(record);
+											if (res) {
+												stats._Test++;
+											} else {
+												stats._Fail++;
+												logcritical("Failed Record:    Test");
+											}
 										} else {
 											stats._Fail++;
-											logcritical("Failed Record:    Test");
+											logcritical("Deleted Record:    Test");
 										}
 									}
 									break;
@@ -850,24 +876,36 @@ void Data::LoadIntern(std::filesystem::path path, bool skipSettings)
 								case FormType::DeltaController:
 									{
 										//logdebug("Read Record:      Test");
-										bool res = RegisterForm(Records::ReadRecord<DeltaDebugging::DeltaController>(buf, offset, _actionrecord_offset, rlen, _lresolve));
-										if (res) {
-											stats._DeltaController++;
+										auto record = Records::ReadRecord<DeltaDebugging::DeltaController>(buf, offset, _actionrecord_offset, rlen, _lresolve);
+										if (record && record->HasFlag(Form::FormFlags::Deleted) == false) {
+											bool res = RegisterForm(record);
+											if (res) {
+												stats._DeltaController++;
+											} else {
+												stats._Fail++;
+												logcritical("Failed Record:    DeltaController");
+											}
 										} else {
 											stats._Fail++;
-											logcritical("Failed Record:    DeltaController");
+											logcritical("Deleted Record:    DeltaController");
 										}
 									}
 									break;
 								case FormType::Generation:
 									{
 										//logdebug("Read Record:      Generation");
-										bool res = RegisterForm(Records::ReadRecord<Generation>(buf, offset, _actionrecord_offset, rlen, _lresolve));
-										if (res) {
-											stats._Generation++;
+										auto record = Records::ReadRecord<Generation>(buf, offset, _actionrecord_offset, rlen, _lresolve);
+										if (record && record->HasFlag(Form::FormFlags::Deleted) == false) {
+											bool res = RegisterForm(record);
+											if (res) {
+												stats._Generation++;
+											} else {
+												stats._Fail++;
+												logcritical("Failed Record:    Generation");
+											}
 										} else {
 											stats._Fail++;
-											logcritical("Failed Record:    Generation");
+											logcritical("Deleted Record:    Generation");
 										}
 									}
 									break;

@@ -91,6 +91,10 @@ namespace DeltaDebugging
 		/// Attempts to maximize the secondary score of executed tests
 		/// </summary>
 		MaximizeSecondaryScore = 1 << 2,
+		/// <summary>
+		/// Attempts to maximize the primary score and the secondary score of executed tests
+		/// </summary>
+		MaximizeBothScores = 1 << 3,
 	};
 
 	struct DDParameters
@@ -138,6 +142,15 @@ namespace DeltaDebugging
 	{
 		DDGoal GetGoal() override { return DDGoal::MaximizeSecondaryScore; }
 		/// <summary>
+		/// Acceptable loss for total secondary score for the test to be considered a valid result
+		/// </summary>
+		float acceptableLossSecondary = 0.05f;
+	};
+
+	struct MaximizeBothScores : public DDParameters
+	{
+		DDGoal GetGoal() override { return DDGoal::MaximizeBothScores; }
+		/// <summary>
 		/// Acceptable loss for total prmary score for the test to be considered a valid result
 		/// </summary>
 		float acceptableLossPrimary = 0.05f;
@@ -182,7 +195,7 @@ namespace DeltaDebugging
 		int32_t GetTestsTotal() { return _totaltests; }
 		int32_t GetLevel() { return _level; }
 		bool Finished() { return _finished; }
-		std::unordered_map<std::shared_ptr<Input>, std::pair<double, int32_t>>* GetResults() { return &_results; }
+		std::unordered_map<std::shared_ptr<Input>, std::tuple<double, double, int32_t>>* GetResults() { return &_results; }
 		std::shared_ptr<Input> GetInput() { return _input; }
 		std::shared_ptr<Input> GetOriginalInput() { return _origInput; }
 		std::set<std::shared_ptr<Input>, FormIDLess<Input>>* GetActiveInputs() { return &_activeInputs; }
@@ -219,7 +232,7 @@ namespace DeltaDebugging
 		virtual int32_t GetType() { return FormType::DeltaController; }
 
 	private:
-		const int32_t classversion = 0x1;
+		const int32_t classversion = 0x2;
 		static inline bool _registeredFactories = false;
 
 		struct DeltaInformation
@@ -313,7 +326,7 @@ namespace DeltaDebugging
 		/// <summary>
 		/// map of results, corresponding loss if available, and the level
 		/// </summary>
-		std::unordered_map<std::shared_ptr<Input>, std::pair<double, int32_t>> _results;
+		std::unordered_map<std::shared_ptr<Input>, std::tuple<double, double, int32_t>> _results;
 
 		std::shared_ptr<Input> _origInput;
 
@@ -333,7 +346,7 @@ namespace DeltaDebugging
 
 		std::shared_ptr<Functions::BaseFunction> _callback;
 
-		double _bestScore = 0.0f;
+		std::pair<double, double> _bestScore = { 0.0f, 0.0f };
 
 		/// <summary>
 		/// start parameters of the instance

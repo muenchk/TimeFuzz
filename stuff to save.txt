@@ -6,3 +6,8 @@ Input:
 	_enablePrimaryScoreIndividual
 	_enableSecondaryScoreIndividual
 
+Settings:
+	generation.generationLengthMin
+	generation.generationLengthMax
+	oracle.oracle_path_Unix
+	generation.sourcesType

@@ -21,9 +21,27 @@ class Lua;
 
 struct LoadSessionArgs
 {
+	/// <summary>
+	/// Whether to asynchronously start the session after it has been loaded
+	/// </summary>
 	bool startSession = false;
+	/// <summary>
+	/// Whether to reload all settings from config file
+	/// </summary>
 	bool reloadSettings = false;
+	/// <summary>
+	/// Whether to skip loading the ExclusionTree. May be useful when extracting results from a session, as the ExclusionTree
+	/// takes up vast amounts of memory
+	/// </summary>
+	bool skipExclusionTree = false;
+	/// <summary>
+	/// Whether to load a new grammar [from settings] into the session.
+	/// May have unexpected side-effects and does not affect already generated inputs.
+	/// </summary>
 	bool loadNewGrammar = false;
+	/// <summary>
+	/// Path to the settings file to load
+	/// </summary>
 	std::wstring settingsPath = L"";
 };
 

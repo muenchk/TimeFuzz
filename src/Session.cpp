@@ -33,13 +33,15 @@ std::shared_ptr<Session> Session::CreateSession()
 
 void Session::LoadSession_Async(Data* dat, std::string name, int32_t number, LoadSessionArgs* args)
 {
-	bool skipSettings = false;
-	if (args && args->reloadSettings)
-		skipSettings = true;
+	Data::LoadSaveArgs loadArgs;
+	if (args) {
+		loadArgs.skipSettings = args->reloadSettings;
+		loadArgs.skipExlusionTree = args->skipExclusionTree;
+	}
 	if (number == -1)
-		dat->Load(name, skipSettings);
+		dat->Load(name, loadArgs);
 	else
-		dat->Load(name, number, skipSettings);
+		dat->Load(name, number, loadArgs);
 	auto session = dat->CreateForm<Session>();
 	session->_self = session;
 	session->_loaded = true;
@@ -298,7 +300,7 @@ void Session::StartLoadedSession(bool& error, bool reloadsettings, std::wstring 
 			return;
 		}
 		_sessiondata->_oracle = data->CreateForm<Oracle>();
-		_sessiondata->_oracle->Set(_sessiondata->_settings->oracle.oracle, _sessiondata->_settings->oracle.oraclepath);
+		_sessiondata->_oracle->Set(_sessiondata->_settings->oracle.oracle, _sessiondata->_settings->GetOraclePath());
 		// set lua cmdargs scripts
 		auto path = std::filesystem::path(_sessiondata->_settings->oracle.lua_path_cmd);
 		if (!std::filesystem::exists(path))
@@ -386,7 +388,7 @@ void Session::StartSessionIntern(bool &error)
 			return;
 		}
 		_sessiondata->_oracle = data->CreateForm<Oracle>();
-		_sessiondata->_oracle->Set(_sessiondata->_settings->oracle.oracle, _sessiondata->_settings->oracle.oraclepath);
+		_sessiondata->_oracle->Set(_sessiondata->_settings->oracle.oracle, _sessiondata->_settings->GetOraclePath());
 		// set lua cmdargs scripts
 		auto path = std::filesystem::path(_sessiondata->_settings->oracle.lua_path_cmd);
 		if (!std::filesystem::exists(path)) {

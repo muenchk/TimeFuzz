@@ -32,6 +32,8 @@ std::string UIDeltaDebugging::GetGoal()
 		return "Maximize Primary Score";
 	case DDGoal::MaximizeSecondaryScore:
 		return "Maximize Secondary Score";
+	case DDGoal::MaximizeBothScores:
+		return "Maximize Both Scores";
 	}
 	return "Unknown";
 }
@@ -83,14 +85,15 @@ void UIDeltaDebugging::GetResults(std::vector<UIDDResult>& results, size_t& size
 		auto itr = res->begin();
 		while (itr != res->end() && count < sz) {
 			auto input = itr->first;
-			auto [loss, level] = itr->second;
+			auto [primloss, seconloss, level] = itr->second;
 			results[count].id = input->GetFormID();
 			results[count].length = input->Length();
 			results[count].primaryScore = input->GetPrimaryScore();
 			results[count].secondaryScore = input->GetSecondaryScore();
 			results[count].flags = input->GetFlags();
 			results[count].result = (UI::Result)input->GetOracleResult();
-			results[count].loss = loss;
+			results[count].primaryLoss = primloss;
+			results[count].secondaryLoss = seconloss;
 			results[count].level = level;
 			itr++;
 			count++;
