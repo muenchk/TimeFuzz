@@ -103,6 +103,8 @@ void Settings::Load(std::wstring path, bool reload)
 	// optimization
 	optimization.constructinputsiteratively = ini.GetBoolValue("Optimization", optimization.constructinputsiteratively_NAME, optimization.constructinputsiteratively);
 	loginfo("{}{} {}", "Optimization:     ", optimization.constructinputsiteratively_NAME, optimization.constructinputsiteratively);
+	optimization.disableExclusionTree = ini.GetBoolValue("Optimization", optimization.disableExclusionTree_NAME, optimization.disableExclusionTree);
+	loginfo("{}{} {}", "Optimization:     ", optimization.disableExclusionTree_NAME, optimization.disableExclusionTree);
 
 	// delta debugging
 	dd.deltadebugging = ini.GetBoolValue("DeltaDebugging", dd.deltadebugging_NAME, dd.deltadebugging);
@@ -273,6 +275,8 @@ void Settings::Save(std::wstring _path)
 		"\\\\ Input sequences or partial input sequences, that do not result in either a bug or a successful run,\n"
 		"\\\\ may be used as a starting point for generation and may be expanded until a result is produced.\n"
 		"\\\\ [This should not be used with a PUT that produces undefined oracle results.]");
+	ini.SetBoolValue("Optimization", optimization.disableExclusionTree_NAME, optimization.disableExclusionTree,
+		"\\\\ Disables the ExclusionTree.");
 
 	// delta debugging
 	ini.SetBoolValue("DeltaDebugging", dd.deltadebugging_NAME, dd.deltadebugging, "\\\\ Applies delta debugging to passing inputs, to reduce them as far as possible.");

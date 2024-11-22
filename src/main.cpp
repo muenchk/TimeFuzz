@@ -844,8 +844,12 @@ int32_t main(int32_t argc, char** argv)
 						static std::vector<UI::UIInput> elements;
 						if (imElements.Size == 0)
 							imElements.resize(MAX_ITEMS);
+
+						static bool sortsecondary = false;
+						ImGui::Checkbox("Sort after Secondary Score", &sortsecondary);
+
 						// GET ITEMS FROM SESSION
-						session->UI_GetTopK(elements, MAX_ITEMS);
+						session->UI_GetTopK(elements, MAX_ITEMS, sortsecondary);
 
 						for (int i = 0; i < MAX_ITEMS && i < (int32_t)elements.size(); i++)
 							imElements[i] = elements[i];

@@ -11,3 +11,4 @@ Settings:
 	generation.generationLengthMax
 	oracle.oracle_path_Unix
 	generation.sourcesType
+	optimization.disableExclusionTree

@@ -251,6 +251,9 @@ public:
 		/// </summary>
 		bool constructinputsiteratively = true;
 		const char* constructinputsiteratively_NAME = "ConstructInputsIteratively";
+
+		bool disableExclusionTree = false;
+		const char* disableExclusionTree_NAME = "DisableExclusionTree";
 	};
 
 	Optimization optimization;

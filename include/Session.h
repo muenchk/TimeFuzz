@@ -184,7 +184,7 @@ public:
 
 	void Replay(FormID inputid);
 
-	void UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k);
+	void UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k, bool sortsecondary = false);
 
 	/// <summary>
 	/// Begins delta debugging the given input

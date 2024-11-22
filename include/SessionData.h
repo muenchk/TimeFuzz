@@ -13,6 +13,7 @@
 
 #include "Form.h"
 #include "Utility.h"
+#include "StableSet.h"
 
 class Input;
 class Grammar;
@@ -128,6 +129,14 @@ class SessionData : public Form
 	/// shared lock for the list of undefined inputs
 	/// </summary>
 	std::shared_mutex _undefinedInputLock;
+
+	/// <summary>
+	/// multiset with a stable size holding the top 100 unfinished inputs sorted after primary score
+	/// </summary>
+	std::stable_multiset<std::shared_ptr<InputNode>, InputNodeLess> _topK_primary_Unfinished{ 100 };
+	std::stable_multiset<std::shared_ptr<InputNode>, InputNodeLessSecondary> _topK_secondary_Unfinished{ 100 };
+	std::stable_multiset<std::shared_ptr<InputNode>, InputNodeLess> _topK_primary{ 100 };
+	std::stable_multiset<std::shared_ptr<InputNode>, InputNodeLessSecondary> _topK_secondary{ 100 };
 
 	void AddInput(std::shared_ptr<Input>& input, EnumType list, double optionalweight = 0.0f);
 
@@ -387,6 +396,7 @@ public:
 	std::vector<std::shared_ptr<Input>> GetTopK(int32_t k);
 	std::vector<std::shared_ptr<Input>> GetTopK_Unfinished(int32_t k);
 	std::vector<std::shared_ptr<Input>> GetTopK_Secondary(int32_t k);
+	std::vector<std::shared_ptr<Input>> GetTopK_Secondary_Unfinished(int32_t k);
 
 	#pragma region Form
 

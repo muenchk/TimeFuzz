@@ -723,13 +723,17 @@ void Session::Replay(FormID inputid)
 	}
 }
 
-void Session::UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k)
+void Session::UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k, bool sortsecondary)
 {
 	if (!_loaded)
 		return;
 	if (vector.size() < k)
 		vector.resize(k);
-	auto vec = _sessiondata->GetTopK((int32_t)k);
+	std::vector<std::shared_ptr<Input>> vec;
+	if (sortsecondary)
+		vec = _sessiondata->GetTopK_Secondary((int32_t)k);
+	else
+		vec = _sessiondata->GetTopK((int32_t)k);
 	for (int32_t i = 0; i < (int32_t)vec.size(); i++)
 	{
 		vector[i].id = vec[i]->GetFormID();

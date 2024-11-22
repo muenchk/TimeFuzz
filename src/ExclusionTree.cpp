@@ -43,6 +43,8 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input, OracleResult result)
 		return;
 	if (input->begin() == input->end())
 		return;
+	if (_sessiondata->_settings->optimization.disableExclusionTree)
+		return;
 
 	exclwlock;
 	TreeNode* node = root;

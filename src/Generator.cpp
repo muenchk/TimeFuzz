@@ -358,7 +358,7 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 	}
 	profile(TimeProfiling, "Time taken for input Generation");
 	if ((int32_t)input->Length() != input->derive->_sequenceNodes)
-		logwarn("The input length is different from the generated sequence. Length: {}, Expected: {}", input->Length(), input->derive->_sequenceNodes);
+		logwarn("The length of {} is different from the generated sequence. Length: {}, Expected: {}", Input::PrintForm(input), input->Length(), input->derive->_sequenceNodes);
 	return true;
 }
 

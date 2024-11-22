@@ -857,10 +857,29 @@ namespace Functions
 
 			// get top 5 percent generated inputs //_sessiondata->_settings->generation.generationsize * 0.05
 			std::vector<std::shared_ptr<Input>> topk;
-			if (_sessiondata->_settings->generation.allowBacktrackFailedInputs)
-				topk = _sessiondata->GetTopK((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));
-			else
-				topk = _sessiondata->GetTopK_Unfinished((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));
+
+			switch (_sessiondata->_settings->generation.sourcesType) {
+			case Settings::GenerationSourcesType::FilterLength:
+				{
+				}
+				break;
+			case Settings::GenerationSourcesType::FilterPrimaryScore:
+				{
+					if (_sessiondata->_settings->generation.allowBacktrackFailedInputs)
+						topk = _sessiondata->GetTopK((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));
+					else
+						topk = _sessiondata->GetTopK_Unfinished((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));
+				}
+				break;
+			case Settings::GenerationSourcesType::FilterSecondaryScore:
+				{
+					if (_sessiondata->_settings->generation.allowBacktrackFailedInputs)
+						topk = _sessiondata->GetTopK_Secondary((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));
+					else
+						topk = _sessiondata->GetTopK_Secondary_Unfinished((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));
+				}
+				break;
+			}
 
 			// indicates whether we were able to start delta debugging
 			bool begun = false;

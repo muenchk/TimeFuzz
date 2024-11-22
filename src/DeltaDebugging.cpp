@@ -673,6 +673,15 @@ namespace DeltaDebugging
 				}
 			}
 			_completedTests.clear();
+			for (auto ptr : _activeInputs) {
+				// if the ptr is not in the list of results
+				if (_results.find(ptr) == _results.end()) {
+					ptr->UnsetFlag(Form::FormFlags::DoNotFree);
+					if (ptr->derive)
+						ptr->derive->UnsetFlag(Form::FormFlags::DoNotFree);
+				}
+			}
+			_activeInputs.clear();
 		};
 
 		auto lossPrimary = [this](std::shared_ptr<Input> input) {
@@ -706,7 +715,6 @@ namespace DeltaDebugging
 					return res;
 				};
 				auto rinputs = reproc();
-				_activeInputs.clear();
 
 				// we have found all results, so free all inputs that we do not need anymore
 				clearFlags();
@@ -816,7 +824,6 @@ namespace DeltaDebugging
 					return res;
 				};
 				auto rinputs = sortprimary();
-				_activeInputs.clear();
 
 				std::vector<std::shared_ptr<Input>> passing;
 				std::vector<double> ploss;
@@ -885,7 +892,6 @@ namespace DeltaDebugging
 					return res;
 				};
 				auto rinputs = sortprimary();
-				_activeInputs.clear();
 
 				std::vector<std::shared_ptr<Input>> passing;
 				std::vector<double> ploss;
@@ -954,7 +960,6 @@ namespace DeltaDebugging
 					return res;
 				};
 				auto rinputs = sortprimary();
-				_activeInputs.clear();
 
 				std::vector<std::shared_ptr<Input>> passing;
 				std::vector<std::pair<double, double>> ploss;
@@ -1079,6 +1084,15 @@ namespace DeltaDebugging
 				}
 			}
 			_completedTests.clear();
+			for (auto ptr : _activeInputs) {
+				// if the ptr is not in the list of results
+				if (_results.find(ptr) == _results.end()) {
+					ptr->UnsetFlag(Form::FormFlags::DoNotFree);
+					if (ptr->derive)
+						ptr->derive->UnsetFlag(Form::FormFlags::DoNotFree);
+				}
+			}
+			_activeInputs.clear();
 		};
 
 		auto lossPrimary = [this](std::shared_ptr<Input> input) {
@@ -1181,7 +1195,6 @@ namespace DeltaDebugging
 			}
 			break;
 		}
-		_activeInputs.clear();
 
 		// we have found all results, so free all inputs that we do not need anymore
 		clearFlags();
