@@ -42,6 +42,11 @@ void Session::LoadSession_Async(Data* dat, std::string name, int32_t number, Loa
 		dat->Load(name, loadArgs);
 	else
 		dat->Load(name, number, loadArgs);
+	if (dat->_loaded == false)
+	{
+		logcritical("CRITICAL ERROR");
+		return;
+	}
 	auto session = dat->CreateForm<Session>();
 	session->_self = session;
 	session->_loaded = true;

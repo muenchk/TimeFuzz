@@ -33,11 +33,11 @@ namespace Functions
 		static uint64_t GetTypeStatic() { return 'CALL'; }
 		uint64_t GetType() override { return 'CALL'; }
 		FunctionType GetFunctionType() override { return FunctionType::Heavy; };
-		bool ReadData(unsigned char*, size_t&, size_t, LoadResolver*)
+		bool ReadData(std::istream*, size_t&, size_t, LoadResolver*)
 		{
 			return true;
 		}
-		bool WriteData(unsigned char* buffer, size_t& offset)
+		bool WriteData(std::ostream* buffer, size_t& offset)
 		{
 			BaseFunction::WriteData(buffer, offset);
 			return true;

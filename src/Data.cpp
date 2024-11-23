@@ -600,7 +600,12 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 				case 0:  // couldn't get saveversion
 					logcritical("Save file does not appear to have the proper format: fail version");
 					break;
-				case 0x1:  // save file version 1
+				case 0x1:
+					logcritical("SAVE VERSION 0x1 IS NOT SUPPORTED. Go back to commit 892de1ed2da1d6d05497f6ab64adfcb3ce2d2b2c");
+					_actionloadsave = false;
+					_status = "Failed...";
+					return;
+				case 0x2:  // save file version 1
 					{
 						size_t rlen = 0;
 						int32_t rtype = 0;
