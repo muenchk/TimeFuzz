@@ -34,14 +34,14 @@ namespace Functions
 		/// <param name="offset"></param>
 		/// <param name="length"></param>
 		/// <returns></returns>
-		virtual bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) = 0;
+		virtual bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) = 0;
 		/// <summary>
 		/// Writes the object information to the given buffer
 		/// </summary>
 		/// <param name="buffer"></param>
 		/// <param name="offset"></param>
 		/// <returns></returns>
-		virtual bool WriteData(unsigned char* buffer, size_t& offset);
+		virtual bool WriteData(std::ostream* buffer, size_t& offset);
 		/// <summary>
 		/// Returns the byte length of this object
 		/// </summary>
@@ -68,7 +68,7 @@ namespace Functions
 			return dynamic_pointer_cast<T>(T::Create());
 		}
 
-		static std::shared_ptr<BaseFunction> Create(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+		static std::shared_ptr<BaseFunction> Create(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 	};
 
 	void RegisterFactory(uint64_t classid, std::function<std::shared_ptr<BaseFunction>()> factory);

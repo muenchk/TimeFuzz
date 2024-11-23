@@ -308,7 +308,9 @@ namespace Buffer
 		size_t GetListLength(std::list<std::string>& list);
 		size_t GetListLength(unsigned char* buffer, size_t offset);
 		void WriteList(std::list<std::string>& list, unsigned char* buffer, size_t& offset);
+		void WriteList(std::list<std::string>& list, std::ostream* buffer, size_t& offset);
 		void ReadList(std::list<std::string>& list, unsigned char* buffer, size_t& offset);
+		void ReadList(std::list<std::string>& list, std::istream* buffer, size_t& offset);
 
 	}
 

@@ -124,7 +124,7 @@ public:
 	/// <param name="buffer"></param>
 	/// <param name="offset"></param>
 	/// <returns></returns>
-	bool WriteData(unsigned char* buffer, size_t& offset);
+	bool WriteData(std::ostream* buffer, size_t& offset);
 	const int32_t classversion = 0x1;
 	/// <summary>
 	/// Reads the node data from the buffer
@@ -134,7 +134,7 @@ public:
 	/// <param name="length"></param>
 	/// <param name="resolver"></param>
 	/// <returns></returns>
-	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolverGrammar* resolver);
+	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolverGrammar* resolver);
 };
 
 class GrammarExpansion : public GrammarObject
@@ -200,7 +200,7 @@ public:
 	/// <param name="buffer"></param>
 	/// <param name="offset"></param>
 	/// <returns></returns>
-	bool WriteData(unsigned char* buffer, size_t& offset);
+	bool WriteData(std::ostream* buffer, size_t& offset);
 	const int32_t classversion = 0x2;
 	/// <summary>
 	/// Reads the expansion data from the buffer
@@ -210,7 +210,7 @@ public:
 	/// <param name="length"></param>
 	/// <param name="resolver"></param>
 	/// <returns></returns>
-	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolverGrammar* resolver);
+	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolverGrammar* resolver);
 };
 
 class GrammarTree
@@ -372,8 +372,8 @@ public:
 
 	size_t GetStaticSize(int32_t version = 0x1) override;
 	size_t GetDynamicSize() override;
-	bool WriteData(unsigned char* buffer, size_t& offset) override;
-	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+	bool WriteData(std::ostream* buffer, size_t& offset) override;
+	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 	int32_t GetType() override
 	{
 		return FormType::Grammar;

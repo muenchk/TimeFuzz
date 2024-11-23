@@ -291,7 +291,7 @@ size_t TaskController::GetDynamicSize()
 	       + GetStaticSize(classversion) + sz;
 }
 
-bool TaskController::WriteData(unsigned char* buffer, size_t& offset)
+bool TaskController::WriteData(std::ostream* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
@@ -308,7 +308,7 @@ bool TaskController::WriteData(unsigned char* buffer, size_t& offset)
 	return true;
 }
 
-bool TaskController::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+bool TaskController::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {

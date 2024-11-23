@@ -286,13 +286,13 @@ public:
 	/// </summary>
 	/// <param name="buffer"></param>
 	/// <returns></returns>
-	bool WriteData(unsigned char* buffer, size_t& offset) override;
+	bool WriteData(std::ostream* buffer, size_t& offset) override;
 	/// <summary>
 	/// reads all relevant information of this instance from the buffer
 	/// </summary>
 	/// <param name="buffer"></param>
 	/// <param name="length"></param>
-	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 	/// <summary>
 	/// Deletes all relevant for fields
 	/// </summary>

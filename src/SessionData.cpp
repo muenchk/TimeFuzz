@@ -376,7 +376,7 @@ uint64_t SessionData::GetUsedMemory()
 	return _memory_mem;
 }
 
-bool SessionData::WriteData(unsigned char* buffer, size_t& offset)
+bool SessionData::WriteData(std::ostream* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
@@ -460,7 +460,7 @@ bool SessionData::WriteData(unsigned char* buffer, size_t& offset)
 	return true;
 }
 
-bool SessionData::ReadData0x1(unsigned char* buffer, size_t& offset, size_t /*length*/, LoadResolver* resolver)
+bool SessionData::ReadData0x1(std::istream* buffer, size_t& offset, size_t /*length*/, LoadResolver* resolver)
 {
 	_positiveInputNumbers = Buffer::ReadInt64(buffer, offset);
 	_negativeInputNumbers = Buffer::ReadInt64(buffer, offset);
@@ -542,7 +542,7 @@ bool SessionData::ReadData0x1(unsigned char* buffer, size_t& offset, size_t /*le
 	return true;
 }
 
-bool SessionData::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {

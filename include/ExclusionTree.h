@@ -96,9 +96,9 @@ public:
 
 	size_t GetStaticSize(int32_t version = 0x1) override;
 	size_t GetDynamicSize() override;
-	bool WriteData(unsigned char* buffer, size_t& offset) override;
-	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
-	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver, bool skipData);
+	bool WriteData(std::ostream* buffer, size_t& offset) override;
+	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver, bool skipData);
 	int32_t GetType() override
 	{
 		return FormType::ExclTree;

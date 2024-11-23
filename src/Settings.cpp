@@ -421,7 +421,7 @@ size_t Settings::GetDynamicSize()
 	       + Buffer::CalcStringLength(oracle.grammar_path);     // Oracle::grammar_path
 }
 
-bool Settings::WriteData(unsigned char* buffer, size_t& offset)
+bool Settings::WriteData(std::ostream* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
@@ -488,7 +488,7 @@ bool Settings::WriteData(unsigned char* buffer, size_t& offset)
 	return true;
 }
 
-bool Settings::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	if (_skipread)
 		return true;

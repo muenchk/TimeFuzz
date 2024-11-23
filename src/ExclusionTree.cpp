@@ -300,7 +300,7 @@ size_t ExclusionTree::GetDynamicSize()
 	return sz;
 }
 
-bool ExclusionTree::WriteData(unsigned char* buffer, size_t &offset)
+bool ExclusionTree::WriteData(std::ostream* buffer, size_t &offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
@@ -331,12 +331,12 @@ bool ExclusionTree::WriteData(unsigned char* buffer, size_t &offset)
 	return true;
 }
 
-bool ExclusionTree::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+bool ExclusionTree::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	return ReadData(buffer, offset, length, resolver, false);
 }
 
-bool ExclusionTree::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver, bool skipData)
+bool ExclusionTree::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver, bool skipData)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {

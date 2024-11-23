@@ -417,7 +417,7 @@ public:
 	/// <param name="buffer"></param>
 	/// <param name="offset"></param>
 	/// <returns></returns>
-	bool WriteData(unsigned char* buffer, size_t& offset) override;
+	bool WriteData(std::ostream* buffer, size_t& offset) override;
 	/// <summary>
 	/// Reads the class data from the buffer
 	/// </summary>
@@ -426,9 +426,9 @@ public:
 	/// <param name="length"></param>
 	/// <param name="resolver"></param>
 	/// <returns></returns>
-	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 
-	bool ReadData0x1(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+	bool ReadData0x1(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 	int32_t GetType() override
 	{
 		return FormType::SessionData;

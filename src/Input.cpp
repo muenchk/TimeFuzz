@@ -53,7 +53,7 @@ size_t Input::GetDynamicSize()
 	return size;
 }
 
-bool Input::WriteData(unsigned char* buffer, size_t& offset)
+bool Input::WriteData(std::ostream* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
@@ -88,7 +88,7 @@ bool Input::WriteData(unsigned char* buffer, size_t& offset)
 	return true;
 }
 
-bool Input::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	//logdebug("ReadData");
 	size_t initoff = offset;

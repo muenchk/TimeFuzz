@@ -139,11 +139,13 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 			size_t offset = 0;
 			unsigned char* buffer = new unsigned char[len];
 			if (callback) {
-				Buffer::Write(true, buffer, offset);
-				callback->WriteData(buffer, offset);
-			} else
+				Buffer::Write(true, &save, offset);
+				callback->WriteData(&save, offset);
+				save.write((char*)buffer, len - callback->GetLength() - 1);
+			} else {
 				Buffer::Write(false, buffer, offset);
-			save.write((char*)buffer, len);
+				save.write((char*)buffer, len);
+			}
 			delete[] buffer;
 		}
 
@@ -168,23 +170,21 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 				size_t sz = GetStringHashmapSize();  // record length
 				_actionrecord_offset = 0;
 				_actionrecord_len = sz;
-				auto sbf = Records::CreateRecordHeaderStringHashmap(_actionrecord_len, _actionrecord_offset);
-				WriteStringHasmap(sbf, _actionrecord_offset, _actionrecord_len);
+				Records::CreateRecordHeaderStringHashmap(&save, _actionrecord_len, _actionrecord_offset);
+				WriteStringHashmap(&save, _actionrecord_offset, _actionrecord_len);
 				loginfo("Wrote string hashmap. {} entries.", _stringHashmap.left.size());
 				_actionloadsave_current++;
-				save.write((char*)sbf, _actionrecord_len);
 				if (fsave.bad())
 					logcritical("critical error in underlying savefile");
-				delete sbf;
 			}
 			for (auto& [formid, form] : _hashmap) {
 				_actionrecord_len = 0;
 				_actionrecord_offset = 0;
-				unsigned char* buffer = nullptr;
+				//unsigned char* buffer = nullptr;
 				_record = form->GetType();
 				switch (_record) {
 				case FormType::Input:
-					buffer = Records::CreateRecord<Input>(dynamic_pointer_cast<Input>(form), _actionrecord_offset, _actionrecord_len);
+					Records::CreateRecord<Input>(dynamic_pointer_cast<Input>(form),&save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: Input");
 					}
@@ -192,7 +192,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					//logdebug("Write Record:      Input");
 					break;
 				case FormType::Grammar:
-					buffer = Records::CreateRecord<Grammar>(dynamic_pointer_cast<Grammar>(form), _actionrecord_offset, _actionrecord_len);
+					Records::CreateRecord<Grammar>(dynamic_pointer_cast<Grammar>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: Grammar");
 					}
@@ -200,7 +200,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					//Logdebug("Write Record:      Grammar");
 					break;
 				case FormType::DevTree:
-					buffer = Records::CreateRecord<DerivationTree>(dynamic_pointer_cast<DerivationTree>(form), _actionrecord_offset, _actionrecord_len);
+					Records::CreateRecord<DerivationTree>(dynamic_pointer_cast<DerivationTree>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: DerivationTree");
 					}
@@ -208,7 +208,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					//logdebug("Write Record:      DerivationTree");
 					break;
 				case FormType::ExclTree:
-					buffer = Records::CreateRecord<ExclusionTree>(dynamic_pointer_cast<ExclusionTree>(form), _actionrecord_offset, _actionrecord_len);
+					Records::CreateRecord<ExclusionTree>(dynamic_pointer_cast<ExclusionTree>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: ExclusionTree");
 					}
@@ -216,7 +216,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					//logdebug("Write Record:      ExclusionTree");
 					break;
 				case FormType::Generator:
-					buffer = Records::CreateRecord<Generator>(dynamic_pointer_cast<Generator>(form), _actionrecord_offset, _actionrecord_len);
+					Records::CreateRecord<Generator>(dynamic_pointer_cast<Generator>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: Generator");
 					}
@@ -224,7 +224,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					//logdebug("Write Record:      Generator");
 					break;
 				case FormType::Session:
-					buffer = Records::CreateRecord<Session>(dynamic_pointer_cast<Session>(form), _actionrecord_offset, _actionrecord_len);
+					Records::CreateRecord<Session>(dynamic_pointer_cast<Session>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: Session");
 					}
@@ -232,7 +232,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					//logdebug("Write Record:      Session");
 					break;
 				case FormType::Settings:
-					buffer = Records::CreateRecord<Settings>(dynamic_pointer_cast<Settings>(form), _actionrecord_offset, _actionrecord_len);
+					Records::CreateRecord<Settings>(dynamic_pointer_cast<Settings>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: Settings");
 					}
@@ -240,7 +240,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					//logdebug("Write Record:      Settings");
 					break;
 				case FormType::Test:
-					buffer = Records::CreateRecord<Test>(dynamic_pointer_cast<Test>(form), _actionrecord_offset, _actionrecord_len);
+					Records::CreateRecord<Test>(dynamic_pointer_cast<Test>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: Test");
 					}
@@ -248,7 +248,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					//logdebug("Write Record:      Test");
 					break;
 				case FormType::TaskController:
-					buffer = Records::CreateRecord<TaskController>(dynamic_pointer_cast<TaskController>(form), _actionrecord_offset, _actionrecord_len);
+					Records::CreateRecord<TaskController>(dynamic_pointer_cast<TaskController>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: TaskController");
 					}
@@ -256,7 +256,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					//logdebug("Write Record:      TaskController");
 					break;
 				case FormType::ExecutionHandler:
-					buffer = Records::CreateRecord<ExecutionHandler>(dynamic_pointer_cast<ExecutionHandler>(form), _actionrecord_offset, _actionrecord_len);
+					Records::CreateRecord<ExecutionHandler>(dynamic_pointer_cast<ExecutionHandler>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: ExecutionHandler");
 					}
@@ -264,7 +264,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					//logdebug("Write Record:      ExecutionHandler");
 					break;
 				case FormType::Oracle:
-					buffer = Records::CreateRecord<Oracle>(dynamic_pointer_cast<Oracle>(form), _actionrecord_offset, _actionrecord_len);
+					Records::CreateRecord<Oracle>(dynamic_pointer_cast<Oracle>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: Oracle");
 					}
@@ -272,7 +272,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					//logdebug("Write Record:      Oracle");
 					break;
 				case FormType::SessionData:
-					buffer = Records::CreateRecord<SessionData>(dynamic_pointer_cast<SessionData>(form), _actionrecord_offset, _actionrecord_len);
+					Records::CreateRecord<SessionData>(dynamic_pointer_cast<SessionData>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: SessionData");
 					}
@@ -280,7 +280,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					//logdebug("Write Record:      SessionData");
 					break;
 				case FormType::DeltaController:
-					buffer = Records::CreateRecord<DeltaDebugging::DeltaController>(dynamic_pointer_cast<DeltaDebugging::DeltaController>(form), _actionrecord_offset, _actionrecord_len);
+					Records::CreateRecord<DeltaDebugging::DeltaController>(dynamic_pointer_cast<DeltaDebugging::DeltaController>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: DeltaController");
 					}
@@ -288,7 +288,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					//logdebug("Write Record:      DeltaController");
 					break;
 				case FormType::Generation:
-					buffer = Records::CreateRecord<Generation>(dynamic_pointer_cast<Generation>(form), _actionrecord_offset, _actionrecord_len);
+					Records::CreateRecord<Generation>(dynamic_pointer_cast<Generation>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
 						std::cout << ("Buffer overflow in record: Generation");
 					}
@@ -300,14 +300,14 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					logcritical("Trying to save unknown formtype");
 					break;
 				}
-				if (buffer != nullptr) {
-					save.write((char*)buffer, _actionrecord_len);
-					if (fsave.bad())
-						logcritical("critical error in underlying savefile")
-				} else {
-					stats._Fail++;
-					logcritical("record buffer could not be created");
-				}
+				//if (buffer != nullptr) {
+				//	save.write((char*)buffer, _actionrecord_len);
+				//	if (fsave.bad())
+				//		logcritical("critical error in underlying savefile")
+				//} else {
+				//	stats._Fail++;
+				//	logcritical("record buffer could not be created");
+				//}
 				_actionloadsave_current++;
 			}
 		}
@@ -561,12 +561,15 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 				{
 					size_t length = 256;
 					offset = 0;
-					save.read((char*)buffer, length);
-					if (save.gcount() == (std::streamsize)length) {
-						if (Buffer::ReadBool(buffer, offset)) {
-							callback = Functions::BaseFunction::Create(buffer, offset, length, _lresolve);
-						}
-					} else {
+					//save.read((char*)buffer, 1);
+					//if (save.gcount() == (std::streamsize)length) {
+						if (Buffer::ReadBool(&save, offset)) {
+							callback = Functions::BaseFunction::Create(&save, offset, length, _lresolve);
+							save.read((char*)buffer, length - 1 - callback->GetLength());
+						} else
+							save.read((char*)buffer, length - 1);
+					//} else {
+						if (save.bad()) {
 						logcritical("Save file does not appear to have the proper format: failed to read callback information");
 						fileerror = true;
 					}
@@ -607,13 +610,9 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 							rtype = 0;
 							// read length of record, type of record
 							if (flen - pos >= 12) {
-								save.read(reinterpret_cast<char*>(buffer), 12);
-								offset = 0;
-								if (save.gcount() == 12) {
-									rlen = Buffer::ReadSize(buffer, offset);
-									rtype = Buffer::ReadInt32(buffer, offset);
-								}
-								else
+								rlen = Buffer::ReadSize(&save, offset);
+								rtype = Buffer::ReadInt32(&save, offset);
+								if (save.bad())
 								{
 									// we haven't read as much as we want, probs end-of-file, so end iteration and continue
 									logwarn("Found unexpected end-of-file");
@@ -628,7 +627,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 								continue;
 							}
 							if (rlen > 0) {
-								// if the record is small enough to fit into our regular buffer, use that one, else use a new custom buffer we have to delete later
+								/*// if the record is small enough to fit into our regular buffer, use that one, else use a new custom buffer we have to delete later
 								if (rlen <= BUFSIZE) {
 									cbuf = false;
 									save.read((char*)buffer, rlen);
@@ -654,7 +653,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 										continue;
 									}
 									buf = cbuffer;
-								}
+								}*/
 								//logdebug("read record data.");
 								offset = 0;
 								_actionrecord_len = rlen;
@@ -664,7 +663,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 								switch (rtype) {
 								case 'STRH':
 									{
-										bool res = ReadStringHashmap(buf, _actionrecord_offset, rlen);
+										bool res = ReadStringHashmap(&save, _actionrecord_offset, rlen);
 										if (_actionrecord_offset > rlen)
 											res = false;
 										if (res) {
@@ -677,7 +676,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 								case FormType::Input:
 									{
 										//logdebug("Read Record:      Input");
-										auto record = Records::ReadRecord<Input>(buf, offset, _actionrecord_offset, rlen, _lresolve);
+										auto record = Records::ReadRecord<Input>(&save, offset, _actionrecord_offset, rlen, _lresolve);
 										if (record && record->HasFlag(Form::FormFlags::Deleted) == false) {
 											bool res = RegisterForm(record);
 											if (res) {
@@ -695,7 +694,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 								case FormType::Grammar:
 									{
 										//logdebug("Read Record:      Grammar");
-										auto record = Records::ReadRecord<Grammar>(buf, offset, _actionrecord_offset, rlen, _lresolve);
+										auto record = Records::ReadRecord<Grammar>(&save, offset, _actionrecord_offset, rlen, _lresolve);
 										if (record && record->HasFlag(Form::FormFlags::Deleted) == false) {
 											bool res = RegisterForm(record);
 											if (res) {
@@ -713,7 +712,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 								case FormType::DevTree:
 									{
 										//logdebug("Read Record:      DerivationTree");
-										auto record = Records::ReadRecord<DerivationTree>(buf, offset, _actionrecord_offset, rlen, _lresolve);
+										auto record = Records::ReadRecord<DerivationTree>(&save, offset, _actionrecord_offset, rlen, _lresolve);
 										if (record && record->HasFlag(Form::FormFlags::Deleted) == false) {
 											bool res = RegisterForm(record);
 											if (res) {
@@ -732,7 +731,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 									{
 										//logdebug("Read Record:      ExclusionTree");
 										auto excl = CreateForm<ExclusionTree>();
-										bool res = excl->ReadData(buf, _actionrecord_offset, rlen, _lresolve, loadArgs.skipExlusionTree);
+										bool res = excl->ReadData(&save, _actionrecord_offset, rlen, _lresolve, loadArgs.skipExlusionTree);
 										if (_actionrecord_offset > rlen)
 											res = false;
 										if (res) {
@@ -749,7 +748,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 									{
 										//logdebug("Read Record:      Generator");
 										auto gen = CreateForm<Generator>();
-										bool res = gen->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
+										bool res = gen->ReadData(&save, _actionrecord_offset, rlen, _lresolve);
 										if (_actionrecord_offset > rlen)
 											res = false;
 										if (res) {
@@ -764,7 +763,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 									{
 										//logdebug("Read Record:      Session");
 										auto session = CreateForm<Session>();
-										bool res = session->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
+										bool res = session->ReadData(&save, _actionrecord_offset, rlen, _lresolve);
 										if (_actionrecord_offset > rlen)
 											res = false;
 										if (res) {
@@ -780,7 +779,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 										if (!loadArgs.skipSettings) {
 											//logdebug("Read Record:      Settings");
 											auto sett = CreateForm<Settings>();
-											bool res = sett->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
+											bool res = sett->ReadData(&save, _actionrecord_offset, rlen, _lresolve);
 											if (_actionrecord_offset > rlen)
 												res = false;
 											if (res) {
@@ -797,7 +796,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 								case FormType::Test:
 									{
 										//logdebug("Read Record:      Test");
-										auto record = Records::ReadRecord<Test>(buf, offset, _actionrecord_offset, rlen, _lresolve);
+										auto record = Records::ReadRecord<Test>(&save, offset, _actionrecord_offset, rlen, _lresolve);
 										if (record && record->HasFlag(Form::FormFlags::Deleted) == false) {
 											bool res = RegisterForm(record);
 											if (res) {
@@ -816,7 +815,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 									{
 										//logdebug("Read Record:      TaskController");
 										auto tcontrol = CreateForm<TaskController>();
-										bool res = tcontrol->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
+										bool res = tcontrol->ReadData(&save, _actionrecord_offset, rlen, _lresolve);
 										if (_actionrecord_offset > rlen)
 											res = false;
 										if (res) {
@@ -831,7 +830,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 									{
 										//logdebug("Read Record:      ExecutionHandler");
 										auto exec = CreateForm<ExecutionHandler>();
-										bool res = exec->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
+										bool res = exec->ReadData(&save, _actionrecord_offset, rlen, _lresolve);
 										if (_actionrecord_offset > rlen)
 											res = false;
 										if (res) {
@@ -846,7 +845,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 									{
 										//logdebug("Read Record:      Oracle");
 										auto oracle = CreateForm<Oracle>();
-										bool res = oracle->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
+										bool res = oracle->ReadData(&save, _actionrecord_offset, rlen, _lresolve);
 										if (_actionrecord_offset > rlen)
 											res = false;
 										if (res) {
@@ -862,7 +861,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 									{
 										//logdebug("Read Record:      SessionData");
 										auto sessdata = CreateForm<SessionData>();
-										bool res = sessdata->ReadData(buf, _actionrecord_offset, rlen, _lresolve);
+										bool res = sessdata->ReadData(&save, _actionrecord_offset, rlen, _lresolve);
 										if (_actionrecord_offset > rlen)
 											res = false;
 										if (res) {
@@ -876,7 +875,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 								case FormType::DeltaController:
 									{
 										//logdebug("Read Record:      Test");
-										auto record = Records::ReadRecord<DeltaDebugging::DeltaController>(buf, offset, _actionrecord_offset, rlen, _lresolve);
+										auto record = Records::ReadRecord<DeltaDebugging::DeltaController>(&save, offset, _actionrecord_offset, rlen, _lresolve);
 										if (record && record->HasFlag(Form::FormFlags::Deleted) == false) {
 											bool res = RegisterForm(record);
 											if (res) {
@@ -894,7 +893,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 								case FormType::Generation:
 									{
 										//logdebug("Read Record:      Generation");
-										auto record = Records::ReadRecord<Generation>(buf, offset, _actionrecord_offset, rlen, _lresolve);
+										auto record = Records::ReadRecord<Generation>(&save, offset, _actionrecord_offset, rlen, _lresolve);
 										if (record && record->HasFlag(Form::FormFlags::Deleted) == false) {
 											bool res = RegisterForm(record);
 											if (res) {
@@ -913,8 +912,8 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 									stats._Fail++;
 									logcritical("Trying to read unknown formtype");
 								}
-								if (cbuf)
-									delete[] cbuffer;
+								//if (cbuf)
+								//	delete[] cbuffer;
 
 							}
 							// update progress
@@ -1341,7 +1340,7 @@ size_t Data::GetStringHashmapSize()
 	return size;
 }
 
-bool Data::WriteStringHasmap(unsigned char* buffer, size_t& offset, size_t)
+bool Data::WriteStringHashmap(std::ostream* buffer, size_t& offset, size_t)
 {
 	static int32_t version = 0x1;
 	Buffer::Write(version, buffer, offset);
@@ -1354,7 +1353,7 @@ bool Data::WriteStringHasmap(unsigned char* buffer, size_t& offset, size_t)
 	return true;
 }
 
-bool Data::ReadStringHashmap(unsigned char* buffer, size_t& offset, size_t length)
+bool Data::ReadStringHashmap(std::istream* buffer, size_t& offset, size_t length)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version)

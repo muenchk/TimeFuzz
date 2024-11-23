@@ -170,9 +170,9 @@ private:
 
 	size_t GetStringHashmapSize();
 
-	bool WriteStringHasmap(unsigned char* buffer, size_t& offset, size_t length);
+	bool WriteStringHashmap(std::ostream* buffer, size_t& offset, size_t length);
 
-	bool ReadStringHashmap(unsigned char* buffer, size_t& offset, size_t length);
+	bool ReadStringHashmap(std::istream* buffer, size_t& offset, size_t length);
 
 public:
 

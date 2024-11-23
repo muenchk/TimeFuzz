@@ -348,7 +348,7 @@ private:
 	/// <param name="buffer"></param>
 	/// <param name="offset"></param>
 	/// <returns></returns>
-	bool WriteData(unsigned char* buffer, size_t& offset) override;
+	bool WriteData(std::ostream* buffer, size_t& offset) override;
 	/// <summary>
 	/// Reads the class data from the buffer
 	/// </summary>
@@ -357,7 +357,7 @@ private:
 	/// <param name="length"></param>
 	/// <param name="resolver"></param>
 	/// <returns></returns>
-	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 
 	/// <summary>
 	/// Returns the class type

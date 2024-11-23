@@ -30,8 +30,8 @@ namespace Functions
 
 		FunctionType GetFunctionType() override { return FunctionType::Light; }
 
-		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
-		bool WriteData(unsigned char* buffer, size_t& offset) override;
+		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool WriteData(std::ostream* buffer, size_t& offset) override;
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDTestCallback>()); }
 		void Dispose() override;
@@ -49,8 +49,8 @@ namespace Functions
 
 		FunctionType GetFunctionType() override { return FunctionType::Medium; }
 
-		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
-		bool WriteData(unsigned char* buffer, size_t& offset) override;
+		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool WriteData(std::ostream* buffer, size_t& offset) override;
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDEvaluateExplicitCallback>()); }
 		void Dispose() override;
@@ -216,13 +216,13 @@ namespace DeltaDebugging
 		/// </summary>
 		/// <param name="buffer"></param>
 		/// <returns></returns>
-		bool WriteData(unsigned char* buffer, size_t& offset) override;
+		bool WriteData(std::ostream* buffer, size_t& offset) override;
 		/// <summary>
 		/// reads all relevant information of this instance from the buffer
 		/// </summary>
 		/// <param name="buffer"></param>
 		/// <param name="length"></param>
-		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		/// <summary>
 		/// Deletes all relevant for fields
 		/// </summary>

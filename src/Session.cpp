@@ -681,14 +681,14 @@ size_t Session::GetDynamicSize()
 	       + GetStaticSize(classversion);
 }
 
-bool Session::WriteData(unsigned char* buffer, size_t& offset)
+bool Session::WriteData(std::ostream* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
 	return true;
 }
 
-bool Session::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+bool Session::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {

@@ -13,7 +13,7 @@ namespace Buffer
 		*ptr = value;
 		offset += 4;  // size written
 	}
-	void Write(uint32_t value, std::iostream* buffer, size_t& offset)
+	void Write(uint32_t value, std::ostream* buffer, size_t& offset)
 	{
 		buffer->write((char*)&value, 4);
 		offset += 4;  // size written
@@ -491,13 +491,19 @@ namespace Buffer
 		void WriteList(std::list<std::string>& list, std::ostream* buffer, size_t& offset)
 		{
 			size_t off = offset;
-			Buffer::WriteSize(list.size(), buffer, offset);
+			size_t len = 0;
 			auto itr = list.begin();
+			while (itr != list.end())
+			{
+				len += CalcStringLength(*itr);
+				itr++;
+			}
+			Buffer::WriteSize(len, buffer, offset);
+			itr = list.begin();
 			while (itr != list.end()) {
 				Buffer::Write(*itr, buffer, offset);
 				itr++;
 			}
-			Buffer::WriteSize((size_t)(offset - off), buffer, off);
 		}
 
 		void ReadList(std::list<std::string>& list, unsigned char* buffer, size_t& offset)
@@ -516,7 +522,7 @@ namespace Buffer
 		void ReadList(std::list<std::string>& list, std::istream* buffer, size_t& offset)
 		{
 			// read length (includes the length field itself)
-			size_t len = Buffer::ReadSize(buffer, offset) - 8;
+			size_t len = Buffer::ReadSize(buffer, offset);
 			size_t read = 0;
 			std::string tmp = "";
 			while (read < len) {// && Buffer::CalcStringLength(buffer, offset) + read <= len) {

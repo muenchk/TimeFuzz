@@ -75,8 +75,8 @@ namespace Functions
 
 		FunctionType GetFunctionType() override { return FunctionType::Heavy; }
 
-		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
-		bool WriteData(unsigned char* buffer, size_t& offset);
+		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+		bool WriteData(std::ostream* buffer, size_t& offset);
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<MasterGenerationCallback>()); }
 		void Dispose();
@@ -97,8 +97,8 @@ namespace Functions
 
 		FunctionType GetFunctionType() override { return FunctionType::Heavy; }
 
-		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
-		bool WriteData(unsigned char* buffer, size_t& offset);
+		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+		bool WriteData(std::ostream* buffer, size_t& offset);
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<GenerationEndCallback>()); }
 		void Dispose();
@@ -120,8 +120,8 @@ namespace Functions
 
 		FunctionType GetFunctionType() override { return FunctionType::Heavy; }
 
-		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
-		bool WriteData(unsigned char* buffer, size_t& offset);
+		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+		bool WriteData(std::ostream* buffer, size_t& offset);
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<GenerationFinishedCallback>()); }
 		void Dispose();
