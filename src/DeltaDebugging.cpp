@@ -281,10 +281,12 @@ namespace DeltaDebugging
 
 			auto inp = _sessiondata->data->CreateForm<Input>();
 			inp->SetFlag(Form::FormFlags::DoNotFree);
-			if (i == number -1)
-				inp->SetParentSplitInformation(_input->GetFormID(), splitbegin, (int32_t)_input->Length() - splitbegin, false);
+			if (i == number - 1)
+				inp->SetParentSplitInformation(_input->GetFormID(), {{
+					splitbegin, (int32_t)_input->Length() - splitbegin }
+		}, false);
 			else
-				inp->SetParentSplitInformation(_input->GetFormID(), splitbegin, splitsize, false);
+				inp->SetParentSplitInformation(_input->GetFormID(), { { splitbegin, splitsize } }, false);
 
 			if (i == number - 1) {
 				// add rest of _input to split
@@ -439,7 +441,8 @@ namespace DeltaDebugging
 		inp->derive->SetFlag(Form::FormFlags::DoNotFree);
 		inp->derive->_inputID = inp->GetFormID();
 
-		_sessiondata->_grammar->Extract(_input->derive, inp->derive, inp->GetParentSplitBegin(), inp->GetParentSplitLength(), _input->Length(), inp->GetParentSplitComplement());
+		auto segments = inp->GetParentSplits();
+		_sessiondata->_grammar->Extract(_input->derive, inp->derive, segments, _input->Length(), inp->GetParentSplitComplement());
 		if (inp->derive->_valid == false) {
 			// the input cannot be derived from the given grammar
 			logwarn("The split cannot be derived from the grammar.");
@@ -466,7 +469,7 @@ namespace DeltaDebugging
 
 		auto inp = _sessiondata->data->CreateForm<Input>();
 		inp->SetFlag(Form::FormFlags::DoNotFree);
-		inp->SetParentSplitInformation(_input->GetFormID(), dcmpl.positionbegin, dcmpl.length, dcmpl.complement);
+		inp->SetParentSplitInformation(_input->GetFormID(), { { dcmpl.positionbegin, dcmpl.length } }, dcmpl.complement);
 
 		// extract the new input first so we can check against the exclusion tree
 		size_t count = 0;
@@ -1013,7 +1016,7 @@ namespace DeltaDebugging
 		StartProfiling;
 		double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
 		std::vector<std::shared_ptr<Input>> complements;
-		RangeIterator rangeIterator(&_inputRanges, true);
+		RangeIterator<size_t> rangeIterator(&_inputRanges, true);
 		size_t size = rangeIterator.GetLength() / level;
 		
 		auto ranges = rangeIterator.GetRangesAbove(size);
@@ -1200,7 +1203,7 @@ namespace DeltaDebugging
 		clearFlags();
 
 		if (passing.size() == 0) {
-			if (_level >= (int32_t)RangeIterator(&_inputRanges, true).GetMaxRange()) {
+			if (_level >= (int32_t)RangeIterator<size_t>(&_inputRanges, true).GetMaxRange()) {
 				// we have already reached the maximum level
 				// so we are effectively done with delta debugging.
 				// Since our results are naturally integrated into the overall database we
@@ -1212,7 +1215,7 @@ namespace DeltaDebugging
 
 			// no inputs were found that reproduce the original result
 			// so we increase the level and try new sets of inputs
-			_level = std::min(_level * 2, (int32_t)RangeIterator(&_inputRanges, true).GetMaxRange());
+			_level = std::min(_level * 2, (int32_t)RangeIterator<size_t>(&_inputRanges, true).GetMaxRange());
 			ScoreProgressGenerateNextLevel();
 		} else {
 			// set new base _input

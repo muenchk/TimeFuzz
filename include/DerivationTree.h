@@ -11,7 +11,7 @@ class DerivationTree : public Form
 {
 
 private:
-	const int32_t classversion = 0x1;
+	const int32_t classversion = 0x2;
 
 	void ClearInternal();
 
@@ -117,19 +117,19 @@ public:
 		/// </summary>
 		FormID _parentID = 0;
 		/// <summary>
-		/// begin in the sequence
+		/// segments in the parent input { positionBegin, length }
 		/// </summary>
-		int64_t _posbegin = 0;
-		/// <summary>
-		/// length of the subsequence
-		/// </summary>
-		int64_t _length = 0;
+		std::vector<std::pair<int64_t, int64_t>> segments;
 		/// <summary>
 		/// the maximum length of the sequence with regards to the sourcetree
 		/// this is used in case the source sequence has been trimmed, and not the whole derivation tree
 		/// is considered an input
 		/// </summary>
 		int64_t _stop = 0;
+		/// <summary>
+		/// length of parent for length calculations
+		/// </summary>
+		int64_t _length = 0;
 		/// <summary>
 		/// whether to invert
 		/// </summary>
@@ -151,7 +151,7 @@ public:
 
 	#pragma region InheritedForm
 
-	size_t GetStaticSize(int32_t version = 0x1) override;
+	size_t GetStaticSize(int32_t version) override;
 	size_t GetDynamicSize() override;
 	bool WriteData(std::ostream* buffer, size_t& offset) override;
 	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;

@@ -8,6 +8,7 @@
 #include "Grammar.h"
 #include "DerivationTree.h"
 #include "Data.h"
+#include "SessionFunctions.h"
 
 
 /// <summary>
@@ -63,7 +64,23 @@ int main()
 	generator->Generate(input, grammar, data->CreateForm<SessionData>());
 
 	auto dtree = data->CreateForm<DerivationTree>();
-	grammar->Extract(stree, dtree, 2, 3, 10, false);
+	std::vector<std::pair<int64_t, int64_t>> segments1 = { { 2, 3 }, { 7, 2 } };
+	std::vector<std::pair<int64_t, int64_t>> segments2 = { { 2, 3 } };
+	grammar->Extract(stree, dtree, segments1, 10, false);
 	auto dctree = data->CreateForm<DerivationTree>();
-	grammar->Extract(stree, dctree, 2, 3, 10, true);
+	grammar->Extract(stree, dctree, segments2, 10, true);
+
+	
+	auto inp = data->CreateForm<Input>();
+	inp->derive = dtree;
+	inp->SetParentSplitInformation(input->GetFormID(), segments1, false);
+	generator->Generate(inp, grammar, data->CreateForm<SessionData>());
+
+	auto exttree = data->CreateForm<DerivationTree>();
+	auto extinput = data->CreateForm<Input>();
+	extinput->derive = exttree;
+	input->SetFlag(Input::Flags::GeneratedGrammarParent);
+	grammar->Extend(inp, exttree, false, 15, 0);
+
+	generator->Generate(extinput, grammar, data->CreateForm<SessionData>());
 }

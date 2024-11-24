@@ -168,6 +168,8 @@ int main(/*int argc, char** argv*/)
 	//std::vector<std::shared_ptr<Input>> ls;
 	for (int i = 0; i < 5; i++) {
 		std::shared_ptr<Input> input = sess->data->CreateForm<Input>();
+		input->AddEntry("[]");
+		input->SetGenerated();
 
 		auto task = Functions::BaseFunction::Create<Functions::Callback>();
 		task->input = input;

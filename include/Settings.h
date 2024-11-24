@@ -43,7 +43,7 @@ class Settings : public Form
 {
 private:
 	bool initialized = false;
-	const int32_t classversion = 0x1;
+	const int32_t classversion = 0x2;
 	/// <summary>
 	/// skip reading from savefile
 	/// </summary>

@@ -206,13 +206,15 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	virtual size_t GetDynamicSize(int32_t version);
+
+	virtual int32_t GetClassVersion() { return classversion; }
 	/// <summary>
 	/// Writes the expansion data to the buffer
 	/// </summary>
 	/// <param name="buffer"></param>
 	/// <param name="offset"></param>
 	/// <returns></returns>
-	bool WriteData(std::ostream* buffer, size_t& offset);
+	virtual bool WriteData(std::ostream* buffer, size_t& offset);
 	const int32_t classversion = 0x2;
 	/// <summary>
 	/// Reads the expansion data from the buffer
@@ -222,7 +224,7 @@ public:
 	/// <param name="length"></param>
 	/// <param name="resolver"></param>
 	/// <returns></returns>
-	virtual bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolverGrammar* resolver);
+	virtual bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolverGrammar* resolver);
 };
 
 class GrammarExpansionRegex : public GrammarExpansion
@@ -250,13 +252,15 @@ class GrammarExpansionRegex : public GrammarExpansion
 	/// </summary>
 	/// <returns></returns>
 	size_t GetDynamicSize(int32_t version) override;
+
+	virtual int32_t GetClassVersion() { return classversion; }
 	/// <summary>
 	/// Writes the expansion data to the buffer
 	/// </summary>
 	/// <param name="buffer"></param>
 	/// <param name="offset"></param>
 	/// <returns></returns>
-	bool WriteData(unsigned char* buffer, size_t& offset) override;
+	bool WriteData(std::ostream* buffer, size_t& offset) override;
 	const int32_t classversion = 0x1;
 	/// <summary>
 	/// Reads the expansion data from the buffer
@@ -266,7 +270,7 @@ class GrammarExpansionRegex : public GrammarExpansion
 	/// <param name="length"></param>
 	/// <param name="resolver"></param>
 	/// <returns></returns>
-	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolverGrammar* resolver);
+	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolverGrammar* resolver) override;
 };
 
 class GrammarTree
@@ -475,9 +479,9 @@ public:
 
 	void Derive(std::shared_ptr<DerivationTree> dtree, int32_t targetlength, uint32_t seed, int32_t maxsteps = 100000);
 
-	void Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<DerivationTree> dtree, int64_t begin, int64_t length, int64_t stop, bool complement);
+	void ExtractEarley(std::shared_ptr<DerivationTree> stree, std::shared_ptr<DerivationTree> dtree, int64_t begin, int64_t length, int64_t stop, bool complement);
 
-	void Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<DerivationTree> dtree, bool backtrack, std::vector<std::pair<int64_t, int64_t>> segments, bool complement);
+	void Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<DerivationTree> dtree, std::vector<std::pair<int64_t, int64_t>>& segments, int64_t stop, bool complement);
 
 	void Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTree> dtree, bool backtrack, int32_t targetlength, uint32_t seed, int32_t maxsteps = 100000);
 
@@ -494,7 +498,10 @@ private:
 	int32_t _backtrack_min = 0;
 	int32_t _backtrack_max = 0;
 
-	const int32_t classversion = 0x1;
+	const int32_t classversion = 0x2;
+
+	bool ReadData0x1(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver, LoadResolverGrammar* lresolve);
+	bool ReadData0x2(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver, LoadResolverGrammar* lresolve);
 };
 
 class LoadResolverGrammar

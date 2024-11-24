@@ -103,6 +103,61 @@ void DummyGenerate(std::shared_ptr<Input>& input)
 	}
 }
 
+void Generator::GenInputFromDevTree(std::shared_ptr<Input> input)
+{
+	if (input->derive->_root->Type() == DerivationTree::NodeType::Terminal) {
+		input->AddEntry(((DerivationTree::TerminalNode*)(input->derive->_root))->_content);
+	} else {
+		std::vector<DerivationTree::SequenceNode*> seqnodes;
+
+		std::stack<DerivationTree::NonTerminalNode*> stack;
+		stack.push((DerivationTree::NonTerminalNode*)(input->derive->_root));
+		DerivationTree::NonTerminalNode* tmp = nullptr;
+		DerivationTree::Node* ntmp = nullptr;
+
+		while (stack.size() > 0) {
+			tmp = stack.top();
+			stack.pop();
+			if (tmp->Type() == DerivationTree::NodeType::Sequence)
+				seqnodes.push_back((DerivationTree::SequenceNode*)tmp);
+			// push children in reverse order to stack: We explore from left to right
+			// skip terminal children, they cannot produce sequences
+			for (int32_t i = (int32_t)tmp->_children.size() - 1; i >= 0; i--) {
+				if (tmp->_children[i]->Type() != DerivationTree::NodeType::Terminal)
+					stack.push((DerivationTree::NonTerminalNode*)(tmp->_children[i]));
+			}
+		}
+		// we have found all sequence nodes
+		// now traverse each one from left to right with depth first search and patch together
+		// the individual _input sequences
+		std::stack<DerivationTree::Node*> nstack;
+		for (int32_t c = 0; c < (int32_t)seqnodes.size(); c++) {
+			std::string entry = "";
+			// push root node to stack
+			nstack.push(seqnodes[c]);
+			// gather _input fragments
+			while (nstack.size() > 0) {
+				ntmp = nstack.top();
+				nstack.pop();
+				// if the current child is terminal, it has to be left-most child in the remaining tree
+				// and gets added to the entry
+				if (ntmp->Type() == DerivationTree::NodeType::Terminal)
+					entry += ((DerivationTree::TerminalNode*)ntmp)->_content;
+				else {
+					tmp = (DerivationTree::NonTerminalNode*)ntmp;
+					// push children in reverse order: we traverse from left to right
+					for (int32_t i = (int32_t)tmp->_children.size() - 1; i >= 0; i--) {
+						nstack.push((tmp->_children[i]));
+					}
+				}
+			}
+			input->AddEntry(entry);
+			if (input->GetTrimmedLength() != -1 && (int64_t)input->Length() == input->GetTrimmedLength())
+				break;
+		}
+	}
+}
+
 bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar> grammar, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> parent)
 {
 	StartProfiling;
@@ -197,57 +252,7 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 			}
 			// get the _input sequence from the derivationtree
 			if (input->derive->_valid && input->GetSequenceLength() == 0) {
-				if (input->derive->_root->Type() == DerivationTree::NodeType::Terminal) {
-					input->AddEntry(((DerivationTree::TerminalNode*)(input->derive->_root))->_content);
-				} else {
-					std::vector<DerivationTree::SequenceNode*> seqnodes;
-
-					std::stack<DerivationTree::NonTerminalNode*> stack;
-					stack.push((DerivationTree::NonTerminalNode*)(input->derive->_root));
-					DerivationTree::NonTerminalNode* tmp = nullptr;
-					DerivationTree::Node* ntmp = nullptr;
-
-					while (stack.size() > 0) {
-						tmp = stack.top();
-						stack.pop();
-						if (tmp->Type() == DerivationTree::NodeType::Sequence)
-							seqnodes.push_back((DerivationTree::SequenceNode*)tmp);
-						// push children in reverse order to stack: We explore from left to right
-						// skip terminal children, they cannot produce sequences
-						for (int32_t i = (int32_t)tmp->_children.size() - 1; i >= 0; i--) {
-							if (tmp->_children[i]->Type() != DerivationTree::NodeType::Terminal)
-								stack.push((DerivationTree::NonTerminalNode*)(tmp->_children[i]));
-						}
-					}
-					// we have found all sequence nodes
-					// now traverse each one from left to right with depth first search and patch together
-					// the individual _input sequences
-					std::stack<DerivationTree::Node*> nstack;
-					for (int32_t c = 0; c < (int32_t)seqnodes.size(); c++) {
-						std::string entry = "";
-						// push root node to stack
-						nstack.push(seqnodes[c]);
-						// gather _input fragments
-						while (nstack.size() > 0) {
-							ntmp = nstack.top();
-							nstack.pop();
-							// if the current child is terminal, it has to be left-most child in the remaining tree
-							// and gets added to the entry
-							if (ntmp->Type() == DerivationTree::NodeType::Terminal)
-								entry += ((DerivationTree::TerminalNode*)ntmp)->_content;
-							else {
-								tmp = (DerivationTree::NonTerminalNode*)ntmp;
-								// push children in reverse order: we traverse from left to right
-								for (int32_t i = (int32_t)tmp->_children.size() - 1; i >= 0; i--) {
-									nstack.push((tmp->_children[i]));
-								}
-							}
-						}
-						input->AddEntry(entry);
-						if (input->GetTrimmedLength() != -1 && (int64_t)input->Length() == input->GetTrimmedLength())
-							break;
-					}
-				}
+				GenInputFromDevTree(input);
 				input->SetGenerated();
 				profile(TimeProfiling, "Time taken for input Generation");
 				if ((int64_t)input->Length() != input->derive->_sequenceNodes && (!input->IsTrimmed() || (int64_t)input->Length() != input->GetTrimmedLength()))
@@ -288,7 +293,8 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 
 			// extract the corresponding derivation tree
 			if (input->derive->_valid == false) {
-				gram->Extract(parent->derive, input->derive, input->GetParentSplitBegin(), input->GetParentSplitLength(), parent->Length(), input->GetParentSplitComplement());
+				auto segments = input->GetParentSplits();
+				gram->Extract(parent->derive, input->derive, segments, parent->Length(), input->GetParentSplitComplement());
 				if (input->derive->_valid == false)
 				{
 					// the input cannot be derived from the given grammar
@@ -300,6 +306,7 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 			input->derive->Unlock();
 
 			if (input->derive->_valid && input->GetSequenceLength() == 0) {
+				/*
 				// we have all we need, so iterate over input sequence and generate our input
 				if (input->GetParentSplitComplement()) {
 					// input is a complement
@@ -345,7 +352,21 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 					input->SetGenerated();
 					input->Unlock();
 					return true;
-				}
+				}*/
+
+				// getting this from the devtree is slower but is more more code change resistant
+				GenInputFromDevTree(input);
+				input->SetGenerated();
+				profile(TimeProfiling, "Time taken for input Generation");
+				if ((int32_t)input->Length() != input->derive->_sequenceNodes)
+					logwarn("The input length is different from the generated sequence. Length: {}, Expected: {}", input->Length(), input->derive->_sequenceNodes);
+				if ((int32_t)input->Length() == 0)
+					logwarn("The input length is 0.");
+
+				input->SetGenerated();
+				input->Unlock();
+				return true;
+
 			} else if (input->derive->_valid)
 				input->SetGenerated();
 		}

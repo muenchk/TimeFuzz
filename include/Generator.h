@@ -11,6 +11,8 @@ class Generator : public Form
 {
 public:
 	bool Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar> grammar, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> parent = {});
+
+	void GenInputFromDevTree(std::shared_ptr<Input> input);
 	/// <summary>
 	/// resets all progress made
 	/// </summary>

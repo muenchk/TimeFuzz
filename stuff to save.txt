@@ -6,21 +6,11 @@ Input:
 	_enablePrimaryScoreIndividual
 	_enableSecondaryScoreIndividual
 
+
 Settings:
 	generation.generationLengthMin
 	generation.generationLengthMax
 	oracle.oracle_path_Unix
 	generation.sourcesType
 	optimization.disableExclusionTree
-
-GrammarTree:
-	_simpleGrammar
-
-
-GrammarExpansionRegex
-
-Prune()
-GatherFlags()
-DeepCopy
-FixRoot() - don't do if the grammar is simple
-_treeparse - don't do if this is a simple grammar
+						

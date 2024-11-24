@@ -31,11 +31,31 @@ size_t Input::GetStaticSize(int32_t version)
 	                        + 8                 // generationID
 	                        + 8                 // derivedInputs
 	                        + 8;                // generationTime
+	static size_t size0x2 = 4 +                 // version
+	                        1 +                 // _hasfinished
+	                        1 +                 // _trimmed
+	                        8 +                 // _executiontime
+	                        4 +                 // _exitcode
+	                        sizeof(EnumType) +  // _oracleResult
+	                        8 +                 // test
+	                        8 +                 // derivationtree
+	                        8 +                 // _primaryScore
+	                        8 +                 // _secondaryScore
+	                        8                   // trimmedLength
+	                        + 8                 // _parent.parentInput
+	                        + 1                 // _parent.complement
+	                        + 8                 // generationID
+	                        + 8                 // derivedInputs
+	                        + 8                 // generationTime
+	                        + 1                 // enablePrimaryScoreIndividual
+	                        + 1;                // enableSecondaryScoreIndividual
 
 	switch (version)
 	{
 	case 0x1:
 		return size0x1;
+	case 0x2:
+		return size0x2;
 	default:
 		return 0;
 	}
@@ -43,8 +63,11 @@ size_t Input::GetStaticSize(int32_t version)
 
 size_t Input::GetDynamicSize()
 {
-	size_t size = Form::GetDynamicSize()  // form stuff
-	              + GetStaticSize(classversion);
+	size_t size = Form::GetDynamicSize()                                            // form stuff
+	              + GetStaticSize(classversion)                                     // static stuff
+	              + 8 + _parent.segments.size() * 16                                // sizeof(), parent.segments content 16 Bytes
+	              + Buffer::VectorBasic::GetVectorSize(_primaryScoreIndividual)     // primaryScoreIndividual
+	              + Buffer::VectorBasic::GetVectorSize(_secondaryScoreIndividual);  // secondaryScoreIndividual
 	size += Buffer::CalcStringLength(_stringrep);
 	if (HasFlag(Form::FormFlags::DoNotFree)) {  // if do not free flag is present this input is needed for something and won't be checked for regeneration
 		size += Buffer::List::GetListLength(_sequence);
@@ -79,12 +102,19 @@ bool Input::WriteData(std::ostream* buffer, size_t& offset)
 	Buffer::Write(_secondaryScore, buffer, offset);
 	Buffer::Write(_trimmedlength, buffer, offset);
 	Buffer::Write(_parent.parentInput, buffer, offset);
-	Buffer::Write(_parent.positionBegin, buffer, offset);
-	Buffer::Write(_parent.length, buffer, offset);
+	Buffer::WriteSize(_parent.segments.size(), buffer, offset);
+	for (auto [begin, length] : _parent.segments) {
+		Buffer::Write(begin, buffer, offset);
+		Buffer::Write(length, buffer, offset);
+	}
 	Buffer::Write(_parent.complement, buffer, offset);
 	Buffer::Write(_generationID, buffer, offset);
 	Buffer::Write(_derivedInputs, buffer, offset);
 	Buffer::Write(_generationTime, buffer, offset);
+	Buffer::Write(_enablePrimaryScoreIndividual, buffer, offset);
+	Buffer::Write(_enableSecondaryScoreIndividual, buffer, offset);
+	Buffer::VectorBasic::WriteVector(_primaryScoreIndividual, buffer, offset);
+	Buffer::VectorBasic::WriteVector(_secondaryScoreIndividual, buffer, offset);
 	return true;
 }
 
@@ -129,12 +159,64 @@ bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRe
 			_secondaryScore = Buffer::ReadDouble(buffer, offset);
 			_trimmedlength = Buffer::ReadInt64(buffer, offset);
 			_parent.parentInput = Buffer::ReadUInt64(buffer, offset);
-			_parent.positionBegin = Buffer::ReadInt64(buffer, offset);
-			_parent.length = Buffer::ReadInt64(buffer, offset);
+			_parent.segments.clear();
+			auto positionBegin = Buffer::ReadInt64(buffer, offset);
+			_parent.segments.push_back({ positionBegin, Buffer::ReadInt64(buffer, offset) });
 			_parent.complement = Buffer::ReadBool(buffer, offset);
 			_generationID = Buffer::ReadUInt64(buffer, offset);
 			_derivedInputs = Buffer::ReadUInt64(buffer, offset);
 			_generationTime = Buffer::ReadNanoSeconds(buffer, offset);
+		}
+		return true;
+	case 0x2:
+		{
+			if (length < GetStaticSize(version))
+				return false;
+			Form::ReadData(buffer, offset, length, resolver);
+			// static init
+			_pythonconverted = false;
+			_pythonstring = "";
+			// end
+			_hasfinished = Buffer::ReadBool(buffer, offset);
+			_trimmed = Buffer::ReadBool(buffer, offset);
+			_executiontime = Buffer::ReadNanoSeconds(buffer, offset);
+			_exitcode = Buffer::ReadInt32(buffer, offset);
+			_oracleResult = Buffer::ReadUInt64(buffer, offset);
+			FormID testid = Buffer::ReadUInt64(buffer, offset);
+			resolver->AddTask([this, resolver, testid]() {
+				this->test = resolver->ResolveFormID<Test>(testid);
+			});
+			FormID deriveid = Buffer::ReadUInt64(buffer, offset);
+			resolver->AddTask([this, resolver, deriveid]() {
+				this->derive = resolver->ResolveFormID<DerivationTree>(deriveid);
+			});
+			//logdebug("ReadData string rep");
+			// get _stringrep
+			//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
+			//	return false;
+			_stringrep = Buffer::ReadString(buffer, offset);
+			if (HasFlag(Form::FormFlags::DoNotFree)) {
+				Buffer::List::ReadList(_sequence, buffer, offset);
+				Buffer::List::ReadList(_orig_sequence, buffer, offset);
+			}
+			_primaryScore = Buffer::ReadDouble(buffer, offset);
+			_secondaryScore = Buffer::ReadDouble(buffer, offset);
+			_trimmedlength = Buffer::ReadInt64(buffer, offset);
+			_parent.parentInput = Buffer::ReadUInt64(buffer, offset);
+			_parent.segments.clear();
+			size_t len = Buffer::ReadSize(buffer, offset);
+			for (size_t i = 0; i < len; i++) {
+				auto positionBegin = Buffer::ReadInt64(buffer, offset);
+				_parent.segments.push_back({ positionBegin, Buffer::ReadInt64(buffer, offset) });
+			}
+			_parent.complement = Buffer::ReadBool(buffer, offset);
+			_generationID = Buffer::ReadUInt64(buffer, offset);
+			_derivedInputs = Buffer::ReadUInt64(buffer, offset);
+			_generationTime = Buffer::ReadNanoSeconds(buffer, offset);
+			_enablePrimaryScoreIndividual = Buffer::ReadBool(buffer, offset);
+			_enableSecondaryScoreIndividual = Buffer::ReadBool(buffer, offset);
+			_primaryScoreIndividual = Buffer::VectorBasic::ReadVector<double>(buffer, offset);
+			_secondaryScoreIndividual = Buffer::VectorBasic::ReadVector<double>(buffer, offset);
 		}
 		return true;
 	default:
@@ -509,14 +591,13 @@ void Input::TrimInput(int32_t executed)
 	}
 }
 
-void Input::SetParentSplitInformation(FormID parentInput, int64_t positionBegin, int64_t length, bool complement)
+void Input::SetParentSplitInformation(FormID parentInput, std::vector<std::pair<int64_t, int64_t>> segments, bool complement)
 {
 	UnsetFlag(Input::Flags::GeneratedGrammar);
 	UnsetFlag(Input::Flags::GeneratedGrammarParent);
 	SetFlag(Input::Flags::GeneratedDeltaDebugging);
 	_parent.parentInput = parentInput;
-	_parent.positionBegin = positionBegin;
-	_parent.length = length;
+	_parent.segments = segments;
 	_parent.complement = complement;
 }
 
@@ -526,6 +607,7 @@ void Input::SetParentGenerationInformation(FormID parentInput)
 	SetFlag(Input::Flags::GeneratedGrammar);
 	SetFlag(Input::Flags::GeneratedGrammarParent);
 	_parent.parentInput = parentInput;
+	_parent.segments.clear();
 }
 
 void Input::SetGenerationInformation()
@@ -546,17 +628,24 @@ FormID Input::GetParentID()
 int64_t Input::GetParentSplitBegin()
 {
 	if (HasFlag(Flags::GeneratedDeltaDebugging))
-		return _parent.positionBegin;
-	else
-		return -1;
+		if (_parent.segments.size() > 0)
+			return _parent.segments[0].first;
+	return -1;
 }
 
 int64_t Input::GetParentSplitLength()
 {
 	if (HasFlag(Flags::GeneratedDeltaDebugging))
-		return _parent.length;
-	else
-		return -1;
+		if (_parent.segments.size() > 0)
+			return _parent.segments[0].second;
+	return -1;
+}
+
+std::vector<std::pair<int64_t, int64_t>> Input::GetParentSplits()
+{
+	if (HasFlag(Flags::GeneratedDeltaDebugging))
+		return _parent.segments;
+	return {};
 }
 
 bool Input::GetParentSplitComplement()

@@ -9,7 +9,6 @@
 #include <set>
 
 class SessionData;
-class RangeIterator;
 
 namespace DeltaDebugging
 {
@@ -365,10 +364,10 @@ namespace DeltaDebugging
 	};
 }
 
-
+template <class T>
 class RangeIterator
 {
-	std::vector<std::pair<size_t, size_t>>* _ranges;
+	std::vector<std::pair<T, T>>* _ranges;
 	bool _skipfirst = true;
 	/// <summary>
 	/// Absolute position relative to length
@@ -385,14 +384,14 @@ class RangeIterator
 	/// <summary>
 	/// total length
 	/// </summary>
-	size_t _length = 0;
+	T _length = 0;
 	/// <summary>
 	/// longest range
 	/// </summary>
-	size_t _maxRange = 0;
+	T _maxRange = 0;
 
 public:
-	RangeIterator(std::vector<std::pair<size_t, size_t>>* ranges,bool skipfirst)
+	RangeIterator(std::vector<std::pair<T, T>>* ranges,bool skipfirst)
 	{
 		_ranges = ranges;
 		_skipfirst = skipfirst;
@@ -415,7 +414,7 @@ public:
 	size_t GetLength()
 	{
 		// don't count the first element, it is suspected to be unique
-		size_t total = 0;
+		T total = 0;
 		for (size_t i = 0; i < _ranges->size(); i++)
 		{
 			if (_skipfirst)
@@ -432,7 +431,7 @@ public:
 	/// </summary>
 	/// <param name="length"></param>
 	/// <returns></returns>
-	std::vector<size_t> GetRange(size_t length)
+	std::vector<T> GetRange(size_t length)
 	{
 		std::vector<size_t> result;
 		while (length > 0 && _position < _length)
@@ -455,9 +454,9 @@ public:
 	/// </summary>
 	/// <param name="maxsize"></param>
 	/// <returns></returns>
-	std::vector<std::pair<size_t, size_t>> GetRanges(size_t maxsize)
+	std::vector<std::pair<T, T>> GetRanges(size_t maxsize)
 	{
-		std::vector<std::pair<size_t, size_t>> result;
+		std::vector<std::pair<T, T>> result;
 		for (size_t i = 0; i < _ranges->size(); i++)
 		{
 			if (_ranges->at(i).second < maxsize) {
@@ -484,9 +483,9 @@ public:
 		}
 		return result;
 	}
-	std::vector<std::pair<size_t, size_t>> GetRangesAbove(size_t minsize)
+	std::vector<std::pair<T, T>> GetRangesAbove(size_t minsize)
 	{
-		std::vector<std::pair<size_t, size_t>> result;
+		std::vector<std::pair<T, T>> result;
 		for (size_t i = 0; i < _ranges->size(); i++) {
 			if (_ranges->at(i).second > minsize) {
 				if (_skipfirst)
@@ -509,7 +508,7 @@ public:
 		return result;
 	}
 
-	size_t GetMaxRange()
+	T GetMaxRange()
 	{
 		return _maxRange;
 	}

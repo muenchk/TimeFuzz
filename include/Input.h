@@ -20,10 +20,10 @@ class Input : public Form
 {
 	friend class SessionFunctions;
 
-	const int32_t classversion = 0x1;
+	const int32_t classversion = 0x2;
 	#pragma region InheritedForm
 public:
-	size_t GetStaticSize(int32_t version = 0x1) override;
+	size_t GetStaticSize(int32_t version) override;
 	size_t GetDynamicSize() override;
 	bool WriteData(std::ostream* buffer, size_t& offset) override;
 	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
@@ -44,9 +44,17 @@ public:
 private:
 	struct ParentInformation
 	{
+		/// <summary>
+		/// formID of the parent input
+		/// </summary>
 		FormID parentInput = 0;
-		int64_t positionBegin = 0;
-		int64_t length = 0;
+		/// <summary>
+		/// segments in the parent input { positionBegin, length }
+		/// </summary>
+		std::vector<std::pair<int64_t, int64_t>> segments;
+		/// <summary>
+		/// whether the segement information is complement
+		/// </summary>
 		bool complement = false;
 	};
 
@@ -354,7 +362,7 @@ public:
 	/// <param name="parentInput"></param>
 	/// <param name="positionBegin"></param>
 	/// <param name="length"></param>
-	void SetParentSplitInformation(FormID parentInput, int64_t positionBegin, int64_t length, bool complement);
+	void SetParentSplitInformation(FormID parentInput, std::vector<std::pair<int64_t, int64_t>> segments, bool complement);
 	/// <summary>
 	/// Sets the input as generated extension from a parent input, also sets corresponding flags
 	/// </summary>
@@ -380,6 +388,11 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	int64_t GetParentSplitLength();
+	/// <summary>
+	/// returns the parent split information
+	/// </summary>
+	/// <returns></returns>
+	std::vector<std::pair<int64_t, int64_t>> GetParentSplits();
 	/// <summary>
 	/// Returns wether the ParentSplitBegin and ParentSplitLength values are of the complement of this sequence
 	/// </summary>

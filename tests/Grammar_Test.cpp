@@ -11,7 +11,7 @@ int main(/*int argc, char** argv*/)
 	Crash::Install(".");
 #endif
 
-	std::string compare = Utility::ReadFile("../../FormatExamples/grammar2.scala");
+	std::string compare = Utility::ReadFile("../../FormatExamples/grammar_compare.scala");
 	bool result = true;
 
 	std::shared_ptr<Grammar> grammar = std::make_shared<Grammar>();
@@ -27,6 +27,22 @@ int main(/*int argc, char** argv*/)
 	logdebug("Full Grammar:\n{}", scala);
 	result &= Utility::RemoveSymbols(Utility::RemoveSymbols(scala, '\n', true, '\"'), '\r', true, '\"').compare(Utility::RemoveSymbols(Utility::RemoveSymbols(compare, '\n', true, '\"'), '\r', true, '\"')) == 0;
 	grammar.reset();
+
+	
+	grammar = std::make_shared<Grammar>();
+	grammar->ParseScala("../../FormatExamples/grammar3.scala");
+	scala = grammar->Scala(false);
+	logmessage("Full Grammar:\n{}", scala);
+
+	auto grammar2 = std::make_shared<Grammar>();
+	grammar2->ParseScala("../../FormatExamples/grammar3_compare.scala");
+	std::string scala2 = grammar2->Scala(false);
+	logmessage("Full Grammar:\n{}", scala2);
+	
+	result &= Utility::RemoveSymbols(Utility::RemoveSymbols(scala, '\n', true, '\"'), '\r', true, '\"').compare(Utility::RemoveSymbols(Utility::RemoveSymbols(scala2, '\n', true, '\"'), '\r', true, '\"')) == 0;
+
+	grammar.reset();
+	grammar2.reset();
 
 	if (result)
 		return 0;

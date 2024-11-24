@@ -399,10 +399,17 @@ size_t Settings::GetStaticSize(int32_t version)
 	                 + 1   // Tests::storePUToutput
 	                 + 1   // Tests::storePUToutputSuccessful
 	                 + 8;  // Tests::maxUsedMemory
+	size_t size0x2 = size0x1  // prior stuff
+	                 + 4      // Generation::generationLengthMin
+	                 + 4      // Generation::generationLengthMax
+	                 + 4      // Generation::sourcesType
+	                 + 1;     // Optimization::disableExclusionTree
 
 	switch (version) {
 	case 0x1:
 		return size0x1;
+	case 0x2:
+		return size0x2;
 	default:
 		return 0;
 	}
@@ -410,15 +417,16 @@ size_t Settings::GetStaticSize(int32_t version)
 
 size_t Settings::GetDynamicSize()
 {
-	return Form::GetDynamicSize()                                  // form stuff
-	       + GetStaticSize(classversion)                           // static size
-	       + Buffer::CalcStringLength(oracle.oraclepath.string())  // oraclepath
-	       + Buffer::CalcStringLength(saves.savepath)              // General::savepath
-	       + Buffer::CalcStringLength(oracle.lua_path_cmd)         // Oracle::lua_path_cmd
-	       + Buffer::CalcStringLength(oracle.lua_path_script)      // Oracle::lua_path_script
-	       + Buffer::CalcStringLength(oracle.lua_path_cmd_replay)  // Oracle::lua_path_cmd_replay
-	       + Buffer::CalcStringLength(oracle.lua_path_oracle)      // Oracle::lua_path_oracle
-	       + Buffer::CalcStringLength(oracle.grammar_path);     // Oracle::grammar_path
+	return Form::GetDynamicSize()                                        // form stuff
+	       + GetStaticSize(classversion)                                 // static size
+	       + Buffer::CalcStringLength(oracle.oraclepath.string())        // oraclepath
+	       + Buffer::CalcStringLength(saves.savepath)                    // General::savepath
+	       + Buffer::CalcStringLength(oracle.lua_path_cmd)               // Oracle::lua_path_cmd
+	       + Buffer::CalcStringLength(oracle.lua_path_script)            // Oracle::lua_path_script
+	       + Buffer::CalcStringLength(oracle.lua_path_cmd_replay)        // Oracle::lua_path_cmd_replay
+	       + Buffer::CalcStringLength(oracle.lua_path_oracle)            // Oracle::lua_path_oracle
+	       + Buffer::CalcStringLength(oracle.grammar_path)               // Oracle::grammar_path
+	       + Buffer::CalcStringLength(oracle.oraclepath_Unix.string());  // Oracle::oraclepath_unix
 }
 
 bool Settings::WriteData(std::ostream* buffer, size_t& offset)
@@ -485,6 +493,16 @@ bool Settings::WriteData(std::ostream* buffer, size_t& offset)
 	Buffer::Write(tests.storePUToutput, buffer, offset);
 	Buffer::Write(tests.storePUToutputSuccessful, buffer, offset);
 	Buffer::Write(tests.maxUsedMemory, buffer, offset);
+
+	// VERSION 0x2
+	// oracle
+	Buffer::Write(oracle.oraclepath_Unix.string(), buffer, offset);
+	// generation
+	Buffer::Write(generation.generationLengthMin, buffer, offset);
+	Buffer::Write(generation.generationLengthMax, buffer, offset);
+	Buffer::Write((int32_t)generation.sourcesType, buffer, offset);
+	// optimization
+	Buffer::Write(optimization.disableExclusionTree, buffer, offset);
 	return true;
 }
 
@@ -495,6 +513,7 @@ bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, Loa
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
 	case 0x1:
+	case 0x2:
 		{
 			Form::ReadData(buffer, offset, length, resolver);
 			// oracle
@@ -560,9 +579,19 @@ bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, Loa
 			tests.storePUToutput = Buffer::ReadBool(buffer, offset);
 			tests.storePUToutputSuccessful = Buffer::ReadBool(buffer, offset);
 			tests.maxUsedMemory = Buffer::ReadInt64(buffer, offset);
-			return true;
 		}
-		break;
+		if (version == 0x2)
+		{
+			// oracle
+			oracle.oraclepath_Unix = std::filesystem::path(Buffer::ReadString(buffer, offset));
+			// generation
+			generation.generationLengthMin = Buffer::ReadInt32(buffer, offset);
+			generation.generationLengthMax = Buffer::ReadInt32(buffer, offset);
+			generation.sourcesType = (GenerationSourcesType)Buffer::ReadInt32(buffer, offset);
+			// optimization
+			optimization.disableExclusionTree = Buffer::ReadBool(buffer, offset);
+		}
+		return true;
 	default:
 		return false;
 	}

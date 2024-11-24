@@ -186,7 +186,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 				case FormType::Input:
 					Records::CreateRecord<Input>(dynamic_pointer_cast<Input>(form),&save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
-						std::cout << ("Buffer overflow in record: Input");
+						logcritical("Buffer overflow in record: Input");
 					}
 					stats._Input++;
 					//logdebug("Write Record:      Input");
@@ -194,7 +194,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 				case FormType::Grammar:
 					Records::CreateRecord<Grammar>(dynamic_pointer_cast<Grammar>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
-						std::cout << ("Buffer overflow in record: Grammar");
+						logcritical("Buffer overflow in record: Grammar");
 					}
 					stats._Grammar++;
 					//Logdebug("Write Record:      Grammar");
@@ -202,7 +202,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 				case FormType::DevTree:
 					Records::CreateRecord<DerivationTree>(dynamic_pointer_cast<DerivationTree>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
-						std::cout << ("Buffer overflow in record: DerivationTree");
+						logcritical("Buffer overflow in record: DerivationTree");
 					}
 					stats._DevTree++;
 					//logdebug("Write Record:      DerivationTree");
@@ -210,7 +210,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 				case FormType::ExclTree:
 					Records::CreateRecord<ExclusionTree>(dynamic_pointer_cast<ExclusionTree>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
-						std::cout << ("Buffer overflow in record: ExclusionTree");
+						logcritical("Buffer overflow in record: ExclusionTree");
 					}
 					stats._ExclTree++;
 					//logdebug("Write Record:      ExclusionTree");
@@ -218,7 +218,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 				case FormType::Generator:
 					Records::CreateRecord<Generator>(dynamic_pointer_cast<Generator>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
-						std::cout << ("Buffer overflow in record: Generator");
+						logcritical("Buffer overflow in record: Generator");
 					}
 					stats._Generator++;
 					//logdebug("Write Record:      Generator");
@@ -226,7 +226,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 				case FormType::Session:
 					Records::CreateRecord<Session>(dynamic_pointer_cast<Session>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
-						std::cout << ("Buffer overflow in record: Session");
+						logcritical("Buffer overflow in record: Session");
 					}
 					stats._Session++;
 					//logdebug("Write Record:      Session");
@@ -234,7 +234,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 				case FormType::Settings:
 					Records::CreateRecord<Settings>(dynamic_pointer_cast<Settings>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
-						std::cout << ("Buffer overflow in record: Settings");
+						logcritical("Buffer overflow in record: Settings");
 					}
 					stats._Settings++;
 					//logdebug("Write Record:      Settings");
@@ -242,7 +242,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 				case FormType::Test:
 					Records::CreateRecord<Test>(dynamic_pointer_cast<Test>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
-						std::cout << ("Buffer overflow in record: Test");
+						logcritical("Buffer overflow in record: Test");
 					}
 					stats._Test++;
 					//logdebug("Write Record:      Test");
@@ -250,7 +250,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 				case FormType::TaskController:
 					Records::CreateRecord<TaskController>(dynamic_pointer_cast<TaskController>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
-						std::cout << ("Buffer overflow in record: TaskController");
+						logcritical("Buffer overflow in record: TaskController");
 					}
 					stats._TaskController++;
 					//logdebug("Write Record:      TaskController");
@@ -258,7 +258,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 				case FormType::ExecutionHandler:
 					Records::CreateRecord<ExecutionHandler>(dynamic_pointer_cast<ExecutionHandler>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
-						std::cout << ("Buffer overflow in record: ExecutionHandler");
+						logcritical("Buffer overflow in record: ExecutionHandler");
 					}
 					stats._ExecutionHandler++;
 					//logdebug("Write Record:      ExecutionHandler");
@@ -266,7 +266,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 				case FormType::Oracle:
 					Records::CreateRecord<Oracle>(dynamic_pointer_cast<Oracle>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
-						std::cout << ("Buffer overflow in record: Oracle");
+						logcritical("Buffer overflow in record: Oracle");
 					}
 					stats._Oracle++;
 					//logdebug("Write Record:      Oracle");
@@ -274,7 +274,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 				case FormType::SessionData:
 					Records::CreateRecord<SessionData>(dynamic_pointer_cast<SessionData>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
-						std::cout << ("Buffer overflow in record: SessionData");
+						logcritical("Buffer overflow in record: SessionData");
 					}
 					stats._SessionData++;
 					//logdebug("Write Record:      SessionData");
@@ -282,7 +282,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 				case FormType::DeltaController:
 					Records::CreateRecord<DeltaDebugging::DeltaController>(dynamic_pointer_cast<DeltaDebugging::DeltaController>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
-						std::cout << ("Buffer overflow in record: DeltaController");
+						logcritical("Buffer overflow in record: DeltaController");
 					}
 					stats._DeltaController++;
 					//logdebug("Write Record:      DeltaController");
@@ -290,7 +290,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 				case FormType::Generation:
 					Records::CreateRecord<Generation>(dynamic_pointer_cast<Generation>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
-						std::cout << ("Buffer overflow in record: Generation");
+						logcritical("Buffer overflow in record: Generation");
 					}
 					stats._Generation++;
 					//logdebug("Write Record:      Generation");

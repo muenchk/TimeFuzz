@@ -246,7 +246,7 @@ std::string& Utility::RemoveSymbols(std::string& str, char symbol, char disablec
 	return str;
 }
 
-std::vector<std::pair<char, int32_t>> GetSymbols(std::string str)
+std::vector<std::pair<char, int32_t>> Utility::GetSymbols(std::string str)
 {
 	std::vector<std::pair<char, int32_t>> result;
 	for (char c : str)
