@@ -231,6 +231,8 @@ public:
 		return count;
 	}
 
+	static std::vector<std::pair<char, int32_t>> GetSymbols(std::string str);
+
 	// From Crashandler
 
 	[[nodiscard]] static auto ConvertToWideString(std::string_view a_in) noexcept

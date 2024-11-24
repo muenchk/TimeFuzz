@@ -20,6 +20,11 @@ bool GrammarNode::IsSequence()
 	return _type == NodeType::Sequence;
 }
 
+bool GrammarNode::IsNonTerminal()
+{
+	return _type == NodeType::NonTerminal;
+}
+
 bool GrammarNode::IsValid()
 {
 	return _identifier.empty() == false && _derivation.empty() && (IsLeaf() && _expansions.size() == 0 || !IsLeaf() && _expansions.size() > 0);
@@ -280,6 +285,109 @@ bool GrammarExpansion::ReadData(std::istream* buffer, size_t& offset, size_t /*l
 	}
 }
 
+GrammarObject::Type GrammarExpansionRegex::GetObjectType()
+{
+	return Type::GrammarExpansionRegex;
+}
+
+GrammarExpansionRegex::operator std::string()
+{
+	std::string ret;
+	if (_node)
+		if (_min == 0)
+			return "(" + _node->string() + ")" + "*";
+		else
+			return "(" + _node->string() + ")" + "+";
+	return ret;
+}
+
+std::string GrammarExpansionRegex::Scala()
+{
+	std::string ret;
+	if (_node){
+		switch (_node->_type) {
+		case GrammarNode::NodeType::Terminal:
+			ret += "\"" + _node->_identifier + "\"";
+			break;
+		case GrammarNode::NodeType::NonTerminal:
+		case GrammarNode::NodeType::Sequence:
+			ret += _node->_identifier;
+			break;
+		}
+	}
+	if (_min == 0)
+		ret += "*";
+	else
+		ret += "+";
+	return ret;
+}
+
+size_t GrammarExpansionRegex::GetDynamicSize(int32_t version)
+{
+	size_t size0x1 = 4     // version
+	                 + 8   // node
+	                 + 4   // min
+	                 + 8   // id
+	                 + 1   // producing
+	                 + 8   // flags
+	                 + 1   // remove
+	                 + 8   // parent
+	                 + 4   // nonterminals
+	                 + 4   // seqnonterminals
+	                 + 4;  // terminals
+	switch (version) {
+	case 0x1:
+		return size0x1;
+	default:
+		return 0;
+	}
+}
+
+bool GrammarExpansionRegex::WriteData(unsigned char* buffer, size_t& offset)
+{
+	Buffer::Write(classversion, buffer, offset);
+	Buffer::Write(_node->_id, buffer, offset);
+	Buffer::Write(_min, buffer, offset);
+	Buffer::Write(_id, buffer, offset);
+	Buffer::Write(_producing, buffer, offset);
+	Buffer::Write(_flags, buffer, offset);
+	Buffer::Write(_remove, buffer, offset);
+	Buffer::Write(_parent->_id, buffer, offset);
+	Buffer::Write(_nonterminals, buffer, offset);
+	Buffer::Write(_seqnonterminals, buffer, offset);
+	Buffer::Write(_terminals, buffer, offset);
+	return true;
+}
+
+bool GrammarExpansionRegex::ReadData(unsigned char* buffer, size_t& offset, size_t /*length*/, LoadResolverGrammar* resolver)
+{
+	int32_t version = Buffer::ReadInt32(buffer, offset);
+	switch (version) {
+	case 0x1:
+		{
+			uint64_t id = Buffer::ReadUInt64(buffer, offset);
+			resolver->AddTask([this, resolver, id]() {
+				_node = resolver->ResolveNodeID(id);
+			});
+			_min = Buffer::ReadInt32(buffer, offset);
+			_id = Buffer::ReadUInt64(buffer, offset);
+			_producing = Buffer::ReadBool(buffer, offset);
+			_flags = Buffer::ReadUInt64(buffer, offset);
+			_remove = Buffer::ReadBool(buffer, offset);
+			uint64_t pid = Buffer::ReadUInt64(buffer, offset);
+			resolver->AddTask([this, resolver, pid]() {
+				this->_parent = resolver->ResolveNodeID(pid);
+			});
+			_nonterminals = Buffer::ReadInt32(buffer, offset);
+			_seqnonterminals = Buffer::ReadInt32(buffer, offset);
+			_terminals = Buffer::ReadInt32(buffer, offset);
+			return true;
+		}
+	default:
+		return false;
+	}
+}
+
 
 GrammarTree::GrammarTree()
 {
@@ -312,6 +420,8 @@ void GrammarTree::Clear()
 			expansion->_parent.reset();
 			expansion->_nodes.clear();
 		}
+		if (expansion->IsRegex())
+			dynamic_pointer_cast<GrammarExpansionRegex>(expansion)->_node.reset();
 	}
 	_hashmap_expansions.clear();
 	_root.reset();
@@ -409,12 +519,24 @@ void GrammarTree::Construct()
 	// Most importantly, this function needs all used non-terminals to be present
 	// if this is not the case the function will fail.
 
+	// checks if a derivation is "empty", thus it produces the empty word
+	auto isEmpty = [](std::string derive) {
+		if (derive == "")
+			return true;
+		// if the only symbols are whitespace or tab this might be the empty word
+		auto symbols = Utility::GetSymbols(derive);
+		for (auto [c, _] : symbols)
+			if (c != ' ' && c != '\t')
+				return false;
+		return true;
+	};
+
 	// iterate over all non-terminals and initialize them
 	for (auto node : _nonterminals) {
 		if (node->IsValid() == false) {
 			_hashmap.insert({ node->_id, node });
 			// extract the alternative derivations
-			std::vector<std::string> alternatives = Utility::SplitString(node->_derivation, '|', true, true, '\"');
+			std::vector<std::string> alternatives = Utility::SplitString(node->_derivation, '|', false, true, '\"');
 			for (std::string alter : alternatives) {
 				// go over the derivations and get all concated productions
 				std::vector<std::string> productions = Utility::SplitString(alter, '~', true, true, '\"', true);
@@ -432,6 +554,10 @@ void GrammarTree::Construct()
 							newnode->_parents.insert(expansion);
 						} else
 							logcritical("Cannot find unknown Symbol: {}", productions[i]);
+					}
+					else if (isEmpty(productions[i]))
+					{
+						// do nothing, this may result in an empty rule
 					}
 					// if the rule is a terminal get the terminal and create a node
 					else {
@@ -579,6 +705,11 @@ void GrammarTree::GatherFlags(std::shared_ptr<GrammarExpansion> expansion, std::
 		if (finished_ids.contains(expansion->_nodes[i]->_id) == false) {
 			GatherFlags(expansion->_nodes[i], path);
 		}
+		if (expansion->IsRegex())
+		{
+			if (auto regex = dynamic_pointer_cast<GrammarExpansionRegex>(expansion); finished_ids.contains(regex->_node->_id) == false)
+				GatherFlags(regex->_node, path);
+		}
 		expansion->_producing &= expansion->_nodes[i]->_producing;
 		expansion->_flags |= expansion->_nodes[i]->_flags;
 		switch (expansion->_nodes[i]->_type)
@@ -598,6 +729,10 @@ void GrammarTree::GatherFlags(std::shared_ptr<GrammarExpansion> expansion, std::
 		if (expansion->_nodes[i]->_flags & GrammarNode::NodeFlags::ProduceSequence)
 			expansion->_seqnonterminals++;
 	}
+	if (expansion->IsRegex() == false && expansion->_nodes.size() == 0)
+		expansion->_flags |= GrammarNode::NodeFlags::ProduceEmptyWord;
+	if (expansion->IsRegex() && dynamic_pointer_cast<GrammarExpansionRegex>(expansion)->_min == 0)
+		expansion->_flags |= GrammarNode::NodeFlags::ProduceEmptyWord;
 	finished_ids.insert(expansion->_id);
 }
 
@@ -711,6 +846,18 @@ void GrammarTree::Prune(bool pruneall)
 						}
 					}
 				}
+				if (exp->IsRegex())
+				{
+					auto node = dynamic_pointer_cast<GrammarExpansionRegex>(exp)->_node;
+					if (node && node->_remove == false)
+					{
+						eraseasparent(node);
+						if (node->_parents.size() == 0) {
+							node->_remove = true;
+							stack.push(node.get());
+						}
+					}
+				}
 				if (exp->_producing == false) {
 					logwarn("Expansion is not producing and has been removed: {}", exp->operator std::string());
 				} else if (exp->_remove) {
@@ -726,6 +873,12 @@ void GrammarTree::Prune(bool pruneall)
 						logdebug("Enter node to stack: {}", node->operator std::string());
 					}
 				}
+				if (exp->IsRegex())
+					if (auto regex = dynamic_pointer_cast<GrammarExpansionRegex>(exp); regex->node)
+					{
+						stack.push(regex->_node.get());
+						logdebug("Enter node to stack: {}", regex->_node->operator std::string());
+					}
 			}
 		}
 	}
@@ -787,7 +940,16 @@ void GrammarTree::DeepCopy(std::shared_ptr<GrammarTree> other)
 		return newnode;
 	};
 	auto copyGrammarExpansion = [](std::shared_ptr<GrammarExpansion> expansion) {
-		auto newexpansion = std::make_shared<GrammarExpansion>();
+		std::shared_ptr<GrammarExpansion> newexpansion;
+		if (expansion->IsRegex())
+		{
+			auto regex = std::make_shared<GrammarExpansionRegex>();
+			newexpansion = regex;
+			regex->_min = dynamic_pointer_cast<GrammarExpansionRegex>(expansion)->_min;
+			regex->_node = dynamic_pointer_cast<GrammarExpansionRegex>(expansion)->_node;
+		} else {
+			newexpansion = std::make_shared<GrammarExpansion>();
+		}
 		newexpansion->_nodes = expansion->_nodes;
 		newexpansion->_weight = expansion->_weight;
 		newexpansion->_id = expansion->_id;
@@ -856,6 +1018,10 @@ void GrammarTree::DeepCopy(std::shared_ptr<GrammarTree> other)
 		//node->_nodes.append_range(nodes);
 		for (auto x : nodes)
 			node->_nodes.push_back(x);
+		if (node->IsRegex())
+		{
+			dynamic_pointer_cast<GrammarExpansionRegex>(node)->_node = other->_hashmap.at(dynamic_pointer_cast<GrammarExpansionRegex>(node)->_node->_id);
+		}
 	}
 
 	// all references have been resolved so we are done
@@ -863,6 +1029,9 @@ void GrammarTree::DeepCopy(std::shared_ptr<GrammarTree> other)
 
 void GrammarTree::InsertParseNodes()
 {
+	// simple grammars cannot work with EarlyParser, so no need
+	if (_simpleGrammar)
+		return;
 	// this function will insert a new production PN -> S for every
 	// sequence node S and change all productions P -> S to P -> PN
 
@@ -887,10 +1056,14 @@ void GrammarTree::InsertParseNodes()
 		for (auto expansion : node->_parents)
 		{
 			nnode->_parents.insert(expansion);
-			for (int64_t i = 0; i < (int64_t)expansion->_nodes.size(); i++)
-			{
-				if (expansion->_nodes[i]->_id == node->_id)
-					expansion->_nodes[i] = nnode;
+			if (expansion->IsRegex()) {
+				if (dynamic_pointer_cast<GrammarExpansionRegex>(expansion)->_node->_id == node->_id)
+					dynamic_pointer_cast<GrammarExpansionRegex>(expansion)->_node = nnode;
+			} else {
+				for (int64_t i = 0; i < (int64_t)expansion->_nodes.size(); i++) {
+					if (expansion->_nodes[i]->_id == node->_id)
+						expansion->_nodes[i] = nnode;
+				}
 			}
 		}
 		// create new expansion
@@ -916,6 +1089,9 @@ void GrammarTree::InsertParseNodes()
 
 void GrammarTree::FixRoot()
 {
+	// for simple grammars this isn't necessary, it's unwanted even, as we don't need to earley parser
+	if (_simpleGrammar)
+		return;
 	if (_root->_expansions.size() > 1 ||
 		(_root->_expansions.size() == 1 &&
 			(_root->_expansions[0]->_nodes.size() > 1 ||
@@ -947,7 +1123,196 @@ void GrammarTree::FixRoot()
 }
 
 
+void GrammarTree::SimplifyRecursionHelper()
+{
+	for (auto [id, expansion] : _hashmap_expansions)
+	{
+		auto node = expansion->_parent;
+		// if the expansion expands into a single other symbol, we can transfer the rules to the parent
+		if (expansion->_nodes.size() == 1 && node != expansion->_nodes[0])
+		{
+			// DO WE REALLY WANT TO INVEST TIME HERE
+		}
+	}
+}
 
+
+bool GrammarTree::CheckForSequenceSimplicityAndSimplify()
+{
+	// this function checks a few cases in which the grammar can be transformed into a regular 
+	// expression on the sequence generation level
+	// [beneath the sequences doesn't matter, as EarleyParser works on sequence nodes]
+
+	std::vector<bool> _rules(_ruleorder.size(), false);
+
+	// first find all rules that are sequence rules, or beneath them, we don't care about them
+	// [IsSequence, or NOT ProducingSequence]
+	for (size_t i = 0; i < _rules.size(); i++)
+		if (auto node = _hashmap.at(_ruleorder[i]); node->IsSequence() == false && (node->_flags & GrammarNode::NodeFlags::ProduceSequence) == 0)
+			_rules[i] = true;
+
+	std::vector<std::shared_ptr<GrammarNode>> handle;
+
+	// first case 
+	// find all expansions that can be reformed as simple regex
+	// we only accept simple regex. S*, S+, 
+	bool simple = true;
+	for (size_t i = 0; i < _rules.size(); i++) {
+		if (_rules[i] != true) {
+			// acceptable:
+			// 'Node1 -> 'Node1 ~ 'Node1 | 'Node2		('Node2)+
+			// 'Node1 -> 'Node2 | 'Node1 ~ 'Node2		('Node2)+
+			// 'Node1 -> 'Node2 | 'Node2 ~ 'Node1		('Node2)+
+			// 'Node1 ->  | 'Node2 ~ 'Node1				('Node2)*
+			// 'Node1 ->  | 'Node1 ~ 'Node2				('Node2)*
+
+			auto isRegex = [](std::shared_ptr<GrammarNode> node) {
+				if (node->_expansions.size() != 2)
+					return false;
+				if (node->_expansions.size() == 2) {
+					if (node->_expansions[0]->_nodes.size() == 1 && node->_expansions[1]->_nodes.size() == 2) {
+						// +
+						if (node->_expansions[0]->_nodes[0]->_id == node->_id &&
+							(node->_expansions[1]->_nodes[0]->_id == node->_id ||
+								node->_expansions[1]->_nodes[1]->_id == node->_id))
+							return true;
+					} else if (node->_expansions[0]->_nodes.size() == 2 && node->_expansions[1]->_nodes.size() == 1) {
+						// +
+						if (node->_expansions[1]->_nodes[0]->_id == node->_id &&
+							(node->_expansions[0]->_nodes[0]->_id == node->_id ||
+								node->_expansions[0]->_nodes[1]->_id == node->_id))
+							return true;
+					} else if (node->_expansions[0]->_nodes.size() == 0 && node->_expansions[1]->_nodes.size() == 2) {
+						// *
+						if (node->_expansions[1]->_nodes[0]->_id == node->_id ||
+							node->_expansions[1]->_nodes[1]->_id == node->_id)
+							return true;
+					}
+				}
+				return false;
+			};
+
+			// simple productions
+			// 'Node1 -> 'Node2
+			auto node = _hashmap.at(_ruleorder[i]);
+			if (node->_expansions.size() == 1 && node->_expansions[0]->_nodes.size() == 1) {
+				_rules[i] = true;
+				handle.push_back(node);
+			}
+
+			// regex
+			if (isRegex(node)) {
+				_rules[i] = true;
+				handle.push_back(node);
+			}
+		}
+		simple &= _rules[i];
+	}
+	if (simple)
+	{
+		// simple grammar, try transforming
+		for (auto node : handle)
+		{
+			auto getRegexInfo = [](std::shared_ptr<GrammarNode> node) {
+				if (node->_expansions.size() == 2) {
+					if (node->_expansions[0]->_nodes.size() == 1 && node->_expansions[1]->_nodes.size() == 2) {
+						// +
+						if (node->_expansions[0]->_nodes[0]->_id == node->_id) {
+							if (node->_expansions[1]->_nodes[0]->_id == node->_id) {
+								return std::pair<std::shared_ptr<GrammarNode>, int32_t>{ node->_expansions[1]->_nodes[0], 1 };
+							} else if (node->_expansions[1]->_nodes[1]->_id == node->_id) {
+								return std::pair<std::shared_ptr<GrammarNode>, int32_t>{ node->_expansions[1]->_nodes[1], 1 };
+							}
+						}
+					} else if (node->_expansions[0]->_nodes.size() == 2 && node->_expansions[1]->_nodes.size() == 1) {
+						// +
+						if (node->_expansions[1]->_nodes[0]->_id == node->_id) {
+							if (node->_expansions[0]->_nodes[0]->_id == node->_id) {
+								return std::pair<std::shared_ptr<GrammarNode>, int32_t>{ node->_expansions[0]->_nodes[0], 1 };
+							} else if (node->_expansions[0]->_nodes[1]->_id == node->_id) {
+								return std::pair<std::shared_ptr<GrammarNode>, int32_t>{ node->_expansions[0]->_nodes[1], 1 };
+							}
+						}
+					} else if (node->_expansions[0]->_nodes.size() == 0 && node->_expansions[1]->_nodes.size() == 2) {
+						// *
+						if (node->_expansions[1]->_nodes[0]->_id == node->_id) {
+							return std::pair<std::shared_ptr<GrammarNode>, int32_t>{ node->_expansions[1]->_nodes[0], 0 };
+						} else if (node->_expansions[1]->_nodes[1]->_id == node->_id) {
+							return std::pair<std::shared_ptr<GrammarNode>, int32_t>{ node->_expansions[1]->_nodes[1], 0 };
+						}
+					}
+				}
+				return std::pair<std::shared_ptr<GrammarNode>, int32_t>{ {}, 0 };
+			};
+
+			// check if this is a simple production, if yes, resolve
+			if (node->_expansions.size() == 1 && node->_expansions[0]->_nodes.size() == 1) {
+				if (node->_parents.size() == 0) {
+					// root -> make child node the new tree root
+					if (node == _root) {
+						_root = node->_expansions[0]->_nodes[0];
+					}
+					node->_expansions[0]->_parent.reset();
+					node->_expansions[0]->_nodes[0]->_parents.erase(node->_expansions[0]);
+					node->_expansions.clear();
+				}
+				else {
+					node->_expansions[0]->_parent.reset();
+					node->_expansions[0]->_nodes[0]->_parents.erase(node->_expansions[0]);
+					for (auto parent : node->_parents)
+					{
+						for (size_t i = 0; i < parent->_nodes.size(); i++)
+						{
+							if (parent->_nodes[i]->_id == node->_id)
+							{
+								// replace
+								parent->_nodes[i] = node->_expansions[0]->_nodes[0];
+								node->_expansions[0]->_nodes[0]->_parents.insert(parent);
+							}
+						}
+					}
+					node->_expansions.clear();
+					node->_parents.clear();
+				}
+
+				// handle regex
+				if (auto [prodnode, min] = getRegexInfo(node); prodnode)
+				{
+					std::shared_ptr<GrammarExpansionRegex> regex = std::make_shared<GrammarExpansionRegex>();
+					regex->_id = GetNextID();
+					regex->_node = prodnode;
+					prodnode->_parents.insert(regex);
+					regex->_min = min;
+					regex->_parent = node;
+					
+					for (auto exp : node->_expansions)
+					{
+						exp->_parent.reset();
+						for (auto expnode : exp->_nodes)
+						{
+							expnode->_parents.erase(exp);
+						}
+						exp->_nodes.clear();
+					}
+					node->_expansions.clear();
+					node->_expansions.push_back(regex);
+					_hashmap_expansions.insert_or_assign(regex->_id, regex);
+				}
+			}
+		}
+
+		// gather all flags for all tree nodes
+		GatherFlags(_root, {}, true);
+
+		// prune tree to valid expansion and nodes
+		Prune();
+
+		// set simple grammar
+		_simpleGrammar = true;
+		return true;
+	} else
+		return false;
+}
 
 void Grammar::ParseScala(std::filesystem::path path)
 {
@@ -1051,12 +1416,16 @@ void Grammar::ParseScala(std::filesystem::path path)
 		// now construct the tree
 		_tree->Construct();
 
+		// check if it's a simple grammar and simplify it
+		_tree->CheckForSequenceSimplicityAndSimplify();
+
 		// fix root symbol if necessary
 		_tree->FixRoot();
 		
 		logdebug("constructed grammar");
 
-		if (_tree->IsValid()) {
+		// only if the grammar isn't simple
+		if (_tree->IsValid() && _tree->_simpleGrammar == false) {
 			loginfo("Successfully read the grammar from file: {}", path.string());
 
 			// now construct tree for parsing
@@ -1074,6 +1443,13 @@ bool Grammar::IsValid()
 {
 	if (_tree)
 		return _tree->IsValid();
+	return false;
+}
+
+bool Grammar::IsSimple()
+{
+	if (_tree)
+		return _tree->_simpleGrammar;
 	return false;
 }
 
@@ -1095,6 +1471,24 @@ std::string Grammar::Scala(bool parsetree)
 Grammar::~Grammar()
 {
 	Clear();
+}
+
+void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<DerivationTree> dtree, bool backtrack, std::vector<std::pair<int64_t, int64_t>> segments, bool complement)
+{
+	if (_tree->_simpleGrammar == false)
+	{
+		if (segments.size() == 1)
+			return Extract(stree, dtree, backtrack, segments[0].first, segments[1].second, complement);
+		else
+			logcritical("Multiple segements aren't supported for complex grammars");
+	}
+	else
+	{
+		// simple grammar
+		// yay no earleyparser
+		// just copy tree and check that it fits our regexes
+
+	}
 }
 
 void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<DerivationTree> dtree, int64_t begin, int64_t length, int64_t stop, bool complement)
@@ -1355,7 +1749,8 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 						idx = exp[dist(randan)];
 					} else {
 						std::uniform_int_distribution<signed> dist(0, 100000000);
-						float target = (float)dist(randan) / 100000000.f;
+						// calc target weight and adjust for the total weight not being 1
+						float target = ((float)dist(randan) / 100000000.f) * tweight; 
 						float current = 0.f;
 						for (int32_t i = 0; i < (int32_t)exp.size(); i++) {
 							if (current += gnode->_expansions[exp[i]]->_weight; current >= target) {
@@ -1442,7 +1837,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 				idx = exp[dist(randan)];
 			} else {
 				std::uniform_int_distribution<signed> dist(0, 100000000);
-				float target = (float)dist(randan) / 100000000.f;
+				float target = ((float)dist(randan) / 100000000.f) * tweight; 
 				float current = 0.f;
 				for (int32_t i = 0; i < (int32_t)exp.size(); i++) {
 					if (current += gnode->_expansions[exp[i]]->_weight; current >= target) {
@@ -1458,7 +1853,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 				idx = dist(randan);
 			} else {
 				std::uniform_int_distribution<signed> dist(0, 100000000);
-				float target = (float)dist(randan) / 100000000.f;
+				float target = ((float)dist(randan) / 100000000.f) * tweight; 
 				float current = 0.f;
 				for (int32_t i = 0; i < (int32_t)gnode->_expansions.size(); i++) {
 					if (current += gnode->_expansions[i]->_weight; current >= target) {
@@ -1523,7 +1918,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 			idx = dist(randan);
 		} else {
 			std::uniform_int_distribution<signed> dist(0, 100000000);
-			float target = (float)dist(randan) / 100000000.f;
+			float target = ((float)dist(randan) / 100000000.f) * tweight; 
 			float current = 0.f;
 			for (int32_t i = 0; i < (int32_t)gnode->_expansions.size(); i++) {
 				if (current += gnode->_expansions[i]->_weight; current >= target) {

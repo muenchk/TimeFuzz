@@ -27,6 +27,7 @@ public:
 	{
 		GrammarNode,
 		GrammarExpansion,
+		GrammarExpansionRegex
 	};
 
 	virtual Type GetObjectType() = 0;
@@ -51,6 +52,10 @@ public:
 		/// possibly expands into a sequence node
 		/// </summary>
 		ProduceSequence = 0x4,
+		/// <summary>
+		/// Produces the empty word
+		/// </summary>
+		ProduceEmptyWord = 0x8,
 	};
 
 	enum class NodeType : EnumType
@@ -98,6 +103,11 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	bool IsSequence();
+	/// <summary>
+	/// whether this node is a non-terminal
+	/// </summary>
+	/// <returns></returns>
+	bool IsNonTerminal();
 
 	/// <summary>
 	/// whether this node has been evaluated
@@ -183,17 +193,19 @@ public:
 	/// </summary>
 	std::shared_ptr<GrammarNode> _parent;
 
+	virtual bool IsRegex() { return false; }
+
 	virtual Type GetObjectType();
 
 	virtual std::string Scala();
 
-	operator std::string();
+	virtual operator std::string();
 
 	/// <summary>
 	/// returns the size of the expansion in bytes
 	/// </summary>
 	/// <returns></returns>
-	size_t GetDynamicSize(int32_t version);
+	virtual size_t GetDynamicSize(int32_t version);
 	/// <summary>
 	/// Writes the expansion data to the buffer
 	/// </summary>
@@ -202,6 +214,50 @@ public:
 	/// <returns></returns>
 	bool WriteData(std::ostream* buffer, size_t& offset);
 	const int32_t classversion = 0x2;
+	/// <summary>
+	/// Reads the expansion data from the buffer
+	/// </summary>
+	/// <param name="buffer"></param>
+	/// <param name="offset"></param>
+	/// <param name="length"></param>
+	/// <param name="resolver"></param>
+	/// <returns></returns>
+	virtual bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolverGrammar* resolver);
+};
+
+class GrammarExpansionRegex : public GrammarExpansion
+{
+	public :
+	/// <summary>
+	/// the node produced by this regex
+	/// </summary>
+	std::shared_ptr<GrammarNode> _node;
+	/// <summary>
+	/// min number of repetitions produced
+	/// </summary>
+	int32_t _min = 0;
+
+	virtual bool IsRegex() override { return true; }
+
+	virtual Type GetObjectType() override;
+
+	virtual std::string Scala() override;
+
+	virtual operator std::string() override;
+
+	/// <summary>
+	/// returns the size of the expansion in bytes
+	/// </summary>
+	/// <returns></returns>
+	size_t GetDynamicSize(int32_t version) override;
+	/// <summary>
+	/// Writes the expansion data to the buffer
+	/// </summary>
+	/// <param name="buffer"></param>
+	/// <param name="offset"></param>
+	/// <returns></returns>
+	bool WriteData(unsigned char* buffer, size_t& offset) override;
+	const int32_t classversion = 0x1;
 	/// <summary>
 	/// Reads the expansion data from the buffer
 	/// </summary>
@@ -282,6 +338,11 @@ private:
 
 	bool _valid = false;
 
+	/// <summary>
+	/// whether the grammar represented by this tree is simple
+	/// </summary>
+	bool _simpleGrammar = false;
+
 	int32_t _numcycles = 0;
 	uint64_t _nextid = 0;
 
@@ -337,6 +398,17 @@ private:
 	/// derives into one other non-terminal symbol
 	/// </summary>
 	void FixRoot();
+
+	/// <summary>
+	/// Attempts to simplify the grammar, as long as it is unweighted
+	/// </summary>
+	void SimplifyRecursionHelper();
+
+	/// <summary>
+	/// Checks whether the rules producing sequence nodes can be simplified into a regular expression
+	/// </summary>
+	/// <returns></returns>
+	bool CheckForSequenceSimplicityAndSimplify();
 };
 
 class Grammar : public Form
@@ -365,6 +437,12 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	bool IsValid();
+
+	/// <summary>
+	/// returns whether the grammar is a simple grammar
+	/// </summary>
+	/// <returns></returns>
+	bool IsSimple();
 
 	~Grammar();
 
@@ -398,6 +476,8 @@ public:
 	void Derive(std::shared_ptr<DerivationTree> dtree, int32_t targetlength, uint32_t seed, int32_t maxsteps = 100000);
 
 	void Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<DerivationTree> dtree, int64_t begin, int64_t length, int64_t stop, bool complement);
+
+	void Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<DerivationTree> dtree, bool backtrack, std::vector<std::pair<int64_t, int64_t>> segments, bool complement);
 
 	void Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTree> dtree, bool backtrack, int32_t targetlength, uint32_t seed, int32_t maxsteps = 100000);
 

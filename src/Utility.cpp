@@ -246,6 +246,23 @@ std::string& Utility::RemoveSymbols(std::string& str, char symbol, char disablec
 	return str;
 }
 
+std::vector<std::pair<char, int32_t>> GetSymbols(std::string str)
+{
+	std::vector<std::pair<char, int32_t>> result;
+	for (char c : str)
+	{
+		for (size_t i = 0; i < result.size(); i++)
+		{
+			if (result[i].first == c) {
+				result[i] = { c, result[i].second + 1 };
+				continue;
+			}
+		} 
+		result.push_back({ c, 1 });
+	}
+	return result;
+}
+
 std::string Utility::ReadFile(std::filesystem::path path)
 {
 	if (!std::filesystem::exists(path) || std::filesystem::is_directory(path)) {
