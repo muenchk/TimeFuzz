@@ -80,7 +80,7 @@ public:
 private:
 	const uint64_t guid1 = 0xe30db97c4f1e478f;
 	const uint64_t guid2 = 0x8b03f3d9e946dcf3;
-	const int32_t saveversion = 0x1;
+	const int32_t saveversion = 0x2;
 	/// <summary>
 	/// unique name of the save [i.e. "Testing"]
 	/// </summary>
@@ -170,9 +170,9 @@ private:
 
 	size_t GetStringHashmapSize();
 
-	bool WriteStringHasmap(unsigned char* buffer, size_t& offset, size_t length);
+	bool WriteStringHashmap(std::ostream* buffer, size_t& offset, size_t length);
 
-	bool ReadStringHashmap(unsigned char* buffer, size_t& offset, size_t length);
+	bool ReadStringHashmap(std::istream* buffer, size_t& offset, size_t length);
 
 public:
 

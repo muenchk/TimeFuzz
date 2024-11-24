@@ -24,7 +24,7 @@ namespace Functions
 		else
 			return nullptr;
 	}
-	std::shared_ptr<BaseFunction> BaseFunction::Create(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+	std::shared_ptr<BaseFunction> BaseFunction::Create(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 	{
 		uint64_t type = Buffer::ReadUInt64(buffer, offset);
 		auto ptr = FunctionFactory(type);
@@ -37,7 +37,7 @@ namespace Functions
 		return 8; // type
 	}
 
-	bool BaseFunction::WriteData(unsigned char* buffer, size_t& offset)
+	bool BaseFunction::WriteData(std::ostream* buffer, size_t& offset)
 	{
 		Buffer::Write(GetType(), buffer, offset);
 		return true;

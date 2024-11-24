@@ -263,7 +263,7 @@ size_t Generation::GetDynamicSize()
 	       + 8 + 8 * _sources.size();         // sizeof() + formids in _sources
 }
 
-bool Generation::WriteData(unsigned char* buffer, size_t& offset)
+bool Generation::WriteData(std::ostream* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
@@ -298,7 +298,7 @@ bool Generation::WriteData(unsigned char* buffer, size_t& offset)
 	return true;
 }
 
-bool Generation::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+bool Generation::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {

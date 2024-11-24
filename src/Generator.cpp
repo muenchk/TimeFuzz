@@ -47,7 +47,7 @@ size_t Generator::GetDynamicSize()
 	       + GetStaticSize(classversion);
 }
 
-bool Generator::WriteData(unsigned char* buffer, size_t& offset)
+bool Generator::WriteData(std::ostream* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
@@ -58,7 +58,7 @@ bool Generator::WriteData(unsigned char* buffer, size_t& offset)
 	return true;
 }
 
-bool Generator::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+bool Generator::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {

@@ -53,7 +53,7 @@ namespace Functions
 			SessionFunctions::GenerateTests(_sessiondata);
 	}
 
-	bool DDTestCallback::ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	bool DDTestCallback::ReadData(std::istream* buffer, size_t& offset, size_t, LoadResolver* resolver)
 	{
 		// get id of session and resolve link
 		uint64_t sessid = Buffer::ReadUInt64(buffer, offset);
@@ -73,7 +73,7 @@ namespace Functions
 		return true;
 	}
 
-	bool DDTestCallback::WriteData(unsigned char* buffer, size_t& offset)
+	bool DDTestCallback::WriteData(std::ostream* buffer, size_t& offset)
 	{
 		BaseFunction::WriteData(buffer, offset);
 		Buffer::Write(_sessiondata->GetFormID(), buffer, offset);  // +8
@@ -103,7 +103,7 @@ namespace Functions
 		_DDcontroller->CallbackExplicitEvaluate();
 	}
 
-	bool DDEvaluateExplicitCallback::ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	bool DDEvaluateExplicitCallback::ReadData(std::istream* buffer, size_t& offset, size_t, LoadResolver* resolver)
 	{
 		// get id of saved controller and resolve link
 		uint64_t controllerid = Buffer::ReadUInt64(buffer, offset);
@@ -113,7 +113,7 @@ namespace Functions
 		return true;
 	}
 
-	bool DDEvaluateExplicitCallback::WriteData(unsigned char* buffer, size_t& offset)
+	bool DDEvaluateExplicitCallback::WriteData(std::ostream* buffer, size_t& offset)
 	{
 		BaseFunction::WriteData(buffer, offset);
 		Buffer::Write(_DDcontroller->GetFormID(), buffer, offset);  // +8
@@ -1315,7 +1315,7 @@ namespace DeltaDebugging
 		return sz;
 	}
 
-	bool DeltaController::WriteData(unsigned char* buffer, size_t& offset)
+	bool DeltaController::WriteData(std::ostream* buffer, size_t& offset)
 	{
 		Buffer::Write(classversion, buffer, offset);
 		Form::WriteData(buffer, offset);
@@ -1413,7 +1413,7 @@ namespace DeltaDebugging
 		return true;
 	}
 
-	bool DeltaController::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+	bool DeltaController::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 	{
 		int32_t version = Buffer::ReadInt32(buffer, offset);
 		switch (version) {

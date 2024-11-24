@@ -228,6 +228,7 @@ void ExclusionTree::DeleteChildrenIntern(TreeNode* node)
 		}
 		if (tmp->_isLeaf)
 			leafcount--;
+		hashmap.erase(tmp->_id);
 		delete tmp;
 	}
 
@@ -236,6 +237,7 @@ void ExclusionTree::DeleteChildrenIntern(TreeNode* node)
 		DeleteChildrenIntern(node->_children[i]);
 		if (node->_children[i]->_isLeaf)
 			leafcount--;
+		hashmap.erase(node->_children[i]->_id);
 		delete node->_children[i];
 	}
 	node->_children.clear();
@@ -300,7 +302,7 @@ size_t ExclusionTree::GetDynamicSize()
 	return sz;
 }
 
-bool ExclusionTree::WriteData(unsigned char* buffer, size_t &offset)
+bool ExclusionTree::WriteData(std::ostream* buffer, size_t &offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
@@ -331,12 +333,12 @@ bool ExclusionTree::WriteData(unsigned char* buffer, size_t &offset)
 	return true;
 }
 
-bool ExclusionTree::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+bool ExclusionTree::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	return ReadData(buffer, offset, length, resolver, false);
 }
 
-bool ExclusionTree::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver, bool skipData)
+bool ExclusionTree::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver, bool skipData)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
@@ -377,7 +379,8 @@ bool ExclusionTree::ReadData(unsigned char* buffer, size_t& offset, size_t lengt
 					node->_visitcount = Buffer::ReadUInt64(buffer, offset);
 					uint64_t sch = Buffer::ReadSize(buffer, offset);
 					for (int32_t c = 0; c < (int32_t)sch; c++)
-						node->_childrenids.push_back(Buffer::ReadUInt64(buffer, offset));
+						node->_children.push_back((TreeNode*)Buffer::ReadUInt64(buffer, offset));
+						//node->_childrenids.push_back(Buffer::ReadUInt64(buffer, offset));
 					node->_isLeaf = Buffer::ReadBool(buffer, offset);
 					node->_result = (OracleResult)Buffer::ReadInt32(buffer, offset);
 					node->_InputID = Buffer::ReadUInt64(buffer, offset);
@@ -388,14 +391,17 @@ bool ExclusionTree::ReadData(unsigned char* buffer, size_t& offset, size_t lengt
 				leafcount = Buffer::ReadUInt64(buffer, offset);
 				// hashmap complete init all the links
 				for (auto& [id, node] : hashmap) {
-					for (int32_t i = 0; i < node->_childrenids.size(); i++) {
-						TreeNode* nnode = hashmap.at(node->_childrenids[i]);
+					//for (int32_t i = 0; i < node->_childrenids.size(); i++) {
+					for (int32_t i = 0; i < node->_children.size(); i++) {
+						//TreeNode* nnode = hashmap.at(node->_childrenids[i]);
+						TreeNode* nnode = hashmap.at((uint64_t)node->_children[i]);
 						if (nnode) {
-							node->_children.push_back(nnode);
+							node->_children[i] = nnode;
+							//node->_children.push_back(nnode);
 						} else
-							logcritical("cannot resolve nodeid {}", node->_childrenids[i]);
+							logcritical("cannot resolve nodeid {}", (uint64_t)node->_children[i]);
 					}
-					node->_childrenids.clear();
+					//node->_childrenids.clear();
 				}
 				for (int32_t i = 0; i < rchid.size(); i++) {
 					TreeNode* node = hashmap.at(rchid[i]);
@@ -424,7 +430,16 @@ void ExclusionTree::Delete(Data*)
 
 void ExclusionTree::Clear()
 {
+	/* exclwlock;
+	// fast delete, delete everything thats in the hashmap
+	for (auto [id, node] : hashmap) {
+		node->_children.clear();
+		//node->_childrenids.clear();
+		delete node;
+	}*/
+	hashmap.clear();
 	DeleteChildren(root);
+	//delete root;
 	_sessiondata.reset();
 }
 

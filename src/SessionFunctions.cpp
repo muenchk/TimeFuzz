@@ -818,7 +818,7 @@ namespace Functions
 
 	
 
-	bool MasterGenerationCallback::ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	bool MasterGenerationCallback::ReadData(std::istream* buffer, size_t& offset, size_t, LoadResolver* resolver)
 	{
 		// get id of sessiondata and resolve link
 		uint64_t sessid = Buffer::ReadUInt64(buffer, offset);
@@ -828,7 +828,7 @@ namespace Functions
 		return true;
 	}
 
-	bool MasterGenerationCallback::WriteData(unsigned char* buffer, size_t& offset)
+	bool MasterGenerationCallback::WriteData(std::ostream* buffer, size_t& offset)
 	{
 		BaseFunction::WriteData(buffer, offset);
 		Buffer::Write(_sessiondata->GetFormID(), buffer, offset);  // +8
@@ -909,7 +909,7 @@ namespace Functions
 		}
 	}
 
-	bool GenerationEndCallback::ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	bool GenerationEndCallback::ReadData(std::istream* buffer, size_t& offset, size_t, LoadResolver* resolver)
 	{
 		// get id of sessiondata and resolve link
 		uint64_t sessid = Buffer::ReadUInt64(buffer, offset);
@@ -919,7 +919,7 @@ namespace Functions
 		return true;
 	}
 
-	bool GenerationEndCallback::WriteData(unsigned char* buffer, size_t& offset)
+	bool GenerationEndCallback::WriteData(std::ostream* buffer, size_t& offset)
 	{
 		BaseFunction::WriteData(buffer, offset);
 		Buffer::Write(_sessiondata->GetFormID(), buffer, offset);  // +8
@@ -1025,7 +1025,7 @@ namespace Functions
 		}
 	}
 
-	bool GenerationFinishedCallback::ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	bool GenerationFinishedCallback::ReadData(std::istream* buffer, size_t& offset, size_t, LoadResolver* resolver)
 	{
 		// get id of sessiondata and resolve link
 		uint64_t sessid = Buffer::ReadUInt64(buffer, offset);
@@ -1036,7 +1036,7 @@ namespace Functions
 		return true;
 	}
 
-	bool GenerationFinishedCallback::WriteData(unsigned char* buffer, size_t& offset)
+	bool GenerationFinishedCallback::WriteData(std::ostream* buffer, size_t& offset)
 	{
 		BaseFunction::WriteData(buffer, offset);
 		Buffer::Write(_sessiondata->GetFormID(), buffer, offset);  // +8

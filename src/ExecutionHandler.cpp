@@ -760,7 +760,7 @@ size_t ExecutionHandler::GetDynamicSize()
 		+ GetStaticSize(classversion) + 8 /*len of ids*/ + _stoppingTests.size() * 8 + _runningTests.size() * 8 + _waitingTests.size() * 8 + _waitingTestsExec.size() * 8;
 }
 
-bool ExecutionHandler::WriteData(unsigned char* buffer, size_t& offset)
+bool ExecutionHandler::WriteData(std::ostream* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
@@ -797,7 +797,7 @@ bool ExecutionHandler::WriteData(unsigned char* buffer, size_t& offset)
 	return true;
 }
 
-bool ExecutionHandler::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+bool ExecutionHandler::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version)
@@ -870,7 +870,7 @@ namespace Functions
 		_sessiondata->_exechandler->InitTests();
 	}
 
-	bool ExecInitTestsCallback::ReadData(unsigned char*, size_t&, size_t, LoadResolver* resolver)
+	bool ExecInitTestsCallback::ReadData(std::istream*, size_t&, size_t, LoadResolver* resolver)
 	{
 		// get id of saved controller and resolve link
 		resolver->AddTask([this, resolver]() {
@@ -879,7 +879,7 @@ namespace Functions
 		return true;
 	}
 
-	bool ExecInitTestsCallback::WriteData(unsigned char* buffer, size_t& offset)
+	bool ExecInitTestsCallback::WriteData(std::ostream* buffer, size_t& offset)
 	{
 		BaseFunction::WriteData(buffer, offset);
 		return true;

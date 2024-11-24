@@ -248,8 +248,8 @@ public:
 
 	size_t GetStaticSize(int32_t version = 0x1);
 	size_t GetDynamicSize();
-	virtual bool WriteData(unsigned char* buffer, size_t& offset);
-	virtual bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+	virtual bool WriteData(std::ostream* buffer, size_t& offset);
+	virtual bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 	int32_t GetType() override
 	{
 		return FormType::Test;
@@ -285,8 +285,8 @@ namespace Functions
 
 		FunctionType GetFunctionType() override { return FunctionType::Light; }
 
-		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
-		bool WriteData(unsigned char* buffer, size_t& offset);
+		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+		bool WriteData(std::ostream* buffer, size_t& offset);
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<TestCallback>()); }
 		void Dispose();

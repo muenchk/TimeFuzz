@@ -3,7 +3,7 @@
 #include "Modules/ModuleHandler.h"
 #include "PDB/PdbHandler.h"
 #define MAGIC_ENUM_RANGE_MAX 256
-#include <magic_enum.hpp>
+#include <magic_enum/magic_enum.hpp>
 #include <DbgHelp.h>
 #include <fmt/format.h>
 #include <fmt/core.h>

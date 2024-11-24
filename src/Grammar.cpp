@@ -79,7 +79,7 @@ size_t GrammarNode::GetDynamicSize()
 	return sz;
 }
 
-bool GrammarNode::WriteData(unsigned char* buffer, size_t& offset)
+bool GrammarNode::WriteData(std::ostream* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Buffer::Write(_identifier, buffer, offset);
@@ -101,7 +101,7 @@ bool GrammarNode::WriteData(unsigned char* buffer, size_t& offset)
 	return true;
 }
 
-bool GrammarNode::ReadData(unsigned char* buffer, size_t& offset, size_t /*length*/, LoadResolverGrammar* resolver)
+bool GrammarNode::ReadData(std::istream* buffer, size_t& offset, size_t /*length*/, LoadResolverGrammar* resolver)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version)
@@ -208,7 +208,7 @@ size_t GrammarExpansion::GetDynamicSize(int32_t version)
 	}
 }
 
-bool GrammarExpansion::WriteData(unsigned char* buffer, size_t& offset)
+bool GrammarExpansion::WriteData(std::ostream* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Buffer::WriteSize(_nodes.size(), buffer, offset);
@@ -226,7 +226,7 @@ bool GrammarExpansion::WriteData(unsigned char* buffer, size_t& offset)
 	return true;
 }
 
-bool GrammarExpansion::ReadData(unsigned char* buffer, size_t& offset, size_t /*length*/, LoadResolverGrammar* resolver)
+bool GrammarExpansion::ReadData(std::istream* buffer, size_t& offset, size_t /*length*/, LoadResolverGrammar* resolver)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
@@ -2001,7 +2001,7 @@ size_t Grammar::GetDynamicSize()
 	return sz;
 }
 
-bool Grammar::WriteData(unsigned char* buffer, size_t& offset)
+bool Grammar::WriteData(std::ostream* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
@@ -2035,7 +2035,7 @@ bool Grammar::WriteData(unsigned char* buffer, size_t& offset)
 	return true;
 }
 
-bool Grammar::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+bool Grammar::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	_tree = std::make_shared<GrammarTree>();

@@ -32,7 +32,7 @@ size_t DerivationTree::GetDynamicSize()
 	       + GetStaticSize(classversion);
 }
 
-bool DerivationTree::WriteData(unsigned char* buffer, size_t& offset)
+bool DerivationTree::WriteData(std::ostream* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
@@ -49,7 +49,7 @@ bool DerivationTree::WriteData(unsigned char* buffer, size_t& offset)
 	return true;
 }
 
-bool DerivationTree::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+bool DerivationTree::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {

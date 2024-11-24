@@ -68,7 +68,7 @@ size_t Form::GetDynamicSize()
 	       + 8 + 8 * _flags.size();  // sizeof(), content of _flags
 }
 
-bool Form::WriteData(unsigned char* buffer, size_t &offset)
+bool Form::WriteData(std::ostream* buffer, size_t& offset)
 {
 	Buffer::Write(formversion, buffer, offset);
 	Buffer::Write(_formid, buffer, offset);
@@ -86,7 +86,7 @@ bool Form::WriteData(unsigned char* buffer, size_t &offset)
 	return true;
 }
 
-bool Form::ReadData(unsigned char* buffer, size_t &offset, size_t /*length*/, LoadResolver* /*resolver*/)
+bool Form::ReadData(std::istream* buffer, size_t& offset, size_t /*length*/, LoadResolver* /*resolver*/)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version)

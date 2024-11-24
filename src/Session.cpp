@@ -42,6 +42,11 @@ void Session::LoadSession_Async(Data* dat, std::string name, int32_t number, Loa
 		dat->Load(name, loadArgs);
 	else
 		dat->Load(name, number, loadArgs);
+	if (dat->_loaded == false)
+	{
+		logcritical("CRITICAL ERROR");
+		return;
+	}
 	auto session = dat->CreateForm<Session>();
 	session->_self = session;
 	session->_loaded = true;
@@ -681,14 +686,14 @@ size_t Session::GetDynamicSize()
 	       + GetStaticSize(classversion);
 }
 
-bool Session::WriteData(unsigned char* buffer, size_t& offset)
+bool Session::WriteData(std::ostream* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
 	return true;
 }
 
-bool Session::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+bool Session::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {

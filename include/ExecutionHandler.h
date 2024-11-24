@@ -50,8 +50,8 @@ namespace Functions
 
 		FunctionType GetFunctionType() override { return FunctionType::Light; }
 
-		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
-		bool WriteData(unsigned char* buffer, size_t& offset) override;
+		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool WriteData(std::ostream* buffer, size_t& offset) override;
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<ExecInitTestsCallback>()); }
 		static std::shared_ptr<BaseFunction> CreateFull(std::shared_ptr<SessionData> sessiondata);
@@ -281,8 +281,8 @@ public:
 
 	size_t GetStaticSize(int32_t version = 0x1) override;
 	size_t GetDynamicSize() override;
-	bool WriteData(unsigned char* buffer, size_t& offset) override;
-	bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+	bool WriteData(std::ostream* buffer, size_t& offset) override;
+	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 	static int32_t GetTypeStatic()
 	{
 		return FormType::ExecutionHandler;
@@ -301,5 +301,5 @@ public:
 	/// </summary>
 	void Clear() override;
 
-	friend unsigned char* Records::CreateRecord(ExecutionHandler* value, size_t& offset, size_t& length);
+	friend void Records::CreateRecord(ExecutionHandler* value, std::ostream* buffer, size_t& offset, size_t& length);
 };

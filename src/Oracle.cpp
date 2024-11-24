@@ -346,7 +346,7 @@ size_t Oracle::GetDynamicSize()
 	       + GetStaticSize(classversion) + Buffer::CalcStringLength(_path.string()) + Buffer::CalcStringLength(_luaOracleStr) + Buffer::CalcStringLength(_luaOraclePath.string()) + Buffer::CalcStringLength(_luaCmdArgsStr) + Buffer::CalcStringLength(_luaCmdArgsPath.string()) + Buffer::CalcStringLength(_luaScriptArgsStr) + Buffer::CalcStringLength(_luaScriptArgsPath.string());
 }
 
-bool Oracle::WriteData(unsigned char* buffer, size_t& offset)
+bool Oracle::WriteData(std::ostream* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
@@ -371,7 +371,7 @@ bool Oracle::WriteData(unsigned char* buffer, size_t& offset)
 	return true;
 }
 
-bool Oracle::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+bool Oracle::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {

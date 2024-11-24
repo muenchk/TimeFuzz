@@ -81,13 +81,13 @@ public:
 	/// </summary>
 	/// <param name="buffer"></param>
 	/// <returns></returns>
-	virtual bool WriteData(unsigned char* buffer, size_t &offset);
+	virtual bool WriteData(std::ostream* buffer, size_t &offset);
 	/// <summary>
 	/// reads all relevant information of this instance from the buffer
 	/// </summary>
 	/// <param name="buffer"></param>
 	/// <param name="length"></param>
-	virtual bool ReadData(unsigned char* buffer, size_t &offset, size_t length, LoadResolver* resolver);
+	virtual bool ReadData(std::istream* buffer, size_t &offset, size_t length, LoadResolver* resolver);
 	/// <summary>
 	/// Deletes all relevant for fields
 	/// </summary>

@@ -584,7 +584,7 @@ size_t Test::GetDynamicSize()
 	return sz;
 }
 
-bool Test::WriteData(unsigned char* buffer, size_t& offset)
+bool Test::WriteData(std::ostream* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset);
@@ -614,7 +614,7 @@ bool Test::WriteData(unsigned char* buffer, size_t& offset)
 	return true;
 }
 
-bool Test::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+bool Test::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	size_t initoff = offset;
 	int32_t version = Buffer::ReadInt32(buffer, offset);
@@ -637,15 +637,15 @@ bool Test::ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadRe
 					this->_input = input;
 				}
 			});
-			if (length < offset - initoff + 8 || length < offset - initoff + Buffer::CalcStringLength(buffer, offset))
-				return false;
+			//if (length < offset - initoff + 8 || length < offset - initoff + Buffer::CalcStringLength(buffer, offset))
+			//	return false;
 			_lastwritten = Buffer::ReadString(buffer, offset);
 			_lasttime = Buffer::ReadTime(buffer, offset);
-			if (length < offset - initoff + 8 || length < offset - initoff + Buffer::ListBasic::GetListLength(buffer, offset))
-				return false;
+			//if (length < offset - initoff + 8 || length < offset - initoff + Buffer::ListBasic::GetListLength(buffer, offset))
+			//	return false;
 			Buffer::ListBasic::ReadList(_reactiontime, buffer, offset);
-			if (length < offset - initoff + 8 || length < offset - initoff + Buffer::CalcStringLength(buffer, offset))
-				return false;
+			//if (length < offset - initoff + 8 || length < offset - initoff + Buffer::CalcStringLength(buffer, offset))
+			//	return false;
 			_output = Buffer::ReadString(buffer, offset);
 			_identifier = Buffer::ReadUInt64(buffer, offset);
 			_exitreason = Buffer::ReadUInt64(buffer, offset);
@@ -763,7 +763,7 @@ namespace Functions
 		SessionFunctions::MasterControl(_sessiondata);
 	}
 
-	bool TestCallback::ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	bool TestCallback::ReadData(std::istream* buffer, size_t& offset, size_t, LoadResolver* resolver)
 	{
 		// get id of session and resolve link
 		uint64_t sessid = Buffer::ReadUInt64(buffer, offset);
@@ -778,7 +778,7 @@ namespace Functions
 		return true;
 	}
 
-	bool TestCallback::WriteData(unsigned char* buffer, size_t& offset)
+	bool TestCallback::WriteData(std::ostream* buffer, size_t& offset)
 	{
 		BaseFunction::WriteData(buffer, offset);
 		Buffer::Write(_sessiondata->GetFormID(), buffer, offset);  // +8
