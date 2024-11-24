@@ -39,7 +39,7 @@ class ExclusionTree : public Form
 		/// <summary>
 		/// childrens ids
 		/// </summary>
-		std::vector<uint64_t> _childrenids;
+		//std::vector<uint64_t> _childrenids;
 		/// <summary>
 		/// whether this node is a lead
 		/// </summary>
