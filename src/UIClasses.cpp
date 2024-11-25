@@ -206,6 +206,8 @@ void UIGeneration::GetSources(std::vector<UIInput>& inputs)
 			inputs[i].secondaryScore = sources[i]->GetSecondaryScore();
 			inputs[i].result = (UI::Result)sources[i]->GetOracleResult();
 			inputs[i].flags = sources[i]->GetFlags();
+			inputs[i].generationNumber = _generation->GetGenerationNumber();
+			inputs[i].derivedInputs = sources[i]->GetDerivedInputs();
 		}
 	}
 }

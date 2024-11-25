@@ -358,8 +358,9 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 				GenInputFromDevTree(input);
 				input->SetGenerated();
 				profile(TimeProfiling, "Time taken for input Generation");
-				if ((int32_t)input->Length() != input->derive->_sequenceNodes)
+				if ((int64_t)input->Length() != input->derive->_sequenceNodes && (!input->IsTrimmed() || (int64_t)input->Length() != input->GetTrimmedLength())) {
 					logwarn("The input length is different from the generated sequence. Length: {}, Expected: {}", input->Length(), input->derive->_sequenceNodes);
+				}
 				if ((int32_t)input->Length() == 0)
 					logwarn("The input length is 0.");
 
@@ -378,8 +379,9 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 		input->SetGenerated();
 	}
 	profile(TimeProfiling, "Time taken for input Generation");
-	if ((int32_t)input->Length() != input->derive->_sequenceNodes)
+	if ((int64_t)input->Length() != input->derive->_sequenceNodes && (!input->IsTrimmed() || (int64_t)input->Length() != input->GetTrimmedLength())) {
 		logwarn("The length of {} is different from the generated sequence. Length: {}, Expected: {}", Input::PrintForm(input), input->Length(), input->derive->_sequenceNodes);
+	}
 	return true;
 }
 

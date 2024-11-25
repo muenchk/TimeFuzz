@@ -777,13 +777,15 @@ int32_t main(int32_t argc, char** argv)
 							ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable | ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_ScrollY;
 
 						// do something with sources
-						if (ImGui::BeginTable("Sources", 7, flags, ImVec2(0.0f, 0.0f), 0.0f)) {
+						if (ImGui::BeginTable("Sources", 9, flags, ImVec2(0.0f, 0.0f), 0.0f)) {
 							ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputID);
 							ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputLength);
 							ImGui::TableSetupColumn("Primary Score", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputPrimaryScore);
 							ImGui::TableSetupColumn("Secondary Score", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputSecondaryScore);
 							ImGui::TableSetupColumn("Result", ImGuiTableColumnFlags_WidthFixed, 120.0f, UI::UIInput::ColumnID::InputResult);
 							ImGui::TableSetupColumn("Flags", ImGuiTableColumnFlags_WidthFixed, 80.0f, UI::UIInput::ColumnID::InputFlags);
+							ImGui::TableSetupColumn("Generation", ImGuiTableColumnFlags_WidthFixed, 80.0f, UI::UIInput::ColumnID::InputGenerationNum);
+							ImGui::TableSetupColumn("Derived Inputs", ImGuiTableColumnFlags_WidthFixed, 80.0f, UI::UIInput::ColumnID::InputDerivedNum);
 							ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputAction);
 							ImGui::TableSetupScrollFreeze(0, 1);
 							ImGui::TableHeadersRow();
@@ -817,6 +819,10 @@ int32_t main(int32_t argc, char** argv)
 										ImGui::Text("Unfinished");
 									ImGui::TableNextColumn();
 									ImGui::TextUnformatted(Utility::GetHexFill(item->flags).c_str());
+									ImGui::TableNextColumn();
+									ImGui::Text("%5d", item->generationNumber);
+									ImGui::TableNextColumn();
+									ImGui::Text("%6ld", item->derivedInputs);
 									ImGui::TableNextColumn();
 									if (ImGui::SmallButton("Replay")) {
 										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1), item->id);

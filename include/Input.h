@@ -471,4 +471,7 @@ private:
 
 	bool ReadData0x1(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 	bool ReadData0x2(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+
+public:
+	void Debug_ClearSequence() { _sequence.clear(); }
 };

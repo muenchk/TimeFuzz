@@ -1318,12 +1318,13 @@ bool GrammarTree::CheckForSequenceSimplicityAndSimplify()
 						if ((node->_expansions[0]->_nodes[0]->_id == node->_expansions[1]->_nodes[0]->_id ||
 								node->_expansions[0]->_nodes[0]->_id == node->_expansions[1]->_nodes[1]->_id) &&
 							(node->_expansions[1]->_nodes[0]->_id == node->_id ||
-								node->_expansions[1]->_nodes[1]->_id == node->_id))
-							if (node->_expansions[1]->_nodes[0]->_id == node->_id)
+								node->_expansions[1]->_nodes[1]->_id == node->_id)) {
+							if (node->_expansions[1]->_nodes[0]->_id == node->_id) {
 								return std::pair<std::shared_ptr<GrammarNode>, int32_t>{ node->_expansions[1]->_nodes[1], 1 };
-							else
+							} else {
 								return std::pair<std::shared_ptr<GrammarNode>, int32_t>{ node->_expansions[0]->_nodes[1], 1 };
-
+							}
+						}
 						// 'Node1 ~ 'Node1 | 'Node2
 						if (node->_expansions[1]->_nodes[0]->_id == node->_expansions[1]->_nodes[1]->_id &&
 							node->_expansions[0]->_nodes[0]->_id != node->_expansions[1]->_nodes[0]->_id)
@@ -1340,11 +1341,13 @@ bool GrammarTree::CheckForSequenceSimplicityAndSimplify()
 						if ((node->_expansions[1]->_nodes[0]->_id == node->_expansions[0]->_nodes[0]->_id ||
 								node->_expansions[1]->_nodes[0]->_id == node->_expansions[0]->_nodes[1]->_id) &&
 							(node->_expansions[0]->_nodes[0]->_id == node->_id ||
-								node->_expansions[0]->_nodes[1]->_id == node->_id))
-							if (node->_expansions[0]->_nodes[0]->_id == node->_id)
+								node->_expansions[0]->_nodes[1]->_id == node->_id)) {
+							if (node->_expansions[0]->_nodes[0]->_id == node->_id) {
 								return std::pair<std::shared_ptr<GrammarNode>, int32_t>{ node->_expansions[0]->_nodes[1], 1 };
-							else
+							} else {
 								return std::pair<std::shared_ptr<GrammarNode>, int32_t>{ node->_expansions[1]->_nodes[1], 1 };
+							}
+						}
 
 						if (node->_expansions[0]->_nodes[0]->_id == node->_expansions[0]->_nodes[1]->_id &&
 							node->_expansions[1]->_nodes[0]->_id != node->_expansions[0]->_nodes[0]->_id)
@@ -2445,7 +2448,6 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 
 	// generated sequence nodes
 	seq = 0;
-	dtree->_sequenceNodes -= trackback;
 
 	DeriveFromNode(dtree, qnonterminals, qseqnonterminals, randan, seq);
 

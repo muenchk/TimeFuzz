@@ -165,6 +165,11 @@ bool Generation::IsActive()
 	return !(_activeInputs == 0 && _generatedSize >= _targetSize);
 }
 
+bool Generation::NeedsGeneration()
+{
+	return (_generatedSize != _targetSize);
+}
+
 bool Generation::IsDeltaDebuggingActive()
 {
 	bool result = false;
@@ -355,6 +360,8 @@ bool Generation::ReadData(std::istream* buffer, size_t& offset, size_t length, L
 				if (shared)
 					_sources.push_back(shared);
 			}
+			if (_sources.size() > 0)
+				_sourcesDistr = std::uniform_int_distribution<signed>(0, (uint32_t)_sources.size() - 1);
 		});
 		return true;
 	}

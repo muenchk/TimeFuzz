@@ -48,6 +48,7 @@ namespace UI
 			InputResult,
 			InputFlags,
 			InputGenerationNum,
+			InputDerivedNum,
 			InputAction,
 		};
 
@@ -57,6 +58,7 @@ namespace UI
 		double secondaryScore;
 		EnumType flags;
 		int32_t generationNumber; 
+		int64_t derivedInputs;
 		UI::Result result;
 	};
 

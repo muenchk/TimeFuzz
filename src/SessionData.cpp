@@ -336,7 +336,7 @@ void SessionData::CheckGenerationEnd()
 {
 	// checks whether the current session should end and prepares to do so
 	bool exp = false;
-	if (_generation.load()->IsActive() == false && _generationEnding.compare_exchange_strong(exp, true) /*if gen is inactive and genending is false, set it to true and execute this block*/) {
+	if ((_generation.load()->IsActive() == false || !_generation.load()->NeedsGeneration()&& _exechandler->WaitingTasks() == 0 && _exechandler->GetRunningTests() == 0) && _generationEnding.compare_exchange_strong(exp, true) /*if gen is inactive and genending is false, set it to true and execute this block*/) {
 		// generation has finished
 		auto call = dynamic_pointer_cast<Functions::GenerationEndCallback>(Functions::GenerationEndCallback::Create());
 		call->_sessiondata = data->CreateForm<SessionData>(); // self

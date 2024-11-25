@@ -747,7 +747,6 @@ void Session::UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k, bool sortse
 		vector[i].secondaryScore = vec[i]->GetSecondaryScore();
 		vector[i].result = (UI::Result)vec[i]->GetOracleResult();
 		vector[i].flags = vec[i]->GetFlags();
-		vector[i].derivedInputs = vec[i]->GetDerivedInputs();
 		vector[i].generationNumber = _sessiondata->GetGeneration(vec[i]->GetGenerationID())->GetGenerationNumber();
 	}
 }

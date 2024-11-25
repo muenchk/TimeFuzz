@@ -122,6 +122,12 @@ public:
 	bool IsActive();
 
 	/// <summary>
+	/// Returns whether there are still inputs that need to be generated
+	/// </summary>
+	/// <returns></returns>
+	bool NeedsGeneration();
+
+	/// <summary>
 	/// returns whether there are active delta debugging instances
 	/// </summary>
 	/// <returns></returns>
