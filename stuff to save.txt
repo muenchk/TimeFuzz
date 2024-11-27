@@ -1,16 +1,8 @@
 1stuff to save
 
-Input:
-	_primaryScoreIndividual
-	_secondaryScoreIndividual
-	_enablePrimaryScoreIndividual
-	_enableSecondaryScoreIndividual
 
 
-Settings:
-	generation.generationLengthMin
-	generation.generationLengthMax
-	oracle.oracle_path_Unix
-	generation.sourcesType
-	optimization.disableExclusionTree
-						
+ExclusionTree See to it that we loose the hashtable, its nice but takes a lot of ram
+
+
+SIGSEV in SessionData.cpp:301 ???

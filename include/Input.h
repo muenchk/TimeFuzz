@@ -136,6 +136,10 @@ private:
 	/// number of inputs that have been derived from this input
 	/// </summary>
 	uint64_t _derivedInputs = 0;
+	/// <summary>
+	/// number of derived inputs that failed
+	/// </summary>
+	std::atomic<uint64_t> _derivedFails = 0;
 
 	/// <summary>
 	/// runtime at which this input was generated
@@ -415,15 +419,31 @@ public:
 	/// </summary>
 	void IncDerivedInputs();
 	/// <summary>
+	/// increments the number of derived inputs that fail
+	/// </summary>
+	void IncDerivedFails();
+	/// <summary>
 	/// Returns the number of inputs derived from this one
 	/// </summary>
 	uint64_t GetDerivedInputs();
+	/// <summary>
+	/// returns the number of inputs derived from this one that fail
+	/// </summary>
+	/// <returns></returns>
+	uint64_t GetDerivedFails();
 
 	/// <summary>
 	/// Sets the runtime at which this input was generated
 	/// </summary>
 	/// <param name="genTime"></param>
 	void SetGenerationTime(std::chrono::nanoseconds genTime);
+	/// <summary>
+	/// returns the generation time of this input
+	/// </summary>
+	/// <returns></returns>
+	std::chrono::nanoseconds GetGenerationTime();
+
+	int64_t GetTargetLength();
 
 	bool IsIndividualPrimaryScoresEnabled();
 

@@ -219,7 +219,7 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 					}
 					else {
 						// this is a new input
-						std::uniform_int_distribution<signed> dist(1000, 10000);
+						std::uniform_int_distribution<signed> dist(sessiondata->_settings->generation.generationLengthMin, sessiondata->_settings->generation.generationLengthMax);
 						int32_t sequencelen = dist(randan);
 						// now extend input
 						if (input->HasFlag(Input::Flags::GeneratedGrammarParentBacktrack))
@@ -241,7 +241,7 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 						uint32_t seed = input->derive->_seed;
 						gram->Derive(input->derive, sequencelen, seed);
 					} else {
-						std::uniform_int_distribution<signed> dist(1000, 10000);
+						std::uniform_int_distribution<signed> dist(sessiondata->_settings->generation.generationLengthMin, sessiondata->_settings->generation.generationLengthMax);
 						int32_t sequencelen = dist(randan);
 						// derive a derivation tree from the grammar
 						gram->Derive(input->derive, sequencelen, (unsigned int)(std::chrono::system_clock::now().time_since_epoch().count()));
@@ -306,54 +306,6 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 			input->derive->Unlock();
 
 			if (input->derive->_valid && input->GetSequenceLength() == 0) {
-				/*
-				// we have all we need, so iterate over input sequence and generate our input
-				if (input->GetParentSplitComplement()) {
-					// input is a complement
-					int64_t count = 0;
-					int64_t posBegin = input->GetParentSplitBegin();
-					int64_t length = input->GetParentSplitLength();
-					auto itr = parent->begin();
-					while (itr != parent->end()) {
-						// if the current position is less then the beginning of the split itself, or if it is after the split
-						// sequence is over
-						if (count < posBegin || count >= posBegin + length)
-							input->AddEntry(*itr);
-						count++;
-						itr++;
-					}
-					input->SetGenerated();
-					profile(TimeProfiling, "Time taken for input Generation");
-					input->Unlock();
-					return true;
-				} else {
-					// input is the subset itself
-					int64_t count = 0;
-					int64_t posBegin = input->GetParentSplitBegin();
-					int64_t length = input->GetParentSplitLength();
-					auto itr = parent->begin();
-					while (itr != parent->end() && count < posBegin) {
-						itr++;
-						count++;
-					}
-					while (itr != parent->end() && count < posBegin + length) {
-						input->AddEntry(*itr);
-						itr++;
-						count++;
-					}
-					input->SetGenerated();
-
-					profile(TimeProfiling, "Time taken for input Generation");
-					if ((int32_t)input->Length() != length)
-						logwarn("The input length is different from the generated sequence. Length: {}, Expected: {}", input->Length(), input->derive->_sequenceNodes);
-					if ((int32_t)input->Length() == 0)
-						logwarn("The input length is 0.");
-
-					input->SetGenerated();
-					input->Unlock();
-					return true;
-				}*/
-
 				// getting this from the devtree is slower but is more more code change resistant
 				GenInputFromDevTree(input);
 				input->SetGenerated();

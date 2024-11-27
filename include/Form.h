@@ -215,14 +215,18 @@ public:
 		if (form) {
 			_form = form;
 			_flag = flag;
+			_form->Lock();
 			_form->SetFlag(flag);
+			_form->Unlock();
 		}
 	}
 
 	~FlagHolder()
 	{
 		if (_form) {
+			_form->Lock();
 			_form->UnsetFlag(_flag);
+			_form->Unlock();
 			_form.reset();
 		}
 	}

@@ -179,7 +179,7 @@ public:
 	/// Writes input to the stdint of the PUT
 	/// </summary>
 	/// <param name=""></param>
-	void WriteInput(std::string);
+	bool WriteInput(std::string);
 	/// <summary>
 	/// Writes next input to PUT
 	/// </summary>

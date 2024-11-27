@@ -37,6 +37,7 @@ public:
 	static inline bool _debug = false;
 	static inline bool _updateGrammar = false;
 	static inline bool _doNotLoadExclusionTree = false;
+	static inline bool _clearTasks = false;
 };
 
 class Settings : public Form
@@ -195,6 +196,12 @@ public:
 		/// </summary>
 		std::chrono::milliseconds memory_sweep_period = std::chrono::milliseconds(10000);
 		const char* memory_sweep_period_NAME = "MemorySweepPeriod";
+
+		/// <summary>
+		/// period of the execution handler
+		/// </summary>
+		std::chrono::nanoseconds testEnginePeriod = std::chrono::nanoseconds(500000);
+		const char* testEnginePeriod_NAME = "TestEnginePeriod";
 	};
 
 	General general;
@@ -216,6 +223,11 @@ public:
 		/// </summary>
 		int64_t autosave_every_seconds = 300;
 		const char* autosave_every_seconds_NAME = "AutosavePeriodSeconds";
+		/// <summary>
+		/// automatically saves after a generation has been completed
+		/// </summary>
+		bool saveAfterEachGeneration = false;
+		const char* saveAfterEachGeneration_NAME = "SaveAfterEachGeneration";
 		/// <summary>
 		/// the path at which saves are made
 		/// </summary>
@@ -268,12 +280,14 @@ public:
 		/// provide the minimum amount of sequence nodes to be backtracked [cannot be set less than one]
 		/// </summary>
 		int32_t IterativeConstruction_Extension_Backtrack_min = 0;
+		const char* IterativeConstruction_Extension_Backtrack_min_NAME = "IterativeConstruction_Extension_Backtrack_Min";
 
 		/// <summary>
 		/// This sets the maximum number of sequence nodes to be backtracked when extending an unfinished
 		/// input
 		/// </summary>
 		int32_t IterativeConstruction_Extension_Backtrack_max = 0;
+		const char* IterativeConstruction_Extension_Backtrack_max_NAME = "IterativeConstruction_Extension_Backtrack_Max";
 
 		/// <summary>
 		/// When iteratively construction inputs, failing input must be backtracked before they can be 
@@ -282,12 +296,14 @@ public:
 		/// tree once more.
 		/// </summary>
 		int32_t IterativeConstruction_Backtrack_Backtrack_min = 10;
+		const char* IterativeConstruction_Backtrack_Backtrack_min_NAME = "IterativeConstruction_Backtrack_Backtrack_Min";
 
 		/// <summary>
 		/// This setting sets the maximum number of sequence nodes to backtrack on failing inputs before 
 		/// expanding the derivation tree once more.
 		/// </summary>
 		int32_t IterativeConstruction_Backtrack_Backtrack_max = 30;
+		const char* IterativeConstruction_Backtrack_Backtrack_max_NAME = "IterativeConstruction_Backtrack_Backtrack_Max";
 	};
 
 	Methods methods;
@@ -414,6 +430,12 @@ public:
 		/// </summary>
 		int32_t generationLengthMax = 10000;
 		const char* generationLengthMax_NAME = "MaximumGenerationLength";
+
+		/// <summary>
+		/// the maximum number of derived inputs that can fail for an input to be elligible to be a source
+		/// </summary>
+		uint64_t maxNumberOfFailsPerSource = 100;
+		const char* maxNumberOfFailsPerSource_NAME = "MaximumNumberOfFailsPerSource";
 	};
 
 	Generation generation;

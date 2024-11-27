@@ -147,7 +147,8 @@ int32_t main(int32_t argc, char** argv)
 		"    --create-conf <PATH>       - Writes a default configuration file to the current folder\n"
 		"    --update-grammar           - Loads a new grammar and sets it as the default grammar for generation\n"
 		"    --No-ExclusionTree         - Skips the loading of data from the exclusion tree\n"
-		"    --debug                    - Enable debug logging\n";
+		"    --debug                    - Enable debug logging\n"
+		"    --clear-tasks              - clears all tasks and active tests from the session\n";
 
 	std::string logpath = "";
 	bool logtimestamps = false;
@@ -181,6 +182,9 @@ int32_t main(int32_t argc, char** argv)
 				scanf("%s", buffer);
 				exit(ExitCodes::ArgumentError);
 			}
+		} else if (option.find("--clear-tasks") != std::string::npos) {
+			std::cout << "Parameter: --clear-tasks\n";
+			CmdArgs::_clearTasks = true;
 		} else if (option.find("--reloadconfig") != std::string::npos) {
 			std::cout << "Parameter: --reloadconfig\n";
 			CmdArgs::_updateGrammar = true;
@@ -262,6 +266,7 @@ int32_t main(int32_t argc, char** argv)
 		} else if (option.substr(0, 4).find("--debug") != std::string::npos) {
 			std::cout << "Parameter: --debug\n";
 			CmdArgs::_debug = true;
+			Logging::EnableDebug = true;
 		} else if (option.find("--create-conf") != std::string::npos) {
 			if (i + 1 < argc) {
 				std::cout << "Parameter: --create-conf\n";
@@ -480,6 +485,7 @@ int32_t main(int32_t argc, char** argv)
 		bool showDeltaDebugging = true;
 		bool showThreadStatus = true;
 		bool showGeneration = true;
+		bool showInput = false;
 
 		while (!glfwWindowShouldClose(window) && !stop) {
 			// Poll and handle events (inputs, window resize, etc.)
@@ -507,6 +513,7 @@ int32_t main(int32_t argc, char** argv)
 
 			static std::vector<UI::UIDeltaDebugging> ddcontrollers;
 			static size_t numddcontrollers = 0;
+			static UI::UIInputInformation inputinfo;
 			bool updatedddcontrollers = false;
 
 			// show control window
@@ -523,6 +530,7 @@ int32_t main(int32_t argc, char** argv)
 					ImGui::Checkbox("Delta Debugging window", &showDeltaDebugging);
 					ImGui::Checkbox("Show Thread Status", &showThreadStatus);
 					ImGui::Checkbox("Show Generation window", &showGeneration);
+					ImGui::Checkbox("Show Input Information", &showInput);
 					ImGui::Text("Latency: %.3f ms, FPS: %.1f", 1000.0f / io.Framerate, io.Framerate);
 				}
 				ImGui::End();
@@ -536,6 +544,9 @@ int32_t main(int32_t argc, char** argv)
 					loginfo("UI window has been closed, exiting application.");
 					if (session->Finished() == false && session->Loaded() == true) {
 						session->StopSession(false);
+						ddcontrollers.clear();
+						inputinfo.Reset();
+						ActiveGeneration.Reset();
 					}
 					exit(ExitCodes::Success);
 				}
@@ -631,6 +642,8 @@ int32_t main(int32_t argc, char** argv)
 				static bool wopen = true;
 				ImGui::Begin("Advanced", &wopen);
 				if (wopen) {
+					static size_t hashmapSize;
+					session->UI_GetHashmapInformation(hashmapSize);
 					if (displayadd) {
 						ImGui::SeparatorText("Exclusion Tree");
 						ImGui::Text("Depth:                   %lld", status.excl_depth);
@@ -665,6 +678,59 @@ int32_t main(int32_t argc, char** argv)
 						ImGui::Text("Fragment Timeout:        %llu", status.exitstats.fragmenttimeout);
 						ImGui::Text("Memory:                  %llu", status.exitstats.memory);
 						ImGui::Text("Init error:              %llu", status.exitstats.initerror);
+
+						ImGui::SeparatorText("Internals");
+						ImGui::Text("Hashmap size:            %lu", hashmapSize);
+					} else {
+						ImGui::Text("Not available");
+					}
+				}
+				ImGui::End();
+			}
+
+			// show inpu stats
+			if (showInput) {
+				static bool wopen = true;
+				ImGui::Begin("Input Information", &wopen);
+				if (wopen) {
+					if (inputinfo.Initialized()) {
+						static bool listview = false;
+
+						ImGui::SeparatorText("General Information");
+						ImGui::Text("Input ID:                   %s", Utility::GetHexFill(inputinfo._inputID).c_str());
+						ImGui::Text("Parent ID:                  %s", Utility::GetHexFill(inputinfo._parentInput).c_str());
+						ImGui::Text("Generation ID:              %s", Utility::GetHexFill(inputinfo._generationID).c_str());
+						ImGui::Text("Derived Inputs:             %llu", inputinfo._derivedInputs);
+						ImGui::Text("Flags:                      %llu", Utility::GetHexFill(inputinfo._flags).c_str());
+						ImGui::Text("Has Finished:               %s", inputinfo._hasfinished ? "true" : "false");
+						ImGui::NewLine();
+
+						ImGui::SeparatorText("Generation Information");
+						ImGui::Text("Generation Time:            %lld ns", inputinfo._generationTime.count());
+						ImGui::Text("Generation Length:          %lld", inputinfo._naturallength);
+						ImGui::Text("Trimmed Length:             %lld", inputinfo._trimmedlength);
+						ImGui::NewLine();
+
+						ImGui::SeparatorText("Test Information");
+						ImGui::Text("Execution Time:             %lld ns", inputinfo._executionTime.count());
+						ImGui::Text("Primary Score:              %.2f", inputinfo._primaryScore);
+						ImGui::Text("Secondary Score:            %.2f", inputinfo._secondaryScore);
+						ImGui::Text("Exitcode:                   %d", inputinfo._exitcode);
+						ImGui::Text("ExitReason:                   %d", inputinfo._exitreason);
+
+						ImGui::TextUnformatted("Command Line Args:");
+						ImGui::TextWrapped("%s", inputinfo._cmdArgs.c_str());
+						ImGui::TextUnformatted("Script Args:");
+						ImGui::TextWrapped("%s", inputinfo._cmdArgs.c_str());
+						ImGui::NewLine();
+
+						ImGui::SeparatorText("Input");
+						ImGui::Checkbox("Show as list", &listview);
+						if (listview)
+							ImGui::TextWrapped("%s", inputinfo._inputlist.c_str());
+						else
+							ImGui::TextWrapped("%s", inputinfo._inputconcat.c_str());
+
 					} else {
 						ImGui::Text("Not available");
 					}
@@ -688,12 +754,45 @@ int32_t main(int32_t argc, char** argv)
 						}
 						return "None";
 					};
+
+					auto toStringExec = [](ExecHandlerStatus stat) {
+						switch (stat) {
+						case ExecHandlerStatus::None:
+							return "None";
+						case ExecHandlerStatus::Exitted:
+							return "Exitted";
+						case ExecHandlerStatus::HandlingTests:
+							return "HandlingTests";
+						case ExecHandlerStatus::MainLoop:
+							return "MainLoop";
+						case ExecHandlerStatus::Sleeping:
+							return "Sleeping";
+						case ExecHandlerStatus::StartingTests:
+							return "StartingTests";
+						case ExecHandlerStatus::Waiting:
+							return "Waiting";
+						case ExecHandlerStatus::KillingProcessMemory:
+							return "KillingProcessMemory";
+						case ExecHandlerStatus::WriteFragment:
+							return "WriteFragment";
+						case ExecHandlerStatus::KillingProcessTimeout:
+							return "KillingProcessTimeout";
+						case ExecHandlerStatus::StoppingTest:
+							return "StoppingTest";
+						}
+						return "None";
+					};
 					static std::vector<TaskController::ThreadStatus> stati;
+					static ExecHandlerStatus execstatus;
 					session->UI_GetThreadStatus(stati);
+					ImGui::SeparatorText("TaskController");
 					for (size_t i = 0; i < stati.size(); i++)
 					{
 						ImGui::Text("Status: %s", toString(stati[i]));
 					}
+					ImGui::SeparatorText("ExecutionHandler");
+					execstatus = session->UI_GetExecHandlerStatus();
+					ImGui::Text("Status: %s", toStringExec(execstatus));
 				}
 				ImGui::End();
 			}
@@ -705,7 +804,7 @@ int32_t main(int32_t argc, char** argv)
 				ImGui::Begin("Generation", &wopen);
 				if (wopen && session->Loaded())
 				{
-					static std::vector<std::pair<FormID, FormID>> generations;
+					static std::vector<std::pair<FormID, int32_t>> generations;
 					static size_t numgenerations;
 					static std::pair<FormID, FormID> selection = { 0, 0 };
 					static bool changed = false;
@@ -719,6 +818,14 @@ int32_t main(int32_t argc, char** argv)
 						}
 					}
 
+					if (ImGui::Button("Switch to current generation")) {
+						session->UI_GetCurrentGeneration(ActiveGeneration);
+						if (ActiveGeneration.Initialized()) {
+							selection = { ActiveGeneration.GetFormID(), ActiveGeneration.GetGenerationNumber() };
+							changed = true;
+						}
+					}
+				
 					static std::string preview;
 					if (changed) {
 						changed = false;
@@ -741,7 +848,7 @@ int32_t main(int32_t argc, char** argv)
 							for (size_t i = 0; i < numgenerations; i++)
 							{
 								const bool is_selected = (selection.first == generations[i].first);
-								if (ImGui::Selectable(Utility::GetHexFill(generations[i].second).c_str(), is_selected))
+								if (ImGui::Selectable(std::to_string(generations[i].second).c_str(), is_selected))
 								{
 									session->UI_GetGeneration(generations[i].first, ActiveGeneration);
 									changed = true;
@@ -828,6 +935,12 @@ int32_t main(int32_t argc, char** argv)
 										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1), item->id);
 										th.detach();
 									}
+									ImGui::SameLine();
+									if (ImGui::SmallButton("Info")) {
+										showInput = true;
+										std::thread th([id = item->id]() { session->UI_GetInputInformation(inputinfo, id); });
+										th.detach();
+									}
 									ImGui::PopID();
 								}
 							}
@@ -851,11 +964,8 @@ int32_t main(int32_t argc, char** argv)
 						if (imElements.Size == 0)
 							imElements.resize(MAX_ITEMS);
 
-						static bool sortsecondary = false;
-						ImGui::Checkbox("Sort after Secondary Score", &sortsecondary);
-
 						// GET ITEMS FROM SESSION
-						session->UI_GetTopK(elements, MAX_ITEMS, sortsecondary);
+						session->UI_GetTopK(elements, MAX_ITEMS);
 
 						for (int i = 0; i < MAX_ITEMS && i < (int32_t)elements.size(); i++)
 							imElements[i] = elements[i];
@@ -875,7 +985,7 @@ int32_t main(int32_t argc, char** argv)
 						//PushStyleCompact
 						//...
 						//PopStyleCompact
-						if (ImGui::BeginTable("itemtable", 8, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * rownum), 0.0f)) {
+						if (ImGui::BeginTable("itemtable", 9, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * rownum), 0.0f)) {
 							ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputID);
 							ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputLength);
 							ImGui::TableSetupColumn("Primary Score", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputPrimaryScore);
@@ -883,6 +993,7 @@ int32_t main(int32_t argc, char** argv)
 							ImGui::TableSetupColumn("Result", ImGuiTableColumnFlags_WidthFixed, 120.0f, UI::UIInput::ColumnID::InputResult);
 							ImGui::TableSetupColumn("Flags", ImGuiTableColumnFlags_WidthFixed, 80.0f, UI::UIInput::ColumnID::InputFlags);
 							ImGui::TableSetupColumn("Generation", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputGenerationNum);
+							ImGui::TableSetupColumn("Derived Inputs", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputDerivedNum);
 							ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputAction);
 							ImGui::TableSetupScrollFreeze(0, 1);
 							ImGui::TableHeadersRow();
@@ -919,8 +1030,16 @@ int32_t main(int32_t argc, char** argv)
 									ImGui::TableNextColumn();
 									ImGui::Text("%6d", item->generationNumber);
 									ImGui::TableNextColumn();
+									ImGui::Text("%6ld", item->derivedInputs);
+									ImGui::TableNextColumn();
 									if (ImGui::SmallButton("Replay")) {
 										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1), item->id);
+										th.detach();
+									}
+									ImGui::SameLine();
+									if (ImGui::SmallButton("Info")) {
+										showInput = true;
+										std::thread th([id = item->id]() { session->UI_GetInputInformation(inputinfo, id); });
 										th.detach();
 									}
 									ImGui::SameLine();
@@ -1153,6 +1272,12 @@ int32_t main(int32_t argc, char** argv)
 										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1), item->id);
 										th.detach();
 									}
+									ImGui::SameLine();
+									if (ImGui::SmallButton("Info")) {
+										showInput = true;
+										std::thread th([id = item->id]() { session->UI_GetInputInformation(inputinfo, id); });
+										th.detach();
+									}
 									ImGui::PopID();
 								}
 							}
@@ -1202,6 +1327,12 @@ int32_t main(int32_t argc, char** argv)
 									ImGui::TableNextColumn();
 									if (ImGui::SmallButton("Replay")) {
 										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1), item->id);
+										th.detach();
+									}
+									ImGui::SameLine();
+									if (ImGui::SmallButton("Info")) {
+										showInput = true;
+										std::thread th([id = item->id]() { session->UI_GetInputInformation(inputinfo, id); });
 										th.detach();
 									}
 									ImGui::PopID();
@@ -1256,6 +1387,12 @@ int32_t main(int32_t argc, char** argv)
 									ImGui::TableNextColumn();
 									if (ImGui::SmallButton("Replay")) {
 										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1), item->id);
+										th.detach();
+									}
+									ImGui::SameLine();
+									if (ImGui::SmallButton("Info")) {
+										showInput = true;
+										std::thread th([id = item->id]() { session->UI_GetInputInformation(inputinfo, id); });
 										th.detach();
 									}
 									ImGui::TableNextColumn();
@@ -1314,6 +1451,12 @@ int32_t main(int32_t argc, char** argv)
 									ImGui::TableNextColumn();
 									if (ImGui::SmallButton("Replay")) {
 										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1), item->id);
+										th.detach();
+									}
+									ImGui::SameLine();
+									if (ImGui::SmallButton("Info")) {
+										showInput = true;
+										std::thread th([id = item->id]() { session->UI_GetInputInformation(inputinfo, id); });
 										th.detach();
 									}
 									ImGui::PopID();

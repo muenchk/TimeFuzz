@@ -9,6 +9,21 @@
 #include <stdexcept>
 #include <memory>
 
+void SessionData::Init()
+{
+	switch (this->_settings->generation.sourcesType) {
+	case Settings::GenerationSourcesType::FilterLength:
+		_negativeInputs.set_ordering(std::SetOrdering::Length);
+		break;
+	case Settings::GenerationSourcesType::FilterPrimaryScore:
+		_negativeInputs.set_ordering(std::SetOrdering::Primary);
+		break;
+	case Settings::GenerationSourcesType::FilterSecondaryScore:
+		_negativeInputs.set_ordering(std::SetOrdering::Secondary);
+		break;
+	}
+}
+
 SessionData::~SessionData()
 {
 	Clear();
@@ -32,9 +47,12 @@ void SessionData::AddInput(std::shared_ptr<Input>& input, EnumType list, double 
 			node->weight = optionalweight;
 			node->primary = input->GetPrimaryScore();
 			node->secondary = input->GetSecondaryScore();
+			node->length = input->Length();
 			std::unique_lock<std::shared_mutex> guard(_negativeInputsLock);
 			_negativeInputs.insert(node);
+			std::unique_lock<std::shared_mutex> guardm(_multiset_lock);
 			_topK_primary.insert(node);
+			_topK_length.insert(node);
 			_topK_secondary.insert(node);
 		}
 		break;
@@ -57,12 +75,16 @@ void SessionData::AddInput(std::shared_ptr<Input>& input, EnumType list, double 
 			node->weight = optionalweight;
 			node->primary = input->GetPrimaryScore();
 			node->secondary = input->GetSecondaryScore();
+			node->length = input->Length();
 			std::unique_lock<std::shared_mutex> guard(_unfinishedInputsLock);
 			_unfinishedInputs.insert(node);
+			std::unique_lock<std::shared_mutex> guardm(_multiset_lock);
 			_topK_primary.insert(node);
 			_topK_secondary.insert(node);
+			_topK_length.insert(node);
 			_topK_primary_Unfinished.insert(node);
 			_topK_secondary_Unfinished.insert(node);
+			_topK_length_Unfinished.insert(node);
 			break;
 		}
 	default:
@@ -154,10 +176,39 @@ size_t SessionData::GetDynamicSize()
 	       + _recentfailes.size();          // actual number of elements in the list * size of byte
 }
 
+std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Length(int32_t k)
+{
+	std::vector<std::shared_ptr<Input>> ret;
+	int32_t count = 0;
+	std::shared_lock<std::shared_mutex> guardm(_multiset_lock);
+	auto itr = _topK_length.begin();
+	while (count < k && itr != _topK_length.end()) {
+		ret.push_back((*itr)->input.lock());
+		itr++;
+		count++;
+	}
+	return ret;
+}
+
+std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Length_Unfinished(int32_t k)
+{
+	std::vector<std::shared_ptr<Input>> ret;
+	int32_t count = 0;
+	std::shared_lock<std::shared_mutex> guardm(_multiset_lock);
+	auto itr = _topK_length_Unfinished.begin();
+	while (count < k && itr != _topK_length_Unfinished.end()) {
+		ret.push_back((*itr)->input.lock());
+		itr++;
+		count++;
+	}
+	return ret;
+}
+
 std::vector<std::shared_ptr<Input>> SessionData::GetTopK(int32_t k)
 {
 	std::vector<std::shared_ptr<Input>> ret;
 	int32_t count = 0;
+	std::shared_lock<std::shared_mutex> guardm(_multiset_lock);
 	auto itr = _topK_primary.begin();
 	while (count < k && itr != _topK_primary.end()) {
 		ret.push_back((*itr)->input.lock());
@@ -171,6 +222,7 @@ std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Unfinished(int32_t k)
 {
 	std::vector<std::shared_ptr<Input>> ret;
 	int32_t count = 0;
+	std::shared_lock<std::shared_mutex> guardm(_multiset_lock);
 	auto itr = _topK_primary_Unfinished.begin();
 	while (count < k && itr != _topK_primary_Unfinished.end()) {
 		ret.push_back((*itr)->input.lock());
@@ -182,6 +234,7 @@ std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Unfinished(int32_t k)
 
 std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Secondary(int32_t k)
 {
+	std::shared_lock<std::shared_mutex> guardm(_multiset_lock);
 	if (k == 1)
 	{
 		/*auto itr = std::max_element(_unfinishedInputs.begin(), _unfinishedInputs.end(), [](std::shared_ptr<InputNode> lhs, std::shared_ptr<InputNode> rhs) {
@@ -235,11 +288,34 @@ std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Secondary_Unfinished(in
 {
 	std::vector<std::shared_ptr<Input>> ret;
 	int32_t count = 0;
+	std::shared_lock<std::shared_mutex> guardm(_multiset_lock);
 	auto itr = _topK_secondary_Unfinished.begin();
 	while (count < k && itr != _topK_secondary.end()) {
 		ret.push_back((*itr)->input.lock());
 		itr++;
 		count++;
+	}
+	return ret;
+}
+
+
+std::vector<std::shared_ptr<Input>> SessionData::FindKSources(int32_t k, std::set<std::shared_ptr<Input>> exclusionlist)
+{
+	std::vector<std::shared_ptr<Input>> ret;
+	auto itr = _unfinishedInputs.begin();
+	while ((int32_t)ret.size() < k && itr != _unfinishedInputs.end())
+	{
+		auto input = (*itr)->input.lock();
+		if (input) {
+			if (_settings->generation.maxNumberOfFailsPerSource >= input->GetDerivedFails() && exclusionlist.contains(input) == false)
+				ret.push_back(input);
+		}
+	}
+	auto itra = _negativeInputs.begin();
+	while ((int32_t)ret.size() < k && itra != _negativeInputs.end()) {
+		auto input = (*itra)->input.lock();
+		if (_settings->generation.maxNumberOfFailsPerSource >= input->GetDerivedFails() && exclusionlist.contains(input) == false)
+			ret.push_back(input);
 	}
 	return ret;
 }
@@ -258,9 +334,10 @@ std::shared_ptr<Generation> SessionData::GetCurrentGeneration()
 std::shared_ptr<Generation> SessionData::GetGeneration(FormID generationID)
 {
 	if (_settings->generation.generationalMode) {
-		try {
-			return _generations.at(generationID);
-		} catch (std::exception&) {
+		auto itr = _generations.find(generationID);
+		if (itr != _generations.end()) {
+			return itr->second;
+		}else {
 			static Generation gen;
 			static std::shared_ptr<Generation> genptr = std::shared_ptr<Generation>(std::addressof(gen));
 			return genptr;
@@ -273,7 +350,7 @@ std::shared_ptr<Generation> SessionData::GetGeneration(FormID generationID)
 	}
 }
 
-std::shared_ptr<Generation> SessionData::GetGenerationByNumber(FormID generationNumber)
+std::shared_ptr<Generation> SessionData::GetGenerationByNumber(int32_t generationNumber)
 {
 	if (_settings->generation.generationalMode)
 	{
@@ -294,7 +371,7 @@ std::shared_ptr<Generation> SessionData::GetLastGeneration()
 	return GetGeneration(_lastGenerationID);
 }
 
-void SessionData::GetGenerationIDs(std::vector<std::pair<FormID, FormID>>& gens, size_t& size)
+void SessionData::GetGenerationIDs(std::vector<std::pair<FormID, int32_t>>& gens, size_t& size)
 {
 	if (_generations.size() > gens.size())
 		gens.resize(_generations.size());
@@ -324,6 +401,7 @@ void SessionData::SetNewGeneration()
 		if (oldgen) {
 			newgen->SetGenerationNumber(oldgen->GetGenerationNumber() + 1);  // increment generation
 			_lastGenerationID = oldgen->GetFormID();
+			oldgen->SetInactive();
 		}
 		else
 			newgen->SetGenerationNumber(1);  // first generation
@@ -332,16 +410,25 @@ void SessionData::SetNewGeneration()
 	}
 }
 
-void SessionData::CheckGenerationEnd()
+bool SessionData::CheckGenerationEnd()
 {
 	// checks whether the current session should end and prepares to do so
 	bool exp = false;
-	if ((_generation.load()->IsActive() == false || !_generation.load()->NeedsGeneration()&& _exechandler->WaitingTasks() == 0 && _exechandler->GetRunningTests() == 0) && _generationEnding.compare_exchange_strong(exp, true) /*if gen is inactive and genending is false, set it to true and execute this block*/) {
+	if ((_generation.load()->IsActive() == false || !_generation.load()->NeedsGeneration() && _exechandler->WaitingTasks() == 0 && _exechandler->GetRunningTests() == 0) && _generationEnding.compare_exchange_strong(exp, true) /*if gen is inactive and genending is false, set it to true and execute this block*/) {
 		// generation has finished
 		auto call = dynamic_pointer_cast<Functions::GenerationEndCallback>(Functions::GenerationEndCallback::Create());
 		call->_sessiondata = data->CreateForm<SessionData>(); // self
 		_controller->AddTask(call);
+		return true;
+	} else if (_generation.load()->CheckSourceValidity([this](std::shared_ptr<Input> input) { if (input->GetDerivedFails() < _settings->generation.maxNumberOfFailsPerSource) return true; else return false; }) == false && _generationEnding.compare_exchange_strong(exp, true))
+	{
+		// generation is being forcefully ended
+		auto call = dynamic_pointer_cast<Functions::GenerationEndCallback>(Functions::GenerationEndCallback::Create());
+		call->_sessiondata = data->CreateForm<SessionData>();  // self
+		_controller->AddTask(call);
+		return true;
 	}
+	return _generationEnding.load();
 }
 
 int64_t SessionData::GetNumberInputsToGenerate()
@@ -490,9 +577,11 @@ bool SessionData::ReadData0x1(std::istream* buffer, size_t& offset, size_t /*len
 				node->weight = negInp[i].second;
 				node->primary = shared->GetPrimaryScore();
 				node->secondary = shared->GetSecondaryScore();
+				node->length = shared->Length();
 				_negativeInputs.insert(node);
 				_topK_primary.insert(node);
 				_topK_secondary.insert(node);
+				_topK_length.insert(node);
 			}
 		}
 	});
@@ -513,11 +602,14 @@ bool SessionData::ReadData0x1(std::istream* buffer, size_t& offset, size_t /*len
 				node->weight = unfInp[i].second;
 				node->primary = shared->GetPrimaryScore();
 				node->secondary = shared->GetSecondaryScore();
+				node->length = shared->Length();
 				_unfinishedInputs.insert(node);
 				_topK_primary.insert(node);
 				_topK_secondary.insert(node);
+				_topK_length.insert(node);
 				_topK_primary_Unfinished.insert(node);
 				_topK_secondary_Unfinished.insert(node);
+				_topK_length_Unfinished.insert(node);
 			}
 		}
 	});
@@ -572,6 +664,18 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 				this->_settings = resolver->ResolveFormID<Settings>(Data::StaticFormIDs::Settings);
 				this->_excltree = resolver->ResolveFormID<ExclusionTree>(Data::StaticFormIDs::ExclusionTree);
 				this->_generation = resolver->ResolveFormID<Generation>(generationid);
+				switch (this->_settings->generation.sourcesType)
+				{
+				case Settings::GenerationSourcesType::FilterLength:
+					_negativeInputs.set_ordering(std::SetOrdering::Length);
+					break;
+				case Settings::GenerationSourcesType::FilterPrimaryScore:
+					_negativeInputs.set_ordering(std::SetOrdering::Primary);
+					break;
+				case Settings::GenerationSourcesType::FilterSecondaryScore:
+					_negativeInputs.set_ordering(std::SetOrdering::Secondary);
+					break;
+				}
 				if (this->_generation.load())
 					this->_generationID = _generation.load()->GetFormID();
 				// this is redundant and has already been set

@@ -48,7 +48,8 @@ size_t Input::GetStaticSize(int32_t version)
 	                        + 8                 // derivedInputs
 	                        + 8                 // generationTime
 	                        + 1                 // enablePrimaryScoreIndividual
-	                        + 1;                // enableSecondaryScoreIndividual
+	                        + 1                 // enableSecondaryScoreIndividual
+	                        + 8;                // derivedFails
 
 	switch (version)
 	{
@@ -115,6 +116,7 @@ bool Input::WriteData(std::ostream* buffer, size_t& offset)
 	Buffer::Write(_enableSecondaryScoreIndividual, buffer, offset);
 	Buffer::VectorBasic::WriteVector(_primaryScoreIndividual, buffer, offset);
 	Buffer::VectorBasic::WriteVector(_secondaryScoreIndividual, buffer, offset);
+	Buffer::Write(_derivedFails.load(), buffer, offset);
 	return true;
 }
 
@@ -217,6 +219,7 @@ bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRe
 			_enableSecondaryScoreIndividual = Buffer::ReadBool(buffer, offset);
 			_primaryScoreIndividual = Buffer::VectorBasic::ReadVector<double>(buffer, offset);
 			_secondaryScoreIndividual = Buffer::VectorBasic::ReadVector<double>(buffer, offset);
+			_derivedFails = Buffer::ReadUInt64(buffer, offset);
 		}
 		return true;
 	default:
@@ -720,16 +723,39 @@ void Input::IncDerivedInputs()
 	_derivedInputs++;
 }
 
+void Input::IncDerivedFails()
+{
+	_derivedFails++;
+}
+
 uint64_t Input::GetDerivedInputs()
 {
 	std::shared_lock<std::shared_mutex> guard(_lock);
 	return _derivedInputs;
 }
 
+uint64_t Input::GetDerivedFails()
+{
+	return _derivedFails.load();
+}
+
 void Input::SetGenerationTime(std::chrono::nanoseconds genTime)
 {
 	std::unique_lock<std::shared_mutex> guard(_lock);
 	_generationTime = genTime;
+}
+
+std::chrono::nanoseconds Input::GetGenerationTime()
+{
+	return _generationTime;
+}
+
+int64_t Input::GetTargetLength()
+{
+	if (derive)
+		return derive->_sequenceNodes;
+	else
+		return -1;
 }
 
 bool Input::IsIndividualPrimaryScoresEnabled()

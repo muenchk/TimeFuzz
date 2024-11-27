@@ -73,6 +73,13 @@ void Session::LoadSession_Async(Data* dat, std::string name, int32_t number, Loa
 		}
 	}
 	bool error = false;
+	if (args && args->clearTasks) {
+		auto sessdata = dat->CreateForm<SessionData>();
+		// clear tasks
+		sessdata->_controller->ClearTasks();
+		// clear tests
+		sessdata->_exechandler->ClearTests();
+	}
 	if (args && args->startSession == true)
 		session->StartLoadedSession(error, args->reloadSettings, args->settingsPath);
 	if (args)
@@ -103,6 +110,7 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, LoadSessionArgs&
 		asyncargs->reloadSettings = loadargs.reloadSettings;
 		asyncargs->settingsPath = loadargs.settingsPath;
 		asyncargs->loadNewGrammar = loadargs.loadNewGrammar;
+		asyncargs->clearTasks = loadargs.clearTasks;
 		if (loadargs.reloadSettings)
 			sett->SkipRead();
 	}
@@ -135,6 +143,8 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, 
 		asyncargs->startSession = loadargs.startSession;
 		asyncargs->reloadSettings = loadargs.reloadSettings;
 		asyncargs->settingsPath = loadargs.settingsPath;
+		asyncargs->loadNewGrammar = loadargs.loadNewGrammar;
+		asyncargs->clearTasks = loadargs.clearTasks;
 		if (loadargs.reloadSettings)
 			sett->SkipRead();
 	}
@@ -244,6 +254,7 @@ void Session::StopSession(bool savesession)
 
 	// set abort -> session controller should automatically stop
 	_abort = true;
+	_sessionControlWait.notify_all();
 	if (_sessiondata) {
 		// stop executionhandler first, so no more new tests are started and the 
 		// taskcontroller can catch up if necessary
@@ -366,6 +377,7 @@ void Session::StartSession(bool& error, bool globalTaskController, bool globalEx
 	_sessiondata->_settings = data->CreateForm<Settings>();
 	_sessiondata->_settings->Load(settingsPath);
 	_sessiondata->_settings->Save(settingsPath);
+	_sessiondata->Init();
 	data->_globalTasks = globalTaskController;
 	data->_globalExec = globalExecutionHandler;
 	// set taskcontroller
@@ -503,6 +515,8 @@ void Session::SessionControl()
 	_self = data->CreateForm<Session>();
 	_sessiondata->_controller->Start(_sessiondata, taskthreads);
 	_sessiondata->_exechandler->Init(_self, _sessiondata, _sessiondata->_settings, _sessiondata->_controller, _sessiondata->_settings->general.concurrenttests, _sessiondata->_oracle);
+	_sessiondata->_exechandler->SetEnableFragments(_sessiondata->_settings->tests.executeFragments);
+	_sessiondata->_exechandler->SetPeriod(_sessiondata->_settings->general.testEnginePeriod);
 	_sessiondata->_exechandler->StartHandlerAsIs();
 	_sessiondata->_excltree = data->CreateForm<ExclusionTree>();
 	_sessiondata->_excltree->Init(_sessiondata);
@@ -518,6 +532,33 @@ void Session::SessionControl()
 	Lua::UnregisterThread();
 
 	logmessage("Kicked session off.");
+	std::unique_lock<std::mutex> guard(_sessionControlMutex);
+	logmessage("Entering into Deadlock avoidance mode");
+	while (_abort == false)
+	{
+		// sometimes shit happens in multithreaded applications where things go wrong, especially under linux 
+		// and with inter-process communication.
+		// To avoid some problems this thread is gonna periodically check whether shit has gone wrong and we need to restart / push stuff
+		_sessionControlWait.wait_for(guard, std::chrono::seconds(10));
+		if (_abort)
+			return;
+
+		if (_sessiondata->_controller->GetWaitingJobs() == 0 && !_sessiondata->_controller->IsFrozen() || (_sessiondata->_exechandler->GetWaitingTests() == 0 && _sessiondata->_exechandler->GetInitializedTests() == 0 && _sessiondata->_exechandler->GetRunningTests() == 0 && _sessiondata->_exechandler->IsFrozen() == false))
+		{
+			logwarn("Work you lazy bastards.");
+			// check wether the generation should end
+			if (_sessiondata->CheckGenerationEnd() == false)
+			{
+				// if it isn't ending give generation a little push
+				SessionFunctions::GenerateTests(_sessiondata);
+			}
+		}
+		if (_sessiondata->_exechandler->IsStale(std::chrono::milliseconds(10000)))
+		{
+			logwarn("ExecHandler is stale, restarting...");
+			_sessiondata->_exechandler->ReinitHandler();
+		}
+	}
 }
 
 void Session::End()
@@ -728,17 +769,24 @@ void Session::Replay(FormID inputid)
 	}
 }
 
-void Session::UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k, bool sortsecondary)
+void Session::UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k)
 {
 	if (!_loaded)
 		return;
 	if (vector.size() < k)
 		vector.resize(k);
 	std::vector<std::shared_ptr<Input>> vec;
-	if (sortsecondary)
-		vec = _sessiondata->GetTopK_Secondary((int32_t)k);
-	else
+	switch (_sessiondata->_settings->generation.sourcesType) {
+	case Settings::GenerationSourcesType::FilterLength:
+		vec = _sessiondata->GetTopK_Length((int32_t)k);
+		break;
+	case Settings::GenerationSourcesType::FilterPrimaryScore:
 		vec = _sessiondata->GetTopK((int32_t)k);
+		break;
+	case Settings::GenerationSourcesType::FilterSecondaryScore:
+		vec = _sessiondata->GetTopK_Secondary((int32_t)k);
+		break;
+	}
 	for (int32_t i = 0; i < (int32_t)vec.size(); i++)
 	{
 		vector[i].id = vec[i]->GetFormID();
@@ -823,7 +871,7 @@ void Session::UI_GetThreadStatus(std::vector<TaskController::ThreadStatus>& stat
 	_sessiondata->_controller->GetThreadStatus(status);
 }
 
-void Session::UI_GetGenerations(std::vector<std::pair<FormID, FormID>>& generations, size_t& size)
+void Session::UI_GetGenerations(std::vector<std::pair<FormID, int32_t>>& generations, size_t& size)
 {
 	if (!_loaded)
 		return;
@@ -844,7 +892,7 @@ void Session::UI_GetCurrentGeneration(UI::UIGeneration& gen)
 	gen.SetGeneration(_sessiondata->GetCurrentGeneration());
 }
 
-void Session::UI_GetGenerationByNumber(FormID genNumber, UI::UIGeneration& gen)
+void Session::UI_GetGenerationByNumber(int32_t genNumber, UI::UIGeneration& gen)
 {
 	if (!_loaded)
 		return;
@@ -856,4 +904,27 @@ uint64_t Session::UI_GetMemoryUsage()
 	if (!_loaded)
 		return 0;
 	return _sessiondata->GetUsedMemory();
+}
+
+void Session::UI_GetInputInformation(UI::UIInputInformation& info, FormID id)
+{
+	if (!_loaded)
+		return;
+	auto input = _sessiondata->data->LookupFormID<Input>(id);
+	if (input)
+		info.Set(input, _sessiondata);
+}
+
+ExecHandlerStatus Session::UI_GetExecHandlerStatus()
+{
+	if (!_loaded)
+		return ExecHandlerStatus::None;
+	return _sessiondata->_exechandler->GetThreadStatus();
+}
+
+void Session::UI_GetHashmapInformation(size_t& hashmapSize)
+{
+	if (!_loaded)
+		return;
+	hashmapSize = _sessiondata->data->GetHashmapSize();
 }

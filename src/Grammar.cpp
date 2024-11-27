@@ -293,11 +293,13 @@ GrammarObject::Type GrammarExpansionRegex::GetObjectType()
 GrammarExpansionRegex::operator std::string()
 {
 	std::string ret;
-	if (_node)
-		if (_min == 0)
+	if (_node) {
+		if (_min == 0) {
 			return "(" + _node->string() + ")" + "*";
-		else
+		} else {
 			return "(" + _node->string() + ")" + "+";
+		}
+	}
 	return ret;
 }
 
@@ -2225,10 +2227,11 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 	// init random stuff
 	std::mt19937 randan((unsigned int)seed);
 	std::uniform_int_distribution<signed> dist;
-	if (backtrack)
+	if (backtrack) {
 		dist = std::uniform_int_distribution<signed>(_backtrack_min, _backtrack_max);
-	else
+	} else {
 		dist = std::uniform_int_distribution<signed>(_extension_min, _extension_max);
+	}
 
 	int32_t trackback = dist(randan);
 
@@ -2242,9 +2245,15 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 
 	if (sinput->IsTrimmed())
 	{
+		// nothing to extract and then extend
+		if (sinput->GetTrimmedLength() - trackback < 1)
+			return;
 		std::vector<std::pair<int64_t, int64_t>> segments = { { 0, sinput->GetTrimmedLength() - trackback } };
 		Extract(sinput->derive, dtree, segments, sinput->Length(), false);
 	} else if (trackback > 0) {
+		// nothing to extract and then extend
+		if (sinput->Length() - trackback < 1)
+			return;
 		std::vector<std::pair<int64_t, int64_t>> segments = { { 0, sinput->Length() - trackback } };
 		Extract(sinput->derive, dtree, segments, sinput->Length(), false);
 	}

@@ -261,27 +261,36 @@ bool Test::IsRunning()
 	}
 }
 
-void Test::WriteInput(std::string str)
+bool Test::WriteInput(std::string str)
 {
 	StartProfiling;
 	if (!_valid) {
 		logcritical("called WriteInput after invalidation");
-		return;
+		return false;
 	}
 	logdebug("Writing input: \"{}\"", str);
+	loginfo("1");
+	int bSuccess = 0;
 #if defined(unix) || defined(__unix__) || defined(__unix)
 	size_t len = strlen(str.c_str());
-	if (size_t written = write(red_input[1], str.c_str(), len); written != len) {
-		logcritical("Write to child is missing bytes: Supposed {}, written {}", len, written);
-		return;
-	}
+	loginfo("2");
+	if (IsRunning()) {
+		if (size_t written = write(red_input[1], str.c_str(), len); written != len) {
+			loginfo("2.1");
+			logcritical("Write to child is missing bytes: Supposed {}, written {}", len, written);
+			return false;
+		}
+	} else
+		return false;
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	DWORD dwWritten;
-	BOOL bSuccess = FALSE;
+	bSuccess = FALSE;
 	const char* cstr = str.c_str();
 	bSuccess = WriteFile(red_input[1], cstr, (DWORD)strlen(cstr), &dwWritten, NULL);
 #endif
+	loginfo("3");
 	profile(TimeProfiling, "");
+	return bSuccess;
 }
 
 bool Test::WriteNext()
@@ -746,17 +755,19 @@ namespace Functions
 
 		// if the test we just ran is a duplicate of an existing test,we can smply discard it
 		// as the result is already in out data
-		if (_input->HasFlag(Input::Flags::Duplicate)) {
-			_sessiondata->data->DeleteForm(_input->test);
-			if (_input->derive)
-				_sessiondata->data->DeleteForm(_input->derive);
-			_sessiondata->data->DeleteForm(_input);
-		} else {
-			// ----- SESSION STUFF -----
-			SessionFunctions::TestEnd(_sessiondata, _input);
+		if (_input) {
+			if (_input->HasFlag(Input::Flags::Duplicate)) {
+				_sessiondata->data->DeleteForm(_input->test);
+				if (_input->derive)
+					_sessiondata->data->DeleteForm(_input->derive);
+				_sessiondata->data->DeleteForm(_input);
+			} else {
+				// ----- SESSION STUFF -----
+				SessionFunctions::TestEnd(_sessiondata, _input);
+			}
+			_input->UnsetFlag(Form::FormFlags::DoNotFree);
+			_input->test->UnsetFlag(Form::FormFlags::DoNotFree);
 		}
-		_input->UnsetFlag(Form::FormFlags::DoNotFree);
-		_input->test->UnsetFlag(Form::FormFlags::DoNotFree);
 		// schedule test generation
 		SessionFunctions::GenerateTests(_sessiondata);
 		// perform master checks
@@ -793,11 +804,11 @@ namespace Functions
 
 	void TestCallback::Dispose()
 	{
-		if (_input)
-			if (_input->test)
-				_input->test->_callback.reset();
-		_input.reset();
-		_sessiondata.reset();
+		//if (_input)
+		//	if (_input->test)
+		//		_input->test->_callback.reset();
+		//_input.reset();
+		//_sessiondata.reset();
 	}
 
 	void ReplayTestCallback::Run()

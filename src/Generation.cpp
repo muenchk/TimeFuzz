@@ -66,6 +66,10 @@ void Generation::FailGeneration(int64_t fails)
 	std::unique_lock<std::shared_mutex> guard(_lock);
 	_generatedSize -= fails;
 	_activeInputs -= fails;
+	if (_activeInputs < 0) {
+		_activeInputs = 0;
+		logwarn("_activeInputs went into the negative");
+	}
 }
 
 void Generation::AddGeneratedInput(std::shared_ptr<Input> input)
@@ -133,6 +137,10 @@ void Generation::AddDDController(std::shared_ptr<DeltaDebugging::DeltaController
 void Generation::SetInputCompleted()
 {
 	_activeInputs--;
+	if (_activeInputs < 0) {
+		_activeInputs = 0;
+		logwarn("_activeInputs went into the negative");
+	}
 }
 
 void Generation::SetGenerationNumber(int32_t number)
@@ -168,6 +176,11 @@ bool Generation::IsActive()
 bool Generation::NeedsGeneration()
 {
 	return (_generatedSize != _targetSize);
+}
+
+void Generation::ResetActiveInputs()
+{
+	_activeInputs = 0;
 }
 
 bool Generation::IsDeltaDebuggingActive()
@@ -216,6 +229,15 @@ void Generation::AddSource(std::shared_ptr<Input> input)
 	_sourcesDistr = std::uniform_int_distribution<signed>(0, (uint32_t)_sources.size() - 1);
 }
 
+bool Generation::CheckSourceValidity(std::function<bool(std::shared_ptr<Input>)> predicate)
+{
+	// if all sources are invalid result becomes false
+	bool result = true;
+	for (auto input : _sources)
+		result &= !predicate(input);
+	return result;
+}
+
 void Generation::GetDDControllers(std::vector<std::shared_ptr<DeltaDebugging::DeltaController>>& controllers)
 {
 	if (_ddControllers.size() > controllers.size())
@@ -235,6 +257,17 @@ size_t Generation::GetNumberOfDDControllers()
 	return _ddControllers.size();
 }
 
+void Generation::SetActive()
+{
+	_sourcesFlags.clear();
+	for (size_t i = 0; i < _sources.size(); i++)
+		_sourcesFlags.push_back(std::move(std::make_unique<FlagHolder>(_sources[i], Form::FormFlags::DoNotFree)));
+}
+
+void Generation::SetInactive()
+{
+	_sourcesFlags.clear();
+}
 
 #pragma region FORM
 

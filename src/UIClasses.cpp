@@ -1,6 +1,12 @@
 #include "UIClasses.h"
 #include "DeltaDebugging.h"
 #include "Generation.h"
+#include "Input.h"
+#include "Test.h"
+#include "LuaEngine.h"
+#include "Oracle.h"
+#include "SessionData.h"
+#include "SessionFunctions.h"
 
 #include <vector>
 
@@ -238,4 +244,94 @@ void UIGeneration::SetGeneration(std::shared_ptr<Generation> generation)
 bool UIGeneration::Initialized()
 {
 	return _generation.operator bool();
+}
+
+void UIGeneration::Reset()
+{
+	_generation.reset();
+}
+
+bool UIInputInformation::Initialized()
+{
+	return _init;
+}
+
+void UIInputInformation::Set(std::shared_ptr<Input> input, std::shared_ptr<SessionData> sessiondata)
+{
+	_input = input;
+	_sessiondata = sessiondata;
+	Refresh();
+	_init = true;
+}
+
+void UIInputInformation::Reset()
+{
+	_init = false;
+	_input.reset();
+	delete[] _cmdArgsBuf;
+	delete[] _scriptArgsBuf;
+	delete[] _inputconcatBuf;
+	delete[] _inputlistBuf;
+	_sessiondata.reset();
+}
+
+void UIInputInformation::Refresh()
+{
+	_inputID = _input->GetFormID();
+	_generationID = _input->GetGenerationID();
+	_derivedInputs = _input->GetDerivedInputs();
+	_generationTime = _input->GetGenerationTime();
+	_executionTime = _input->GetExecutionTime();
+	_primaryScore = _input->GetPrimaryScore();
+	_secondaryScore = _input->GetSecondaryScore();
+	_hasfinished = _input->Finished();
+	_trimmed = _input->IsTrimmed();
+	_naturallength = _input->GetTargetLength();
+	_trimmedlength = _input->GetTrimmedLength();
+	_exitcode = _input->GetExitCode();
+	_parentInput = _input->GetParentID();
+	_flags = _input->GetFlags();
+	_oracleResult = _input->GetOracleResult();
+
+	FlagHolder flag(_input, Form::FormFlags::DoNotFree);
+	if (_input->GetGenerated() == false) {
+		// we are trying to add an _input that hasn't been generated or regenerated
+		// try the generate it and if it succeeds add the test
+		SessionFunctions::GenerateInput(_input, _sessiondata);
+	}
+	if (_input->test) {
+		_exitreason = _input->test->_exitreason;
+		_cmdArgs = _input->test->_cmdArgs;
+		_scriptArgs = _input->test->_scriptArgs;
+		bool stateerror = false;
+		if (_cmdArgs == "")
+			_cmdArgs = Lua::GetCmdArgs(std::bind(&Oracle::GetCmdArgs, _sessiondata->_oracle, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), _input->test, stateerror, false);
+		if (_scriptArgs == "" && _sessiondata->_oracle->GetOracletype() == Oracle::PUTType::Script)
+			_input->test->_scriptArgs = Lua::GetScriptArgs(std::bind(&Oracle::GetScriptArgs, _sessiondata->_oracle, std::placeholders::_1, std::placeholders::_2), _input->test, stateerror);
+	}
+	// get input list
+	_inputconcat = "";
+	_inputlist = "";
+	if (_input->GetGenerated()) {
+		auto itr = _input->begin();
+		if (itr != _input->end()) {
+			_inputconcat += *itr;
+			_inputlist += "\"" + *itr + "\"";
+			itr++;
+		}
+		while (itr != _input->end()) {
+			_inputconcat += *itr;
+			_inputlist += ", \"" + *itr + "\"";
+			itr++;
+		}
+	}
+
+	_cmdArgsBuf = new char[_cmdArgs.size()];
+	strncpy(_cmdArgsBuf, _cmdArgs.c_str(), _cmdArgs.size());
+	_scriptArgsBuf = new char[_scriptArgs.size()];
+	strncpy(_scriptArgsBuf, _scriptArgs.c_str(), _scriptArgs.size());
+	_inputconcatBuf = new char[_inputconcat.size()];
+	strncpy(_inputconcatBuf, _inputconcat.c_str(), _inputconcat.size());
+	_inputlistBuf = new char[_inputlist.size()];
+	strncpy(_inputlistBuf, _inputlist.c_str(), _inputlist.size());
 }

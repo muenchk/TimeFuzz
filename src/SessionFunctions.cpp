@@ -164,7 +164,10 @@ void SessionFunctions::SaveCheck(std::shared_ptr<SessionData>& sessiondata, bool
 			auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
 			callback->_sessiondata = sessiondata;
 			callback->_afterSave = true;
-			std::thread(SaveSession_Async, sessiondata, callback).detach();
+			if (sessiondata->_settings->saves.saveAfterEachGeneration) {
+				std::thread(SaveSession_Async, sessiondata, callback).detach();
+			} else
+				sessiondata->_controller->AddTask(callback);
 			return;
 		}
 		// check whether we should save now
@@ -437,7 +440,6 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 	if (input->test->_skipOracle) {
 		return;
 	}
-
 	// add this input to the current generation
 	if (input->HasFlag(Input::Flags::GeneratedDeltaDebugging))
 		sessiondata->GetGeneration(input->GetGenerationID())->AddDDInput(input);
@@ -489,8 +491,9 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 			// -----Add _input to exclusion tree as result is fixed-----
 			sessiondata->_excltree->AddInput(input, OracleResult::Failing);
 
-
-
+			auto parent = sessiondata->data->LookupFormID<Input>(input->_parent.parentInput);
+			if (parent)
+				parent->IncDerivedFails();
 		}
 		break;
 	case OracleResult::Passing:
@@ -692,8 +695,15 @@ namespace Functions
 			// number of new tests we need to generate
 			//int64_t generate = _sessiondata->_settings->generation.generationsize - (int64_t)_sessiondata->_exechandler->WaitingTasks();
 			int64_t generate = _sessiondata->GetNumberInputsToGenerate();
-			if (generate == 0)
-				return;
+			if (generate == 0) {
+				if (auto gen = _sessiondata->GetCurrentGeneration(); gen->NeedsGeneration() && _sessiondata->_exechandler->WaitingTasks() == 0) {
+					gen->ResetActiveInputs();
+					generate = _sessiondata->GetNumberInputsToGenerate();
+				}
+				if (generate == 0) {
+					return;
+				}
+			}
 
 			int32_t generated = 0;
 
@@ -714,7 +724,7 @@ namespace Functions
 			// might have finished in the meantime and we don't want this to become an endless loop
 			// blocking our task executions
 			//_sessiondata->_settings->generation.generationsize > (int64_t)_sessiondata->_exechandler->WaitingTasks() && failcount < (int64_t)_sessiondata->GENERATION_RETRIES && gencount < _sessiondata->_settings->generation.generationstep
-			while (_sessiondata->CheckNumberInputsToGenerate(generated, failcount, generate) > 0) {
+			while (_sessiondata->CheckNumberInputsToGenerate(generated, failcount, generate) > 0 && failcount < (int64_t)_sessiondata->GENERATION_RETRIES) {
 				loginfo("[MasterGenerationCallback] inner loop");
 				/*std::mt19937 randan((uint32_t)std::chrono::steady_clock::now().time_since_epoch().count());
 				std::uniform_int_distribution<signed> dist(0, 1);
@@ -729,14 +739,8 @@ namespace Functions
 				if (gen->HasSources())
 				{
 					auto parent = gen->GetRandomSource();
-					bool resetflag = false;
-					if (!parent->HasFlag(Form::FormFlags::DoNotFree)) {
-						parent->SetFlag(Form::FormFlags::DoNotFree);
-						resetflag = true;
-					}
-					input = SessionFunctions::ExtendInput(_sessiondata, parent);
-					if (resetflag)
-						parent->UnsetFlag(Form::FormFlags::DoNotFree);
+					if (parent)
+						input = SessionFunctions::ExtendInput(_sessiondata, parent);
 				} else
 					input = SessionFunctions::GenerateInput(_sessiondata);
 				if (input) {
@@ -763,9 +767,23 @@ namespace Functions
 					}
 					// else continue with loop
 					else {
+						if (input->test)
+							_sessiondata->data->DeleteForm(input->test);
+						if (input->derive)
+							_sessiondata->data->DeleteForm(input->derive);
+						_sessiondata->data->DeleteForm(input);
 						_sessiondata->IncGeneratedWithPrefix();
 						failcount++;
 					}
+				} else {
+					if (input) {
+						if (input->test)
+							_sessiondata->data->DeleteForm(input->test);
+						if (input->derive)
+							_sessiondata->data->DeleteForm(input->derive);
+					}
+					_sessiondata->data->DeleteForm(input);
+					failcount++;
 				}
 				logdebug("[MasterGenerationCallback] inner loop end");
 			}
@@ -793,6 +811,11 @@ namespace Functions
 				// check whether we fulfilled our goals and can end the session
 				if (SessionFunctions::EndCheck(_sessiondata) == true) {
 					profile(TimeProfiling, "Time taken for MasterGenerationCallback");
+					return;
+				}
+				// check whether the sources of the generation are still valid
+				if (_sessiondata->CheckGenerationEnd())
+				{
 					return;
 				}
 			} else {
@@ -849,6 +872,7 @@ namespace Functions
 
 	void GenerationEndCallback::Run()
 	{
+		loginfo("Generation ended.");
 		if (_sessiondata->_settings->dd.deltadebugging && _sessiondata->_settings->dd.allowScoreOptimization) {
 			// this callback calculates the top k inputs that will be kept for future generation of new inputs
 			// it will start k delta controllers for the top k inputs
@@ -890,6 +914,7 @@ namespace Functions
 				if (ddcontroller) {
 					_sessiondata->GetCurrentGeneration()->AddDDController(ddcontroller);
 					begun = true;
+					loginfo("Startet Delta Debugging for Input: {}", Input::PrintForm(ptr));
 				}
 			}
 
@@ -940,6 +965,11 @@ namespace Functions
 	void GenerationFinishedCallback::Run()
 	{
 		if (_afterSave == false) {
+			loginfo("Stats:\tGenerated: {}\tDD Controllers: {}\tDDSize: {}",
+				_sessiondata->GetCurrentGeneration()->GetGeneratedSize(),
+				_sessiondata->GetCurrentGeneration()->GetNumberOfDDControllers(),
+				_sessiondata->GetCurrentGeneration()->GetDDSize()
+				);
 			if (_sessiondata->GetCurrentGeneration()->IsDeltaDebuggingActive() == false) {
 
 				SessionFunctions::SaveCheck(_sessiondata, true);
@@ -947,7 +977,7 @@ namespace Functions
 			}
 		} else {
 			loginfo("Initializing New Generation");
-				_sessiondata->SetNewGeneration();
+			_sessiondata->SetNewGeneration();
 			loginfo("Gather new sources");
 			// determine new sources and copy them
 
@@ -959,6 +989,25 @@ namespace Functions
 			switch (_sessiondata->_settings->generation.sourcesType) {
 			case Settings::GenerationSourcesType::FilterLength:
 				{
+					auto topk = _sessiondata->GetTopK_Length(_sessiondata->_settings->generation.numberOfSourcesPerGeneration*4);
+					for (auto input : topk) {
+						if (_sessiondata->_settings->generation.maxNumberOfFailsPerSource >= input->GetDerivedFails()) {
+							// check that the length of the source is longer than min backtrack, such that it can be extended in the first place
+							if (input->GetOracleResult() == OracleResult::Unfinished && input->Length() > _sessiondata->_settings->methods.IterativeConstruction_Extension_Backtrack_min ||
+								input->GetOracleResult() == OracleResult::Failing && input->Length() > _sessiondata->_settings->methods.IterativeConstruction_Backtrack_Backtrack_min) {
+								sources.insert(input);
+								loginfo("Found New Source: {}", Input::PrintForm(input));
+							}
+						}
+						if ((int32_t)sources.size() >= _sessiondata->_settings->generation.numberOfSourcesPerGeneration)
+							break;
+					}
+					if ((int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration) {
+						auto vec = _sessiondata->FindKSources(_sessiondata->_settings->generation.numberOfSourcesPerGeneration - (int32_t)sources.size(), std::set<std::shared_ptr<Input>>{ sources.begin(), sources.end() });
+						for (auto input : vec) {
+							sources.insert(input);
+						}
+					}
 				}
 				break;
 			case Settings::GenerationSourcesType::FilterPrimaryScore:
@@ -977,13 +1026,24 @@ namespace Functions
 						_sessiondata->GetLastGeneration()->GetAllInputs<InputGainGreaterPrimary>(inputs, true, (max - (max * frac)), 0);
 						auto itr = inputs.begin();
 						while (itr != inputs.end() && (int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration) {
-							if (sources.contains(*itr) == false) {
-								sources.insert(*itr);
-								loginfo("Found New Source: {}", Input::PrintForm(*itr));
+							if (sources.contains(*itr) == false && _sessiondata->_settings->generation.maxNumberOfFailsPerSource >= (*itr)->GetDerivedFails()) {
+								// check that the length of the source is longer than min backtrack, such that it can be extended in the first place
+								if ((*itr)->GetOracleResult() == OracleResult::Unfinished && (*itr)->Length() > _sessiondata->_settings->methods.IterativeConstruction_Extension_Backtrack_min || (*itr)->GetOracleResult() == OracleResult::Failing && (*itr)->Length() > _sessiondata->_settings->methods.IterativeConstruction_Backtrack_Backtrack_min) {
+									sources.insert(*itr);
+									loginfo("Found New Source: {}", Input::PrintForm(*itr));
+								}
 							}
 							itr++;
 						}
 						frac += _sessiondata->_settings->dd.optimizationLossThreshold;
+					}
+					if ((int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration)
+					{
+						auto vec = _sessiondata->FindKSources(_sessiondata->_settings->generation.numberOfSourcesPerGeneration - (int32_t)sources.size(), std::set<std::shared_ptr<Input>>{ sources.begin(), sources.end() });
+						for (auto input : vec)
+						{
+							sources.insert(input);
+						}
 					}
 				}
 				break;
@@ -1003,13 +1063,22 @@ namespace Functions
 						_sessiondata->GetLastGeneration()->GetAllInputs<InputGainGreaterSecondary>(inputs, true, (max - (max * frac)), 0);
 						auto itr = inputs.begin();
 						while (itr != inputs.end() && (int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration) {
-							if (sources.contains(*itr) == false) {
-								sources.insert(*itr);
-								loginfo("Found New Source: {}", Input::PrintForm(*itr));
+							if (sources.contains(*itr) == false && _sessiondata->_settings->generation.maxNumberOfFailsPerSource >= (*itr)->GetDerivedFails()) {
+								// check that the length of the source is longer than min backtrack, such that it can be extended in the first place
+								if ((*itr)->GetOracleResult() == OracleResult::Unfinished && (*itr)->Length() > _sessiondata->_settings->methods.IterativeConstruction_Extension_Backtrack_min || (*itr)->GetOracleResult() == OracleResult::Failing && (*itr)->Length() > _sessiondata->_settings->methods.IterativeConstruction_Backtrack_Backtrack_min) {
+									sources.insert(*itr);
+									loginfo("Found New Source: {}", Input::PrintForm(*itr));
+								}
 							}
 							itr++;
 						}
 						frac += _sessiondata->_settings->dd.optimizationLossThreshold;
+					}
+					if ((int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration) {
+						auto vec = _sessiondata->FindKSources(_sessiondata->_settings->generation.numberOfSourcesPerGeneration - (int32_t)sources.size(), std::set<std::shared_ptr<Input>>{ sources.begin(), sources.end() });
+						for (auto input : vec) {
+							sources.insert(input);
+						}
 					}
 				}
 				break;
@@ -1019,9 +1088,11 @@ namespace Functions
 			auto gen = _sessiondata->GetCurrentGeneration();
 			for (auto input : sources)
 				gen->AddSource(input);
+			gen->SetActive();
 
 			// now we can continue with our generation as normal
 			SessionFunctions::GenerateTests(_sessiondata);
+			loginfo("New generation begun.");
 		}
 	}
 

@@ -1,6 +1,10 @@
 #include "Form.h"
 #include "BufferOperations.h"
 
+#include <memory>
+#include <mutex>
+#include <shared_mutex>
+
 
 FormID Form::GetFormID()
 {

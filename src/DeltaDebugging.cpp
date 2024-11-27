@@ -410,6 +410,10 @@ namespace DeltaDebugging
 								ptr->derive->SetFlag(Form::FormFlags::DoNotFree);
 						}
 					}
+					if (inp->test)
+						_sessiondata->data->DeleteForm(inp->test);
+					if (inp->derive)
+						_sessiondata->data->DeleteForm(inp->derive);
 					_sessiondata->data->DeleteForm(inp);
 					return false;
 				}
@@ -431,6 +435,10 @@ namespace DeltaDebugging
 							ptr->derive->SetFlag(Form::FormFlags::DoNotFree);
 					}
 				}
+				if (inp->test)
+					_sessiondata->data->DeleteForm(inp->test);
+				if (inp->derive)
+					_sessiondata->data->DeleteForm(inp->derive);
 				_sessiondata->data->DeleteForm(inp);
 				return false;
 			}

@@ -65,9 +65,17 @@ public:
 	void Thaw();
 
 	/// <summary>
+	/// returns whether the controller is currently frozen
+	/// </summary>
+	/// <returns></returns>
+	bool IsFrozen();
+
+	/// <summary>
 	/// Disables Lua support
 	/// </summary>
 	inline void SetDisableLua() { _disableLua = true; }
+
+	void ClearTasks();
 
 	/// <summary>
 	/// Returns the number of completed jobs

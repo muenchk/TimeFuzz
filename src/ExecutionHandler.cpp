@@ -133,8 +133,7 @@ void ExecutionHandler::StartHandlerAsIs()
 		}
 	}
 	// start thread
-	_thread = std::thread(&ExecutionHandler::InternalLoop, this);
-	_thread.detach();
+	_thread = std::jthread(&ExecutionHandler::InternalLoop, this);
 }
 
 void ExecutionHandler::StartHandler()
@@ -225,8 +224,14 @@ void ExecutionHandler::StartHandler()
 		_thread = {};
 	}
 	// start thread
-	_thread = std::thread(&ExecutionHandler::InternalLoop, this);
+	_thread = std::jthread(&ExecutionHandler::InternalLoop, this);
+}
+
+void ExecutionHandler::ReinitHandler()
+{
+	_thread.request_stop();
 	_thread.detach();
+	_thread = std::jthread(&ExecutionHandler::InternalLoop, this);
 }
 
 void ExecutionHandler::StopHandler()
@@ -257,6 +262,11 @@ void ExecutionHandler::StopHandlerAfterTestsFinishAndWait()
 		_waitforhandler.wait(guard);
 		return;
 	}
+}
+
+bool ExecutionHandler::IsStale(std::chrono::milliseconds dur)
+{
+	return (std::chrono::steady_clock::now() - _lastExec) > dur;
 }
 
 bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback, bool bypass, bool replay)
@@ -501,8 +511,10 @@ void ExecutionHandler::InternalLoop()
 	logdebug("Entering loop");
 	int32_t newtests = 0;
 	while (_stopHandler == false || _finishtests) {
+		_lastExec = std::chrono::steady_clock::now();
 		StartProfiling;
 		logdebug("find new tests");
+		_tstatus = ExecHandlerStatus::MainLoop;
 		if (_freeze)
 			_frozen = true;
 		else {
@@ -517,6 +529,7 @@ void ExecutionHandler::InternalLoop()
 		}
 		newtests = 0;
 		// while we are not at the max concurrent tests, there are tests waiting to be executed and we are not FROZEN
+		_tstatus = ExecHandlerStatus::StartingTests;
 		while (_currentTests < _maxConcurrentTests && (_waitingTestsExec.size() > 0 || _waitingTests.size() > 0) && !_frozen) {
 			test.reset();
 			{
@@ -556,6 +569,7 @@ void ExecutionHandler::InternalLoop()
 		if (_currentTests == 0 && _stopHandler == true && _finishtests == true)
 		{
 			loginfo("Finished all tests -> Exiting Handler");
+			_tstatus = ExecHandlerStatus::Exitted;
 			goto ExitHandler;
 		}
 
@@ -564,6 +578,7 @@ void ExecutionHandler::InternalLoop()
 		if (_currentTests == 0) {
 			logdebug("no tests active -> wait for new tests");
 			std::unique_lock<std::mutex> guard(_lockqueue);
+			_tstatus = ExecHandlerStatus::Waiting;
 			_waitforjob.wait_for(guard, std::chrono::seconds(1), [this] { return !_waitingTests.empty() || !_waitingTestsExec.empty() || _stopHandler; });
 			if (_stopHandler && _finishtests == false) {
 				profile(TimeProfiling, "Round");
@@ -576,6 +591,7 @@ void ExecutionHandler::InternalLoop()
 		logdebug("Handling running tests: {}", _currentTests);
 		auto itr = _runningTests.begin();
 		while (itr != _runningTests.end()) {
+			_tstatus = ExecHandlerStatus::HandlingTests;
 			test = *itr;
 			if (auto ptr = test.lock(); ptr) {
 				logdebug("Handling test {}", ptr->_identifier);
@@ -595,6 +611,7 @@ void ExecutionHandler::InternalLoop()
 					// memory limitation enabled
 
 					if (ptr->GetMemoryConsumption() > _settings->tests.maxUsedMemory) {
+						_tstatus = ExecHandlerStatus::KillingProcessMemory;
 						ptr->KillProcess();
 						// process killed, now set flags for oracle
 						ptr->_exitreason = Test::ExitReason::Memory;
@@ -604,6 +621,7 @@ void ExecutionHandler::InternalLoop()
 				}
 				// check for fragment completion
 				if (_enableFragments && ptr->CheckInput()) {
+					_tstatus = ExecHandlerStatus::WriteFragment;
 					// fragment has been completed
 					if (ptr->WriteNext() == false && _settings->tests.use_fragmenttimeout && std::chrono::duration_cast<std::chrono::microseconds>(time - ptr->_lasttime).count() > _settings->tests.fragmenttimeout) {
 						ptr->_exitreason = Test::ExitReason::Natural | Test::ExitReason::LastInput;
@@ -617,6 +635,7 @@ void ExecutionHandler::InternalLoop()
 				if (_enableFragments && _settings->tests.use_fragmenttimeout) {
 					difffrag = std::chrono::duration_cast<std::chrono::microseconds>(time - ptr->_lasttime);
 					if (difffrag.count() > _settings->tests.fragmenttimeout) {
+						_tstatus = ExecHandlerStatus::KillingProcessTimeout;
 						ptr->KillProcess();
 						ptr->_exitreason = Test::ExitReason::FragmentTimeout;
 						SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::FragmentTimeout);
@@ -626,6 +645,7 @@ void ExecutionHandler::InternalLoop()
 				if (_settings->tests.use_testtimeout) {
 					difffrag = std::chrono::duration_cast<std::chrono::microseconds>(time - ptr->_starttime);
 					if (difffrag.count() > _settings->tests.testtimeout) {
+						_tstatus = ExecHandlerStatus::KillingProcessTimeout;
 						ptr->KillProcess();
 						ptr->_exitreason = Test::ExitReason::Timeout;
 						SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::Timeout);
@@ -635,6 +655,7 @@ void ExecutionHandler::InternalLoop()
 				goto TestRunning;
 TestFinished:
 				{
+					_tstatus = ExecHandlerStatus::StoppingTest;
 					logdebug("Test {} has ended", ptr->_identifier);
 					// if not frozen, stop test
 					if (!_frozen)
@@ -672,7 +693,10 @@ TestRunning:;
 		// go to sleep until the next period.
 		logdebug("sleeping for {} ns", sleep.count());
 		profile(TimeProfiling, "Round");
-		std::this_thread::sleep_for(sleep);
+		if (sleep > 0ns && sleep < _waittime) {
+			_tstatus = ExecHandlerStatus::Sleeping;
+			std::this_thread::sleep_for(sleep);
+		}
 	}
 
 	// we will only get here once we terminate the handler
@@ -710,6 +734,11 @@ void ExecutionHandler::Freeze()
 	loginfo("Frozen execution.");
 }
 
+bool ExecutionHandler::IsFrozen()
+{
+	return _freeze;
+}
+
 void ExecutionHandler::Thaw()
 {
 	loginfo("Thawing execution...");
@@ -735,6 +764,29 @@ int32_t ExecutionHandler::GetRunningTests()
 int32_t ExecutionHandler::GetStoppingTests()
 {
 	return (int32_t)_stoppingTests.size();
+}
+
+void ExecutionHandler::ClearTests()
+{
+	std::unique_lock<std::mutex> guard(_lockqueue);
+	while (!_waitingTests.empty()) {
+		std::weak_ptr<Test> test = _waitingTests.front();
+		_waitingTests.pop_front();
+		if (auto ptr = test.lock(); ptr && _session->data)
+			_session->data->DeleteForm(ptr);
+	}
+	while (!_waitingTestsExec.empty()) {
+		std::weak_ptr<Test> test = _waitingTestsExec.front();
+		_waitingTestsExec.pop_front();
+		if (auto ptr = test.lock(); ptr && _session->data)
+			_session->data->DeleteForm(ptr);
+	}
+	for (auto test : _runningTests) {
+		if (auto ptr = test.lock(); ptr) {
+			ptr->KillProcess();
+			StopTest(ptr);
+		}
+	}
 }
 
 size_t ExecutionHandler::GetStaticSize(int32_t version)
@@ -859,6 +911,17 @@ void ExecutionHandler::Delete(Data*)
 {
 	StopHandler();
 	Clear();
+}
+
+void ExecutionHandler::SetPeriod(std::chrono::nanoseconds period)
+{
+	_waittime = period;
+	_waittimeL = period.count();
+}
+
+ExecHandlerStatus ExecutionHandler::GetThreadStatus()
+{
+	return _tstatus;
 }
 
 

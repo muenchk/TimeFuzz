@@ -43,6 +43,10 @@ struct LoadSessionArgs
 	/// Path to the settings file to load
 	/// </summary>
 	std::wstring settingsPath = L"";
+	/// <summary>
+	/// clears all tasks and active tests from the session
+	/// </summary>
+	bool clearTasks = false;
 };
 
 struct SessionStatus
@@ -184,7 +188,7 @@ public:
 
 	void Replay(FormID inputid);
 
-	void UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k, bool sortsecondary = false);
+	void UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k);
 
 	/// <summary>
 	/// Begins delta debugging the given input
@@ -212,7 +216,7 @@ public:
 	/// Returns the formids of all generations in this session
 	/// </summary>
 	/// <param name="generations"></param>
-	void UI_GetGenerations(std::vector<std::pair<FormID, FormID>>& generations, size_t& size);
+	void UI_GetGenerations(std::vector<std::pair<FormID, int32_t>>& generations, size_t& size);
 	/// <summary>
 	/// returns the generation with the given ID
 	/// </summary>
@@ -224,7 +228,7 @@ public:
 	/// </summary>
 	/// <param name="genID"></param>
 	/// <param name="gen"></param>
-	void UI_GetGenerationByNumber(FormID genNumber, UI::UIGeneration& gen);
+	void UI_GetGenerationByNumber(int32_t genNumber, UI::UIGeneration& gen);
 	/// <summary>
 	/// returns the current generation
 	/// </summary>
@@ -236,6 +240,20 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	uint64_t UI_GetMemoryUsage();
+
+	/// <summary>
+	/// Returns information about a specific input
+	/// </summary>
+	/// <param name="id"></param>
+	void UI_GetInputInformation(UI::UIInputInformation& info, FormID id);
+
+	/// <summary>
+	/// returns the status of the exechandler
+	/// </summary>
+	/// <returns></returns>
+	ExecHandlerStatus UI_GetExecHandlerStatus();
+
+	void UI_GetHashmapInformation(size_t& hashmapSize);
 
 	/// <summary>
 	/// Returns a string with information about the session
@@ -311,6 +329,9 @@ private:
 	/// controls the session
 	/// </summary>
 	void SessionControl();
+
+	std::mutex _sessionControlMutex;
+	std::condition_variable _sessionControlWait;
 
 	/// <summary>
 	/// Starts the session

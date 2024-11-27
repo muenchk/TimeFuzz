@@ -314,6 +314,12 @@ public:
 	}
 
 	/// <summary>
+	/// returns the size of the internal hashmap
+	/// </summary>
+	/// <returns></returns>
+	size_t GetHashmapSize();
+
+	/// <summary>
 	/// Applies the [visitor] function to all forms in the hashmap
 	/// </summary>
 	/// <param name="visitor"></param>

@@ -60,6 +60,21 @@ namespace Functions
 	};
 }
 
+enum class ExecHandlerStatus
+{
+	None,
+	Sleeping,
+	MainLoop,
+	StartingTests,
+	Exitted,
+	Waiting,
+	HandlingTests,
+	KillingProcessMemory,
+	WriteFragment,
+	KillingProcessTimeout,
+	StoppingTest
+};
+
 class ExecutionHandler: public Form
 {
 
@@ -163,6 +178,11 @@ private:
 	int64_t _waittimeL = 100000000;
 
 	/// <summary>
+	/// last time the InternalLoop ran the main loop
+	/// </summary>
+	std::chrono::steady_clock::time_point _lastExec;
+
+	/// <summary>
 	/// whether to enable fragment execution
 	/// </summary>
 	bool _enableFragments = false;
@@ -177,7 +197,12 @@ private:
 	/// </summary>
 	bool _finishtests = false;
 
-	std::thread _thread;
+	/// <summary>
+	/// status of the internal thread;
+	/// </summary>
+	ExecHandlerStatus _tstatus;
+
+	std::jthread _thread;
 
 	void InternalLoop();
 
@@ -216,6 +241,10 @@ public:
 	/// </summary>
 	void StartHandler();
 	/// <summary>
+	/// resets the internal thread
+	/// </summary>
+	void ReinitHandler();
+	/// <summary>
 	/// starts the handler without invalidating existing tests
 	/// </summary>
 	void StartHandlerAsIs();
@@ -234,10 +263,23 @@ public:
 	void WaitOnHandler();
 
 	/// <summary>
+	/// returns whether the internal thread is stale, i.e. the last main loop execution is older than [dur]
+	/// </summary>
+	/// <param name="dur"></param>
+	/// <returns></returns>
+	bool IsStale(std::chrono::milliseconds dur);
+
+	/// <summary>
 	/// Returns the number of currently waiting tests
 	/// </summary>
 	/// <returns></returns>
 	size_t WaitingTasks() { return _waitingTests.size(); }
+
+	/// <summary>
+	/// sets the period of the test engine
+	/// </summary>
+	/// <param name="period"></param>
+	void SetPeriod(std::chrono::nanoseconds period);
 
 	/// <summary>
 	/// Adds a new test to the queue [passes of test handling to external application/script]
@@ -257,6 +299,11 @@ public:
 	/// Resumes test execution
 	/// </summary>
 	void Thaw();
+	/// <summary>
+	/// returns whether the executionhandler is currently frozen
+	/// </summary>
+	/// <returns></returns>
+	bool IsFrozen();
 
 	/// <summary>
 	/// Returns the number of waiting tests
@@ -278,6 +325,14 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	int32_t GetStoppingTests();
+
+	/// <summary>
+	/// returns the status if the internal thread
+	/// </summary>
+	/// <returns></returns>
+	ExecHandlerStatus GetThreadStatus();
+
+	void ClearTests();
 
 	size_t GetStaticSize(int32_t version = 0x1) override;
 	size_t GetDynamicSize() override;

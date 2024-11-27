@@ -1305,6 +1305,10 @@ std::unordered_map<FormID, std::weak_ptr<Form>> Data::GetWeakHashmapCopy()
 	}
 	return hashweak;
 }
+size_t Data::GetHashmapSize()
+{
+	return _hashmap.size();
+}
 
 FormID Data::GetIDFromString(std::string str)
 {

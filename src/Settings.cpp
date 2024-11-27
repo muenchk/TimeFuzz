@@ -83,6 +83,8 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "General:          ", general.memory_softlimit_NAME, general.memory_softlimit);
 	general.memory_sweep_period = std::chrono::milliseconds((int64_t)ini.GetLongValue("General", general.memory_sweep_period_NAME, (long)general.memory_sweep_period.count()));
 	loginfo("{}{} {}", "General:          ", general.memory_sweep_period_NAME, general.memory_sweep_period.count());
+	general.testEnginePeriod = std::chrono::nanoseconds((int64_t)ini.GetLongValue("General", general.testEnginePeriod_NAME, (long)general.testEnginePeriod.count()));
+	loginfo("{}{} {}", "General:          ", general.testEnginePeriod_NAME, general.testEnginePeriod.count());
 
 	// saves
 	saves.enablesaves = ini.GetBoolValue("SaveFiles", saves.enablesaves_NAME, saves.enablesaves);
@@ -91,6 +93,8 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "SaveFiles:          ", saves.autosave_every_tests_NAME, saves.autosave_every_tests);
 	saves.autosave_every_seconds = (int64_t)ini.GetLongValue("SaveFiles", saves.autosave_every_seconds_NAME, (long)saves.autosave_every_seconds);
 	loginfo("{}{} {}", "SaveFiles:          ", saves.autosave_every_seconds_NAME, saves.autosave_every_seconds);
+	saves.saveAfterEachGeneration = ini.GetBoolValue("SaveFiles", saves.saveAfterEachGeneration_NAME, saves.saveAfterEachGeneration);
+	loginfo("{}{} {}", "SaveFiles:          ", saves.saveAfterEachGeneration_NAME, saves.saveAfterEachGeneration);
 	saves.savepath = (std::string)ini.GetValue("SaveFiles", saves.savepath_NAME, saves.savepath.c_str());
 	loginfo("{}{} {}", "SaveFiles:          ", saves.savepath_NAME, saves.savepath);
 	saves.savename = (std::string)ini.GetValue("SaveFiles", saves.savename_NAME, saves.savename.c_str());
@@ -102,9 +106,20 @@ void Settings::Load(std::wstring path, bool reload)
 
 	// optimization
 	optimization.constructinputsiteratively = ini.GetBoolValue("Optimization", optimization.constructinputsiteratively_NAME, optimization.constructinputsiteratively);
-	loginfo("{}{} {}", "Optimization:     ", optimization.constructinputsiteratively_NAME, optimization.constructinputsiteratively);
+	loginfo("{}{} {}", "Optimization:       ", optimization.constructinputsiteratively_NAME, optimization.constructinputsiteratively);
 	optimization.disableExclusionTree = ini.GetBoolValue("Optimization", optimization.disableExclusionTree_NAME, optimization.disableExclusionTree);
-	loginfo("{}{} {}", "Optimization:     ", optimization.disableExclusionTree_NAME, optimization.disableExclusionTree);
+	loginfo("{}{} {}", "Optimization:       ", optimization.disableExclusionTree_NAME, optimization.disableExclusionTree);
+
+	// methods
+	methods.IterativeConstruction_Extension_Backtrack_min = (int32_t)ini.GetLongValue("Methods", methods.IterativeConstruction_Extension_Backtrack_min_NAME, methods.IterativeConstruction_Extension_Backtrack_min);
+	loginfo("{}{} {}", "Methods:            ", methods.IterativeConstruction_Extension_Backtrack_min_NAME, methods.IterativeConstruction_Extension_Backtrack_min);
+	methods.IterativeConstruction_Extension_Backtrack_max = (int32_t)ini.GetLongValue("Methods", methods.IterativeConstruction_Extension_Backtrack_max_NAME, methods.IterativeConstruction_Extension_Backtrack_max);
+	loginfo("{}{} {}", "Methods:            ", methods.IterativeConstruction_Extension_Backtrack_max_NAME, methods.IterativeConstruction_Extension_Backtrack_max);
+	methods.IterativeConstruction_Backtrack_Backtrack_min = (int32_t)ini.GetLongValue("Methods", methods.IterativeConstruction_Backtrack_Backtrack_min_NAME, methods.IterativeConstruction_Backtrack_Backtrack_min);
+	loginfo("{}{} {}", "Methods:            ", methods.IterativeConstruction_Backtrack_Backtrack_min_NAME, methods.IterativeConstruction_Backtrack_Backtrack_min);
+	methods.IterativeConstruction_Backtrack_Backtrack_max = (int32_t)ini.GetLongValue("Methods", methods.IterativeConstruction_Backtrack_Backtrack_max_NAME, methods.IterativeConstruction_Backtrack_Backtrack_max);
+	loginfo("{}{} {}", "Methods:            ", methods.IterativeConstruction_Backtrack_Backtrack_max_NAME, methods.IterativeConstruction_Backtrack_Backtrack_max);
+
 
 	// delta debugging
 	dd.deltadebugging = ini.GetBoolValue("DeltaDebugging", dd.deltadebugging_NAME, dd.deltadebugging);
@@ -151,6 +166,8 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "Generation:       ", generation.generationLengthMin_NAME, generation.generationLengthMin);
 	generation.generationLengthMax = (int32_t)ini.GetLongValue("Generation", generation.generationLengthMax_NAME, generation.generationLengthMax);
 	loginfo("{}{} {}", "Generation:       ", generation.generationLengthMax_NAME, generation.generationLengthMax);
+	generation.maxNumberOfFailsPerSource = (uint64_t)ini.GetLongValue("Generation", generation.maxNumberOfFailsPerSource_NAME, (long)generation.maxNumberOfFailsPerSource);
+	loginfo("{}{} {}", "Generation:       ", generation.maxNumberOfFailsPerSource_NAME, generation.maxNumberOfFailsPerSource);
 
 	// endconditions
 	conditions.use_foundnegatives = ini.GetBoolValue("EndConditions", conditions.use_foundnegatives_NAME, conditions.use_foundnegatives);
@@ -249,6 +266,8 @@ void Settings::Save(std::wstring _path)
 		"\\\\ When memory consumption exceeds the soft limit, the application will periodically free used memory. [in MB]");
 	ini.SetLongValue("General", general.memory_sweep_period_NAME, (long)general.memory_sweep_period.count(),
 		"\\\\ The period of memory sweeps trying to the free up space. [in milliseconds]");
+	ini.SetLongValue("General", general.testEnginePeriod_NAME, (long)general.testEnginePeriod.count(),
+		"\\\\ The period in which the test engine handles tests. [in nanoseconds]");
 
 	// saves
 	ini.SetBoolValue("SaveFiles", saves.enablesaves_NAME, saves.enablesaves,
@@ -259,6 +278,8 @@ void Settings::Save(std::wstring _path)
 	ini.SetLongValue("SaveFiles", saves.autosave_every_seconds_NAME, (long)saves.autosave_every_seconds,
 		"\\\\ Automatically saves after [x] seconds."
 		"\\\\ Set to 0 to disable.");
+	ini.SetBoolValue("SaveFiles", saves.saveAfterEachGeneration_NAME, saves.saveAfterEachGeneration,
+		"\\\\ Automatically saves after a generation has been completed in generational mode.");
 	ini.SetValue("SaveFiles", saves.savepath_NAME, saves.savepath.c_str(),
 		"\\\\ The path at which saves will be stored.");
 	ini.SetValue("SaveFiles", saves.savename_NAME, saves.savename.c_str(),
@@ -277,6 +298,16 @@ void Settings::Save(std::wstring _path)
 		"\\\\ [This should not be used with a PUT that produces undefined oracle results.]");
 	ini.SetBoolValue("Optimization", optimization.disableExclusionTree_NAME, optimization.disableExclusionTree,
 		"\\\\ Disables the ExclusionTree.");
+
+	// methods
+	ini.SetLongValue("Methods", methods.IterativeConstruction_Extension_Backtrack_min_NAME, methods.IterativeConstruction_Extension_Backtrack_min,
+		"\\\\ Minimum number of sequence entries to backtrack on extension of unfinished inputs.");
+	ini.SetLongValue("Methods", methods.IterativeConstruction_Extension_Backtrack_max_NAME, methods.IterativeConstruction_Extension_Backtrack_max,
+		"\\\\ Maximum number of sequence entries to backtrack on extension of unfinished inputs.");
+	ini.SetLongValue("Methods", methods.IterativeConstruction_Backtrack_Backtrack_min_NAME, methods.IterativeConstruction_Backtrack_Backtrack_min,
+		"\\\\ Minimum number of sequence entries to backtrack on extension of failing inputs.");
+	ini.SetLongValue("Methods", methods.IterativeConstruction_Backtrack_Backtrack_max_NAME, methods.IterativeConstruction_Backtrack_Backtrack_max,
+		"\\\\ Maximum number of sequence entries to backtrack on extension of failing inputs.");
 
 	// delta debugging
 	ini.SetBoolValue("DeltaDebugging", dd.deltadebugging_NAME, dd.deltadebugging, "\\\\ Applies delta debugging to passing inputs, to reduce them as far as possible.");
@@ -320,6 +351,7 @@ void Settings::Save(std::wstring _path)
 		"\\\\ 2 - Sources for the next generation are taken from the longest inputs.\n");
 	ini.SetLongValue("Generation", generation.generationLengthMin_NAME, generation.generationLengthMin, "\\\\ Minimum input length generated in each generation.");
 	ini.SetLongValue("Generation", generation.generationLengthMax_NAME, generation.generationLengthMax, "\\\\ Maximum input length generated in each generation.");
+	ini.SetLongValue("Generation", generation.maxNumberOfFailsPerSource_NAME, (long)generation.maxNumberOfFailsPerSource, "\\\\ The maximum number of derived inputs that can fail for an input to be elligible to be a source.");
 
 	// endconditions
 	ini.SetBoolValue("EndConditions", conditions.use_foundnegatives_NAME, conditions.use_foundnegatives, "\\\\ Stop execution after foundnegatives failing inputs have been found.");
@@ -403,7 +435,14 @@ size_t Settings::GetStaticSize(int32_t version)
 	                 + 4      // Generation::generationLengthMin
 	                 + 4      // Generation::generationLengthMax
 	                 + 4      // Generation::sourcesType
-	                 + 1;     // Optimization::disableExclusionTree
+	                 + 8      // Generation::maxNumberOfFailsPerSource
+	                 + 1      // Optimization::disableExclusionTree
+	                 + 1      // SaveFiles::saveAfterEachGeneration
+	                 + 4      // Methods::IterativeConstruction_Extension_Backtrack_min
+	                 + 4      // Methods::IterativeConstruction_Extension_Backtrack_max
+	                 + 4      // Methods::IterativeConstruction_Backtrack_Backtrack_min
+	                 + 4      // Methods::IterativeConstruction_Backtrack_Backtrack_max
+	                 + 8;     // General::testEnginePeriod
 
 	switch (version) {
 	case 0x1:
@@ -501,8 +540,18 @@ bool Settings::WriteData(std::ostream* buffer, size_t& offset)
 	Buffer::Write(generation.generationLengthMin, buffer, offset);
 	Buffer::Write(generation.generationLengthMax, buffer, offset);
 	Buffer::Write((int32_t)generation.sourcesType, buffer, offset);
+	Buffer::Write(generation.maxNumberOfFailsPerSource, buffer, offset);
 	// optimization
 	Buffer::Write(optimization.disableExclusionTree, buffer, offset);
+	// saves
+	Buffer::Write(saves.saveAfterEachGeneration, buffer, offset);
+	// methods
+	Buffer::Write(methods.IterativeConstruction_Extension_Backtrack_min, buffer, offset);
+	Buffer::Write(methods.IterativeConstruction_Extension_Backtrack_max, buffer, offset);
+	Buffer::Write(methods.IterativeConstruction_Backtrack_Backtrack_min, buffer, offset);
+	Buffer::Write(methods.IterativeConstruction_Backtrack_Backtrack_max, buffer, offset);
+	// general
+	Buffer::Write(general.testEnginePeriod, buffer, offset);
 	return true;
 }
 
@@ -588,8 +637,18 @@ bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, Loa
 			generation.generationLengthMin = Buffer::ReadInt32(buffer, offset);
 			generation.generationLengthMax = Buffer::ReadInt32(buffer, offset);
 			generation.sourcesType = (GenerationSourcesType)Buffer::ReadInt32(buffer, offset);
+			generation.maxNumberOfFailsPerSource = Buffer::ReadUInt64(buffer, offset);
 			// optimization
 			optimization.disableExclusionTree = Buffer::ReadBool(buffer, offset);
+			// saves
+			saves.saveAfterEachGeneration = Buffer::ReadBool(buffer, offset);
+			//methods
+			methods.IterativeConstruction_Extension_Backtrack_min = Buffer::ReadInt32(buffer, offset);
+			methods.IterativeConstruction_Extension_Backtrack_max = Buffer::ReadInt32(buffer, offset);
+			methods.IterativeConstruction_Backtrack_Backtrack_min = Buffer::ReadInt32(buffer, offset);
+			methods.IterativeConstruction_Backtrack_Backtrack_max = Buffer::ReadInt32(buffer, offset);
+			// general
+			general.testEnginePeriod = Buffer::ReadNanoSeconds(buffer, offset);
 		}
 		return true;
 	default:

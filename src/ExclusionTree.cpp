@@ -104,6 +104,7 @@ bool ExclusionTree::HasPrefix(std::shared_ptr<Input> input, FormID& prefixID)
 		return false;
 
 	//std::shared_lock<std::shared_mutex> guard(_lock);
+	exclrlock
 
 	prefixID = 0;
 
@@ -144,6 +145,7 @@ std::tuple<bool, FormID, bool, FormID> ExclusionTree::HasPrefixAndShortestExtens
 		return { false, 0, false, 0 };
 
 	//std::shared_lock<std::shared_mutex> guard(_lock);
+	exclrlock
 
 	FormID prefixID = 0;
 

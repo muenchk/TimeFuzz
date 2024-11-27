@@ -11,6 +11,7 @@ namespace DeltaDebugging
 
 class Generation;
 class Input;
+class SessionData;
 
 typedef uint64_t EnumType;
 
@@ -149,11 +150,51 @@ namespace UI
 		void SetGeneration(std::shared_ptr<Generation> generation);
 
 		bool Initialized();
+		void Reset();
 	private:
 		std::shared_ptr<Generation> _generation;
 		std::vector<std::shared_ptr<Input>> sources;
 		std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> _ddcontrollers;
 		bool hasbegun = false;
 		size_t lastddcontrollers = 0;
+	};
+
+	class UIInputInformation
+	{
+	public:
+		FormID _inputID;
+		std::string _inputconcat;
+		char* _inputconcatBuf;
+		std::string _inputlist;
+		char* _inputlistBuf;
+		FormID _generationID;
+		uint64_t _derivedInputs;
+		std::chrono::nanoseconds _generationTime;
+		std::chrono::nanoseconds _executionTime;
+		double _primaryScore;
+		double _secondaryScore;
+		bool _hasfinished;
+		bool _trimmed;
+		int64_t _naturallength;
+		int64_t _trimmedlength;
+		int32_t _exitcode;
+		EnumType _exitreason;
+		FormID _parentInput;
+		EnumType _flags;
+		std::string _cmdArgs;
+		char* _cmdArgsBuf;
+		std::string _scriptArgs;
+		char* _scriptArgsBuf;
+		EnumType _oracleResult;
+
+		bool Initialized();
+		void Refresh();
+		void Set(std::shared_ptr<Input> input, std::shared_ptr<SessionData> sessiondata);
+		void Reset();
+
+	private:
+		std::shared_ptr<Input> _input;
+		std::shared_ptr<SessionData> _sessiondata;
+		bool _init = false;
 	};
 }

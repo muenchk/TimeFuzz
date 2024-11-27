@@ -179,6 +179,9 @@ void Oracle::ApplyLuaCommands(lua_State* L)
 		if (luaL_dofile(L, _luaCmdArgsPath.string().c_str()) == LUA_OK) {
 			lua_pop(L, lua_gettop(L));
 		} else {
+			std::string err = lua_tostring(L, -1);
+			lua_pop(L, 1);
+			logcritical("Lua Error in CmdArgs: {}", err);
 			logwarn("Cmd Args lua Script could not be read successfully")
 		}
 	}
@@ -193,6 +196,9 @@ void Oracle::ApplyLuaCommands(lua_State* L)
 		if (luaL_dofile(L, _luaOraclePath.string().c_str()) == LUA_OK) {
 			lua_pop(L, lua_gettop(L));
 		} else {
+			std::string err = lua_tostring(L, -1);
+			lua_pop(L, 1);
+			logcritical("Lua Error in Oracle: {}", err);
 			logwarn("Oracle lua Script could not be read successfully")
 		}
 	}
@@ -212,6 +218,9 @@ void Oracle::ApplyLuaCommands(lua_State* L)
 		if (luaL_dofile(L, _luaScriptArgsPath.string().c_str()) == LUA_OK) {
 			lua_pop(L, lua_gettop(L));
 		} else {
+			std::string err = lua_tostring(L, -1);
+			lua_pop(L, 1);
+			logcritical("Lua Error in ScriptArgs: {}", err);
 			logwarn("Script Args lua Script could not be read successfully")
 		}
 	}
@@ -231,7 +240,7 @@ OracleResult Oracle::Evaluate(lua_State* L, std::shared_ptr<Test> test)
 		if (lua_isfunction(L, -1)) {
 			if (lua_pcall(L, 0, 1, 0) == LUA_OK)  // execute function with 0 Arguments, 1 return value
 			{
-				if (lua_isinteger(L, -1)) {
+				if (lua_isnumber(L, -1)) {
 					result = (OracleResult)luaL_checkinteger(L, -1);
 					lua_pop(L, 1);
 				}

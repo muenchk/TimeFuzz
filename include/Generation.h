@@ -128,6 +128,11 @@ public:
 	bool NeedsGeneration();
 
 	/// <summary>
+	/// Resets the number of active inputs
+	/// </summary>
+	void ResetActiveInputs();
+
+	/// <summary>
 	/// returns whether there are active delta debugging instances
 	/// </summary>
 	/// <returns></returns>
@@ -165,6 +170,13 @@ public:
 	void AddSource(std::shared_ptr<Input> input);
 
 	/// <summary>
+	/// Checks whether the generations sources are still considered valid
+	/// </summary>
+	/// <param name"invalid">predicate returning true if the source is valid</param>
+	/// <returns></returns>
+	bool CheckSourceValidity(std::function<bool(std::shared_ptr<Input>)> valid);
+
+	/// <summary>
 	/// Returns the ddcontrollers active in this generation
 	/// </summary>
 	/// <param name="controllers"></param>
@@ -174,6 +186,15 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	size_t GetNumberOfDDControllers();
+
+	/// <summary>
+	/// sets the generation as active and applies DoNotFree flags to the sources
+	/// </summary>
+	void SetActive();
+	/// <summary>
+	/// sets the generation as inactive and removes DoNotFree flags from the sources
+	/// </summary>
+	void SetInactive();
 
 private:
 	/// <summary>
@@ -225,6 +246,10 @@ private:
 	/// vector holding the source inputs for this generation. The sources are used as basis for input expansion.
 	/// </summary>
 	std::vector<std::shared_ptr<Input>> _sources;
+	/// <summary>
+	/// vector holding flags for the source inputs
+	/// </summary>
+	std::vector<std::unique_ptr<FlagHolder>> _sourcesFlags;
 
 	/// <summary>
 	/// random engine
