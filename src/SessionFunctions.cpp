@@ -27,7 +27,7 @@ std::shared_ptr<Input> SessionFunctions::GenerateInput(std::shared_ptr<SessionDa
 	input->derive = sessiondata->data->CreateForm<DerivationTree>();
 	input->derive->_inputID = input->GetFormID();
 	loginfo("[GenerateInput] generate");
-	if (sessiondata->_generator->Generate(input, {}, sessiondata) == false)
+	if (sessiondata->_generator->Generate(input, {}, {}, sessiondata) == false)
 	{
 		sessiondata->data->DeleteForm(input->derive);
 		input->derive.reset();
@@ -61,7 +61,7 @@ std::shared_ptr<Input> SessionFunctions::ExtendInput(std::shared_ptr<SessionData
 	if (parent->GetOracleResult() == OracleResult::Failing)
 		input->SetFlag(Input::Flags::GeneratedGrammarParentBacktrack);
 	loginfo("[GenerateInput] generate");
-	if (sessiondata->_generator->Generate(input, {}, sessiondata, parent) == false) {
+	if (sessiondata->_generator->Generate(input, parent, {}, sessiondata) == false) {
 		sessiondata->data->DeleteForm(input->derive);
 		input->derive.reset();
 		sessiondata->data->DeleteForm(input);
@@ -98,7 +98,7 @@ void SessionFunctions::ExtendInput(std::shared_ptr<Input>& input, std::shared_pt
 			input->SetFlag(Input::Flags::GeneratedGrammarParentBacktrack);
 		loginfo("[GenerateInput] generate");
 		if (sessiondata->_generator->GetGrammar() && sessiondata->_generator->GetGrammar()->GetFormID() == input->derive->_grammarID) {
-			if (sessiondata->_generator->Generate(input, {}, sessiondata, parent) == false) {
+			if (sessiondata->_generator->Generate(input, parent, {}, sessiondata) == false) {
 				//sessiondata->data->DeleteForm(input->derive);
 				//input->derive.reset();
 				//sessiondata->data->DeleteForm(input);
@@ -107,7 +107,7 @@ void SessionFunctions::ExtendInput(std::shared_ptr<Input>& input, std::shared_pt
 		} else {
 			auto grammar = sessiondata->data->LookupFormID<Grammar>(input->derive->_grammarID);
 			if (grammar) {
-				sessiondata->_generator->Generate(input, grammar, sessiondata, parent);
+				sessiondata->_generator->Generate(input, parent, grammar, sessiondata);
 				return;
 			}
 		}
@@ -129,7 +129,7 @@ void SessionFunctions::GenerateInput(std::shared_ptr<Input>& input, std::shared_
 		}
 		loginfo("[GenerateInput] generate");
 		if (sessiondata->_generator->GetGrammar() && sessiondata->_generator->GetGrammar()->GetFormID() == input->derive->_grammarID) {
-			if (sessiondata->_generator->Generate(input, {}, sessiondata) == false) {
+			if (sessiondata->_generator->Generate(input, {}, {}, sessiondata) == false) {
 				//sessiondata->data->DeleteForm(input->derive);
 				//input->derive.reset();
 				//sessiondata->data->DeleteForm(input);
@@ -138,7 +138,7 @@ void SessionFunctions::GenerateInput(std::shared_ptr<Input>& input, std::shared_
 		} else {
 			auto grammar = sessiondata->data->LookupFormID<Grammar>(input->derive->_grammarID);
 			if (grammar) {
-				sessiondata->_generator->Generate(input, grammar, sessiondata);
+				sessiondata->_generator->Generate(input, {}, grammar, sessiondata);
 				return;
 			}
 		}
@@ -759,6 +759,9 @@ namespace Functions
 				} else
 					input = SessionFunctions::GenerateInput(_sessiondata);
 				if (input) {
+					if (input->derive->_regenerate == false) {
+						logcritical("Generated non-regeneratable input");
+					}
 					// set input generation time
 					input->SetGenerationTime(_sessiondata->data->GetRuntime());
 					input->SetGenerationID(_sessiondata->GetCurrentGenerationID());

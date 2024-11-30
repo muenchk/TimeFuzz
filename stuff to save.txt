@@ -9,3 +9,5 @@ fix the negative active inputs, probs an issue with generated and generate in Ge
 
 
 FIX STACKOVERFLOW in recursive Generator::Generate urrgggghhhh
+
+SOMETIMES INPUTS DON'T HAVE DERIVATIONTREES AFTER LOAD

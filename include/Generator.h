@@ -10,8 +10,29 @@ class Grammar;
 class Generator : public Form
 {
 public:
-	bool Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar> grammar, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> parent = {});
+	//bool Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar> grammar, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> parent = {});
 
+	/// <summary>
+	/// Build sequence of the input
+	/// </summary>
+	bool BuildSequence(std::shared_ptr<Input> input);
+	/// <summary>
+	/// generate input directly from grammar
+	/// </summary>
+	/// <param name="input"></param>
+	/// <param name="gram"></param>
+	/// <param name="sessiondata"></param>
+	/// <returns></returns>
+	bool GenerateInputGrammar(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>& gram, std::shared_ptr<SessionData>& sessiondata);
+	/// <summary>
+	/// generate input
+	/// </summary>
+	/// <param name="input"></param>
+	/// <param name="parent"></param>
+	/// <param name="grammar"></param>
+	/// <param name="sessiondata"></param>
+	/// <returns></returns>
+	bool Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> parent, std::shared_ptr<Grammar> grammar, std::shared_ptr<SessionData>& sessiondata);
 	void GenInputFromDevTree(std::shared_ptr<Input> input);
 	/// <summary>
 	/// resets all progress made
