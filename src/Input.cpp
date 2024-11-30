@@ -116,7 +116,7 @@ bool Input::WriteData(std::ostream* buffer, size_t& offset)
 	Buffer::Write(_enableSecondaryScoreIndividual, buffer, offset);
 	Buffer::VectorBasic::WriteVector(_primaryScoreIndividual, buffer, offset);
 	Buffer::VectorBasic::WriteVector(_secondaryScoreIndividual, buffer, offset);
-	Buffer::Write(_derivedFails.load(), buffer, offset);
+	Buffer::Write(_derivedFails, buffer, offset);
 	return true;
 }
 
@@ -230,6 +230,14 @@ bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRe
 void Input::Delete(Data* /*data*/)
 {
 	Clear();
+}
+
+bool Input::CanDelete(Data*)
+{
+	if (_derivedInputs > 0)
+		return false;
+	else
+		return true;
 }
 
 #pragma endregion
@@ -584,7 +592,7 @@ void Input::TrimInput(int32_t executed)
 		int32_t count = 0;
 		auto aitr = begin();
 		// add as long as we don't reach the end of the _sequence and haven't added more than [executed] inputs
-		while (aitr != end() && count != executed) {
+		while (aitr != end() && count < executed) {
 			_orig_sequence.push_back(*aitr);
 			aitr++;
 			count++;
@@ -725,6 +733,7 @@ void Input::IncDerivedInputs()
 
 void Input::IncDerivedFails()
 {
+	std::unique_lock<std::shared_mutex> guard(_lock);
 	_derivedFails++;
 }
 
@@ -736,7 +745,8 @@ uint64_t Input::GetDerivedInputs()
 
 uint64_t Input::GetDerivedFails()
 {
-	return _derivedFails.load();
+	std::shared_lock<std::shared_mutex> guard(_lock);
+	return _derivedFails;
 }
 
 void Input::SetGenerationTime(std::chrono::nanoseconds genTime)

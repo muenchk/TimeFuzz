@@ -15,21 +15,26 @@ TaskController* TaskController::GetSingleton()
 	return std::addressof(session);
 }
 
+/*
 void TaskController::AddTask(std::shared_ptr<Functions::BaseFunction> a_task)
 {
-	if (_optimizeFuncExec && a_task->GetFunctionType() == Functions::FunctionType::Light) {
-		std::unique_lock<std::mutex> guard(_lock);
-		_tasks_light.push_back(a_task);
-		_condition_light.notify_one();
-	} else if (_optimizeFuncExec && a_task->GetFunctionType() == Functions::FunctionType::Medium) {
-		std::unique_lock<std::mutex> guard(_lock);
-		_tasks_medium.push_back(a_task);
-	} else {
-		std::unique_lock<std::mutex> guard(_lock);
-		_tasks.push_back(a_task);
-	}
-	_condition.notify_one();
-}
+	if (a_task) {
+			if (_optimizeFuncExec && a_task->GetFunctionType() == Functions::FunctionType::Light) {
+				std::unique_lock<std::mutex> guard(_lock);
+				_tasks_light.push_back(a_task);
+				_condition_light.notify_one();
+			} else if (_optimizeFuncExec && a_task->GetFunctionType() == Functions::FunctionType::Medium) {
+				std::unique_lock<std::mutex> guard(_lock);
+				_tasks_medium.push_back(a_task);
+			} else {
+				std::unique_lock<std::mutex> guard(_lock);
+				_tasks.push_back(a_task);
+			}
+			_condition.notify_one();
+		} else {
+			logcritical("Tried to add nullptr as task to taskcontroller");
+		}
+}*/
 
 void TaskController::Start(std::shared_ptr<SessionData> session, int32_t numthreads)
 {
@@ -52,6 +57,22 @@ void TaskController::Start(std::shared_ptr<SessionData> session, int32_t numthre
 				_threads.emplace_back(std::thread(&TaskController::InternalLoop, this, i));
 		}
 	}
+}
+
+int32_t TaskController::GetHeavyThreadCount()
+{
+	if (_optimizeFuncExec && _threads.size() != 1)
+		return (int32_t)_threads.size() - 1;
+	else
+		return (int32_t)_threads.size();
+}
+
+int32_t TaskController::GetLightThreadCount()
+{
+	if (_optimizeFuncExec)
+		return 1;
+	else
+		return (int32_t)_threads.size();
 }
 
 void TaskController::Stop(bool completeall)
@@ -305,6 +326,8 @@ size_t TaskController::GetStaticSize(int32_t version)
 	{
 	case 0x1:
 		return size0x1;
+	case 0x2:
+		return size0x1;
 	default:
 		return 0;
 	}
@@ -319,6 +342,11 @@ size_t TaskController::GetDynamicSize()
 		{
 			sz += task->GetLength();
 		}
+	}
+	sz += 8;
+	for (auto [str, val] : _executedTasks)
+	{
+		sz += Buffer::CalcStringLength(str) + 8;
 	}
 	return Form::GetDynamicSize()  // form stuff
 	       + GetStaticSize(classversion) + sz;
@@ -338,6 +366,13 @@ bool TaskController::WriteData(std::ostream* buffer, size_t& offset)
 		task->WriteData(buffer, offset);
 	}
 	Buffer::Write((uint64_t)_completedjobs.load(), buffer, offset);
+
+	Buffer::WriteSize(_executedTasks.size(), buffer, offset);
+	for (auto [str, val] : _executedTasks)
+	{
+		Buffer::Write(str, buffer, offset);
+		Buffer::Write(val, buffer, offset);
+	}
 	return true;
 }
 
@@ -362,6 +397,32 @@ bool TaskController::ReadData(std::istream* buffer, size_t& offset, size_t lengt
 			if (active)
 				//Start(_numthreads);
 				active = false;
+			return true;
+		}
+		break;
+	case 0x2:
+		{
+			Form::ReadData(buffer, offset, length, resolver);
+			_terminate = Buffer::ReadBool(buffer, offset);
+			_wait = Buffer::ReadBool(buffer, offset);
+			bool active = Buffer::ReadBool(buffer, offset);
+			_numthreads = Buffer::ReadInt32(buffer, offset);
+			size_t num = Buffer::ReadSize(buffer, offset);
+			for (int32_t i = 0; i < (int32_t)num; i++) {
+				std::shared_ptr<Functions::BaseFunction> func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
+				_tasks.push_back(func);
+			}
+			_completedjobs = Buffer::ReadUInt64(buffer, offset);
+			if (active)
+				//Start(_numthreads);
+				active = false;
+			num = Buffer::ReadSize(buffer, offset);
+			for (size_t i = 0; i < num; i++)
+			{
+				std::string str = Buffer::ReadString(buffer, offset);
+				int64_t val = Buffer::ReadInt64(buffer, offset);
+				_executedTasks.insert_or_assign(str, val);
+			}
 			return true;
 		}
 		break;
@@ -398,6 +459,12 @@ void TaskController::RegisterFactories()
 	}
 }
 
+void TaskController::RequestFreeze()
+{
+	loginfo("Requesting freezing of execution...");
+	// set freezing to true
+	_freeze = true;
+}
 
 void TaskController::Freeze()
 {

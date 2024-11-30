@@ -12,6 +12,7 @@
 #include <math.h>
 #include <optional>
 #include <unordered_map>
+#include <mutex>
 
 #include "Utility.h"
 
@@ -146,14 +147,44 @@ class Profile
 {
 	static inline std::ofstream* _stream = nullptr;
 	static inline std::binary_semaphore lock{ 1 };
+	static inline bool _writelog;
 
 public:
+
+	struct ExecTime {
+		private:
+			std::mutex _lock;
+			public:
+		std::string functionName;
+		std::chrono::nanoseconds exectime;
+		std::chrono::steady_clock::time_point lastexec;
+		std::string fileName;
+		std::string usermessage;
+		void Lock()
+		{
+			_lock.lock();
+		}
+
+		void Unlock()
+		{
+			_lock.unlock();
+		}
+	};
 
 	/// <summary>
 	/// contains the execution times of the last logged function executions
 	/// exectime, timepoint, name, file, usermes
 	/// </summary>
-	static inline std::unordered_map<std::string, std::tuple<std::chrono::nanoseconds, std::chrono::steady_clock::time_point, std::string, std::string, std::string>> exectimes;
+	static inline std::unordered_map<std::string, ExecTime*> exectimes;
+
+	static void Dispose()
+	{
+		lock.acquire();
+		for (auto [func, exec] : exectimes)
+			delete exec;
+		exectimes.clear();
+		lock.release();
+	}
 
 	/// <summary>
 	/// Inits profile log
@@ -175,6 +206,11 @@ public:
 		lock.release();
 	}
 
+	static void SetWriteLog(bool writelogfile)
+	{
+		_writelog = writelogfile;
+	}
+
 	/// <summary>
 	/// Closes profile log
 	/// </summary>
@@ -192,9 +228,32 @@ public:
 	static void log(std::string message, std::string func, std::string file, std::chrono::nanoseconds ns, std::chrono::steady_clock::time_point time, std::string usermes)
 	{
 		lock.acquire();
-		if (Logging::EnableProfile)
+		if (Logging::EnableProfile && _writelog)
 			write(message);
-		exectimes.insert_or_assign(file + "::" + func, std::tuple<std::chrono::nanoseconds, std::chrono::steady_clock::time_point, std::string, std::string, std::string>{ ns, time, func, file, usermes });
+		auto itr = exectimes.find(file + "::" + func);
+		if (itr != exectimes.end())
+		{
+			itr->second->Lock();
+			itr->second->functionName = func;
+			itr->second->exectime = ns;
+			itr->second->lastexec = time;
+			itr->second->fileName = file;
+			itr->second->usermessage = usermes;
+			itr->second->Unlock();
+		}
+		else
+		{
+			ExecTime* exec = new ExecTime();
+			exectimes.insert_or_assign(file + "::" + func, exec);
+			exec->Lock();
+			exec->functionName = func;
+			exec->exectime = ns;
+			exec->lastexec = time;
+			exec->fileName = file;
+			exec->usermessage = usermes;
+
+			exec->Unlock();
+		}
 		lock.release();
 	}
 

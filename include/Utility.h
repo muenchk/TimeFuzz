@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <optional>
+#include <atomic>
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
@@ -269,5 +270,30 @@ public:
 	}
 
 	static std::string ReadFile(std::filesystem::path path);
+
+	class SpinLock
+	{
+	private:
+		std::atomic_flag* _flag;
+		// adapted from cppreference code on atomic_flag
+	public:
+		SpinLock(std::atomic_flag& flag) :
+			_flag(std::addressof(flag))
+		{
+			while (_flag->test_and_set(std::memory_order_acquire))
+#if defined(__cpp_lib_atomic_wait) && __cpp_lib_atomic_wait >= 201907L
+				_flag->wait(true, std::memory_order_relaxed)
+#endif
+					;
+		}
+		~SpinLock() 
+		{
+			// exit flag
+			_flag->clear(std::memory_order_release);
+#if defined(__cpp_lib_atomic_wait) && __cpp_lib_atomic_wait >= 201907L
+			_flag->notify_one();
+#endif
+		}
+	};
 };
 

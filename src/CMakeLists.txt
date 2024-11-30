@@ -82,9 +82,9 @@ configure_file(
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 	add_compile_options("$<$<NOT:$<CONFIG:Debug>>:/Zi>")
-add_link_options("$<$<NOT:$<CONFIG:Debug>>:/DEBUG>")
-add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:REF>")
-add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:ICF>")
+	add_link_options("$<$<NOT:$<CONFIG:Debug>>:/DEBUG>")
+	add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:REF>")
+	add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:ICF>")
 endif()
 
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
@@ -98,7 +98,7 @@ add_library(
 	"${ROOT_DIR}/.clang-format"
 	"${ROOT_DIR}/.editorconfig")
 
-add_executable("${PROJECT_NAME}" "${SOURCE_DIR}/main.cpp" ${SOURCE_FILES} "${VERSION_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/version.rc" "${ROOT_DIR}/.clang-format" "${ROOT_DIR}/.editorconfig")
+add_executable("${PROJECT_NAME}" "${SOURCE_DIR}/main.cpp" "${VERSION_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/version.rc" "${ROOT_DIR}/.clang-format" "${ROOT_DIR}/.editorconfig")
 
 if(DIASDK_LIBRARIES)
         add_custom_command(TARGET "${PROJECT_NAME}" POST_BUILD
@@ -117,7 +117,6 @@ if(DIASDK_LIBRARIES)
                 ${DIASDK_INCLUDE_DIRS}/../lib/amd64/diaguids.lib
         )
 endif()
-
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
 	target_link_libraries(
@@ -159,6 +158,7 @@ else()
 		liblzma::liblzma
 		${PROJECT_NAME}_lib
 	)
+	add_compile_options(add_compile_options("$<$<CONFIG:Debug>:-fsanitize=address -fno-omit-frame-pointer>"))
 	if (LIBEXPLAIN_INCLUDE)
 	target_link_libraries(
 		"${PROJECT_NAME}_lib"

@@ -116,6 +116,13 @@ public:
 	uint64_t GetNodeCount();
 	uint64_t GetLeafCount();
 
+	/// <summary>
+	/// This function iterates over the complete tree and reports whether the tree is complete or if there still alternative routes that can be produced
+	/// </summary>
+	/// <param name="alternativesPerNode"></param>
+	/// <returns></returns>
+	double CheckForAlternatives(int32_t alternativesPerNode);
+
 	#pragma endregion
 
 private:

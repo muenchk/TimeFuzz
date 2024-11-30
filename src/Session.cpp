@@ -203,13 +203,16 @@ void Session::Clear()
 	if (_self)
 		_self.reset();
 	if (data != nullptr) {
-		auto tmp = data;
+		//auto tmp = data;
+		//data = nullptr;
+		//tmp->Clear();
+		data->Clear();
 		data = nullptr;
-		tmp->Clear();
 	}
 	_lastError = 0;
 	data = nullptr;
 	_running = false;
+	_destroyed = true;
 }
 
 void Session::RegisterFactories()
@@ -277,6 +280,7 @@ void Session::DestroySession()
 {
 	// delete everything. If this isn't called the session is likely to persist until the program ends
 	_loaded = false;
+	_lastError = 0;
 	Delete(data);
 }
 
@@ -539,18 +543,22 @@ void Session::SessionControl()
 		// sometimes shit happens in multithreaded applications where things go wrong, especially under linux 
 		// and with inter-process communication.
 		// To avoid some problems this thread is gonna periodically check whether shit has gone wrong and we need to restart / push stuff
-		_sessionControlWait.wait_for(guard, std::chrono::seconds(10));
+		_sessionControlWait.wait_for(guard, std::chrono::milliseconds(500));
 		if (_abort)
 			return;
+		if (_paused)
+			continue;
 
-		if (_sessiondata->_controller->GetWaitingJobs() == 0 && !_sessiondata->_controller->IsFrozen() || (_sessiondata->_exechandler->GetWaitingTests() == 0 && _sessiondata->_exechandler->GetInitializedTests() == 0 && _sessiondata->_exechandler->GetRunningTests() == 0 && _sessiondata->_exechandler->IsFrozen() == false))
+		if (_sessiondata->_controller->GetWaitingJobs() == 0 && !_sessiondata->_controller->IsFrozen() && (_sessiondata->_exechandler->GetWaitingTests() == 0 && _sessiondata->_exechandler->GetInitializedTests() == 0 && _sessiondata->_exechandler->GetRunningTests() == 0 && _sessiondata->_exechandler->IsFrozen() == false))
 		{
 			logwarn("Work you lazy bastards.");
 			// check wether the generation should end
 			if (_sessiondata->CheckGenerationEnd() == false)
 			{
 				// if it isn't ending give generation a little push
-				SessionFunctions::GenerateTests(_sessiondata);
+				int32_t max = _sessiondata->_controller->GetHeavyThreadCount();
+				for (int32_t i = 0; i < max; i++)
+					SessionFunctions::GenerateTests(_sessiondata);
 			}
 		}
 		if (_sessiondata->_exechandler->IsStale(std::chrono::milliseconds(10000)))
@@ -669,13 +677,15 @@ void Session::GetStatus(SessionStatus& status)
 		// Tests
 		status.exitstats = _sessiondata->GetTestExitStats();
 	}
-	status.saveload = data->_actionloadsave;
-	status.status = data->_status;
-	status.record = data->_record;
-	status.saveload_max = data->_actionloadsave_max;
-	status.saveload_current = data->_actionloadsave_current;
-	status.saveload_record_len = data->_actionrecord_len;
-	status.saveload_record_current = data->_actionrecord_offset;
+	if (data != nullptr) {
+		status.saveload = data->_actionloadsave;
+		status.status = data->_status;
+		status.record = data->_record;
+		status.saveload_max = data->_actionloadsave_max;
+		status.saveload_current = data->_actionloadsave_current;
+		status.saveload_record_len = data->_actionrecord_len;
+		status.saveload_record_current = data->_actionrecord_offset;
+	}
 	if (status.saveload_max != 0)
 		status.gsaveload = (double)status.saveload_current / (double)status.saveload_max;
 	else
@@ -753,7 +763,7 @@ void Session::Delete(Data*)
 	Clear();
 }
 
-void Session::Replay(FormID inputid)
+void Session::Replay(FormID inputid, UI::UIInputInformation* feedback)
 {
 	auto input = data->LookupFormID<Input>(inputid);
 	if (input) {
@@ -763,6 +773,7 @@ void Session::Replay(FormID inputid)
 		auto callback = dynamic_pointer_cast<Functions::ReplayTestCallback>(Functions::ReplayTestCallback::Create());
 		callback->_sessiondata = _sessiondata;
 		callback->_input = newinput;
+		callback->_feedback = feedback;
 		_sessiondata->_exechandler->AddTest(newinput, callback, true, true);
 		if (reg)
 			Lua::UnregisterThread();
@@ -927,4 +938,46 @@ void Session::UI_GetHashmapInformation(size_t& hashmapSize)
 	if (!_loaded)
 		return;
 	hashmapSize = _sessiondata->data->GetHashmapSize();
+}
+
+
+void Session::UI_GetTaskController(UI::UITaskController& controller)
+{
+	if (!_loaded)
+		return;
+	controller.Set(_sessiondata->_controller);
+}
+
+void Session::UI_CheckForAlternatives()
+{
+	if (!_loaded)
+		return;
+	_sessiondata->_excltree->CheckForAlternatives(4);
+}
+
+void Session::PauseSession()
+{
+	if (!_loaded)
+		return;
+	if (data->_actionloadsave)
+		return;
+	if (!_sessiondata->_controller->IsFrozen()) {
+		_sessiondata->_controller->RequestFreeze();
+		_sessiondata->_exechandler->Freeze(false);
+		_sessiondata->_controller->Freeze();
+	}
+	_paused = true;
+}
+
+void Session::ResumeSession()
+{
+	if (!_loaded)
+		return;
+	if (data->_actionloadsave)
+		return;
+	if (_sessiondata->_controller->IsFrozen())
+		_sessiondata->_controller->Thaw();
+	if (_sessiondata->_exechandler->IsFrozen())
+		_sessiondata->_exechandler->Thaw();
+	_paused = false;
 }

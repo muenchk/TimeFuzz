@@ -1627,20 +1627,25 @@ void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<Der
 		// sequence nodes are in order
 
 		std::vector<DerivationTree::SequenceNode*> targetnodes;
+		std::vector<std::vector<DerivationTree::Node*>> targetnodesvec;
 		if (complement)
 		{
 			int64_t idx = 0;
 			size_t segidx = 0;
 			while (idx < stop && segidx < segments.size()) {
 				while (idx < segments[segidx].first) {
-					targetnodes.push_back(seqnodes[idx]);
+					auto [cnode, cnodes] = seqnodes[idx]->CopyRecursive();
+					targetnodes.push_back((DerivationTree::SequenceNode*)cnode);
+					targetnodesvec.push_back(cnodes);
 					idx++;
 				}
 				idx = segments[segidx].first + segments[segidx].second;
 				segidx++;
 			}
 			while (idx < stop) {
-				targetnodes.push_back(seqnodes[idx]);
+				auto [cnode, cnodes] = seqnodes[idx]->CopyRecursive();
+				targetnodes.push_back((DerivationTree::SequenceNode*)cnode);
+				targetnodesvec.push_back(cnodes);
 				idx++;
 			}
 
@@ -1649,7 +1654,9 @@ void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<Der
 			{
 				for (int64_t c = segments[i].first; c < segments[i].first + segments[i].second; c++)
 				{
-					targetnodes.push_back(seqnodes[c]);
+					auto [cnode, cnodes] = seqnodes[c]->CopyRecursive();
+					targetnodes.push_back((DerivationTree::SequenceNode*)cnode);
+					targetnodesvec.push_back(cnodes);
 				}
 			}
 		}
@@ -1672,16 +1679,17 @@ void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<Der
 				dtree->_nodes.insert(droot);
 				droot->_children.resize(targetnodes.size());
 				for (size_t c = 0; c < targetnodes.size(); c++) {
-					auto [cnode, cnodes] = targetnodes[c]->CopyRecursive();
-					droot->_children[c] = cnode;
-					for (auto x : cnodes)
+					//auto [cnode, cnodes] = targetnodes[c]->CopyRecursive();
+					droot->_children[c] = targetnodes[c];
+					for (auto x : targetnodesvec[c])
 						dtree->_nodes.insert(x);
 				}
 
 				dtree->_valid = true;
 				dtree->_regenerate = true;
 				dtree->_sequenceNodes = (int64_t)targetnodes.size();
-			}
+			} else
+				logwarn("Something wrong in simple extraction");
 		}
 		profile(TimeProfiling, "Time taken for extraction of length: {}, form length: {}", dtree->_sequenceNodes, stree->_sequenceNodes);
 	}

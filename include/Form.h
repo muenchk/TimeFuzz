@@ -63,6 +63,7 @@ protected:
 	//FlagMap _flags;
 	//EnumType _flags = FormFlags::None;
 	std::shared_mutex _lock;
+	std::mutex _flaglock;
 
 public:
 
@@ -92,6 +93,12 @@ public:
 	/// Deletes all relevant for fields
 	/// </summary>
 	virtual void Delete(Data* data) = 0;
+	/// <summary>
+	/// returns whether a form can be deleted
+	/// </summary>
+	/// <param name="data"></param>
+	/// <returns></returns>
+	virtual bool CanDelete(Data* data);
 	/// <summary>
 	/// Clears all internals
 	/// </summary>
@@ -151,13 +158,13 @@ public:
 
 	//virtual void UnsetFlag(EnumType flag, FormID setterID);
 
-	virtual void SetFlag(EnumType flag);
+	void SetFlag(EnumType flag);
 
-	virtual void UnsetFlag(EnumType flag);
+	void UnsetFlag(EnumType flag);
 
-	virtual bool HasFlag(EnumType flag);
+	bool HasFlag(EnumType flag);
 
-	virtual EnumType GetFlags();
+	EnumType GetFlags();
 
 	/* virtual EnumType GetFlags()
 	{
@@ -194,15 +201,16 @@ public:
 	}
 };
 
+template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 class FlagHolder
 {
 	EnumType _flag;
-	std::shared_ptr<Form> _form;
+	std::shared_ptr<T> _form;
 
-	FlagHolder(FlagHolder&) = delete;
-	FlagHolder(FlagHolder&&) = delete;
-	FlagHolder& operator=(const FlagHolder&) = delete;
-	FlagHolder& operator=(const FlagHolder&&) = delete;
+	FlagHolder(FlagHolder<T>&) = delete;
+	FlagHolder(FlagHolder<T>&&) = delete;
+	FlagHolder<T>& operator=(const FlagHolder<T>&) = delete;
+	FlagHolder<T>& operator=(const FlagHolder<T>&&) = delete;
 
 public:
 	FlagHolder()
@@ -210,23 +218,19 @@ public:
 
 	}
 
-	FlagHolder(std::shared_ptr<Form> form, EnumType flag)
+	FlagHolder(std::shared_ptr<T> form, EnumType flag)
 	{
 		if (form) {
 			_form = form;
 			_flag = flag;
-			_form->Lock();
 			_form->SetFlag(flag);
-			_form->Unlock();
 		}
 	}
 
 	~FlagHolder()
 	{
 		if (_form) {
-			_form->Lock();
 			_form->UnsetFlag(_flag);
-			_form->Unlock();
 			_form.reset();
 		}
 	}

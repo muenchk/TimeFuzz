@@ -272,12 +272,13 @@ public:
 	void DeleteForm(std::shared_ptr<T> form)
 	{
 		if (form) {
-			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
-			_hashmap.erase(form->GetFormID());
-			form->SetFlag(Form::FormFlags::Deleted);
-			//form->Delete(this);
-			form.reset();
-			return;
+			if (form->CanDelete(this) == true) {
+				std::unique_lock<std::shared_mutex> guard(_hashmaplock);
+				_hashmap.erase(form->GetFormID());
+				form->SetFlag(Form::FormFlags::Deleted);
+				form.reset();
+				return;
+			}
 		} else {
 			form.reset();
 			return;
@@ -397,7 +398,6 @@ public:
 	};
 
 	static LoadResolver* GetSingleton();
-	~LoadResolver();
 	void SetData(Data* dat);
 	Data* _data = nullptr;
 	std::shared_ptr<Oracle> _oracle;

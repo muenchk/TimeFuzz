@@ -218,23 +218,92 @@ std::shared_ptr<Input> Generation::GetRandomSource()
 {
 	if (HasSources())
 	{
-		return _sources[_sourcesDistr(randan)];
+		// see cppreference for this section (source)
+		
+		// since the randomness will even out over all inputs due to gleichverteilung, just use an iterator
+		while (_sourcesFlag.test_and_set(std::memory_order_acquire))
+#if defined(__cpp_lib_atomic_wait) && __cpp_lib_atomic_wait >= 201907L
+			_sourcesFlag.wait(true, std::memory_order_relaxed)
+#endif
+				;
+
+		// do stuff
+		std::vector<std::shared_ptr<Input>>::iterator itr = _sources.end();
+		size_t count = _sources.size();
+		while (count > 0) {
+			if (_sourcesIter != _sources.end()) {
+				if (_maxDerivedFailingInputs == 0 || (*_sourcesIter)->GetDerivedFails() < _maxDerivedFailingInputs) {
+					itr = _sourcesIter++;
+					break;
+				} else
+					_sourcesIter++;
+			} else
+				_sourcesIter = _sources.begin();
+			count--;
+		}
+
+		// exit flag
+		_sourcesFlag.clear(std::memory_order_release);
+#if defined(__cpp_lib_atomic_wait) && __cpp_lib_atomic_wait >= 201907L
+		_sourcesFlag.notify_one();
+#endif
+		if (itr != _sources.end())
+			return *itr;
+		else
+			return {};
 	} else
 		return {};
 }
 
 void Generation::AddSource(std::shared_ptr<Input> input)
 {
-	_sources.push_back(input);
-	_sourcesDistr = std::uniform_int_distribution<signed>(0, (uint32_t)_sources.size() - 1);
+	if (input) {
+		// see cppreference for this section (source)
+
+		// since the randomness will even out over all inputs due to gleichverteilung, just use an iterator
+		while (_sourcesFlag.test_and_set(std::memory_order_acquire))
+#if defined(__cpp_lib_atomic_wait) && __cpp_lib_atomic_wait >= 201907L
+			_sourcesFlag.wait(true, std::memory_order_relaxed)
+#endif
+				;
+
+		// do stuff
+		_sources.resize(_sources.size() + 1);
+		_sources[_sources.size() -1] = input;
+		_sourcesDistr = std::uniform_int_distribution<signed>(0, (uint32_t)_sources.size() - 1);
+		_sourcesIter = _sources.begin();
+
+		// exit flag
+		_sourcesFlag.clear(std::memory_order_release);
+#if defined(__cpp_lib_atomic_wait) && __cpp_lib_atomic_wait >= 201907L
+		_sourcesFlag.notify_one();
+#endif
+	}
 }
 
 bool Generation::CheckSourceValidity(std::function<bool(std::shared_ptr<Input>)> predicate)
 {
+	if (_sources.size() == 0)
+		return true;
 	// if all sources are invalid result becomes false
+	
+	// see cppreference for this section (source)
+
+	// since the randomness will even out over all inputs due to gleichverteilung, just use an iterator
+	while (_sourcesFlag.test_and_set(std::memory_order_acquire))
+#if defined(__cpp_lib_atomic_wait) && __cpp_lib_atomic_wait >= 201907L
+		_sourcesFlag.wait(true, std::memory_order_relaxed)
+#endif
+			;
 	bool result = true;
 	for (auto input : _sources)
 		result &= !predicate(input);
+
+	// exit flag
+	_sourcesFlag.clear(std::memory_order_release);
+#if defined(__cpp_lib_atomic_wait) && __cpp_lib_atomic_wait >= 201907L
+	_sourcesFlag.notify_one();
+#endif
 	return result;
 }
 
@@ -259,14 +328,32 @@ size_t Generation::GetNumberOfDDControllers()
 
 void Generation::SetActive()
 {
-	_sourcesFlags.clear();
-	for (size_t i = 0; i < _sources.size(); i++)
-		_sourcesFlags.push_back(std::move(std::make_unique<FlagHolder>(_sources[i], Form::FormFlags::DoNotFree)));
+	for (size_t i = 0; i < _sources.size(); i++) {
+		if (_sources[i])
+			_sources[i]->SetFlag(Form::FormFlags::DoNotFree);
+	}
 }
 
 void Generation::SetInactive()
 {
-	_sourcesFlags.clear();
+	for (size_t i = 0; i < _sources.size(); i++) {
+		if (_sources[i])
+			_sources[i]->UnsetFlag(Form::FormFlags::DoNotFree);
+	}
+}
+
+bool Generation::CheckOracleResultAndLength(std::shared_ptr<Input>& input, bool allowFailing, size_t min_length_unfinished, size_t min_length_failing)
+{
+	if (input && ((allowFailing && input->GetOracleResult() == OracleResult::Failing && input->Length() >= min_length_failing) ||
+					 (input->GetOracleResult() == OracleResult::Unfinished && input->Length() >= min_length_unfinished)))
+		return true;
+	else
+		return false;
+}
+
+void Generation::SetMaxDerivedFailingInput(uint64_t maxDerivedFailingInputs)
+{
+	_maxDerivedFailingInputs = maxDerivedFailingInputs;
 }
 
 #pragma region FORM
@@ -282,10 +369,13 @@ size_t Generation::GetStaticSize(int32_t version)
 	                        + 8                     // activeInputs
 	                        + 8                     // maxActiveInputs
 	                        + 4;                    // generationNumber
-
+	static size_t size0x2 = size0x1  // old size
+	                        + 8;     // maxDerivedFailingInputs
 	switch (version) {
 	case 0x1:
 		return size0x1;
+	case 0x2:
+		return size0x2;
 	default:
 		return 0;
 	}
@@ -333,6 +423,7 @@ bool Generation::WriteData(std::ostream* buffer, size_t& offset)
 			Buffer::Write(input->GetFormID(), buffer, offset);
 		else
 			Buffer::Write((FormID)0, buffer, offset);
+	Buffer::Write(_maxDerivedFailingInputs, buffer, offset);
 	return true;
 }
 
@@ -340,6 +431,7 @@ bool Generation::ReadData(std::istream* buffer, size_t& offset, size_t length, L
 {
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
+	case 0x2:
 	case 0x1:
 		Form::ReadData(buffer, offset, length, resolver);
 		_size = Buffer::ReadInt64(buffer, offset);
@@ -395,7 +487,10 @@ bool Generation::ReadData(std::istream* buffer, size_t& offset, size_t length, L
 			}
 			if (_sources.size() > 0)
 				_sourcesDistr = std::uniform_int_distribution<signed>(0, (uint32_t)_sources.size() - 1);
+			_sourcesIter = _sources.begin();
 		});
+		if (version == 0x2)
+			_maxDerivedFailingInputs = Buffer::ReadUInt64(buffer, offset);
 		return true;
 	}
 	return false;

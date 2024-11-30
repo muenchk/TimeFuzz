@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Form.h"
+#include "Utility.h"
 
 #include <string>
 #include <vector>
@@ -136,6 +137,8 @@ public:
 		bool _complement = false;
 	};
 
+	~DerivationTree();
+
 	Node* _root;
 	FormID _grammarID;
 	bool _valid = false;
@@ -151,6 +154,13 @@ public:
 
 	#pragma region InheritedForm
 
+	static std::string PrintForm(std::shared_ptr<DerivationTree> form)
+	{
+		if (!form)
+			return "None";
+		return std::string("[") + typeid(DerivationTree).name() + "<FormID:" + Utility::GetHex(form->GetFormID()) + "><ParentID:" + Utility::GetHex(form->_parent._parentID) + "><Length:" + std::to_string(form->_sequenceNodes) + "><Valid:" + std::to_string(form->_valid) + "><Regenerate:" + std::to_string(form->_regenerate) + ">]";
+	}
+
 	size_t GetStaticSize(int32_t version) override;
 	size_t GetDynamicSize() override;
 	bool WriteData(std::ostream* buffer, size_t& offset) override;
@@ -163,6 +173,7 @@ public:
 		return FormType::DevTree;
 	}
 	void Delete(Data* data) override;
+	bool CanDelete(Data* data) override;
 	/// <summary>
 	/// resets all internal variables
 	/// </summary>

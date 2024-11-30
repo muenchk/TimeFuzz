@@ -14,6 +14,7 @@
 #include <deque>
 #include <condition_variable>
 #include <list>
+#include <semaphore>
 
 #include "Test.h"
 #include "Form.h"
@@ -132,6 +133,20 @@ private:
 	/// </summary>
 	std::list<std::weak_ptr<Test>> _runningTests;
 	/// <summary>
+	///  atomic flag for access to _runningTests
+	/// </summary>
+	std::atomic_flag _runningTestsFlag = ATOMIC_FLAG_INIT;
+	/// <summary>
+	/// internal vector holding temp references to actively handled tests
+	/// </summary>
+	std::vector<std::shared_ptr<Test>> _handleTests;
+	/// <summary>
+	/// test currently starting
+	/// </summary>
+	std::queue<std::shared_ptr<Test>> _startingTests;
+	std::mutex _startingLock;
+	std::condition_variable _startingLockCond;
+	/// <summary>
 	/// list holding stopped tests while handler is frozen
 	/// </summary>
 	std::list<std::shared_ptr<Test>> _stoppingTests;
@@ -159,6 +174,10 @@ private:
 	/// freezes test execution
 	/// </summary>
 	bool _freeze = false;
+	/// <summary>
+	/// tells the freeze strategy to wait for test completion
+	/// </summary>
+	bool _freeze_waitfortestcompletion = false;
 	/// <summary>
 	/// response to freezing
 	/// </summary>
@@ -198,13 +217,22 @@ private:
 	bool _finishtests = false;
 
 	/// <summary>
+	/// indicates that the handler has been stale, forces recomputation of test timeouts
+	/// </summary>
+	bool _stale = false;
+
+	/// <summary>
 	/// status of the internal thread;
 	/// </summary>
 	ExecHandlerStatus _tstatus;
 
 	std::jthread _thread;
 
-	void InternalLoop();
+	std::jthread _threadTS;
+
+	void InternalLoop(std::stop_token stoken);
+
+	void TestStarter(std::stop_token stoken);
 
 	bool StartTest(std::shared_ptr<Test> test);
 
@@ -273,7 +301,7 @@ public:
 	/// Returns the number of currently waiting tests
 	/// </summary>
 	/// <returns></returns>
-	size_t WaitingTasks() { return _waitingTests.size(); }
+	size_t WaitingTasks() { return _waitingTests.size() + _waitingTestsExec.size() + _runningTests.size() + _stoppingTests.size(); }
 
 	/// <summary>
 	/// sets the period of the test engine
@@ -294,7 +322,7 @@ public:
 	/// <summary>
 	/// Freezes test execution
 	/// </summary>
-	void Freeze();
+	void Freeze(bool waitfortestcompletion);
 	/// <summary>
 	/// Resumes test execution
 	/// </summary>

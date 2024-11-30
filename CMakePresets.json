@@ -230,8 +230,7 @@
         "vcpkg-linux",
         "x64",
         "clang",
-        "generator-ninja",
-        "build-tests"
+        "generator-ninja"
       ],
       "displayName": "Linux",
       "description": "Optimized release build.",
@@ -240,14 +239,18 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": {
           "type": "STRING",
-          "value": "Release"
+          "value": "Debug"
         }
       }
     },
     {
       "name": "kali",
       "inherits": [
-        "linux"
+        "base",
+        "vcpkg-linux",
+        "x64",
+        "clang",
+        "generator-ninja"
       ],
       "displayName": "Kali",
       "binaryDir": "${sourceDir}/buildKali",

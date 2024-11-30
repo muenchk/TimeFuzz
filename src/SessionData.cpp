@@ -176,122 +176,102 @@ size_t SessionData::GetDynamicSize()
 	       + _recentfailes.size();          // actual number of elements in the list * size of byte
 }
 
-std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Length(int32_t k)
+std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Length(int32_t k, size_t min_length_unfinished, size_t min_length_failing)
 {
 	std::vector<std::shared_ptr<Input>> ret;
 	int32_t count = 0;
 	std::shared_lock<std::shared_mutex> guardm(_multiset_lock);
 	auto itr = _topK_length.begin();
 	while (count < k && itr != _topK_length.end()) {
-		ret.push_back((*itr)->input.lock());
+		auto input = (*itr)->input.lock();
+		if (input) [[likely]] {
+			if (input->GetOracleResult() == OracleResult::Failing && (*itr)->length >= min_length_failing ||
+				input->GetOracleResult() == OracleResult::Unfinished && (*itr)->length >= min_length_unfinished)
+				ret.push_back((*itr)->input.lock());
+		}
 		itr++;
 		count++;
 	}
 	return ret;
 }
 
-std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Length_Unfinished(int32_t k)
+std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Length_Unfinished(int32_t k, size_t min_length)
 {
 	std::vector<std::shared_ptr<Input>> ret;
 	int32_t count = 0;
 	std::shared_lock<std::shared_mutex> guardm(_multiset_lock);
 	auto itr = _topK_length_Unfinished.begin();
 	while (count < k && itr != _topK_length_Unfinished.end()) {
-		ret.push_back((*itr)->input.lock());
+		if ((*itr)->length >= min_length)
+			ret.push_back((*itr)->input.lock());
 		itr++;
 		count++;
 	}
 	return ret;
 }
 
-std::vector<std::shared_ptr<Input>> SessionData::GetTopK(int32_t k)
+std::vector<std::shared_ptr<Input>> SessionData::GetTopK(int32_t k, size_t min_length_unfinished, size_t min_length_failing)
 {
 	std::vector<std::shared_ptr<Input>> ret;
 	int32_t count = 0;
 	std::shared_lock<std::shared_mutex> guardm(_multiset_lock);
 	auto itr = _topK_primary.begin();
 	while (count < k && itr != _topK_primary.end()) {
-		ret.push_back((*itr)->input.lock());
+		auto input = (*itr)->input.lock();
+		if (input) [[likely]] {
+			if (input->GetOracleResult() == OracleResult::Failing && (*itr)->length >= min_length_failing ||
+				input->GetOracleResult() == OracleResult::Unfinished && (*itr)->length >= min_length_unfinished)
+				ret.push_back((*itr)->input.lock());
+		}
 		itr++;
 		count++;
 	}
 	return ret;
 }
 
-std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Unfinished(int32_t k)
+std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Unfinished(int32_t k, size_t min_length)
 {
 	std::vector<std::shared_ptr<Input>> ret;
 	int32_t count = 0;
 	std::shared_lock<std::shared_mutex> guardm(_multiset_lock);
 	auto itr = _topK_primary_Unfinished.begin();
 	while (count < k && itr != _topK_primary_Unfinished.end()) {
-		ret.push_back((*itr)->input.lock());
+		if ((*itr)->length >= min_length)
+			ret.push_back((*itr)->input.lock());
 		itr++;
 		count++;
 	}
 	return ret;
 }
 
-std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Secondary(int32_t k)
+std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Secondary(int32_t k, size_t min_length_unfinished, size_t min_length_failing)
 {
 	std::shared_lock<std::shared_mutex> guardm(_multiset_lock);
-	if (k == 1)
-	{
-		/*auto itr = std::max_element(_unfinishedInputs.begin(), _unfinishedInputs.end(), [](std::shared_ptr<InputNode> lhs, std::shared_ptr<InputNode> rhs) {
-			if (lhs->secondary == rhs->secondary)
-				return lhs->primary > rhs->primary;
-			else
-				return lhs->secondary > rhs->secondary;
-			});
-		auto itra = std::max_element(_negativeInputs.begin(), _negativeInputs.end(), [](std::shared_ptr<InputNode> lhs, std::shared_ptr<InputNode> rhs) {
-			if (lhs->secondary == rhs->secondary)
-				return lhs->primary > rhs->primary;
-			else
-				return lhs->secondary > rhs->secondary;
-		});
-		if (itr == _unfinishedInputs.end() && itra == _negativeInputs.end())
-			return {};
-		else if (itr == _unfinishedInputs.end())
-			return { (*itra)->input.lock() };
-		else if (itra == _negativeInputs.end())
-			return { (*itr)->input.lock() };
-		else
-			return {
-				std::max(*itr, *itra, [](std::shared_ptr<InputNode> lhs, std::shared_ptr<InputNode> rhs) {
-					if (lhs->secondary == rhs->secondary)
-						return lhs->primary > rhs->primary;
-					else
-						return lhs->secondary > rhs->secondary;
-				})->input.lock()
-			};*/
-		auto itr = _topK_secondary.begin();
-		if (itr != _topK_secondary.end())
-			return { (*itr)->input.lock() };
-		else
-			return {};
-	}
-	else
-	{
-		std::vector<std::shared_ptr<Input>> ret;
-		int32_t count = 0;
-		auto itr = _topK_secondary.begin();
-		while (count < k && itr != _topK_secondary.end()) {
-			ret.push_back((*itr)->input.lock());
-			itr++;
-			count++;
+	std::vector<std::shared_ptr<Input>> ret;
+	int32_t count = 0;
+	auto itr = _topK_secondary.begin();
+	while (count < k && itr != _topK_secondary.end()) {
+		auto input = (*itr)->input.lock();
+		if (input) [[likely]] {
+			if (input->GetOracleResult() == OracleResult::Failing && (*itr)->length >= min_length_failing ||
+				input->GetOracleResult() == OracleResult::Unfinished && (*itr)->length >= min_length_unfinished)
+				ret.push_back((*itr)->input.lock());
 		}
-		return ret;
+		itr++;
+		count++;
 	}
+	return ret;
 }
 
-std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Secondary_Unfinished(int32_t k)
+std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Secondary_Unfinished(int32_t k, size_t min_length)
 {
 	std::vector<std::shared_ptr<Input>> ret;
 	int32_t count = 0;
 	std::shared_lock<std::shared_mutex> guardm(_multiset_lock);
 	auto itr = _topK_secondary_Unfinished.begin();
 	while (count < k && itr != _topK_secondary.end()) {
-		ret.push_back((*itr)->input.lock());
+		if ((*itr)->length >= min_length)
+			ret.push_back((*itr)->input.lock());
 		itr++;
 		count++;
 	}
@@ -299,7 +279,7 @@ std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Secondary_Unfinished(in
 }
 
 
-std::vector<std::shared_ptr<Input>> SessionData::FindKSources(int32_t k, std::set<std::shared_ptr<Input>> exclusionlist)
+std::vector<std::shared_ptr<Input>> SessionData::FindKSources(int32_t k, std::set<std::shared_ptr<Input>> exclusionlist, bool allowFailing, size_t min_length_unfinished, size_t min_length_failing)
 {
 	std::vector<std::shared_ptr<Input>> ret;
 	auto itr = _unfinishedInputs.begin();
@@ -307,15 +287,27 @@ std::vector<std::shared_ptr<Input>> SessionData::FindKSources(int32_t k, std::se
 	{
 		auto input = (*itr)->input.lock();
 		if (input) {
-			if (_settings->generation.maxNumberOfFailsPerSource >= input->GetDerivedFails() && exclusionlist.contains(input) == false)
+			if (!allowFailing || (*itr)->length < min_length_failing) {
+				itr++;
+				continue;
+			}
+			if ((_settings->generation.maxNumberOfFailsPerSource > input->GetDerivedFails() || _settings->generation.maxNumberOfFailsPerSource == 0) && exclusionlist.contains(input) == false)
 				ret.push_back(input);
 		}
+		itr++;
 	}
 	auto itra = _negativeInputs.begin();
 	while ((int32_t)ret.size() < k && itra != _negativeInputs.end()) {
 		auto input = (*itra)->input.lock();
-		if (_settings->generation.maxNumberOfFailsPerSource >= input->GetDerivedFails() && exclusionlist.contains(input) == false)
-			ret.push_back(input);
+		if (input) {
+			if ((*itra)->length < min_length_unfinished) {
+				itra++;
+				continue;
+			}
+			if ((_settings->generation.maxNumberOfFailsPerSource > input->GetDerivedFails() || _settings->generation.maxNumberOfFailsPerSource == 0) && exclusionlist.contains(input) == false)
+				ret.push_back(input);
+		}
+		itra++;
 	}
 	return ret;
 }
@@ -334,6 +326,7 @@ std::shared_ptr<Generation> SessionData::GetCurrentGeneration()
 std::shared_ptr<Generation> SessionData::GetGeneration(FormID generationID)
 {
 	if (_settings->generation.generationalMode) {
+		std::shared_lock<std::shared_mutex> guard(_generationsLock);
 		auto itr = _generations.find(generationID);
 		if (itr != _generations.end()) {
 			return itr->second;
@@ -375,6 +368,7 @@ void SessionData::GetGenerationIDs(std::vector<std::pair<FormID, int32_t>>& gens
 {
 	if (_generations.size() > gens.size())
 		gens.resize(_generations.size());
+	std::shared_lock<std::shared_mutex> guard(_generationsLock);
 	size = _generations.size();
 	int i = 0;
 	auto itr = _generations.begin();
@@ -392,11 +386,15 @@ void SessionData::SetNewGeneration()
 		std::shared_ptr<Generation> oldgen;
 		std::shared_ptr<Generation> newgen = data->CreateForm<Generation>();
 		// add to generations map
-		_generations.insert_or_assign(newgen->GetFormID(), newgen);
+		{
+			std::unique_lock<std::shared_mutex> guard(_generationsLock);
+			_generations.insert_or_assign(newgen->GetFormID(), newgen);
+		}
 		// init generation data
 		newgen->SetTargetSize(_settings->generation.generationsize);
 		newgen->SetMaxSimultaneuosGeneration(_settings->generation.generationstep);
 		newgen->SetMaxActiveInputs(_settings->generation.activeGeneratedInputs);
+		newgen->SetMaxDerivedFailingInput(_settings->generation.maxNumberOfFailsPerSource);
 		oldgen = _generation.exchange(newgen);
 		if (oldgen) {
 			newgen->SetGenerationNumber(oldgen->GetGenerationNumber() + 1);  // increment generation
@@ -410,24 +408,36 @@ void SessionData::SetNewGeneration()
 	}
 }
 
-bool SessionData::CheckGenerationEnd()
+bool SessionData::CheckGenerationEnd(bool toomanyfails)
 {
 	// checks whether the current session should end and prepares to do so
 	bool exp = false;
-	if ((_generation.load()->IsActive() == false || !_generation.load()->NeedsGeneration() && _exechandler->WaitingTasks() == 0 && _exechandler->GetRunningTests() == 0) && _generationEnding.compare_exchange_strong(exp, true) /*if gen is inactive and genending is false, set it to true and execute this block*/) {
+	auto gen = _generation.load();
+	if ((gen->IsActive() == false || !gen->NeedsGeneration() && _exechandler->WaitingTasks() == 0 && _exechandler->GetRunningTests() == 0) && _generationEnding.compare_exchange_strong(exp, true) /*if gen is inactive and genending is false, set it to true and execute this block*/) {
 		// generation has finished
 		auto call = dynamic_pointer_cast<Functions::GenerationEndCallback>(Functions::GenerationEndCallback::Create());
 		call->_sessiondata = data->CreateForm<SessionData>(); // self
 		_controller->AddTask(call);
 		return true;
-	} else if (_generation.load()->CheckSourceValidity([this](std::shared_ptr<Input> input) { if (input->GetDerivedFails() < _settings->generation.maxNumberOfFailsPerSource) return true; else return false; }) == false && _generationEnding.compare_exchange_strong(exp, true))
+	} else if (_settings->generation.maxNumberOfFailsPerSource != 0 && gen->CheckSourceValidity([this](std::shared_ptr<Input> input) { if (input && input->GetDerivedFails() < _settings->generation.maxNumberOfFailsPerSource) return true; else return false; }) == false && _generationEnding.compare_exchange_strong(exp, true))
 	{
 		// generation is being forcefully ended
 		auto call = dynamic_pointer_cast<Functions::GenerationEndCallback>(Functions::GenerationEndCallback::Create());
 		call->_sessiondata = data->CreateForm<SessionData>();  // self
 		_controller->AddTask(call);
 		return true;
+	} else if (toomanyfails && _generationEnding.compare_exchange_strong(exp, true)) {
+		// generation is being forcefully ended
+		auto call = dynamic_pointer_cast<Functions::GenerationEndCallback>(Functions::GenerationEndCallback::Create());
+		call->_sessiondata = data->CreateForm<SessionData>();  // self
+		_controller->AddTask(call);
+		return true;
 	}
+	return _generationEnding.load();
+}
+
+bool SessionData::GetGenerationEnding()
+{
 	return _generationEnding.load();
 }
 
@@ -462,6 +472,28 @@ uint64_t SessionData::GetUsedMemory()
 {
 	return _memory_mem;
 }
+
+void SessionData::Acquire_InputGenerationReadersLock()
+{
+	_InputGenerationLock.lock_shared();
+}
+
+void SessionData::Release_InputGenerationReadersLock()
+{
+	_InputGenerationLock.unlock_shared();
+}
+
+void SessionData::Acquire_InputGenerationWritersLock()
+{
+	_InputGenerationLock.lock();
+}
+
+void SessionData::Release_InputGenerationWritersLock()
+{
+	_InputGenerationLock.unlock();
+}
+
+#pragma region FORM
 
 bool SessionData::WriteData(std::ostream* buffer, size_t& offset)
 {
@@ -701,3 +733,5 @@ void SessionData::RegisterFactories()
 		Functions::RegisterFactory(Functions::GenerationFinishedCallback::GetTypeStatic(), Functions::GenerationFinishedCallback::Create);
 	}
 }
+
+#pragma endregion

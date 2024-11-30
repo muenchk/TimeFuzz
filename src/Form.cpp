@@ -21,6 +21,11 @@ void Form::FreeMemory()
 
 }
 
+bool Form::CanDelete(Data*)
+{
+	return true;
+}
+
 bool Form::TryLock()
 {
 	return _lock.try_lock();
@@ -141,12 +146,14 @@ bool Form::ReadData(std::istream* buffer, size_t& offset, size_t /*length*/, Loa
 
 void Form::SetFlag(EnumType flag)
 {
+	std::unique_lock<std::mutex> guard(_flaglock);
 	_flags.insert(flag);
 	_flagsAlloc |= flag;
 }
 
 void Form::UnsetFlag(EnumType flag)
 {
+	std::unique_lock<std::mutex> guard(_flaglock);
 	auto itr = _flags.find(flag);
 	if (itr != _flags.end()) {
 		_flags.erase(itr);

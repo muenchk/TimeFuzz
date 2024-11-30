@@ -263,20 +263,15 @@ bool Test::IsRunning()
 
 bool Test::WriteInput(std::string str)
 {
-	StartProfiling;
 	if (!_valid) {
 		logcritical("called WriteInput after invalidation");
 		return false;
 	}
-	logdebug("Writing input: \"{}\"", str);
-	loginfo("1");
 	int bSuccess = 0;
 #if defined(unix) || defined(__unix__) || defined(__unix)
 	size_t len = strlen(str.c_str());
-	loginfo("2");
 	if (IsRunning()) {
 		if (size_t written = write(red_input[1], str.c_str(), len); written != len) {
-			loginfo("2.1");
 			logcritical("Write to child is missing bytes: Supposed {}, written {}", len, written);
 			return false;
 		}
@@ -288,8 +283,6 @@ bool Test::WriteInput(std::string str)
 	const char* cstr = str.c_str();
 	bSuccess = WriteFile(red_input[1], cstr, (DWORD)strlen(cstr), &dwWritten, NULL);
 #endif
-	loginfo("3");
-	profile(TimeProfiling, "");
 	return bSuccess;
 }
 
@@ -305,6 +298,7 @@ bool Test::WriteNext()
 	_lasttime = std::chrono::steady_clock::now();
 	_lastwritten = *_itr;
 	_itr++;
+	_executed++;
 	return true;
 }
 
@@ -318,6 +312,7 @@ bool Test::WriteAll()
 	while (itra != _itrend) {
 		WriteInput(*itra);
 		_lastwritten += *itra;
+		_executed++;
 		itra++;
 	}
 	_lasttime = std::chrono::steady_clock::now();
@@ -464,16 +459,17 @@ void Test::TrimInput(int32_t executed)
 		}
 	} else {
 		if (auto ptr = _input.lock(); ptr) {
-			// we are trimming to match our iterator
+			ptr->TrimInput(_executed);
+			/*// we are trimming to match our iterator
 			ptr->_trimmed = true;
 			auto aitr = ptr->begin();
-			while (aitr != _itr) {
+			while (aitr != _itr && aitr != ptr->end()) {
 				ptr->_orig_sequence.push_back(*aitr);
 				aitr++;
 			}
 			std::swap(ptr->_sequence, ptr->_orig_sequence);
 			ptr->_trimmedlength = ptr->_sequence.size();
-			profileDebug(TimeProfilingDebug, "");
+			profileDebug(TimeProfilingDebug, "");*/
 			logdebug("Test {}: trimmed input to iterator", _identifier);
 		}
 	}
@@ -506,18 +502,24 @@ void Test::InValidate()
 	close(red_output[1]);
 	red_output[1] = -1;
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-	CloseHandle(red_input[0]);
-	red_input[0] = nullptr;
-	CloseHandle(red_input[1]);
-	red_input[1] = nullptr;
-	CloseHandle(red_output[0]);
-	red_output[0] = nullptr;
-	CloseHandle(red_output[1]);
-	red_output[1] = nullptr;
-	CloseHandle(pi.hProcess);
-	CloseHandle(pi.hThread);
-	pi.hProcess = nullptr;
-	pi.hThread = nullptr;
+	if (red_input[0] != INVALID_HANDLE_VALUE)
+		CloseHandle(red_input[0]);
+	red_input[0] = INVALID_HANDLE_VALUE;
+	if (red_input[1] != INVALID_HANDLE_VALUE)
+		CloseHandle(red_input[1]);
+	red_input[1] = INVALID_HANDLE_VALUE;
+	if (red_output[0] != INVALID_HANDLE_VALUE)
+		CloseHandle(red_output[0]);
+	red_output[0] = INVALID_HANDLE_VALUE;
+	if (red_output[1] != INVALID_HANDLE_VALUE)
+		CloseHandle(red_output[1]);
+	red_output[1] = INVALID_HANDLE_VALUE;
+	if (pi.hProcess != INVALID_HANDLE_VALUE)
+		CloseHandle(pi.hProcess);
+	if (pi.hThread != INVALID_HANDLE_VALUE)
+		CloseHandle(pi.hThread);
+	pi.hProcess = INVALID_HANDLE_VALUE;
+	pi.hThread = INVALID_HANDLE_VALUE;
 	pi.dwProcessId = 0;
 	pi.dwThreadId = 0;
 	pi = {};
@@ -697,7 +699,8 @@ void Test::Clear()
 	_cmdArgs = "";
 	_scriptArgs = "";
 	_input.reset();
-	InValidate();
+	//if (_valid)
+	//	InValidate();
 	if (_callback)
 	{
 		_callback->Dispose();
@@ -745,6 +748,12 @@ void Test::DeepCopy(std::shared_ptr<Test> other)
 
 namespace Functions
 {
+	TestCallback::~TestCallback()
+	{
+		_input.reset();
+		_sessiondata.reset();
+	}
+
 	void TestCallback::Run()
 	{
 		// what happens when a test has finsihed?
@@ -804,9 +813,9 @@ namespace Functions
 
 	void TestCallback::Dispose()
 	{
-		//if (_input)
-		//	if (_input->test)
-		//		_input->test->_callback.reset();
+		if (_input)
+			if (_input->test)
+				_input->test->_callback.reset();
 		//_input.reset();
 		//_sessiondata.reset();
 	}
@@ -817,6 +826,12 @@ namespace Functions
 		// thus we don't want to actually save the test and the _input,
 		// but delete it instead
 		SessionFunctions::TestEnd(_sessiondata, _input, true);
+
+		if (_feedback != nullptr)
+		{
+			_feedback->Set(_input, _sessiondata);
+		}
+
 		_input->UnsetFlag(Form::FormFlags::DoNotFree);
 		_input->test->UnsetFlag(Form::FormFlags::DoNotFree);
 	}

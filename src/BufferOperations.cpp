@@ -329,7 +329,7 @@ namespace Buffer
 			char* buf = new char[length];
 			buffer->read(buf, length);
 			std::string tmp = std::string(buf, length);
-			delete buf;
+			delete[] buf;
 			offset += (int)length;
 			return tmp;
 		} else {

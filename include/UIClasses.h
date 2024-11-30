@@ -12,6 +12,7 @@ namespace DeltaDebugging
 class Generation;
 class Input;
 class SessionData;
+class TaskController;
 
 typedef uint64_t EnumType;
 
@@ -186,6 +187,7 @@ namespace UI
 		std::string _scriptArgs;
 		char* _scriptArgsBuf;
 		EnumType _oracleResult;
+		std::string _output;
 
 		bool Initialized();
 		void Refresh();
@@ -196,5 +198,20 @@ namespace UI
 		std::shared_ptr<Input> _input;
 		std::shared_ptr<SessionData> _sessiondata;
 		bool _init = false;
+	};
+
+	class UITaskController
+	{
+	public:
+		void Set(std::shared_ptr<TaskController> controller);
+		bool Initialized();
+
+		std::unordered_map<std::string, int64_t>::iterator beginExecutedTasks();
+		std::unordered_map<std::string, int64_t>::iterator endExecutedTasks();
+		void LockExecutedTasks();
+		void UnlockExecutedTasks();
+	private:
+		std::shared_ptr<TaskController> _controller;
+
 	};
 }

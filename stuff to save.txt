@@ -5,4 +5,7 @@
 ExclusionTree See to it that we loose the hashtable, its nice but takes a lot of ram
 
 
-SIGSEV in SessionData.cpp:301 ???
+fix the negative active inputs, probs an issue with generated and generate in GenerateCallback
+
+
+FIX STACKOVERFLOW in recursive Generator::Generate urrgggghhhh

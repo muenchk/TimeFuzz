@@ -81,6 +81,8 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 
 	auto settings = CreateForm<Settings>();
 
+	auto sessiondata = CreateForm<SessionData>();
+
 	std::cout << "hashtable size: " << _hashmap.size() << "\n";
 	// create new file on disc
 	std::string name = GetSaveName();
@@ -94,7 +96,8 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 		_status = "Freezing controllers...";
 		std::shared_ptr<TaskController> taskcontrol = CreateForm<TaskController>();
 		std::shared_ptr<ExecutionHandler> execcontrol = CreateForm<ExecutionHandler>();
-		execcontrol->Freeze();
+		taskcontrol->RequestFreeze();
+		execcontrol->Freeze(false);
 		taskcontrol->Freeze();
 
 		// write main information about savefile: name, _savenumber, nextformid, _runtime etc.
@@ -1004,16 +1007,6 @@ LoadResolver* LoadResolver::GetSingleton()
 	return std::addressof(resolver);
 }
 
-LoadResolver::~LoadResolver()
-{
-	_data = nullptr;
-	while (!_tasks.empty())
-	{
-		_tasks.front()->Dispose();
-		_tasks.pop();
-	}
-}
-
 void Data::StartClock()
 {
 	_sessionBegin = std::chrono::steady_clock::now();
@@ -1413,14 +1406,22 @@ void Data::Visit(std::function<VisitAction(std::shared_ptr<Form>)> visitor)
 
 void Data::Clear()
 {
+	_actionloadsave = true;
 	_status = "Clearing hashmap...";
-	if (_lresolve != nullptr) {
-		delete _lresolve;
-	}
+	//if (_lresolve != nullptr) {
+	//	delete _lresolve;
+	//}
+	delete _lresolve;
 	std::unique_lock<std::shared_mutex> guard(_hashmaplock);
+	_actionloadsave_max = _hashmap.size();
+	_actionloadsave_current = 0;
 	for (auto& [id, form] : _hashmap) {
 		form->SetFormID(0);
-		form->Clear();
+		if (form->GetType() != FormType::Session)
+			form->Clear();
+		_actionloadsave_current++;
 	}
 	_hashmap.clear();
+	_stringHashmap.clear();
+	_actionloadsave = false;
 }

@@ -95,7 +95,7 @@ namespace Functions
 		static uint64_t GetTypeStatic() { return 'SESE'; }
 		uint64_t GetType() override { return 'SESE'; }
 
-		FunctionType GetFunctionType() override { return FunctionType::Heavy; }
+		FunctionType GetFunctionType() override { return FunctionType::Medium; }
 
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 		bool WriteData(std::ostream* buffer, size_t& offset);
@@ -118,7 +118,7 @@ namespace Functions
 		static uint64_t GetTypeStatic() { return 'SEFI'; }
 		uint64_t GetType() override { return 'SEFI'; }
 
-		FunctionType GetFunctionType() override { return FunctionType::Heavy; }
+		FunctionType GetFunctionType() override { return FunctionType::Medium; }
 
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 		bool WriteData(std::ostream* buffer, size_t& offset);

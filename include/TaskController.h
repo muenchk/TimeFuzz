@@ -4,10 +4,12 @@
 #include <deque>
 #include <thread>
 #include <vector>
+#include <mutex>
 #include <condition_variable>
 
 #include "Form.h"
 #include "Function.h"
+#include "Logging.h"
 
 class LoadResolver;
 class LoadResolverGrammar;
@@ -16,7 +18,6 @@ class SessionData;
 class TaskController : public Form
 {
 public:
-
 	enum class ThreadStatus
 	{
 		Initializing,
@@ -24,97 +25,8 @@ public:
 		Waiting
 	};
 
-	/// <summary>
-	/// Returns a singleton for the TaskController class
-	/// </summary>
-	/// <returns></returns>
-	static TaskController* GetSingleton();
-
-	/// <summary>
-	/// Adds a new task to the execution queue
-	/// </summary>
-	/// <param name="a_task"></param>
-	void AddTask(std::shared_ptr<Functions::BaseFunction> a_task);
-
-	/// <summary>
-	/// Starts the TaskController
-	/// </summary>
-	/// <param name="numthreads"></param>
-	void Start(std::shared_ptr<SessionData> session, int32_t numthreads = 0);
-	/// <summary>
-	/// Stops the TaskController, optionally waiting for the completion of all tasks
-	/// </summary>
-	/// <param name="completeall"></param>
-	void Stop(bool completeall = true);
-
-	~TaskController();
-
-	/// <summary>
-	/// Checks whether there are tasks being executed or currently waiting
-	/// </summary>
-	/// <returns></returns>
-	bool Busy();
-
-	/// <summary>
-	/// Freezes task execution
-	/// </summary>
-	void Freeze();
-	/// <summary>
-	/// Resumes task execution
-	/// </summary>
-	void Thaw();
-
-	/// <summary>
-	/// returns whether the controller is currently frozen
-	/// </summary>
-	/// <returns></returns>
-	bool IsFrozen();
-
-	/// <summary>
-	/// Disables Lua support
-	/// </summary>
-	inline void SetDisableLua() { _disableLua = true; }
-
-	void ClearTasks();
-
-	/// <summary>
-	/// Returns the number of completed jobs
-	/// </summary>
-	/// <returns></returns>
-	uint64_t GetCompletedJobs();
-	/// <summary>
-	/// Returns the number of waiting jobs
-	/// </summary>
-	/// <returns></returns>
-	int32_t GetWaitingJobs();
-	int32_t GetWaitingLightJobs();
-	int32_t GetWaitingMediumJobs();
-
-	void GetThreadStatus(std::vector<ThreadStatus>& status);
-
-	#pragma region InheritedForm
-
-	size_t GetDynamicSize() override;
-	size_t GetStaticSize(int32_t version = 0x1) override;
-	bool WriteData(std::ostream* buffer, size_t& offset) override;
-	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
-	int32_t GetType() override
-	{
-		return FormType::TaskController;
-	}
-	static int32_t GetTypeStatic()
-	{
-		return FormType::TaskController;
-	}
-	void Delete(Data* data) override;
-	void Clear() override;
-	inline static bool _registeredFactories = false;
-	static void RegisterFactories();
-
-	#pragma endregion
-	
 private:
-	const int32_t classversion = 0x1;
+	const int32_t classversion = 0x2;
 
 	friend class LoadResolver;
 	friend class LoadResolverGrammar;
@@ -204,4 +116,164 @@ private:
 	/// [only available when two or more threads are in use]
 	/// </summary>
 	bool _optimizeFuncExec = true;
+	/// <summary>
+	/// map holding the number of individual executed tasks
+	/// </summary>
+	std::unordered_map<std::string, int64_t> _executedTasks;
+
+	std::mutex _executedTasksLock;
+
+public:
+
+	/// <summary>
+	/// Returns a singleton for the TaskController class
+	/// </summary>
+	/// <returns></returns>
+	static TaskController* GetSingleton();
+
+	/// <summary>
+	/// Adds a new task to the execution queue
+	/// </summary>
+	/// <param name="a_task"></param>
+	template <class T, typename = std::enable_if<std::is_base_of<Functions::BaseFunction, T>::value>>
+	void AddTask(std::shared_ptr<T> a_task)
+	{
+		if (a_task) {
+			if (_optimizeFuncExec && a_task->GetFunctionType() == Functions::FunctionType::Light) {
+				std::unique_lock<std::mutex> guard(_lock);
+				_tasks_light.push_back(a_task);
+				_condition_light.notify_one();
+			} else if (_optimizeFuncExec && a_task->GetFunctionType() == Functions::FunctionType::Medium) {
+				std::unique_lock<std::mutex> guard(_lock);
+				_tasks_medium.push_back(a_task);
+			} else {
+				std::unique_lock<std::mutex> guard(_lock);
+				_tasks.push_back(a_task);
+			}
+			_condition.notify_one();
+			std::unique_lock<std::mutex> execLock(_executedTasksLock);
+			int32_t type = (int32_t)a_task->GetType();
+			std::string name = std::string(typeid(T).name()) + " | " + std::string((char*)&type, 4);
+			auto itr = _executedTasks.find(name);
+			if (itr != _executedTasks.end())
+				_executedTasks.insert_or_assign(name, itr->second + 1);
+			else
+				_executedTasks.insert_or_assign(name, 1);
+		} else {
+			logcritical("Tried to add nullptr as task to taskcontroller");
+		}
+	}
+
+	void LockExecutedTasks()
+	{
+		_executedTasksLock.lock();
+	}
+
+	void UnlockExecutedTasks()
+	{
+		_executedTasksLock.unlock();
+	}
+
+	auto BeginExecutedTasks()
+	{
+		return _executedTasks.begin();
+	}
+
+	auto EndExecutedTasks()
+	{
+		return _executedTasks.end();
+	}
+
+	/// <summary>
+	/// Starts the TaskController
+	/// </summary>
+	/// <param name="numthreads"></param>
+	void Start(std::shared_ptr<SessionData> session, int32_t numthreads = 0);
+	/// <summary>
+	/// Stops the TaskController, optionally waiting for the completion of all tasks
+	/// </summary>
+	/// <param name="completeall"></param>
+	void Stop(bool completeall = true);
+
+	/// <summary>
+	/// returns the number of threads handling heavy tasks
+	/// </summary>
+	/// <returns></returns>
+	int32_t GetHeavyThreadCount();
+	/// <summary>
+	/// returns the number of threads handling light tasks
+	/// </summary>
+	/// <returns></returns>
+	int32_t GetLightThreadCount();
+
+	~TaskController();
+
+	/// <summary>
+	/// Checks whether there are tasks being executed or currently waiting
+	/// </summary>
+	/// <returns></returns>
+	bool Busy();
+
+	/// <summary>
+	/// instead of waiting for the controller to freeze, the function returns after notifying the threads of the freeze
+	/// </summary>
+	void RequestFreeze();
+	/// <summary>
+	/// Freezes task execution
+	/// </summary>
+	void Freeze();
+	/// <summary>
+	/// Resumes task execution
+	/// </summary>
+	void Thaw();
+
+	/// <summary>
+	/// returns whether the controller is currently frozen
+	/// </summary>
+	/// <returns></returns>
+	bool IsFrozen();
+
+	/// <summary>
+	/// Disables Lua support
+	/// </summary>
+	inline void SetDisableLua() { _disableLua = true; }
+
+	void ClearTasks();
+
+	/// <summary>
+	/// Returns the number of completed jobs
+	/// </summary>
+	/// <returns></returns>
+	uint64_t GetCompletedJobs();
+	/// <summary>
+	/// Returns the number of waiting jobs
+	/// </summary>
+	/// <returns></returns>
+	int32_t GetWaitingJobs();
+	int32_t GetWaitingLightJobs();
+	int32_t GetWaitingMediumJobs();
+
+	void GetThreadStatus(std::vector<ThreadStatus>& status);
+
+	#pragma region InheritedForm
+
+	size_t GetDynamicSize() override;
+	size_t GetStaticSize(int32_t version) override;
+	bool WriteData(std::ostream* buffer, size_t& offset) override;
+	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+	int32_t GetType() override
+	{
+		return FormType::TaskController;
+	}
+	static int32_t GetTypeStatic()
+	{
+		return FormType::TaskController;
+	}
+	void Delete(Data* data) override;
+	void Clear() override;
+	inline static bool _registeredFactories = false;
+	static void RegisterFactories();
+
+	#pragma endregion
+	
 };

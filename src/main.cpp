@@ -1,11 +1,11 @@
-#include "Settings.h"
+#include "ExitCodes.h"
 #include "Logging.h"
 #include "Session.h"
-#include "ExitCodes.h"
+#include "Settings.h"
 #include "UIClasses.h"
 #include "shader/learnopengl_shader_s.h"
-#include <iostream>
 #include <filesystem>
+#include <iostream>
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 #	include "CrashHandler.h"
@@ -18,20 +18,20 @@
 // learnopengl.com by JOEY DE VRIES and is available under
 // the following license: https://creativecommons.org/licenses/by-nc/4.0/legalcode
 
-// The imgui stuff is adapted from the official examples of the repository https://github.com/ocornut/imgui which is available under MIT license 
+// The imgui stuff is adapted from the official examples of the repository https://github.com/ocornut/imgui which is available under MIT license
 // date: [2024/10/23]
 
+#include "glad/glad.h"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
-#include "glad/glad.h"
 //#include "GL/GL.h"
 #include <stdio.h>
 #define GL_SILENCE_DEPRECATION
 //#if defined(IMGUI_IMPL_OPENGL_ES2)
 //#include <GLES2/gl2.h>
 //#endif
-#include <GLFW/glfw3.h> // Will drag system OpenGL headers
+#include <GLFW/glfw3.h>  // Will drag system OpenGL headers
 
 static void glfw_error_callback(int error, const char* description)
 {
@@ -42,7 +42,6 @@ void endCallback()
 {
 	fprintf(stdin, "exitinternal");
 }
-
 
 // glfw: whenever the window size changed (by OS or user resize) this _callback function executes
 // ---------------------------------------------------------------------------------------------
@@ -323,6 +322,7 @@ int32_t main(int32_t argc, char** argv)
 
 	// init logging engine
 	Logging::InitializeLog(CmdArgs::workdir / logpath, false, logtimestamps);
+	Profile::SetWriteLog(false);
 	Logging::StdOutWarn = true;
 	Logging::StdOutError = true;
 
@@ -480,12 +480,17 @@ int32_t main(int32_t argc, char** argv)
 		bool displayadd;
 		bool showStatusWindow = true;
 		bool showAdvancedWindow = true;
+		bool showTaskWindow = true;
 		bool showTopK = true;
 		bool showProfiling = true;
 		bool showDeltaDebugging = true;
 		bool showThreadStatus = true;
 		bool showGeneration = true;
 		bool showInput = false;
+
+		bool interrupted = false;
+
+		bool destroying = false;
 
 		while (!glfwWindowShouldClose(window) && !stop) {
 			// Poll and handle events (inputs, window resize, etc.)
@@ -525,6 +530,7 @@ int32_t main(int32_t argc, char** argv)
 					ImGui::NewLine();
 					ImGui::Checkbox("Status window", &showStatusWindow);
 					ImGui::Checkbox("Avanced status window", &showAdvancedWindow);
+					ImGui::Checkbox("Task window", &showTaskWindow);
 					ImGui::Checkbox("Top K inputs window", &showTopK);
 					ImGui::Checkbox("Profiling window", &showProfiling);
 					ImGui::Checkbox("Delta Debugging window", &showDeltaDebugging);
@@ -540,7 +546,7 @@ int32_t main(int32_t argc, char** argv)
 			if (showStatusWindow) {
 				static bool wopen = true;
 				ImGui::Begin("Status", &wopen);
-				if (!wopen) {
+				/*if (!wopen) {
 					loginfo("UI window has been closed, exiting application.");
 					if (session->Finished() == false && session->Loaded() == true) {
 						session->StopSession(false);
@@ -549,87 +555,121 @@ int32_t main(int32_t argc, char** argv)
 						ActiveGeneration.Reset();
 					}
 					exit(ExitCodes::Success);
-				}
-				if (session->Loaded() == false && session->GetLastError() == ExitCodes::StartupError) {
-					displayadd = false;
-					ImGui::Text("The Session couldn't be started");
-					ImGui::NewLine();
-					if (ImGui::Button("Close")) {
-						loginfo("UI window has been closed, exiting application.");
+				}*/
+				if (destroying)
+				{
+					if (session->IsDestroyed())
+					{
+						session.reset();
+						Profile::Dispose();
 						exit(ExitCodes::Success);
 					}
-				} else {
-					ImGui::Text("Executed Tests:    %llu", status.overallTests);
-					ImGui::Text("Positive Tests:    %llu", status.positiveTests);
-					ImGui::Text("Negative Tests:    %llu", status.negativeTests);
-					ImGui::Text("Unfinished Tests:  %llu", status.unfinishedTests);
-					ImGui::Text("Pruned Tests:      %llu", status.prunedTests);
-					ImGui::Text("Runtime:           %llu s", std::chrono::duration_cast<std::chrono::seconds>(status.runtime).count());
-
-					ImGui::NewLine();
-					ImGui::Text("Status:    %s", status.status.c_str());
-					ImGui::NewLine();
-					if (status.saveload) {
-						ImGui::Text("Save / Load Progress:                            %llu/%llu", status.saveload_current, status.saveload_max);
+					else
+					{
+						ImGui::Text("Session Destruction Progress:                            %llu/%llu", status.saveload_current, status.saveload_max);
 						ImGui::ProgressBar((float)status.gsaveload, ImVec2(0.0f, 0.0f));
-						ImGui::Text("Record: %20s                 %llu/%llu", FormType::ToString(status.record).c_str(), status.saveload_record_current, status.saveload_record_len);
-						ImGui::ProgressBar((float)status.grecord, ImVec2(0.0f, 0.0f));
+					}
+				}
+				else{
+					if (session->Loaded() == false && session->GetLastError() == ExitCodes::StartupError) {
+						displayadd = false;
+						ImGui::Text("The Session couldn't be started");
+						ImGui::NewLine();
+						if (ImGui::Button("Close")) {
+							loginfo("UI window has been closed, exiting application.");
+							exit(ExitCodes::Success);
+						}
 					} else {
-						if (status.goverall >= 0.f) {
-							ImGui::Text("Progress towards overall generated tests:    %.3f%%", status.goverall * 100);
-							ImGui::ProgressBar((float)status.goverall, ImVec2(0.0f, 0.0f));
-						}
-						if (status.gpositive >= 0.f) {
-							ImGui::Text("Progress towards positive generated tests:   %.3f%%", status.gpositive * 100);
-							ImGui::ProgressBar((float)status.gpositive, ImVec2(0.0f, 0.0f));
-						}
-						if (status.gnegative >= 0.f) {
-							ImGui::Text("Progress towards negative generated tests:   %.3f%%", status.gnegative * 100);
-							ImGui::ProgressBar((float)status.gnegative, ImVec2(0.0f, 0.0f));
-						}
-						if (status.gtime >= 0.f) {
-							ImGui::Text("Progress towards timeout:                    %.3f%%", status.gtime * 100);
-							ImGui::ProgressBar((float)status.gtime, ImVec2(0.0f, 0.0f));
-						}
+						ImGui::Text("Executed Tests:    %llu", status.overallTests);
+						ImGui::Text("Positive Tests:    %llu", status.positiveTests);
+						ImGui::Text("Negative Tests:    %llu", status.negativeTests);
+						ImGui::Text("Unfinished Tests:  %llu", status.unfinishedTests);
+						ImGui::Text("Pruned Tests:      %llu", status.prunedTests);
+						ImGui::Text("Runtime:           %llu s", std::chrono::duration_cast<std::chrono::seconds>(status.runtime).count());
 
 						ImGui::NewLine();
+						ImGui::Text("Status:    %s", status.status.c_str());
 						ImGui::NewLine();
-
-						if (session->Finished()) {
-							ImGui::Text("The Session has ended");
-							ImGui::NewLine();
-							if (ImGui::Button("Close")) {
-								loginfo("UI window has been closed, exiting application.");
-								session->DestroySession();
-								session.reset();
-								exit(ExitCodes::Success);
-							}
-						} else if (session->Loaded() && session->Running() == false && session->Finished() == false) {
-							if (ImGui::Button("Close")) {
-								loginfo("UI window has been closed, exiting application.");
-								session->DestroySession();
-								session.reset();
-								exit(ExitCodes::Success);
-							}
-							ImGui::SameLine();
-							if (ImGui::Button("Start")) {
-								bool error = false;
-								session->StartLoadedSession(error, CmdArgs::_reloadConfig, CmdArgs::_settingspath, nullptr);
-							}
+						if (status.saveload) {
+							ImGui::Text("Save / Load Progress:                            %llu/%llu", status.saveload_current, status.saveload_max);
+							ImGui::ProgressBar((float)status.gsaveload, ImVec2(0.0f, 0.0f));
+							ImGui::Text("Record: %20s                 %llu/%llu", FormType::ToString(status.record).c_str(), status.saveload_record_current, status.saveload_record_len);
+							ImGui::ProgressBar((float)status.grecord, ImVec2(0.0f, 0.0f));
 						} else {
-							if (ImGui::Button("Save")) {
-								std::thread th(std::bind(&Session::Save, session));
-								th.detach();
+							if (status.goverall >= 0.f) {
+								ImGui::Text("Progress towards overall generated tests:    %.3f%%", status.goverall * 100);
+								ImGui::ProgressBar((float)status.goverall, ImVec2(0.0f, 0.0f));
 							}
-							ImGui::SameLine();
-							if (ImGui::Button("Stop")) {
-								std::thread th(std::bind(&Session::StopSession, session, std::placeholders::_1), true);
-								th.detach();
+							if (status.gpositive >= 0.f) {
+								ImGui::Text("Progress towards positive generated tests:   %.3f%%", status.gpositive * 100);
+								ImGui::ProgressBar((float)status.gpositive, ImVec2(0.0f, 0.0f));
 							}
-							ImGui::SameLine();
-							if (ImGui::Button("Abort")) {
-								std::thread th(std::bind(&Session::StopSession, session, std::placeholders::_1), false);
-								th.detach();
+							if (status.gnegative >= 0.f) {
+								ImGui::Text("Progress towards negative generated tests:   %.3f%%", status.gnegative * 100);
+								ImGui::ProgressBar((float)status.gnegative, ImVec2(0.0f, 0.0f));
+							}
+							if (status.gtime >= 0.f) {
+								ImGui::Text("Progress towards timeout:                    %.3f%%", status.gtime * 100);
+								ImGui::ProgressBar((float)status.gtime, ImVec2(0.0f, 0.0f));
+							}
+
+							ImGui::NewLine();
+							ImGui::NewLine();
+
+							if (session->Finished()) {
+								ImGui::Text("The Session has ended");
+								ImGui::NewLine();
+								if (ImGui::Button("Close")) {
+									loginfo("UI window has been closed, exiting application.");
+									destroying = true;
+									std::thread th(std::bind(&Session::DestroySession, session));
+									th.detach();
+								}
+							} else if (session->Loaded() && session->Running() == false && session->Finished() == false) {
+								if (ImGui::Button("Close")) {
+									loginfo("UI window has been closed, exiting application.");
+									destroying = true;
+									std::thread th(std::bind(&Session::DestroySession, session));
+									th.detach();
+								}
+								ImGui::SameLine();
+								if (ImGui::Button("Start")) {
+									bool error = false;
+									session->StartLoadedSession(error, CmdArgs::_reloadConfig, CmdArgs::_settingspath, nullptr);
+								}
+							} else {
+								if (ImGui::Button("Save")) {
+									std::thread th(std::bind(&Session::Save, session));
+									th.detach();
+								}
+								ImGui::SameLine();
+								if (ImGui::Button("Stop")) {
+									std::thread th(std::bind(&Session::StopSession, session, std::placeholders::_1), true);
+									th.detach();
+								}
+								ImGui::SameLine();
+								if (ImGui::Button("Abort")) {
+									std::thread th(std::bind(&Session::StopSession, session, std::placeholders::_1), false);
+									th.detach();
+								}
+								ImGui::SameLine();
+								if (!interrupted) {
+									if (ImGui::Button("Pause")) {
+										interrupted = true;
+										//std::thread th(std::bind(&Session::PauseSession, session));
+										//th.detach();
+
+										// no async calls, otherwise we are unlock from another thread which isn't allowed
+										session->PauseSession();
+									}
+								} else {
+									if (ImGui::Button("Resume")) {
+										interrupted = false;
+										//std::thread th(std::bind(&Session::ResumeSession, session));
+										//th.detach();
+										session->ResumeSession();
+									}
+								}
 							}
 						}
 					}
@@ -681,8 +721,34 @@ int32_t main(int32_t argc, char** argv)
 
 						ImGui::SeparatorText("Internals");
 						ImGui::Text("Hashmap size:            %lu", hashmapSize);
+
+						ImGui::SeparatorText("Actions");
+						if (ImGui::SmallButton("Check Excl")) {
+							std::thread th(std::bind(&Session::UI_CheckForAlternatives, session));
+							th.detach();
+						}
 					} else {
 						ImGui::Text("Not available");
+					}
+				}
+				ImGui::End();
+			}
+
+			if (showTaskWindow) {
+				static bool wopen = true;
+				ImGui::Begin("Task Window", &wopen);
+				if (wopen) {
+					static UI::UITaskController controller;
+					if (controller.Initialized() == false)
+						session->UI_GetTaskController(controller);
+					if (controller.Initialized()) {
+						controller.LockExecutedTasks();
+						auto itr = controller.beginExecutedTasks();
+						while (itr != controller.endExecutedTasks()) {
+							ImGui::Text("%s: %lld", itr->first.c_str(), itr->second);
+							itr++;
+						}
+						controller.UnlockExecutedTasks();
 					}
 				}
 				ImGui::End();
@@ -701,7 +767,7 @@ int32_t main(int32_t argc, char** argv)
 						ImGui::Text("Parent ID:                  %s", Utility::GetHexFill(inputinfo._parentInput).c_str());
 						ImGui::Text("Generation ID:              %s", Utility::GetHexFill(inputinfo._generationID).c_str());
 						ImGui::Text("Derived Inputs:             %llu", inputinfo._derivedInputs);
-						ImGui::Text("Flags:                      %llu", Utility::GetHexFill(inputinfo._flags).c_str());
+						ImGui::Text("Flags:                      %s", Utility::GetHexFill(inputinfo._flags).c_str());
 						ImGui::Text("Has Finished:               %s", inputinfo._hasfinished ? "true" : "false");
 						ImGui::NewLine();
 
@@ -730,7 +796,9 @@ int32_t main(int32_t argc, char** argv)
 							ImGui::TextWrapped("%s", inputinfo._inputlist.c_str());
 						else
 							ImGui::TextWrapped("%s", inputinfo._inputconcat.c_str());
-
+						ImGui::NewLine();
+						ImGui::SeparatorText("Output");
+						ImGui::TextWrapped("%s", inputinfo._output.c_str());
 					} else {
 						ImGui::Text("Not available");
 					}
@@ -741,8 +809,7 @@ int32_t main(int32_t argc, char** argv)
 			if (showThreadStatus) {
 				static bool wopen = true;
 				ImGui::Begin("Thread Status", &wopen);
-				if (wopen)
-				{
+				if (wopen) {
 					auto toString = [](TaskController::ThreadStatus stat) {
 						switch (stat) {
 						case TaskController::ThreadStatus::Initializing:
@@ -786,8 +853,7 @@ int32_t main(int32_t argc, char** argv)
 					static ExecHandlerStatus execstatus;
 					session->UI_GetThreadStatus(stati);
 					ImGui::SeparatorText("TaskController");
-					for (size_t i = 0; i < stati.size(); i++)
-					{
+					for (size_t i = 0; i < stati.size(); i++) {
 						ImGui::Text("Status: %s", toString(stati[i]));
 					}
 					ImGui::SeparatorText("ExecutionHandler");
@@ -798,18 +864,15 @@ int32_t main(int32_t argc, char** argv)
 			}
 
 			// show window with information about generations
-			if (showGeneration)
-			{
+			if (showGeneration) {
 				static bool wopen = true;
 				ImGui::Begin("Generation", &wopen);
-				if (wopen && session->Loaded())
-				{
+				if (wopen && session->Loaded()) {
 					static std::vector<std::pair<FormID, int32_t>> generations;
 					static size_t numgenerations;
 					static std::pair<FormID, FormID> selection = { 0, 0 };
 					static bool changed = false;
-					if (!ActiveGeneration.Initialized())
-					{
+					if (!ActiveGeneration.Initialized()) {
 						changed = true;
 						session->UI_GetGenerations(generations, numgenerations);
 						session->UI_GetCurrentGeneration(ActiveGeneration);
@@ -825,7 +888,7 @@ int32_t main(int32_t argc, char** argv)
 							changed = true;
 						}
 					}
-				
+
 					static std::string preview;
 					if (changed) {
 						changed = false;
@@ -835,21 +898,15 @@ int32_t main(int32_t argc, char** argv)
 							preview = "None";
 					}
 
-					if (ImGui::BeginCombo("Generations", preview.c_str()))
-					{
+					if (ImGui::BeginCombo("Generations", preview.c_str())) {
 						session->UI_GetGenerations(generations, numgenerations);
-						if (numgenerations == 0)
-						{
+						if (numgenerations == 0) {
 							const bool is_selected = true;
 							ImGui::Selectable("None", is_selected);
-						}
-						else
-						{
-							for (size_t i = 0; i < numgenerations; i++)
-							{
+						} else {
+							for (size_t i = 0; i < numgenerations; i++) {
 								const bool is_selected = (selection.first == generations[i].first);
-								if (ImGui::Selectable(std::to_string(generations[i].second).c_str(), is_selected))
-								{
+								if (ImGui::Selectable(std::to_string(generations[i].second).c_str(), is_selected)) {
 									session->UI_GetGeneration(generations[i].first, ActiveGeneration);
 									changed = true;
 								}
@@ -860,8 +917,7 @@ int32_t main(int32_t argc, char** argv)
 						ImGui::EndCombo();
 					}
 
-					if (ActiveGeneration.Initialized())
-					{
+					if (ActiveGeneration.Initialized()) {
 						// update stuff
 						static std::vector<UI::UIInput> sources;
 						ActiveGeneration.GetSources(sources);
@@ -869,7 +925,7 @@ int32_t main(int32_t argc, char** argv)
 						numsources = ActiveGeneration.GetNumberOfSources();
 						ActiveGeneration.GetDDControllers(ddcontrollers, numddcontrollers);
 
-						// build ui 
+						// build ui
 						ImGui::Text("Generation Number:          %lld", ActiveGeneration.GetGenerationNumber());
 						ImGui::Text("Total Size:                 %lld", ActiveGeneration.GetSize());
 						ImGui::Text("Generated Size: %lld", ActiveGeneration.GetGeneratedSize());
@@ -932,7 +988,7 @@ int32_t main(int32_t argc, char** argv)
 									ImGui::Text("%6ld", item->derivedInputs);
 									ImGui::TableNextColumn();
 									if (ImGui::SmallButton("Replay")) {
-										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1), item->id);
+										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1, std::placeholders::_2), item->id, &inputinfo);
 										th.detach();
 									}
 									ImGui::SameLine();
@@ -1033,7 +1089,7 @@ int32_t main(int32_t argc, char** argv)
 									ImGui::Text("%6ld", item->derivedInputs);
 									ImGui::TableNextColumn();
 									if (ImGui::SmallButton("Replay")) {
-										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1), item->id);
+										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1, std::placeholders::_2), item->id, &inputinfo);
 										th.detach();
 									}
 									ImGui::SameLine();
@@ -1074,11 +1130,12 @@ int32_t main(int32_t argc, char** argv)
 						int32_t count = 0;
 						auto itr = Profile::exectimes.begin();
 						while (count < 100 && itr != Profile::exectimes.end()) {
-							dimElements[count].ns = std::get<0>(itr->second);
-							dimElements[count].time = std::get<1>(itr->second);
-							dimElements[count].func = std::get<2>(itr->second);
-							dimElements[count].file = std::get<3>(itr->second);
-							dimElements[count].usermes = std::get<4>(itr->second);
+							Profile::ExecTime* exec = itr->second;
+							dimElements[count].ns = exec->exectime;
+							dimElements[count].time = exec->lastexec;
+							dimElements[count].func = exec->functionName;
+							dimElements[count].file = exec->fileName;
+							dimElements[count].usermes = exec->usermessage;
 							dimElements[count].tmpid = count;
 							count++;
 							itr++;
@@ -1145,8 +1202,7 @@ int32_t main(int32_t argc, char** argv)
 			if (showDeltaDebugging) {
 				static bool wopen = true;
 				ImGui::Begin("Delta Debugging", &wopen);
-				if (wopen)
-				{
+				if (wopen) {
 					static int32_t ITEMS = 100;
 					static std::vector<UI::UIInput> inputs(ITEMS);
 					static size_t numinputs;
@@ -1202,8 +1258,7 @@ int32_t main(int32_t argc, char** argv)
 						}
 					}
 
-					if (dd.Initialized() && ActiveGeneration.Initialized())
-					{
+					if (dd.Initialized() && ActiveGeneration.Initialized()) {
 						// update stuff
 						dd.GetInput(input);
 						dd.GetOriginalInput(origInput);
@@ -1269,7 +1324,7 @@ int32_t main(int32_t argc, char** argv)
 									ImGui::TextUnformatted(Utility::GetHexFill(item->flags).c_str());
 									ImGui::TableNextColumn();
 									if (ImGui::SmallButton("Replay")) {
-										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1), item->id);
+										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1, std::placeholders::_2), item->id, &inputinfo);
 										th.detach();
 									}
 									ImGui::SameLine();
@@ -1326,7 +1381,7 @@ int32_t main(int32_t argc, char** argv)
 									ImGui::TextUnformatted(Utility::GetHexFill(item->flags).c_str());
 									ImGui::TableNextColumn();
 									if (ImGui::SmallButton("Replay")) {
-										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1), item->id);
+										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1, std::placeholders::_2), item->id, &inputinfo);
 										th.detach();
 									}
 									ImGui::SameLine();
@@ -1342,7 +1397,7 @@ int32_t main(int32_t argc, char** argv)
 						}
 						// results table
 						if (ImGui::BeginTable("Results", 10, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 10), 0.0f)) {
-						ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIDDResult::ColumnID::InputID);
+							ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIDDResult::ColumnID::InputID);
 							ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIDDResult::ColumnID::InputLength);
 							ImGui::TableSetupColumn("Primary Score", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIDDResult::ColumnID::InputPrimaryScore);
 							ImGui::TableSetupColumn("Secondary Score", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIDDResult::ColumnID::InputSecondaryScore);
@@ -1386,7 +1441,7 @@ int32_t main(int32_t argc, char** argv)
 									ImGui::TextUnformatted(Utility::GetHexFill(item->flags).c_str());
 									ImGui::TableNextColumn();
 									if (ImGui::SmallButton("Replay")) {
-										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1), item->id);
+										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1, std::placeholders::_2), item->id, &inputinfo);
 										th.detach();
 									}
 									ImGui::SameLine();
@@ -1450,7 +1505,7 @@ int32_t main(int32_t argc, char** argv)
 									ImGui::TextUnformatted(Utility::GetHexFill(item->flags).c_str());
 									ImGui::TableNextColumn();
 									if (ImGui::SmallButton("Replay")) {
-										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1), item->id);
+										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1, std::placeholders::_2), item->id, &inputinfo);
 										th.detach();
 									}
 									ImGui::SameLine();
@@ -1464,12 +1519,9 @@ int32_t main(int32_t argc, char** argv)
 							}
 							ImGui::EndTable();
 						}
-					}
-					else
-					{
+					} else {
 						ImGui::Text("No delta debugging active.");
-						if (ImGui::Button("Delta Debug best unfinished input"))
-						{
+						if (ImGui::Button("Delta Debug best unfinished input")) {
 							// ignore return value, since we will find the delta debugging instance by scouring the session
 							std::thread th(std::bind(&Session::UI_StartDeltaDebugging, session, std::placeholders::_1), 0);
 							th.detach();
@@ -1478,42 +1530,6 @@ int32_t main(int32_t argc, char** argv)
 				}
 				ImGui::End();
 			}
-
-			// 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-			//if (show_demo_window)
-			//	ImGui::ShowDemoWindow(&show_demo_window);
-
-			// 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
-			/* {
-				static float f = 0.0f;
-				static int counter = 0;
-
-				ImGui::Begin("Hello, world!");  // Create a window called "Hello, world!" and append into it.
-
-				ImGui::Text("This is some useful text.");           // Display some text (you can use a format strings too)
-				ImGui::Checkbox("Demo Window", &show_demo_window);  // Edit bools storing our window open/close state
-				ImGui::Checkbox("Another Window", &show_another_window);
-
-				ImGui::SliderFloat("float", &f, 0.0f, 1.0f);             // Edit 1 float using a slider from 0.0f to 1.0f
-				ImGui::ColorEdit3("clear color", (float*)&clear_color);  // Edit 3 floats representing a color
-
-				if (ImGui::Button("Button"))  // Buttons return true when clicked (most widgets return true when edited/activated)
-					counter++;
-				ImGui::SameLine();
-				ImGui::Text("counter = %d", counter);
-
-				ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-				ImGui::End();
-			}*/
-
-			// 3. Show another simple window.
-			/* if (show_another_window) {
-				ImGui::Begin("Another Window", &show_another_window);  // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-				ImGui::Text("Hello from another window!");
-				if (ImGui::Button("Close Me"))
-					show_another_window = false;
-				ImGui::End();
-			}*/
 
 			// Rendering
 			ImGui::Render();
@@ -1545,6 +1561,10 @@ int32_t main(int32_t argc, char** argv)
 
 		glfwDestroyWindow(window);
 		glfwTerminate();
+
+		session->Wait();
+		session->DestroySession();
+		session.reset();
 
 	} else if (CmdArgs::_responsive) {
 Responsive:
@@ -1592,6 +1612,7 @@ Responsive:
 				stop = true;
 			}
 		}
+		session->Wait();
 		session->DestroySession();
 		session.reset();
 	} else {
@@ -1601,8 +1622,10 @@ Responsive:
 			std::this_thread::sleep_for(std::chrono::milliseconds(50));
 		std::cout << "Beginning infinite wait for session end";
 		session->Wait();
+		session->DestroySession();
 		session.reset();
 	}
+	Profile::Dispose();
 	std::cout << "Exiting program";
 	return 0;
 }

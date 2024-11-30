@@ -82,7 +82,10 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input, OracleResult result)
 		node->_isLeaf = true;
 		node->_InputID = input->GetFormID();
 		leafcount++;
-		DeleteChildrenIntern(node);
+		if (node->_children.size() > 0) {
+			DeleteChildrenIntern(node);
+			loginfo("Killing some children");
+		}
 	} else {
 		node->_result = result;
 		node->_InputID = input->GetFormID();
@@ -270,6 +273,73 @@ uint64_t ExclusionTree::GetNodeCount()
 uint64_t ExclusionTree::GetLeafCount()
 {
 	return leafcount;
+}
+
+double ExclusionTree::CheckForAlternatives(int32_t alternativesPerNode)
+{
+	if (alternativesPerNode == 0)
+		return 0;
+	exclrlock;
+
+	struct Path
+	{
+	public:
+		std::vector<TreeNode*> nodes;
+		bool finished = false;
+
+		Path* Copy()
+		{
+			Path* path = new Path();
+			for (auto node : nodes)
+				path->nodes.push_back(node);
+			return path;
+		}
+	};
+	std::vector<Path*> done;
+	int64_t open = 0;
+	int64_t leaf = 0;
+
+	std::stack<std::pair<TreeNode*, Path*>> stack;
+	for (auto child : root->_children)
+		stack.push({ child, new Path() });
+	while (stack.size() > 0)
+	{
+		auto [node, path] = stack.top();
+		stack.pop();
+		path->nodes.push_back(node);
+		if (node->_isLeaf) {
+			path->finished = true;
+			done.push_back(path);
+			leaf++;
+		} else {
+			for (auto child : node->_children)
+				stack.push({ child, path->Copy() });
+			if ((int64_t)node->_children.size() < alternativesPerNode) {
+				done.push_back(path);
+				open++;
+			} else
+				delete path;
+		}
+	}
+
+	logmessage("FINISHED PATHES:    {}", leaf);
+	logmessage("OPEN PATHES:        {}", open);
+	// print pathes
+	for (auto path : done)
+	{
+		std::string message = "";
+		if (path->finished)
+			message = "LEAF:\t";
+		else
+			message = "OPEN:\t";
+		for (auto node : path->nodes)
+		{
+			message += _sessiondata->data->GetStringFromID(node->_stringID).first + "|";
+		}
+		logmessage("{}", message);
+		delete path;
+	}
+	return 0;
 }
 
 size_t ExclusionTree::GetStaticSize(int32_t version)

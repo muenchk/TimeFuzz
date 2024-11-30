@@ -35,6 +35,7 @@ public:
 		return FormType::Input;
 	}
 	void Delete(Data* data);
+	bool CanDelete(Data* data) override;
 	void Clear() override;
 	inline static bool _registeredFactories = false;
 	static void RegisterFactories();
@@ -139,7 +140,7 @@ private:
 	/// <summary>
 	/// number of derived inputs that failed
 	/// </summary>
-	std::atomic<uint64_t> _derivedFails = 0;
+	uint64_t _derivedFails = 0;
 
 	/// <summary>
 	/// runtime at which this input was generated
@@ -465,7 +466,7 @@ public:
 	{
 		if (!form)
 			return "None";
-		return std::string("[") + typeid(Input).name() + "<" + Utility::GetHex(form->GetFormID()) + "><Length:" + std::to_string(form->Length()) + "><PrimScore:" + std::to_string(form->GetPrimaryScore()) + "><SeconScore:" + std::to_string(form->GetSecondaryScore()) + ">]";
+		return std::string("[") + typeid(Input).name() + "<FormID:" + Utility::GetHex(form->GetFormID()) + "><ParentID:" + Utility::GetHex(form->GetParentID()) +  "><Length:" + std::to_string(form->Length()) + "><PrimScore:" + std::to_string(form->GetPrimaryScore()) + "><SeconScore:" + std::to_string(form->GetSecondaryScore()) + ">]";
 	}
 
 private:

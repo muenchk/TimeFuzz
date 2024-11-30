@@ -111,6 +111,7 @@ void ExecutionHandler::SetMaxConcurrentTests(int32_t maxConcurrenttests)
 {
 	loginfo("Set max concurrent tests to {}", maxConcurrenttests);
 	_maxConcurrentTests = maxConcurrenttests > 0 ? maxConcurrenttests : 1;
+	_handleTests.resize(_maxConcurrentTests);
 	_populationSize = _maxConcurrentTests * 2;
 }
 
@@ -133,7 +134,8 @@ void ExecutionHandler::StartHandlerAsIs()
 		}
 	}
 	// start thread
-	_thread = std::jthread(&ExecutionHandler::InternalLoop, this);
+	_thread = std::jthread([this](std::stop_token s) { ExecutionHandler::InternalLoop(s); });
+	_threadTS = std::jthread([this](std::stop_token s) { ExecutionHandler::TestStarter(s); });
 }
 
 void ExecutionHandler::StartHandler()
@@ -224,20 +226,23 @@ void ExecutionHandler::StartHandler()
 		_thread = {};
 	}
 	// start thread
-	_thread = std::jthread(&ExecutionHandler::InternalLoop, this);
+	_thread = std::jthread([this](std::stop_token s) { ExecutionHandler::InternalLoop(s); });
+	_threadTS = std::jthread([this](std::stop_token s) { ExecutionHandler::TestStarter(s); });
 }
 
 void ExecutionHandler::ReinitHandler()
 {
 	_thread.request_stop();
 	_thread.detach();
-	_thread = std::jthread(&ExecutionHandler::InternalLoop, this);
+	_stale = true;
+	_thread = std::jthread([this](std::stop_token s) { ExecutionHandler::InternalLoop(s); });
 }
 
 void ExecutionHandler::StopHandler()
 {
 	_stopHandler = true;
 	_waitforjob.notify_all();
+	_startingLockCond.notify_all();
 }
 
 void ExecutionHandler::WaitOnHandler()
@@ -410,8 +415,8 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 				ptr->SetFlag(Input::Flags::Duplicate);
 				profileDebug(TimeProfilingDebug, "");
 				_sessiondata->IncGeneratedWithPrefix();
-				// inform generation that an inut has finished if applicable
-				if (ptr->HasFlag(Input::Flags::GeneratedGrammar))
+				// inform generation that an input has finished if applicable
+				if (!ptr->HasFlag(Input::Flags::GeneratedDeltaDebugging))
 					_sessiondata->GetCurrentGeneration()->FailGeneration(1);
 				return false;
 			}
@@ -423,7 +428,6 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 	// if successful: add test to list of active tests and update _currentTests
 	// give test its first _input on startup
 	// if unsuccessful: report error and complete test-case as failed
-	test->_starttime = std::chrono::steady_clock::now();
 	if (!Processes::StartPUTProcess(test, _oracle->path().string(), test->_cmdArgs))
 	{
 		test->_exitreason = Test::ExitReason::InitError;
@@ -435,7 +439,7 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 			// give _input access to test information
 			ptr->test = test;
 			// inform generation that an inut has finished if applicable
-			if (ptr->HasFlag(Input::Flags::GeneratedGrammar)) {
+			if (!ptr->HasFlag(Input::Flags::GeneratedDeltaDebugging)) {
 				_sessiondata->GetCurrentGeneration()->FailGeneration(1);
 			}
 		} else {
@@ -448,6 +452,9 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 		return false;
 	}
 	logdebug("started process");
+	test->_running = true;
+	test->_starttime = std::chrono::steady_clock::now();
+	test->_timeouttime = test->_starttime + std::chrono::nanoseconds(_settings->tests.testtimeout);
 	if (_oracle->GetOracletype() != Oracle::PUTType::CMD && _oracle->GetOracletype() != Oracle::PUTType::Script) {
 		if (_enableFragments)
 			test->WriteNext();
@@ -458,7 +465,7 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 		test->WriteInput(test->_scriptArgs);
 	}
 	_currentTests++;
-	_runningTests.push_back(test);
+	test->_exitreason = Test::ExitReason::Running;
 	logdebug("test started");
 	profileDebug(TimeProfilingDebug, "");
 	return true;
@@ -478,7 +485,7 @@ void ExecutionHandler::StopTest(std::shared_ptr<Test> test)
 		// give _input access to test information
 		ptr->test = test;
 		// inform generation that an inut has finished if applicable
-		if (ptr->HasFlag(Input::Flags::GeneratedGrammar))
+		if (!ptr->HasFlag(Input::Flags::GeneratedDeltaDebugging))
 			_sessiondata->GetCurrentGeneration()->SetInputCompleted();
 	} else {
 		logwarn("ptr invalid");
@@ -490,7 +497,29 @@ void ExecutionHandler::StopTest(std::shared_ptr<Test> test)
 	_currentTests--;
 }
 
-void ExecutionHandler::InternalLoop()
+void ExecutionHandler::TestStarter(std::stop_token stoken)
+{
+	std::shared_ptr<Test> test;
+	while (_stopHandler == false || _finishtests || stoken.stop_requested() == false) {
+		{
+			std::unique_lock<std::mutex> guard(_startingLock);
+			_startingLockCond.wait_for(guard, std::chrono::seconds(1), [this] { return _stopHandler || !_startingTests.empty(); });
+			if (!_startingTests.empty()) {
+				test = _startingTests.front();
+				_startingTests.pop();
+			}
+		}
+		if (test)
+			if (StartTest(test)) {
+				Utility::SpinLock guard(_runningTestsFlag);
+				_runningTests.push_back(test);
+				_waitforjob.notify_one();
+			}
+		test.reset();
+	}
+}
+
+void ExecutionHandler::InternalLoop(std::stop_token stoken)
 {
 	// time_point used to record enter times and to calculate timeouts
 	auto time = std::chrono::steady_clock::now();
@@ -508,12 +537,34 @@ void ExecutionHandler::InternalLoop()
 	std::chrono::nanoseconds sleep = std::chrono::nanoseconds(-1);
 	// tmp test var
 	std::weak_ptr<Test> test;
+
+	// if handler has been stale account for timeout times
+	if (_stale) {
+		// time handler has been stale
+		std::chrono::nanoseconds stalediff = std::chrono::steady_clock::now() - _lastExec;
+		auto itr = _runningTests.begin();
+		while (itr != _runningTests.end()) {
+			if (auto ptr = itr->lock(); ptr)
+			{
+				// account for total timeout
+				ptr->_timeouttime += stalediff;
+				// account for fragment timeout
+				ptr->_lasttime += stalediff;
+			}
+			itr++;
+		}
+		_stale = false;
+	}
+
+	_handleTests.resize(_maxConcurrentTests);
+	int32_t tohandle = 0;
+
 	logdebug("Entering loop");
 	int32_t newtests = 0;
-	while (_stopHandler == false || _finishtests) {
-		_lastExec = std::chrono::steady_clock::now();
+	while (_stopHandler == false || _finishtests || stoken.stop_requested() == false) {
 		StartProfiling;
 		logdebug("find new tests");
+		_lastExec = std::chrono::steady_clock::now();
 		_tstatus = ExecHandlerStatus::MainLoop;
 		if (_freeze)
 			_frozen = true;
@@ -530,30 +581,33 @@ void ExecutionHandler::InternalLoop()
 		newtests = 0;
 		// while we are not at the max concurrent tests, there are tests waiting to be executed and we are not FROZEN
 		_tstatus = ExecHandlerStatus::StartingTests;
-		while (_currentTests < _maxConcurrentTests && (_waitingTestsExec.size() > 0 || _waitingTests.size() > 0) && !_frozen) {
-			test.reset();
-			{
-				std::unique_lock<std::mutex> guard(_lockqueue);
-				if (_waitingTestsExec.size() > 0) {
-					test = _waitingTestsExec.front();
-					_waitingTestsExec.pop_front();
-				}
-				else
+		if (_currentTests < _maxConcurrentTests && (_waitingTestsExec.size() > 0 || _waitingTests.size() > 0) && (!_frozen || _frozen && _freeze_waitfortestcompletion))
+		{
+			std::unique_lock<std::mutex> guard(_lockqueue);
+			std::unique_lock<std::mutex> guardS(_startingLock);
+			while (_currentTests < _maxConcurrentTests && (_waitingTestsExec.size() > 0 || _waitingTests.size() > 0)) {
+				test.reset();
 				{
-					// if there aren't any tests ready for execution grab some that aren't and make them ready
-					InitTestsLockFree();
 					if (_waitingTestsExec.size() > 0) {
 						test = _waitingTestsExec.front();
 						_waitingTestsExec.pop_front();
+					} else {
+						// if there aren't any tests ready for execution grab some that aren't and make them ready
+						InitTestsLockFree();
+						if (_waitingTestsExec.size() > 0) {
+							test = _waitingTestsExec.front();
+							_waitingTestsExec.pop_front();
+						}
 					}
 				}
+				if (auto ptr = test.lock(); ptr) {
+					_startingTests.push(ptr);
+					//if (StartTest(ptr) == false)
+					//	_internalwaitingTests.push_back(ptr);
+				}
+				newtests++;
 			}
-			if (auto ptr = test.lock(); ptr) {
-				StartTest(ptr);
-				//if (StartTest(ptr) == false)
-				//	_internalwaitingTests.push_back(ptr);
-			}
-			newtests++;
+			_startingLockCond.notify_one();
 		}
 		if (newtests > 0)
 			_threadpool->AddTask(Functions::ExecInitTestsCallback::CreateFull(_sessiondata));
@@ -573,13 +627,34 @@ void ExecutionHandler::InternalLoop()
 			goto ExitHandler;
 		}
 
+		// get tests to handle this round
+		{
+			tohandle = 0;
+			Utility::SpinLock guard(_runningTestsFlag);
+			auto itr = _runningTests.begin();
+			while (itr != _runningTests.end() && tohandle < _maxConcurrentTests) {
+				if (auto ptr = itr->lock(); ptr) [[likely]] {
+					if (ptr->_running == false) {
+						itr = _runningTests.erase(itr);
+						continue;
+					} else {
+						_handleTests[tohandle] = ptr;
+						tohandle++;
+					}
+				} else {
+					itr = _runningTests.erase(itr);
+				}
+				itr++;
+			}
+		}
+
 		// check if we are running tests, if not wait until we are given one to run
 		// if we found some above it was started and this should be above 0
 		if (_currentTests == 0) {
 			logdebug("no tests active -> wait for new tests");
 			std::unique_lock<std::mutex> guard(_lockqueue);
 			_tstatus = ExecHandlerStatus::Waiting;
-			_waitforjob.wait_for(guard, std::chrono::seconds(1), [this] { return !_waitingTests.empty() || !_waitingTestsExec.empty() || _stopHandler; });
+			_waitforjob.wait_for(guard, std::chrono::milliseconds(200), [this] { return !_waitingTests.empty() || !_waitingTestsExec.empty() || _stopHandler; });
 			if (_stopHandler && _finishtests == false) {
 				profile(TimeProfiling, "Round");
 				break;
@@ -589,93 +664,95 @@ void ExecutionHandler::InternalLoop()
 			}
 		}
 		logdebug("Handling running tests: {}", _currentTests);
-		auto itr = _runningTests.begin();
-		while (itr != _runningTests.end()) {
+
+		for (int32_t i = 0; i < tohandle; i++) {
+			if (stoken.stop_requested()) {
+				return;
+			}
 			_tstatus = ExecHandlerStatus::HandlingTests;
-			test = *itr;
-			if (auto ptr = test.lock(); ptr) {
-				logdebug("Handling test {}", ptr->_identifier);
-				// read _output accumulated in the mean-time
-				// if process has ended there still may be something left over to read anyway
-				ptr->_output += ptr->ReadOutput();
-				logdebug("Read Output {}", ptr->_identifier);
-				// check for running
-				if (ptr->IsRunning() == false) {
-					// test has finished. Get exit code and check end conditions
-					ptr->_exitreason = Test::ExitReason::Natural;
-					SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::Natural);
+			auto ptr = _handleTests[i];
+			logdebug("Handling test {}", ptr->_identifier);
+			// read _output accumulated in the mean-time
+			// if process has ended there still may be something left over to read anyway
+			ptr->_output += ptr->ReadOutput();
+			logdebug("Read Output {}", ptr->_identifier);
+			// check for running
+			if (ptr->IsRunning() == false) {
+				// test has finished. Get exit code and check end conditions
+				ptr->_exitreason = Test::ExitReason::Natural;
+				SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::Natural);
+				goto TestFinished;
+			}
+			// check for memory consumption
+			if (_settings->tests.maxUsedMemory != 0) {
+				// memory limitation enabled
+
+				if (ptr->GetMemoryConsumption() > _settings->tests.maxUsedMemory) {
+					_tstatus = ExecHandlerStatus::KillingProcessMemory;
+					ptr->KillProcess();
+					// process killed, now set flags for oracle
+					ptr->_exitreason = Test::ExitReason::Memory;
+					SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::Memory);
 					goto TestFinished;
 				}
-				// check for memory consumption
-				if (_settings->tests.maxUsedMemory != 0) {
-					// memory limitation enabled
-
-					if (ptr->GetMemoryConsumption() > _settings->tests.maxUsedMemory) {
-						_tstatus = ExecHandlerStatus::KillingProcessMemory;
-						ptr->KillProcess();
-						// process killed, now set flags for oracle
-						ptr->_exitreason = Test::ExitReason::Memory;
-						SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::Memory);
-						goto TestFinished;
-					}
+			}
+			// check for fragment completion
+			if (_enableFragments && ptr->CheckInput()) {
+				_tstatus = ExecHandlerStatus::WriteFragment;
+				// fragment has been completed
+				if (ptr->WriteNext() == false && _settings->tests.use_fragmenttimeout && std::chrono::duration_cast<std::chrono::microseconds>(time - ptr->_lasttime).count() > _settings->tests.fragmenttimeout) {
+					ptr->_exitreason = Test::ExitReason::Natural | Test::ExitReason::LastInput;
+					SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::Natural);
+					SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::LastInput);
+					goto TestFinished;
 				}
-				// check for fragment completion
-				if (_enableFragments && ptr->CheckInput()) {
-					_tstatus = ExecHandlerStatus::WriteFragment;
-					// fragment has been completed
-					if (ptr->WriteNext() == false && _settings->tests.use_fragmenttimeout && std::chrono::duration_cast<std::chrono::microseconds>(time - ptr->_lasttime).count() > _settings->tests.fragmenttimeout) {
-						ptr->_exitreason = Test::ExitReason::Natural | Test::ExitReason::LastInput;
-						SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::Natural);
-						SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::LastInput);
-						goto TestFinished;
-					}
+			}
+			if (stoken.stop_requested()) {
+				return;
+			}
+			logdebug("Checked Input {}", ptr->_identifier);
+			// compute timeouts
+			if (_enableFragments && _settings->tests.use_fragmenttimeout) {
+				difffrag = std::chrono::duration_cast<std::chrono::microseconds>(time - ptr->_lasttime);
+				if (difffrag.count() > _settings->tests.fragmenttimeout) {
+					_tstatus = ExecHandlerStatus::KillingProcessTimeout;
+					ptr->KillProcess();
+					ptr->_exitreason = Test::ExitReason::FragmentTimeout;
+					SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::FragmentTimeout);
+					goto TestFinished;
 				}
-				logdebug("Checked Input {}", ptr->_identifier);
-				// compute timeouts
-				if (_enableFragments && _settings->tests.use_fragmenttimeout) {
-					difffrag = std::chrono::duration_cast<std::chrono::microseconds>(time - ptr->_lasttime);
-					if (difffrag.count() > _settings->tests.fragmenttimeout) {
-						_tstatus = ExecHandlerStatus::KillingProcessTimeout;
-						ptr->KillProcess();
-						ptr->_exitreason = Test::ExitReason::FragmentTimeout;
-						SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::FragmentTimeout);
-						goto TestFinished;
-					}
+			}
+			if (_settings->tests.use_testtimeout) {
+				difffrag = std::chrono::duration_cast<std::chrono::microseconds>(time - ptr->_starttime);
+				if (difffrag.count() > _settings->tests.testtimeout) {
+					_tstatus = ExecHandlerStatus::KillingProcessTimeout;
+					ptr->KillProcess();
+					ptr->_exitreason = Test::ExitReason::Timeout;
+					SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::Timeout);
+					goto TestFinished;
 				}
-				if (_settings->tests.use_testtimeout) {
-					difffrag = std::chrono::duration_cast<std::chrono::microseconds>(time - ptr->_starttime);
-					if (difffrag.count() > _settings->tests.testtimeout) {
-						_tstatus = ExecHandlerStatus::KillingProcessTimeout;
-						ptr->KillProcess();
-						ptr->_exitreason = Test::ExitReason::Timeout;
-						SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::Timeout);
-						goto TestFinished;
-					}
-				}
-				goto TestRunning;
+			}
+			goto TestRunning;
 TestFinished:
-				{
-					_tstatus = ExecHandlerStatus::StoppingTest;
-					logdebug("Test {} has ended", ptr->_identifier);
-					// if not frozen, stop test
-					if (!_frozen)
-						StopTest(ptr);
-					// otherwise save test to stop it later
-					else {
-						std::unique_lock<std::mutex> guard(_freezelock);
-						_stoppingTests.push_back(ptr);
-					}
-					// delete test from list
-					itr = _runningTests.erase(itr);
-					continue;
+			if (stoken.stop_requested())
+				return;
+			{
+				_tstatus = ExecHandlerStatus::StoppingTest;
+				ptr->_running = false;
+				logdebug("Test {} has ended", ptr->_identifier);
+				// if not frozen, or if it is frozen but we are waiting for test completion, stop test
+				if (!_frozen || _frozen && _freeze_waitfortestcompletion)
+					StopTest(ptr);
+				// otherwise save test to stop it later
+				else {
+					std::unique_lock<std::mutex> guard(_freezelock);
+					_stoppingTests.push_back(ptr);
 				}
-TestRunning:;
-			} else {
-				itr = _runningTests.erase(itr);
 				continue;
 			}
-			itr++;
+TestRunning:;
 		}
+
 		// reset vars
 		test.reset();
 
@@ -720,16 +797,20 @@ ExitHandler:
 		} else {
 			_active = false;
 			_waitforhandler.notify_all();
+			_startingLockCond.notify_all();
 			loginfo("Finished Execution Handler");
 		}
 	}
 }
 
-void ExecutionHandler::Freeze()
+void ExecutionHandler::Freeze(bool waitfortestcompletion)
 {
 	loginfo("Freezing execution...");
+	_freeze_waitfortestcompletion = waitfortestcompletion;
+	if (_sessiondata->GetGenerationEnding())
+		_freeze_waitfortestcompletion = true;
 	_freeze = true;
-	while (_frozen == false && _active == true)
+	while ((_frozen == false || _freeze_waitfortestcompletion == true && WaitingTasks() > 0) && _active == true)
 		;
 	loginfo("Frozen execution.");
 }

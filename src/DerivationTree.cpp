@@ -1,5 +1,6 @@
 #include "DerivationTree.h"
 #include "BufferOperations.h"
+#include "Data.h"
 
 #include <stack>
 
@@ -110,6 +111,16 @@ bool DerivationTree::ReadData(std::istream* buffer, size_t& offset, size_t lengt
 	}
 }
 
+bool DerivationTree::CanDelete(Data* data)
+{
+	if (_inputID != 0)
+	{
+		if (auto input = data->LookupFormID<Input>(_inputID); input && input->GetDerivedInputs() > 0)
+			return false;
+	}
+	return true;
+}
+
 void DerivationTree::Delete(Data*)
 {
 	Clear();
@@ -148,6 +159,11 @@ void DerivationTree::ClearInternal()
 	}
 	_nodes.clear();
 	_root = nullptr;
+}
+
+DerivationTree::~DerivationTree()
+{
+	Clear();
 }
 
 void DerivationTree::Clear()

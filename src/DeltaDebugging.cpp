@@ -195,7 +195,12 @@ namespace DeltaDebugging
 			case DDGoal::MaximizeBothScores:
 				_bestScore = { _input->GetPrimaryScore(), _input->GetSecondaryScore() };
 				break;
+			case DDGoal::ReproduceResult:
+			case DDGoal::None:
+				break;
 			}
+			break;
+		case DDGoal::None:
 			break;
 		}
 		switch (_params->mode) {
@@ -763,6 +768,7 @@ namespace DeltaDebugging
 							StandardGenerateNextLevel();
 						}
 						break;
+					case DDGoal::MaximizeBothScores:
 					case DDGoal::MaximizePrimaryScore:
 						{
 							// find the tests that reproduced the original result and pick the one with the highest primary score
@@ -1205,6 +1211,9 @@ namespace DeltaDebugging
 				}
 			}
 			break;
+		case DDGoal::ReproduceResult:
+		case DDGoal::None:
+			break;
 		}
 
 		// we have found all results, so free all inputs that we do not need anymore
@@ -1538,6 +1547,13 @@ namespace DeltaDebugging
 					static_cast<void>(Buffer::ReadFloat(buffer, offset));
 					((MaximizeSecondaryScore*)_params)->acceptableLossSecondary = Buffer::ReadFloat(buffer, offset);
 					break;
+				case DDGoal::MaximizeBothScores:
+					// shouldn't occur since this wasn't available back then
+					_params = new MaximizeBothScores;
+					_params->minimalSubsetSize = Buffer::ReadInt32(buffer, offset);
+					_params->bypassTests = Buffer::ReadBool(buffer, offset);
+					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
+					((MaximizeBothScores*)_params)->acceptableLossPrimary = Buffer::ReadFloat(buffer, offset);
 				}
 				//memcpy((void*)_params, dat, sz);
 				//delete dat;

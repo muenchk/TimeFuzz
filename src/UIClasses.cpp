@@ -308,6 +308,7 @@ void UIInputInformation::Refresh()
 			_cmdArgs = Lua::GetCmdArgs(std::bind(&Oracle::GetCmdArgs, _sessiondata->_oracle, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), _input->test, stateerror, false);
 		if (_scriptArgs == "" && _sessiondata->_oracle->GetOracletype() == Oracle::PUTType::Script)
 			_input->test->_scriptArgs = Lua::GetScriptArgs(std::bind(&Oracle::GetScriptArgs, _sessiondata->_oracle, std::placeholders::_1, std::placeholders::_2), _input->test, stateerror);
+		_output = _input->test->_output;
 	}
 	// get input list
 	_inputconcat = "";
@@ -334,4 +335,33 @@ void UIInputInformation::Refresh()
 	strncpy(_inputconcatBuf, _inputconcat.c_str(), _inputconcat.size());
 	_inputlistBuf = new char[_inputlist.size()];
 	strncpy(_inputlistBuf, _inputlist.c_str(), _inputlist.size());
+}
+
+
+void UITaskController::Set(std::shared_ptr<TaskController> controller)
+{
+	_controller = controller;
+}
+
+bool UITaskController::Initialized()
+{
+	return _controller.operator bool();
+}
+
+
+std::unordered_map<std::string, int64_t>::iterator UITaskController::beginExecutedTasks()
+{
+	return _controller->BeginExecutedTasks();
+}
+std::unordered_map<std::string, int64_t>::iterator UITaskController::endExecutedTasks()
+{
+	return _controller->EndExecutedTasks();
+}
+void UITaskController::LockExecutedTasks()
+{
+	_controller->LockExecutedTasks();
+}
+void UITaskController::UnlockExecutedTasks()
+{
+	_controller->UnlockExecutedTasks();
 }

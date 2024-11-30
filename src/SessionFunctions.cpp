@@ -221,13 +221,13 @@ bool SessionFunctions::EndCheck(std::shared_ptr<SessionData>& sessiondata)
 	// check whether the recent _input generation is converging and we should abort the program 
 	if (sessiondata->_generatedinputs < (int64_t)sessiondata->GENERATION_WEIGHT_BUFFER_SIZE) {
 		failureRate = (double)std::accumulate(sessiondata->_recentfailes.begin(), sessiondata->_recentfailes.end(), 0) / (double)sessiondata->_generatedinputs;
-		if (failureRate >= sessiondata->GENERATION_WEIGHT_LIMIT)
-			end = true;
+		//if (failureRate >= sessiondata->GENERATION_WEIGHT_LIMIT)
+		//	end = true;
 	}
 	else {
 		failureRate = (double)std::accumulate(sessiondata->_recentfailes.begin(), sessiondata->_recentfailes.end(), 0) / (double)sessiondata->GENERATION_WEIGHT_BUFFER_SIZE;
-		if (failureRate >= sessiondata->GENERATION_WEIGHT_LIMIT)
-			end = true;
+		//if (failureRate >= sessiondata->GENERATION_WEIGHT_LIMIT)
+		//	end = true;
 	}
 
 	sessiondata->_failureRate = failureRate;
@@ -627,6 +627,8 @@ std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDeb
 			params = par;
 		}
 		break;
+	case DeltaDebugging::DDGoal::None:
+		break;
 	}
 	params->mode = mode;
 	params->bypassTests = bypassTests;
@@ -686,6 +688,9 @@ namespace Functions
 		logdebug("[MasterGenerationCallback] generation");
 
 		while (true) {
+			// get readers lock for input generation
+			_sessiondata->Acquire_InputGenerationReadersLock();
+
 			// check whether we need to generate new inputs
 			// the goal is to always a certain number of tests prepared waiting for execution.
 			// Normally this can simply be achieved by adding a new test for each one that finishes,
@@ -701,10 +706,12 @@ namespace Functions
 					generate = _sessiondata->GetNumberInputsToGenerate();
 				}
 				if (generate == 0) {
+					// get readers lock for input generation
+					_sessiondata->Release_InputGenerationReadersLock();
 					return;
 				}
 			}
-
+			
 			int32_t generated = 0;
 
 			std::shared_ptr<Input> input;
@@ -724,7 +731,7 @@ namespace Functions
 			// might have finished in the meantime and we don't want this to become an endless loop
 			// blocking our task executions
 			//_sessiondata->_settings->generation.generationsize > (int64_t)_sessiondata->_exechandler->WaitingTasks() && failcount < (int64_t)_sessiondata->GENERATION_RETRIES && gencount < _sessiondata->_settings->generation.generationstep
-			while (_sessiondata->CheckNumberInputsToGenerate(generated, failcount, generate) > 0 && failcount < (int64_t)_sessiondata->GENERATION_RETRIES) {
+			while (_sessiondata->CheckNumberInputsToGenerate(generated, failcount, generate) > 0 && failcount < (int64_t)_sessiondata->GENERATION_RETRIES && _sessiondata->GetGenerationEnding() == false) {
 				loginfo("[MasterGenerationCallback] inner loop");
 				/*std::mt19937 randan((uint32_t)std::chrono::steady_clock::now().time_since_epoch().count());
 				std::uniform_int_distribution<signed> dist(0, 1);
@@ -741,6 +748,14 @@ namespace Functions
 					auto parent = gen->GetRandomSource();
 					if (parent)
 						input = SessionFunctions::ExtendInput(_sessiondata, parent);
+					else {
+						// check whether the sources of the generation are still valid
+						if (_sessiondata->CheckGenerationEnd(true)) {
+							// release readers lock for input generation
+							_sessiondata->Release_InputGenerationReadersLock();
+							return;
+						}
+					}
 				} else
 					input = SessionFunctions::GenerateInput(_sessiondata);
 				if (input) {
@@ -771,6 +786,9 @@ namespace Functions
 							_sessiondata->data->DeleteForm(input->test);
 						if (input->derive)
 							_sessiondata->data->DeleteForm(input->derive);
+						auto parent = _sessiondata->data->LookupFormID<Input>(input->GetParentID());
+						if (parent)
+							parent->IncDerivedFails();
 						_sessiondata->data->DeleteForm(input);
 						_sessiondata->IncGeneratedWithPrefix();
 						failcount++;
@@ -798,7 +816,14 @@ namespace Functions
 			if (generated != generate)
 				_sessiondata->FailNumberInputsToGenerate(generate - generated, generated);
 
-			if (generated == 0 && (int64_t)_sessiondata->_exechandler->WaitingTasks() == 0 /*generate == _sessiondata->_settings->generation.generationsize */) {
+			if (_sessiondata->GetGenerationEnding()) {
+				profile(TimeProfiling, "Time taken for MasterGenerationCallback");
+				// release readers lock for input generation1
+				_sessiondata->Release_InputGenerationReadersLock();
+				return;
+			}
+
+			if (generated == 0 && failcount >= (int64_t)_sessiondata->GENERATION_RETRIES /*generate == _sessiondata->_settings->generation.generationsize */) {
 				// if we could not generate any new inputs and the number we needed to generate is equal to the maximum generation size (i.e. we don't have any tasks waiting)
 				// we may be in a state where we cannot progress without a new test if there are no tests left currently executed
 				// or waiting to finish
@@ -811,32 +836,25 @@ namespace Functions
 				// check whether we fulfilled our goals and can end the session
 				if (SessionFunctions::EndCheck(_sessiondata) == true) {
 					profile(TimeProfiling, "Time taken for MasterGenerationCallback");
+					// release readers lock for input generation
+					_sessiondata->Release_InputGenerationReadersLock();
 					return;
 				}
 				// check whether the sources of the generation are still valid
-				if (_sessiondata->CheckGenerationEnd())
-				{
+				if (_sessiondata->CheckGenerationEnd(true)) {
+					// release readers lock for input generation
+					_sessiondata->Release_InputGenerationReadersLock();
 					return;
 				}
 			} else {
+				// release readers lock for input generation
+				_sessiondata->Release_InputGenerationReadersLock();
 				return;
-			} /* else {
-				logdebug("[MasterGenerationCallback] add test");
-				// add tests to execution handler
-				for (auto inp : inputs) {
-					auto _callback = dynamic_pointer_cast<Functions::TestCallback>(Functions::TestCallback::Create());
-					_callback->_sessiondata = _sessiondata;
-					_callback->_input = inp;
-					if (_sessiondata->_exechandler->AddTest(inp, _callback) == false) {
-						_sessiondata->IncAddTestFails();
-						_sessiondata->data->DeleteForm(inp);
-						_callback->Dispose();
-					}
-				}
-				return;
-			}*/
+			} 
+			// release readers lock for input generation
+			_sessiondata->Release_InputGenerationReadersLock();
 		}
-		profile(TimeProfiling, "");
+		profile(TimeProfiling, "Time taken for MasterGenerationCallback");
 	}
 
 	
@@ -976,6 +994,13 @@ namespace Functions
 				SessionFunctions::MasterControl(_sessiondata);
 			}
 		} else {
+
+			auto generation = _sessiondata->GetCurrentGeneration();
+			while (generation->GetActiveInputs() > 0 && _sessiondata->_exechandler->WaitingTasks() > 0);
+
+			// get writers lock for input generation
+			_sessiondata->Acquire_InputGenerationWritersLock();
+
 			loginfo("Initializing New Generation");
 			_sessiondata->SetNewGeneration();
 			loginfo("Gather new sources");
@@ -989,9 +1014,13 @@ namespace Functions
 			switch (_sessiondata->_settings->generation.sourcesType) {
 			case Settings::GenerationSourcesType::FilterLength:
 				{
-					auto topk = _sessiondata->GetTopK_Length(_sessiondata->_settings->generation.numberOfSourcesPerGeneration*4);
+					std::vector<std::shared_ptr<Input>> topk;
+					if (_sessiondata->_settings->generation.allowBacktrackFailedInputs)
+						topk = _sessiondata->GetTopK_Length(_sessiondata->_settings->generation.numberOfSourcesPerGeneration * 4, 1, 2 /*cannot backtrack on length 1*/);
+					else
+						topk = _sessiondata->GetTopK_Length_Unfinished(_sessiondata->_settings->generation.numberOfSourcesPerGeneration * 4);
 					for (auto input : topk) {
-						if (_sessiondata->_settings->generation.maxNumberOfFailsPerSource >= input->GetDerivedFails()) {
+						if (_sessiondata->_settings->generation.maxNumberOfFailsPerSource > input->GetDerivedFails() || _sessiondata->_settings->generation.maxNumberOfFailsPerSource == 0) {
 							// check that the length of the source is longer than min backtrack, such that it can be extended in the first place
 							if (input->GetOracleResult() == OracleResult::Unfinished && input->Length() > _sessiondata->_settings->methods.IterativeConstruction_Extension_Backtrack_min ||
 								input->GetOracleResult() == OracleResult::Failing && input->Length() > _sessiondata->_settings->methods.IterativeConstruction_Backtrack_Backtrack_min) {
@@ -1003,7 +1032,7 @@ namespace Functions
 							break;
 					}
 					if ((int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration) {
-						auto vec = _sessiondata->FindKSources(_sessiondata->_settings->generation.numberOfSourcesPerGeneration - (int32_t)sources.size(), std::set<std::shared_ptr<Input>>{ sources.begin(), sources.end() });
+						auto vec = _sessiondata->FindKSources(_sessiondata->_settings->generation.numberOfSourcesPerGeneration - (int32_t)sources.size(), std::set<std::shared_ptr<Input>>{ sources.begin(), sources.end() }, _sessiondata->_settings->generation.allowBacktrackFailedInputs, 1, 2 /*cannot backtrack on length 1*/);
 						for (auto input : vec) {
 							sources.insert(input);
 						}
@@ -1023,10 +1052,10 @@ namespace Functions
 						loginfo("Iteration with fractal: {}, and maxPrimaryScore: {}", frac, max);
 						inputs.clear();
 						// we don't filter for secondary score at this point
-						_sessiondata->GetLastGeneration()->GetAllInputs<InputGainGreaterPrimary>(inputs, true, (max - (max * frac)), 0);
+						_sessiondata->GetLastGeneration()->GetAllInputs<InputGainGreaterPrimary>(inputs, true, (max - (max * frac)), 0, _sessiondata->_settings->generation.allowBacktrackFailedInputs, 1, 2 /*cannot backtrack on length 1*/);
 						auto itr = inputs.begin();
 						while (itr != inputs.end() && (int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration) {
-							if (sources.contains(*itr) == false && _sessiondata->_settings->generation.maxNumberOfFailsPerSource >= (*itr)->GetDerivedFails()) {
+							if (sources.contains(*itr) == false && (_sessiondata->_settings->generation.maxNumberOfFailsPerSource > (*itr)->GetDerivedFails() || _sessiondata->_settings->generation.maxNumberOfFailsPerSource == 0)) {
 								// check that the length of the source is longer than min backtrack, such that it can be extended in the first place
 								if ((*itr)->GetOracleResult() == OracleResult::Unfinished && (*itr)->Length() > _sessiondata->_settings->methods.IterativeConstruction_Extension_Backtrack_min || (*itr)->GetOracleResult() == OracleResult::Failing && (*itr)->Length() > _sessiondata->_settings->methods.IterativeConstruction_Backtrack_Backtrack_min) {
 									sources.insert(*itr);
@@ -1039,7 +1068,7 @@ namespace Functions
 					}
 					if ((int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration)
 					{
-						auto vec = _sessiondata->FindKSources(_sessiondata->_settings->generation.numberOfSourcesPerGeneration - (int32_t)sources.size(), std::set<std::shared_ptr<Input>>{ sources.begin(), sources.end() });
+						auto vec = _sessiondata->FindKSources(_sessiondata->_settings->generation.numberOfSourcesPerGeneration - (int32_t)sources.size(), std::set<std::shared_ptr<Input>>{ sources.begin(), sources.end() }, _sessiondata->_settings->generation.allowBacktrackFailedInputs, 1, 2 /*cannot backtrack on length 1*/);
 						for (auto input : vec)
 						{
 							sources.insert(input);
@@ -1060,10 +1089,10 @@ namespace Functions
 						loginfo("Iteration with fractal: {}, and maxSecondaryScore: {}", frac, max);
 						inputs.clear();
 						// we don't filter for primary score at this point
-						_sessiondata->GetLastGeneration()->GetAllInputs<InputGainGreaterSecondary>(inputs, true, (max - (max * frac)), 0);
+						_sessiondata->GetLastGeneration()->GetAllInputs<InputGainGreaterSecondary>(inputs, true, (max - (max * frac)), 0, _sessiondata->_settings->generation.allowBacktrackFailedInputs, 1, 2 /*cannot backtrack on length 1*/);
 						auto itr = inputs.begin();
 						while (itr != inputs.end() && (int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration) {
-							if (sources.contains(*itr) == false && _sessiondata->_settings->generation.maxNumberOfFailsPerSource >= (*itr)->GetDerivedFails()) {
+							if (sources.contains(*itr) == false && (_sessiondata->_settings->generation.maxNumberOfFailsPerSource > (*itr)->GetDerivedFails() || _sessiondata->_settings->generation.maxNumberOfFailsPerSource == 0)) {
 								// check that the length of the source is longer than min backtrack, such that it can be extended in the first place
 								if ((*itr)->GetOracleResult() == OracleResult::Unfinished && (*itr)->Length() > _sessiondata->_settings->methods.IterativeConstruction_Extension_Backtrack_min || (*itr)->GetOracleResult() == OracleResult::Failing && (*itr)->Length() > _sessiondata->_settings->methods.IterativeConstruction_Backtrack_Backtrack_min) {
 									sources.insert(*itr);
@@ -1075,7 +1104,7 @@ namespace Functions
 						frac += _sessiondata->_settings->dd.optimizationLossThreshold;
 					}
 					if ((int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration) {
-						auto vec = _sessiondata->FindKSources(_sessiondata->_settings->generation.numberOfSourcesPerGeneration - (int32_t)sources.size(), std::set<std::shared_ptr<Input>>{ sources.begin(), sources.end() });
+						auto vec = _sessiondata->FindKSources(_sessiondata->_settings->generation.numberOfSourcesPerGeneration - (int32_t)sources.size(), std::set<std::shared_ptr<Input>>{ sources.begin(), sources.end() }, _sessiondata->_settings->generation.allowBacktrackFailedInputs, 1, 2 /*cannot backtrack on length 1*/);
 						for (auto input : vec) {
 							sources.insert(input);
 						}
@@ -1091,8 +1120,13 @@ namespace Functions
 			gen->SetActive();
 
 			// now we can continue with our generation as normal
-			SessionFunctions::GenerateTests(_sessiondata);
+			int32_t maxtasks = _sessiondata->_controller->GetHeavyThreadCount();
+			for (int32_t i = 0; i < maxtasks; i++)
+				SessionFunctions::GenerateTests(_sessiondata);
 			loginfo("New generation begun.");
+
+			// release writers lock for input generation
+			_sessiondata->Release_InputGenerationWritersLock();
 		}
 	}
 

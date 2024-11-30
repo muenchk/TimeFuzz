@@ -18,6 +18,7 @@
 
 #include "Form.h"
 #include "Function.h"
+#include "UIClasses.h"
 
 class Settings;
 class TaskController;
@@ -88,6 +89,11 @@ public:
 	/// the time of the tests end
 	/// </summary>
 	std::chrono::steady_clock::time_point _endtime;
+
+	/// <summary>
+	/// _runtime variable that defines when an input is considered timeouted
+	/// </summary>
+	std::chrono::steady_clock::time_point _timeouttime;
 	/// <summary>
 	/// the input for the PUT
 	/// </summary>
@@ -96,6 +102,10 @@ public:
 	/// the iterator the to the next sequence element to be given to executable
 	/// </summary>
 	std::list<std::string>::iterator _itr;
+	/// <summary>
+	/// the number of fragments executed
+	/// </summary>
+	int32_t _executed = 0;
 	/// <summary>
 	/// the end iterator of the sequence
 	/// </summary>
@@ -279,6 +289,8 @@ namespace Functions
 		std::shared_ptr<SessionData> _sessiondata;
 		std::shared_ptr<Input> _input;
 
+		~TestCallback();
+
 		void Run() override;
 		static uint64_t GetTypeStatic() { return 'TEST'; }
 		uint64_t GetType() override { return 'TEST'; }
@@ -296,6 +308,8 @@ namespace Functions
 	class ReplayTestCallback : public TestCallback
 	{
 	public:
+		UI::UIInputInformation* _feedback;
+
 		void Run() override;
 		static uint64_t GetTypeStatic() { return 'RTES'; }
 		uint64_t GetType() override { return 'RTES'; }

@@ -162,9 +162,17 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 {
 	StartProfiling;
 
+	auto checkInheritance = [](Data* data, std::shared_ptr<Input> input) {
+		while (input) {
+			auto derive = input->derive;
+			logmessage("{}\t\t{}", Input::PrintForm(input), DerivationTree::PrintForm(derive));
+			input = data->LookupFormID<Input>(input->GetParentID());
+		}
+	};
+
 	FlagHolder inputflag(input, Form::FormFlags::DoNotFree);
-	std::unique_ptr<FlagHolder> parentflag;
-	std::unique_ptr<FlagHolder> parenttreeflag;
+	std::unique_ptr<FlagHolder<Input>> parentflag;
+	std::unique_ptr<FlagHolder<DerivationTree>> parenttreeflag;
 	std::shared_ptr<Grammar> gram = _grammar;
 	if (grammar)
 		gram = grammar;
@@ -193,8 +201,8 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 						input->Unlock();
 						return false;
 					} else {
-						parentflag = std::make_unique<FlagHolder>(parent, Form::FormFlags::DoNotFree);
-						parenttreeflag = std::make_unique<FlagHolder>(parent->derive, Form::FormFlags::DoNotFree);
+						parentflag = std::make_unique<FlagHolder<Input>>(parent, Form::FormFlags::DoNotFree);
+						parenttreeflag = std::make_unique<FlagHolder<DerivationTree>>(parent->derive, Form::FormFlags::DoNotFree);
 					}
 					// we have a valid parent so make sure to generate it if it isn't already so we can generate this input
 					if (parent->GetGenerated() == false) {
@@ -202,7 +210,30 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 						// try the generate it and if it succeeds add the test
 						SessionFunctions::GenerateInput(parent, sessiondata);
 						if (parent->GetGenerated() == false) {
-							logwarn("Cannot generate input as parent input cannot be regenerated");
+							logwarn("Cannot generate input as parent input cannot be regenerated, Parent: {}", Input::PrintForm(parent));
+							checkInheritance(sessiondata->data, parent);
+							SessionFunctions::GenerateInput(parent, sessiondata);
+							profile(TimeProfiling, "Time taken for input Generation");
+							input->derive->Unlock();
+							input->Unlock();
+							return false;
+						}
+					}
+					if (parent->derive->_valid == false) {
+						if (parent->derive->_regenerate) {
+							// we are trying to add an _input that hasn't been generated or regenerated
+							// try the generate it and if it succeeds add the test
+							SessionFunctions::GenerateInput(parent, sessiondata);
+							if (parent->GetGenerated() == false || parent->derive->_valid == false) {
+								logwarn("Cannot generate input as parent input cannot be regenerated, Parent: {}", Input::PrintForm(parent));
+								SessionFunctions::GenerateInput(parent, sessiondata);
+								profile(TimeProfiling, "Time taken for input Generation");
+								input->derive->Unlock();
+								input->Unlock();
+								return false;
+							}
+						} else {
+							logwarn("Cannot generate input as parent input cannot be regenerated, Parent: {}", Input::PrintForm(parent));
 							profile(TimeProfiling, "Time taken for input Generation");
 							input->derive->Unlock();
 							input->Unlock();
@@ -275,7 +306,7 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 				input->Unlock();
 				return false;
 			} else {
-				parentflag = std::make_unique<FlagHolder>(parent, Form::FormFlags::DoNotFree);
+				parentflag = std::make_unique<FlagHolder<Input>>(parent, Form::FormFlags::DoNotFree);
 			}
 			// we have a valid parent so make sure to generate it if it isn't already so we can generate this input
 			if (parent->GetGenerated() == false) {
@@ -283,8 +314,28 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 				// try the generate it and if it succeeds add the test
 				SessionFunctions::GenerateInput(parent, sessiondata);
 				if (parent->GetGenerated() == false) {
-					logwarn("Cannot generate input as parent input cannot be regenerated")
+					logwarn("Cannot generate input as parent input cannot be regenerated, Parent: {}", Input::PrintForm(parent))
 						profile(TimeProfiling, "Time taken for input Generation");
+					input->Unlock();
+					return false;
+				}
+			}
+			if (parent->derive->_valid == false) {
+				if (parent->derive->_regenerate) {
+					// we are trying to add an _input that hasn't been generated or regenerated
+					// try the generate it and if it succeeds add the test
+					SessionFunctions::GenerateInput(parent, sessiondata);
+					if (parent->GetGenerated() == false || parent->derive->_valid == false) {
+						logwarn("Cannot generate input as parent input cannot be regenerated, Parent: {}", Input::PrintForm(parent));
+						profile(TimeProfiling, "Time taken for input Generation");
+						input->derive->Unlock();
+						input->Unlock();
+						return false;
+					}
+				} else {
+					logwarn("Cannot generate input as parent input cannot be regenerated, Parent: {}", Input::PrintForm(parent));
+					profile(TimeProfiling, "Time taken for input Generation");
+					input->derive->Unlock();
 					input->Unlock();
 					return false;
 				}

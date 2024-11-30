@@ -186,7 +186,9 @@ public:
 
 	bool Running() { return _running; }
 
-	void Replay(FormID inputid);
+	bool IsDestroyed() { return _destroyed; }
+
+	void Replay(FormID inputid, UI::UIInputInformation* feedback);
 
 	void UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k);
 
@@ -253,7 +255,23 @@ public:
 	/// <returns></returns>
 	ExecHandlerStatus UI_GetExecHandlerStatus();
 
+	/// <summary>
+	/// 
+	/// </summary>
+	/// <param name="hashmapSize"></param>
 	void UI_GetHashmapInformation(size_t& hashmapSize);
+
+	/// <summary>
+	/// returns a ui object encapusling the taskcontroller
+	/// </summary>
+	/// <param name="controller"></param>
+	void UI_GetTaskController(UI::UITaskController& controller);
+
+	void UI_CheckForAlternatives();
+
+	void PauseSession();
+
+	void ResumeSession();
 
 	/// <summary>
 	/// Returns a string with information about the session
@@ -311,6 +329,16 @@ private:
 	/// </summary>
 	bool _running = false;
 	std::mutex _runninglock;
+
+	/// <summary>
+	/// whether the session has been successfully destroyed
+	/// </summary>
+	bool _destroyed = false;
+
+	/// <summary>
+	/// whether the the session is currently paused
+	/// </summary>
+	bool _paused = false;
 
 	/// <summary>
 	/// returns whether the session is running
