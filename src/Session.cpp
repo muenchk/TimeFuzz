@@ -161,6 +161,7 @@ Session::~Session()
 
 void Session::Clear()
 {
+	Form::ClearForm();
 	_abort = true;
 	if (_sessioncontroller.joinable())
 		_sessioncontroller.detach();
@@ -763,6 +764,12 @@ void Session::Delete(Data*)
 	Clear();
 }
 
+size_t Session::MemorySize()
+{
+	return sizeof(Session);
+}
+
+
 void Session::Replay(FormID inputid, UI::UIInputInformation* feedback)
 {
 	auto input = data->LookupFormID<Input>(inputid);
@@ -980,4 +987,96 @@ void Session::ResumeSession()
 	if (_sessiondata->_exechandler->IsFrozen())
 		_sessiondata->_exechandler->Thaw();
 	_paused = false;
+}
+
+void Session::UI_GetDatabaseObjectStatus()
+{
+	int64_t freedObjects = 0, fullObjects = 0;
+	Data::SaveStats stats, nums;
+	std::function<Data::VisitAction(std::shared_ptr<Form>)> report = [&freedObjects, &fullObjects, &stats, &nums](std::shared_ptr<Form> form) {
+		if (form->Freed())
+			freedObjects++;
+		else
+			fullObjects++;
+		switch (form->GetType()) {
+		case FormType::Input:
+			stats._Input += form->MemorySize();
+			nums._Input ++;
+			break;
+		case FormType::Grammar:
+			stats._Grammar += form->MemorySize();
+			nums._Grammar++;
+			break;
+		case FormType::DevTree:
+			stats._DevTree += form->MemorySize();
+			nums._DevTree++;
+			break;
+		case FormType::ExclTree:
+			stats._ExclTree += form->MemorySize();
+			nums._ExclTree++;
+			break;
+		case FormType::Generator:
+			stats._Generator += form->MemorySize();
+			nums._Generator++;
+			break;
+		case FormType::Generation:
+			stats._Generation += form->MemorySize();
+			nums._Generation++;
+			break;
+		case FormType::Session:
+			stats._Session += form->MemorySize();
+			nums._Session++;
+			break;
+		case FormType::Settings:
+			stats._Settings += form->MemorySize();
+			nums._Settings++;
+			break;
+		case FormType::Test:
+			stats._Test += form->MemorySize();
+			nums._Test++;
+			break;
+		case FormType::TaskController:
+			stats._TaskController += form->MemorySize();
+			nums._TaskController++;
+			break;
+		case FormType::ExecutionHandler:
+			stats._ExecutionHandler += form->MemorySize();
+			nums._ExecutionHandler++;
+			break;
+		case FormType::Oracle:
+			stats._Oracle += form->MemorySize();
+			nums._Oracle++;
+			break;
+		case FormType::SessionData:
+			stats._SessionData += form->MemorySize();
+			nums._SessionData++;
+			break;
+		case FormType::DeltaController:
+			stats._DeltaController += form->MemorySize();
+			nums._DeltaController++;
+			break;
+		}
+		stats._Fail += form->MemorySize();
+		return Data::VisitAction::None;
+	};
+	if (!_loaded)
+		return;
+	data->Visit(report);
+	logmessage("Database Status:");
+	logmessage("Freed Objects:               {}", freedObjects);
+	logmessage("Full Objects:                {}", fullObjects);
+	logmessage("Size of Input:              {:>10}, {:>15} B, {:2.3f}%%", nums._Input, stats._Input, (double)stats._Input * 100 / (double)stats._Fail);
+	logmessage("Size of Grammar:            {:>10}, {:>15} B, {:2.3f}%%", nums._Grammar, stats._Grammar, (double)stats._Grammar * 100 / (double)stats._Fail);
+	logmessage("Size of DevTree:            {:>10}, {:>15} B, {:2.3f}%%", nums._DevTree, stats._DevTree, (double)stats._DevTree * 100 / (double)stats._Fail);
+	logmessage("Size of ExclTree:           {:>10}, {:>15} B, {:2.3f}%%", nums._ExclTree, stats._ExclTree, (double)stats._ExclTree * 100 / (double)stats._Fail);
+	logmessage("Size of Generator:          {:>10}, {:>15} B, {:2.3f}%%", nums._Generator, stats._Generator, (double)stats._Generator * 100 / (double)stats._Fail);
+	logmessage("Size of Generation:         {:>10}, {:>15} B, {:2.3f}%%", nums._Generation, stats._Generation, (double)stats._Generation * 100 / (double)stats._Fail);
+	logmessage("Size of Session:            {:>10}, {:>15} B, {:2.3f}%%", nums._Session, stats._Session, (double)stats._Session * 100 / (double)stats._Fail);
+	logmessage("Size of Settings:           {:>10}, {:>15} B, {:2.3f}%%", nums._Settings, stats._Settings, (double)stats._Settings * 100 / (double)stats._Fail);
+	logmessage("Size of Test:               {:>10}, {:>15} B, {:2.3f}%%", nums._Test, stats._Test, (double)stats._Test * 100 / (double)stats._Fail);
+	logmessage("Size of TaskController:     {:>10}, {:>15} B, {:2.3f}%%", nums._TaskController, stats._TaskController, (double)stats._TaskController * 100 / (double)stats._Fail);
+	logmessage("Size of ExecutionHandler:   {:>10}, {:>15} B, {:2.3f}%%", nums._ExecutionHandler, stats._ExecutionHandler, (double)stats._ExecutionHandler * 100 / (double)stats._Fail);
+	logmessage("Size of Oracle:             {:>10}, {:>15} B, {:2.3f}%%", nums._Oracle, stats._Oracle, (double)stats._Oracle * 100 / (double)stats._Fail);
+	logmessage("Size of SessionData:        {:>10}, {:>15} B, {:2.3f}%%", nums._SessionData, stats._SessionData, (double)stats._SessionData * 100 / (double)stats._Fail);
+	logmessage("Size of DeltaController:    {:>10}, {:>15} B, {:2.3f}%%", nums._DeltaController, stats._DeltaController, (double)stats._DeltaController * 100 / (double)stats._Fail);
 }

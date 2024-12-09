@@ -329,16 +329,22 @@ size_t Generation::GetNumberOfDDControllers()
 void Generation::SetActive()
 {
 	for (size_t i = 0; i < _sources.size(); i++) {
-		if (_sources[i])
+		if (_sources[i]) {
 			_sources[i]->SetFlag(Form::FormFlags::DoNotFree);
+			if (_sources[i]->derive)
+				_sources[i]->derive->SetFlag(Form::FormFlags::DoNotFree);
+		}
 	}
 }
 
 void Generation::SetInactive()
 {
 	for (size_t i = 0; i < _sources.size(); i++) {
-		if (_sources[i])
+		if (_sources[i]) {
 			_sources[i]->UnsetFlag(Form::FormFlags::DoNotFree);
+			if (_sources[i]->derive)
+				_sources[i]->derive->UnsetFlag(Form::FormFlags::DoNotFree);
+		}
 	}
 }
 
@@ -503,7 +509,21 @@ void Generation::Delete(Data*)
 
 void Generation::Clear()
 {
-
+	Form::ClearForm();
+	_size = 0;
+	_generatedSize = 0;
+	_ddSize = 0;
+	_targetSize = 0;
+	_maxSimultaneousGeneration = 0;
+	_maxDerivedFailingInputs = 0;
+	_activeInputs = 0;
+	_generatedInputs.clear();
+	_ddInputs.clear();
+	_ddControllers.clear();
+	_sources.clear();
+	_sourcesIter = _sources.end();
+	_sourcesDistr = std::uniform_int_distribution<signed>(0, 0);
+	_generationNumber = 0;
 }
 
 void Generation::RegisterFactories()
@@ -512,4 +532,10 @@ void Generation::RegisterFactories()
 		_registeredFactories = true;
 	}
 }
+
+size_t Generation::MemorySize()
+{
+	return sizeof(Generation) + _sources.size() * sizeof(std::shared_ptr<Input>) + _ddControllers.size() * sizeof(std::pair<FormID, std::shared_ptr<DeltaDebugging::DeltaController>>) + _ddInputs.size() * sizeof(std::pair<FormID, std::shared_ptr<Input>>) + _generatedInputs.size() * sizeof(std::pair<FormID, std::shared_ptr<Input>>);
+}
+
 #pragma endregion

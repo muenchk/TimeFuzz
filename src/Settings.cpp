@@ -663,6 +663,7 @@ void Settings::Delete(Data*)
 
 void Settings::Clear()
 {
+	Form::ClearForm();
 
 }
 
@@ -671,4 +672,9 @@ void Settings::RegisterFactories()
 	if (!_registeredFactories) {
 		_registeredFactories = !_registeredFactories;
 	}
+}
+
+size_t Settings::MemorySize()
+{
+	return sizeof(Settings);
 }

@@ -228,7 +228,13 @@ namespace DeltaDebugging
 		void Delete(Data* data) override;
 		static void RegisterFactories();
 		static int32_t GetTypeStatic() { return FormType::DeltaController; }
-		virtual int32_t GetType() { return FormType::DeltaController; }
+		int32_t GetType() override { return FormType::DeltaController; }
+		size_t MemorySize() override;
+
+		/// <summary>
+		/// Clears all internals
+		/// </summary>
+		void Clear();
 
 	private:
 		const int32_t classversion = 0x2;
@@ -356,11 +362,6 @@ namespace DeltaDebugging
 		/// Level of the dd-algorithm. This is a progress variable used differently by the different algorithms
 		/// </summary>
 		int32_t _level = 2;
-
-		/// <summary>
-		/// Clears all internals
-		/// </summary>
-		void Clear();
 	};
 }
 

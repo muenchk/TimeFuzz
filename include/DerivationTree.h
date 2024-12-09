@@ -2,6 +2,7 @@
 
 #include "Form.h"
 #include "Utility.h"
+#include "Logging.h"
 
 #include <string>
 #include <vector>
@@ -13,6 +14,8 @@ class DerivationTree : public Form
 
 private:
 	const int32_t classversion = 0x2;
+
+	bool _regenerate = false;
 
 	void ClearInternal();
 
@@ -53,7 +56,30 @@ public:
 				for (size_t x = 0; x < cnodes.size(); x++)
 					nodes[begin + x] = cnodes[x];
 			}
+			nodes.push_back(tmp);
 			return { tmp, nodes };
+		}
+
+		bool AddChild(Node* node)
+		{
+			if (node == nullptr) {
+				logcritical("Trying to add nullptr to DevTree::NonTerminalNode");
+				return false;
+			} else {
+				_children.push_back(node);
+				return true;
+			}
+		}
+
+		bool SetChild(size_t pos, Node* node)
+		{
+			if (node == nullptr) {
+				logcritical("Trying to add nullptr to DevTree::NonTerminalNode");
+				return false;
+			} else {
+				_children[pos] = node;
+				return true;
+			}
 		}
 	};
 
@@ -93,6 +119,7 @@ public:
 				for (size_t x = 0; x < cnodes.size(); x++)
 					nodes[begin + x] = cnodes[x];
 			}
+			nodes.push_back(tmp);
 			return { tmp, nodes };
 		}
 	};
@@ -142,13 +169,15 @@ public:
 	Node* _root;
 	FormID _grammarID;
 	bool _valid = false;
-	bool _regenerate = false;
 	uint32_t _seed = 0;
 	int32_t _targetlen = 0;
 	std::set<Node*> _nodes;
 	int64_t _sequenceNodes = 0;
 	ParentTree _parent;
 	FormID _inputID = 0;
+
+	void SetRegenerate(bool vaue);
+	bool GetRegenerate();
 
 	void Parse(std::string);
 
@@ -182,6 +211,12 @@ public:
 	static void RegisterFactories();
 
 	void FreeMemory() override;
+	/// <summary>
+	/// returns whether the memmory of this form has been freed
+	/// </summary>
+	/// <returns></returns>
+	bool Freed() override;
+	size_t MemorySize() override;
 
 	#pragma endregion
 };

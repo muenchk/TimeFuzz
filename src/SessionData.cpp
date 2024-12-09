@@ -31,6 +31,7 @@ SessionData::~SessionData()
 
 void SessionData::Clear()
 {
+	Form::ClearForm();
 	// don't clear this class, our main session class will do this,
 	// so we have the opportunity to properly clear up threads etc.
 }
@@ -399,7 +400,6 @@ void SessionData::SetNewGeneration()
 		if (oldgen) {
 			newgen->SetGenerationNumber(oldgen->GetGenerationNumber() + 1);  // increment generation
 			_lastGenerationID = oldgen->GetFormID();
-			oldgen->SetInactive();
 		}
 		else
 			newgen->SetGenerationNumber(1);  // first generation
@@ -732,6 +732,11 @@ void SessionData::RegisterFactories()
 		Functions::RegisterFactory(Functions::GenerationEndCallback::GetTypeStatic(), Functions::GenerationEndCallback::Create);
 		Functions::RegisterFactory(Functions::GenerationFinishedCallback::GetTypeStatic(), Functions::GenerationFinishedCallback::Create);
 	}
+}
+
+size_t SessionData::MemorySize()
+{
+	return sizeof(SessionData) + sizeof(boost::circular_buffer<unsigned char>) + sizeof(unsigned char) * GENERATION_WEIGHT_BUFFER_SIZE + sizeof(std::pair<FormID, std::shared_ptr<Generation>>) * _generations.size() + sizeof(std::pair<std::shared_ptr<InputNode>, InputNodeLess>) * 600 + sizeof(InputNode) * (_negativeInputs.size() + _unfinishedInputs.size()) + sizeof(FormID) * (_undefinedInputs.size() + _positiveInputs.size());
 }
 
 #pragma endregion

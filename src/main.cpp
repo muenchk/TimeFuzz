@@ -727,6 +727,10 @@ int32_t main(int32_t argc, char** argv)
 							std::thread th(std::bind(&Session::UI_CheckForAlternatives, session));
 							th.detach();
 						}
+						if (ImGui::SmallButton("Report Object Status")) {
+							std::thread th(std::bind(&Session::UI_GetDatabaseObjectStatus, session));
+							th.detach();
+						}
 					} else {
 						ImGui::Text("Not available");
 					}

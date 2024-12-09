@@ -58,6 +58,7 @@ void ExecutionHandler::SetEnableFragments(bool enable)
 
 void ExecutionHandler::Clear()
 {
+	Form::ClearForm();
 	_cleared = true;
 	while (!_waitingTests.empty())
 	{
@@ -80,6 +81,9 @@ void ExecutionHandler::Clear()
 		}
 	}
 	_runningTests.clear();
+	_handleTests.clear();
+	while (_startingTests.size() > 0)
+		_startingTests.pop();
 	for (auto test : _stoppingTests)
 	{
 		StopTest(test);
@@ -789,7 +793,7 @@ TestRunning:;
 ExitHandler:
 	// mark thread as inactive
 	{
-		logdebug("Exiting thread");
+		loginfo("Exiting thread");
 		std::unique_lock<std::mutex> guard(_toplevelsync);
 		if (!_active) {
 			logcritical("ExecutionHandler is marked as finished, before actually finishing");

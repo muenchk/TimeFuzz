@@ -1415,6 +1415,11 @@ bool GrammarTree::CheckForSequenceSimplicityAndSimplify()
 		return false;
 }
 
+size_t GrammarTree::MemorySize()
+{
+	return sizeof(GrammarTree) + _nonterminals.size() * sizeof(std::shared_ptr<GrammarNode>) + _terminals.size() * sizeof(std::shared_ptr<GrammarNode>) + _hashmap.size() * sizeof(std::pair<uint64_t, std::shared_ptr<GrammarNode>>) + _hashmap_expansions.size() * sizeof(std::pair<uint64_t, std::shared_ptr<GrammarExpansion>>) + _ruleorder.size() * sizeof(uint64_t) + _hashmap_parsenodes.size() * sizeof(uint64_t);
+}
+
 void Grammar::ParseScala(std::filesystem::path path)
 {
 	StartProfiling;
@@ -1587,7 +1592,7 @@ void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<Der
 		if (segments.size() == 1)
 			return ExtractEarley(stree, dtree, segments[0].first, segments[0].second, stop, complement);
 		else
-			logcritical("Multiple segements aren't supported for complex grammars at the moment");
+			logcritical("Multiple segments aren't supported for complex grammars at the moment");
 	}
 	else
 	{
@@ -1623,6 +1628,10 @@ void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<Der
 				if (tmp->_children[i]->Type() != DerivationTree::NodeType::Terminal)
 					stacks.push((DerivationTree::NonTerminalNode*)(tmp->_children[i]));
 			}
+		}
+		if ((int64_t)seqnodes.size() != stree->_sequenceNodes) {
+			logwarn("Danger");
+			return;
 		}
 		// sequence nodes are in order
 
@@ -1680,13 +1689,14 @@ void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<Der
 				droot->_children.resize(targetnodes.size());
 				for (size_t c = 0; c < targetnodes.size(); c++) {
 					//auto [cnode, cnodes] = targetnodes[c]->CopyRecursive();
-					droot->_children[c] = targetnodes[c];
+					//droot->_children[c] = targetnodes[c];
+					droot->SetChild(c, targetnodes[c]);
 					for (auto x : targetnodesvec[c])
 						dtree->_nodes.insert(x);
 				}
 
 				dtree->_valid = true;
-				dtree->_regenerate = true;
+				dtree->SetRegenerate(true);
 				dtree->_sequenceNodes = (int64_t)targetnodes.size();
 			} else
 				logwarn("Something wrong in simple extraction");
@@ -1756,7 +1766,7 @@ void Grammar::ExtractEarley(std::shared_ptr<DerivationTree> stree, std::shared_p
 	if (forest->size() < 1) {
 		// there is no valid derivation, so set dest tree to invalid and return
 		dtree->_valid = false;
-		dtree->_regenerate = false;
+		dtree->SetRegenerate(false);
 		return;
 	}
 
@@ -1790,7 +1800,7 @@ void Grammar::ExtractEarley(std::shared_ptr<DerivationTree> stree, std::shared_p
 			dnode->_grammarID = targetnodes[targetnodesIndex]->_grammarID;
 			for (auto child : targetnodes[targetnodesIndex]->_children) {
 				auto [cnode, cnodes] = child->CopyRecursive();
-				dnode->_children.push_back(cnode);
+				dnode->AddChild(cnode);
 				// not available in linux (barf)
 				//dtree->_nodes.insert_range(cnodes);
 				for (auto x : cnodes)
@@ -1812,7 +1822,8 @@ void Grammar::ExtractEarley(std::shared_ptr<DerivationTree> stree, std::shared_p
 					ntmp = new DerivationTree::NonTerminalNode();
 				ntmp->_grammarID = children[i]->getGrammarElement()->_id;
 				dtree->_nodes.insert(ntmp);
-				dnode->_children[i] = (ntmp);
+				dnode->SetChild(i, ntmp);
+				//dnode->_children[i] = (ntmp);
 				stack.push({ children.at(i), ntmp });
 			}
 		}
@@ -1820,10 +1831,10 @@ void Grammar::ExtractEarley(std::shared_ptr<DerivationTree> stree, std::shared_p
 	if (targetnodesIndex == (int64_t)targetnodes.size()) {
 		//dtree->_sequenceNodes = (int64_t)targetnodes.size();
 		dtree->_valid = true;
-		dtree->_regenerate = true;
+		dtree->SetRegenerate(true);
 	} else {
 		dtree->_valid = false;
-		dtree->_regenerate = false;
+		dtree->SetRegenerate(false);
 	}
 	profile(TimeProfiling, "Time taken for extraction of length: {}, form length: {}", dtree->_sequenceNodes, stree->_sequenceNodes);
 }
@@ -1878,7 +1889,7 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t targetlength
 	DeriveFromNode(dtree, qnonterminals, qseqnonterminals, randan, seq);
 	
 	dtree->_valid = true;
-	dtree->_regenerate = true;
+	dtree->SetRegenerate(true);
 	dtree->_sequenceNodes = seq;
 
 	profile(TimeProfiling, "Time taken for derivation of length: {}", dtree->_sequenceNodes);
@@ -1989,7 +2000,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 						dtree->_nodes.insert(tnnode);
 						dtree->_sequenceNodes++;
 						tnnode->_grammarID = regex->_node->_id;
-						nnode->_children.push_back(tnnode);
+						nnode->AddChild(tnnode);
 						if (regex->_node->_flags & GrammarNode::NodeFlags::ProduceSequence)
 							qseqnonterminals.push_back({ tnnode, regex->_node });
 						else
@@ -1999,7 +2010,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 						tnnode = new DerivationTree::NonTerminalNode;
 						dtree->_nodes.insert(tnnode);
 						tnnode->_grammarID = regex->_node->_id;
-						nnode->_children.push_back(tnnode);
+						nnode->AddChild(tnnode);
 						if (regex->_node->_flags & GrammarNode::NodeFlags::ProduceSequence)
 							qseqnonterminals.push_back({ tnnode, regex->_node });
 						else
@@ -2011,7 +2022,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 						dtree->_nodes.insert(ttnode);
 						ttnode->_grammarID = regex->_node->_id;
 						ttnode->_content = regex->_node->_identifier;
-						nnode->_children.push_back(ttnode);
+						nnode->AddChild(ttnode);
 						break;
 					}
 				}
@@ -2024,7 +2035,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 						dtree->_nodes.insert(tnnode);
 						dtree->_sequenceNodes++;
 						tnnode->_grammarID = gexp->_nodes[i]->_id;
-						nnode->_children.push_back(tnnode);
+						nnode->AddChild(tnnode);
 						if (gexp->_nodes[i]->_flags & GrammarNode::NodeFlags::ProduceSequence)
 							qseqnonterminals.push_back({ tnnode, gexp->_nodes[i] });
 						else
@@ -2034,7 +2045,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 						tnnode = new DerivationTree::NonTerminalNode;
 						dtree->_nodes.insert(tnnode);
 						tnnode->_grammarID = gexp->_nodes[i]->_id;
-						nnode->_children.push_back(tnnode);
+						nnode->AddChild(tnnode);
 						if (gexp->_nodes[i]->_flags & GrammarNode::NodeFlags::ProduceSequence)
 							qseqnonterminals.push_back({ tnnode, gexp->_nodes[i] });
 						else
@@ -2046,7 +2057,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 						dtree->_nodes.insert(ttnode);
 						ttnode->_grammarID = gexp->_nodes[i]->_id;
 						ttnode->_content = gexp->_nodes[i]->_identifier;
-						nnode->_children.push_back(ttnode);
+						nnode->AddChild(ttnode);
 						break;
 					}
 				}
@@ -2121,14 +2132,14 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 				dtree->_nodes.insert(tnnode);
 				dtree->_sequenceNodes++;
 				tnnode->_grammarID = gexp->_nodes[i]->_id;
-				nnode->_children.push_back(tnnode);
+				nnode->AddChild(tnnode);
 				qnonterminals.push_back({ tnnode, gexp->_nodes[i] });
 				break;
 			case GrammarNode::NodeType::NonTerminal:
 				tnnode = new DerivationTree::NonTerminalNode;
 				dtree->_nodes.insert(tnnode);
 				tnnode->_grammarID = gexp->_nodes[i]->_id;
-				nnode->_children.push_back(tnnode);
+				nnode->AddChild(tnnode);
 				qnonterminals.push_back({ tnnode, gexp->_nodes[i] });
 				break;
 			case GrammarNode::NodeType::Terminal:
@@ -2137,7 +2148,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 				dtree->_nodes.insert(ttnode);
 				ttnode->_grammarID = gexp->_nodes[i]->_id;
 				ttnode->_content = gexp->_nodes[i]->_identifier;
-				nnode->_children.push_back(ttnode);
+				nnode->AddChild(ttnode);
 				break;
 			}
 		}
@@ -2184,14 +2195,14 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 				dtree->_nodes.insert(tnnode);
 				dtree->_sequenceNodes++;
 				tnnode->_grammarID = gexp->_nodes[i]->_id;
-				nnode->_children.push_back(tnnode);
+				nnode->AddChild(tnnode);
 				qnonterminals.push_back({ tnnode, gexp->_nodes[i] });
 				break;
 			case GrammarNode::NodeType::NonTerminal:
 				tnnode = new DerivationTree::NonTerminalNode;
 				dtree->_nodes.insert(tnnode);
 				tnnode->_grammarID = gexp->_nodes[i]->_id;
-				nnode->_children.push_back(tnnode);
+				nnode->AddChild(tnnode);
 				qnonterminals.push_back({ tnnode, gexp->_nodes[i] });
 				break;
 			case GrammarNode::NodeType::Terminal:
@@ -2200,7 +2211,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 				dtree->_nodes.insert(tnnode);
 				ttnode->_grammarID = gexp->_nodes[i]->_id;
 				ttnode->_content = gexp->_nodes[i]->_identifier;
-				nnode->_children.push_back(ttnode);
+				nnode->AddChild(ttnode);
 				break;
 			}
 		}
@@ -2258,12 +2269,16 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 			return;
 		std::vector<std::pair<int64_t, int64_t>> segments = { { 0, sinput->GetTrimmedLength() - trackback } };
 		Extract(sinput->derive, dtree, segments, sinput->Length(), false);
+		if (dtree->_valid == false)
+			return;
 	} else if (trackback > 0) {
 		// nothing to extract and then extend
 		if (sinput->Length() - trackback < 1)
 			return;
 		std::vector<std::pair<int64_t, int64_t>> segments = { { 0, sinput->Length() - trackback } };
 		Extract(sinput->derive, dtree, segments, sinput->Length(), false);
+		if (dtree->_valid == false)
+			return;
 	}
 	else if (trackback == 0)
 	{
@@ -2297,14 +2312,14 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 				case DerivationTree::NodeType::NonTerminal:
 					tnnode = new DerivationTree::NonTerminalNode;
 					tnnode->_grammarID = ((DerivationTree::NonTerminalNode*)snode->_children[i])->_grammarID;
-					dnode->_children.push_back(tnnode);
+					dnode->AddChild(tnnode);
 					dtree->_nodes.insert(tnnode);
 					nodestack.push({ tnnode, (DerivationTree::NonTerminalNode*)snode->_children[i] });
 					break;
 				case DerivationTree::NodeType::Sequence:
 					tnnode = new DerivationTree::SequenceNode;
 					tnnode->_grammarID = ((DerivationTree::SequenceNode*)snode->_children[i])->_grammarID;
-					dnode->_children.push_back(tnnode);
+					dnode->AddChild(tnnode);
 					dtree->_nodes.insert(tnnode);
 					dtree->_sequenceNodes++;
 					nodestack.push({ tnnode, (DerivationTree::SequenceNode*)snode->_children[i] });
@@ -2313,7 +2328,7 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 					ttnode = new DerivationTree::TerminalNode;
 					ttnode->_grammarID = ((DerivationTree::TerminalNode*)snode->_children[i])->_grammarID;
 					ttnode->_content = ((DerivationTree::TerminalNode*)snode->_children[i])->_content;
-					dnode->_children.push_back(ttnode);
+					dnode->AddChild(ttnode);
 					dtree->_nodes.insert(ttnode);
 					break;
 				}
@@ -2469,7 +2484,7 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 	DeriveFromNode(dtree, qnonterminals, qseqnonterminals, randan, seq);
 
 	dtree->_valid = true;
-	dtree->_regenerate = true;
+	dtree->SetRegenerate(true);
 	dtree->_parent.method = DerivationTree::ParentTree::Method::Extension;
 
 	profile(TimeProfiling, "Time taken for extension of length: {}", dtree->_sequenceNodes - sinput->Length());
@@ -2478,6 +2493,7 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 
 void Grammar::Clear()
 {
+	Form::ClearForm();
 	// remove tree shared_ptr so that grammar isn't valid anymore
 	std::shared_ptr tr = _tree;
 	_tree.reset();
@@ -2486,6 +2502,16 @@ void Grammar::Clear()
 		tr->Clear();
 		tr.reset();
 	}
+	tr = _treeParse;
+	_treeParse.reset();
+	if (tr) {
+		tr->Clear();
+		tr.reset();
+	}
+	_extension_min = 0;
+	_extension_max = 0;
+	_backtrack_min = 0;
+	_backtrack_max = 0;
 }
 
 void Grammar::RegisterFactories()
@@ -2759,6 +2785,11 @@ bool Grammar::ReadData(std::istream* buffer, size_t& offset, size_t length, Load
 void Grammar::Delete(Data*)
 {
 	Clear();
+}
+
+size_t Grammar::MemorySize()
+{
+	return sizeof(Grammar) + (_tree ? _tree->MemorySize() : 0) + (_treeParse ? _treeParse->MemorySize() : 0);
 }
 
 

@@ -67,6 +67,13 @@ std::shared_ptr<Input> SessionFunctions::ExtendInput(std::shared_ptr<SessionData
 		sessiondata->data->DeleteForm(input);
 		return {};
 	}
+	if (input->derive->GetRegenerate() == false)
+	{
+		sessiondata->data->DeleteForm(input->derive);
+		input->derive.reset();
+		sessiondata->data->DeleteForm(input);
+		return {};
+	}
 	loginfo("[GenerateInput] setup");
 	// setup _input class
 	input->_hasfinished = false;
@@ -474,6 +481,11 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 		logwarn("Input has neither test nor derivationtree");
 		return;
 	}
+	if (input->derive->GetRegenerate() == false)
+	{
+		logwarn("Regeneration of Dev Tree is not possible.");
+		return;
+	}
 
 	// check _input result
 	switch (input->GetOracleResult()) {
@@ -758,8 +770,8 @@ namespace Functions
 					}
 				} else
 					input = SessionFunctions::GenerateInput(_sessiondata);
-				if (input) {
-					if (input->derive->_regenerate == false) {
+				if (input && input->derive) {
+					if (input->derive->GetRegenerate() == false) {
 						logcritical("Generated non-regeneratable input");
 					}
 					// set input generation time
@@ -1121,6 +1133,7 @@ namespace Functions
 			for (auto input : sources)
 				gen->AddSource(input);
 			gen->SetActive();
+			generation->SetInactive();
 
 			// now we can continue with our generation as normal
 			int32_t maxtasks = _sessiondata->_controller->GetHeavyThreadCount();

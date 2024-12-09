@@ -490,6 +490,7 @@ public:
 	}
 	void Delete(Data*) override { Clear(); }
 	static void RegisterFactories();
+	size_t MemorySize() override;
 
 	#pragma endregion
 };

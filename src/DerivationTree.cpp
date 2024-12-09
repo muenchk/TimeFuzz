@@ -133,7 +133,7 @@ void DerivationTree::ClearInternal()
 		return;
 	auto itr = _nodes.begin();
 	int count = 0;
-	while (itr != _nodes.end()) {
+	/* while (itr != _nodes.end()) {
 		switch ((*itr)->Type()) {
 		case NodeType::Terminal:
 			{
@@ -156,8 +156,46 @@ void DerivationTree::ClearInternal()
 		}
 		count++;
 		itr++;
+	}*/
+	std::stack<Node*> stack;
+	stack.push(_root);
+	while (stack.size() > 0)
+	{
+		auto node = stack.top();
+		stack.pop();
+		switch (node->Type()) {
+		case NodeType::Terminal:
+			{
+				TerminalNode* n = (TerminalNode*)node;
+				delete n;
+			}
+			break;
+		case NodeType::NonTerminal:
+			{
+				NonTerminalNode* n = (NonTerminalNode*)node;
+				for (auto child : n->_children)
+					stack.push(child);
+				delete n;
+			}
+			break;
+		case NodeType::Sequence:
+			{
+				SequenceNode* n = (SequenceNode*)node;
+				for (auto child : n->_children)
+					stack.push(child);
+				delete n;
+			}
+			break;
+		}
 	}
 	_nodes.clear();
+	//_grammarID = 0;
+	//_valid = false;
+	//_seed = 0;
+	//_targetlen = 0;
+	//_sequenceNodes = 0;
+	//_parent = {};
+	//_inputID = 0;
 	_root = nullptr;
 }
 
@@ -170,6 +208,7 @@ void DerivationTree::Clear()
 {
 	Lock();
 	ClearInternal();
+	Form::ClearForm();
 	Unlock();
 }
 
@@ -189,4 +228,30 @@ void DerivationTree::FreeMemory()
 		}
 		Form::Unlock();
 	}
+}
+
+bool DerivationTree::Freed()
+{
+	if (_nodes.size() == 0)
+		return true;
+	return false;
+}
+
+void DerivationTree::SetRegenerate(bool value)
+{
+	if (value == false)
+		logwarn("warn");
+	_regenerate = value;
+}
+
+bool DerivationTree::GetRegenerate()
+{
+	return _regenerate;
+}
+
+size_t DerivationTree::MemorySize()
+{
+	if (_nodes.size() > 0)
+		logdebug("haha");
+	return sizeof(DerivationTree) + sizeof(std::pair<int64_t, int64_t>) * _parent.segments.size() + (8 + 8 + sizeof(NonTerminalNode)) * _nodes.size();
 }

@@ -111,6 +111,7 @@ public:
 	void Clear() override;
 	inline static bool _registeredFactories = false;
 	static void RegisterFactories();
+	size_t MemorySize() override;
 
 	int64_t GetDepth();
 	uint64_t GetNodeCount();

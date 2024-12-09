@@ -100,6 +100,10 @@ public:
 	/// <returns></returns>
 	virtual bool CanDelete(Data* data);
 	/// <summary>
+	/// clear form internals
+	/// </summary>
+	void ClearForm();
+	/// <summary>
 	/// Clears all internals
 	/// </summary>
 	virtual void Clear() = 0;
@@ -128,6 +132,16 @@ public:
 	/// Attempts to release as much memory as possible
 	/// </summary>
 	virtual void FreeMemory();
+	/// <summary>
+	/// returns whether the memory of this form has been freed
+	/// </summary>
+	/// <returns></returns>
+	virtual bool Freed();
+	/// <summary>
+	/// returns an estimation of the memory used by this class
+	/// </summary>
+	/// <returns></returns>
+	virtual size_t MemorySize();
 
 	/// <summary>
 	/// Acquires a writers lock on the instance

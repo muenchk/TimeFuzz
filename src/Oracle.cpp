@@ -444,6 +444,7 @@ void Oracle::Delete(Data*)
 
 void Oracle::Clear()
 {
+	Form::ClearForm();
 	_luaOracleStr = "";
 	_luaOraclePath = "";
 	_luaCmdArgsStr = "";
@@ -457,4 +458,9 @@ void Oracle::RegisterFactories()
 	if (!_registeredFactories) {
 		_registeredFactories = !_registeredFactories;
 	}
+}
+
+size_t Oracle::MemorySize()
+{
+	return sizeof(Oracle) + sizeof(_luaScriptArgsPath) + sizeof(_luaCmdArgsPath) + sizeof(_luaOraclePath) + sizeof(_path);
 }

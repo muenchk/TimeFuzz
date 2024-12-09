@@ -83,7 +83,7 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input, OracleResult result)
 		node->_InputID = input->GetFormID();
 		leafcount++;
 		if (node->_children.size() > 0) {
-			DeleteChildrenIntern(node);
+				DeleteChildrenIntern(node);
 			loginfo("Killing some children");
 		}
 	} else {
@@ -502,6 +502,7 @@ void ExclusionTree::Delete(Data*)
 
 void ExclusionTree::Clear()
 {
+	Form::ClearForm();
 	/* exclwlock;
 	// fast delete, delete everything thats in the hashmap
 	for (auto [id, node] : hashmap) {
@@ -520,4 +521,9 @@ void ExclusionTree::RegisterFactories()
 	if (!_registeredFactories) {
 		_registeredFactories = !_registeredFactories;
 	}
+}
+
+size_t ExclusionTree::MemorySize()
+{
+	return sizeof(ExclusionTree) + hashmap.size() * (sizeof(std::pair<uint64_t, TreeNode*>) + sizeof(TreeNode) + 8);
 }

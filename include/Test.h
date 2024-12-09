@@ -273,6 +273,12 @@ public:
 	static void RegisterFactories();
 
 	void FreeMemory() override;
+	/// <summary>
+	/// returns whether the memmory of this form has been freed
+	/// </summary>
+	/// <returns></returns>
+	bool Freed() override;
+	size_t MemorySize() override;
 
 
 private:

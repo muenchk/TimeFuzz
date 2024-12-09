@@ -140,6 +140,24 @@ namespace DeltaDebugging
 
 	void DeltaController::Clear()
 	{
+		Form::ClearForm();
+		_tasks = 0;
+		_remainingtasks = 0;
+		_tests = 0;
+		_remainingtests = 0;
+		_totaltests = 0;
+		_finished = false;
+		_results.clear();
+		_origInput.reset();
+		_input.reset();
+		_inputRanges.clear();
+		_sessiondata.reset();
+		_self.reset();
+		_activeInputs.clear();
+		_completedTests.clear();
+		_callback.reset();
+		_bestScore = { 0.0f, 0.0f };
+		_level = 2;
 		delete _params;
 	}
 
@@ -1710,4 +1728,10 @@ namespace DeltaDebugging
 			Functions::RegisterFactory(Functions::DDEvaluateExplicitCallback::GetTypeStatic(), Functions::DDEvaluateExplicitCallback::Create);
 		}
 	}
+
+	size_t DeltaController::MemorySize()
+	{
+		return sizeof(DeltaController) + _completedTests.size() * sizeof(std::shared_ptr<Input>) + _activeInputs.size() * sizeof(std::pair<std::shared_ptr<Input>, FormIDLess<Input>>) + sizeof(std::pair<size_t, size_t>) * _inputRanges.size() + sizeof(std::pair<std::shared_ptr<Input>, std::tuple<double, double, int32_t>>) * _results.size();
+	}
+
 }

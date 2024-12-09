@@ -86,12 +86,12 @@ bool Input::WriteData(std::ostream* buffer, size_t& offset)
 	Buffer::Write(_executiontime, buffer, offset);
 	Buffer::Write(_exitcode, buffer, offset);
 	Buffer::Write((uint64_t)_oracleResult, buffer, offset);
-	if (auto ptr = test; ptr) {
-		Buffer::Write(ptr->GetFormID(), buffer, offset);
+	if (test) {
+		Buffer::Write(test->GetFormID(), buffer, offset);
 	} else
 		Buffer::Write((FormID)0, buffer, offset);
-	if (auto ptr = derive; ptr) {
-		Buffer::Write(ptr->GetFormID(), buffer, offset);
+	if (derive) {
+		Buffer::Write(derive->GetFormID(), buffer, offset);
 	} else
 		Buffer::Write((FormID)0, buffer, offset);
 	Buffer::Write(_stringrep, buffer, offset);
@@ -191,6 +191,8 @@ bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRe
 			FormID deriveid = Buffer::ReadUInt64(buffer, offset);
 			resolver->AddTask([this, resolver, deriveid]() {
 				this->derive = resolver->ResolveFormID<DerivationTree>(deriveid);
+				if (!derive)
+					logwarn("Cannot find DerivationTree: {}", deriveid);
 			});
 			//logdebug("ReadData string rep");
 			// get _stringrep
@@ -254,11 +256,35 @@ Input::~Input()
 
 void Input::Clear()
 {
+	Form::ClearForm();
+	//_hasfinished = false;
+	//_trimmed = false;
+	//_trimmedlength = -1;
+	//_executiontime = std::chrono::nanoseconds(0);
+	//_exitcode = 0;
+	//_primaryScore = 0.0f;
+	//_secondaryScore = 0.0f;
+	_primaryScoreIndividual.clear();
+	_secondaryScoreIndividual.clear();
+	//_enablePrimaryScoreIndividual = false;
+	//_enableSecondaryScoreIndividual = false;
+	_pythonstring = "";
+	//_pythonstring.shrink_to_fit();
+	//_pythonconverted = false;
+	//_generatedSequence = false;
+	//_parent = {};
+	//_generationID = 0;
+	//_derivedFails = 0;
+	//_derivedInputs = 0;
+	//_generationTime = std::chrono::nanoseconds(0);
 	test.reset();
 	derive.reset();
 	_stringrep = "";
+	//_stringrep.shrink_to_fit();
+	_oracleResult = OracleResult::Running;
 	_sequence.clear();
 	_orig_sequence.clear();
+	_lua_sequence_next = _sequence.end();
 }
 
 void Input::RegisterFactories()
@@ -562,6 +588,10 @@ void Input::FreeMemory()
 			Form::Unlock();
 			return;
 		}
+		if (!derive)
+			logcritical("Input is missing dev tree");
+		if (derive && derive->GetRegenerate() == false)
+			logcritical("Input cannot be regenerated");
 		// if _input is generated AND the test has already been run and the _callback has been invalidated
 		// (i.e. we have evaluated oracle and stuff)
 		// we can destroy the derivation tree and clear the _sequence to reclaim
@@ -580,8 +610,25 @@ void Input::FreeMemory()
 		_pythonstring = "";
 		_pythonstring.shrink_to_fit();
 
+		if (!derive)
+			logcritical("Input is missing dev tree now");
+		if (derive && derive->GetRegenerate() == false)
+			logcritical("Input cannot be regenerated now");
+
 		Form::Unlock();
 	}
+}
+
+bool Input::Freed()
+{
+	if (_sequence.size() == 0)
+		return true;
+	return false;
+}
+
+size_t Input::MemorySize()
+{
+	return sizeof(Input) + sizeof(std::pair<int64_t, int64_t>) * _parent.segments.size() + _primaryScoreIndividual.size() * sizeof(double) + _secondaryScoreIndividual.size() * sizeof(double) + _pythonstring.size() + _stringrep.size() + _sequence.size() * sizeof(std::string) + _orig_sequence.size() * sizeof(std::string);
 }
 
 void Input::TrimInput(int32_t executed)
@@ -727,25 +774,25 @@ bool Input::IsTrimmed()
 
 void Input::IncDerivedInputs()
 {
-	std::unique_lock<std::shared_mutex> guard(_lock);
+	Utility::SpinLock guard(_derivedFlag);
 	_derivedInputs++;
 }
 
 void Input::IncDerivedFails()
 {
-	std::unique_lock<std::shared_mutex> guard(_lock);
+	Utility::SpinLock guard(_derivedFlag);
 	_derivedFails++;
 }
 
 uint64_t Input::GetDerivedInputs()
 {
-	std::shared_lock<std::shared_mutex> guard(_lock);
+	Utility::SpinLock guard(_derivedFlag);
 	return _derivedInputs;
 }
 
 uint64_t Input::GetDerivedFails()
 {
-	std::shared_lock<std::shared_mutex> guard(_lock);
+	Utility::SpinLock guard(_derivedFlag);
 	return _derivedFails;
 }
 

@@ -270,11 +270,18 @@ bool Test::WriteInput(std::string str)
 	int bSuccess = 0;
 #if defined(unix) || defined(__unix__) || defined(__unix)
 	size_t len = strlen(str.c_str());
-	if (IsRunning()) {
+	//if (IsRunning()) {
+	struct pollfd fds;
+	int32_t events = 0;
+	fds.fd = red_input[1];  // stdin
+	fds.events = POLLOUT;
+	events = poll(&fds, 1, 0);
+	if ((fds.revents & POLLOUT) == POLLOUT) {
 		if (size_t written = write(red_input[1], str.c_str(), len); written != len) {
 			logcritical("Write to child is missing bytes: Supposed {}, written {}", len, written);
 			return false;
-		}
+		} 
+		return true;
 	} else
 		return false;
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
@@ -695,17 +702,27 @@ void Test::Delete(Data*)
 
 void Test::Clear()
 {
+	Form::ClearForm();
 	_running = false;
+	_executed = 0;
+	_lastwritten = "";
+	_reactiontime.clear();
+	_lua_reactiontime_next = _reactiontime.end();
 	_cmdArgs = "";
+	_cmdArgs.shrink_to_fit();
 	_scriptArgs = "";
+	_scriptArgs.shrink_to_fit();
+	_output = "";
+	_output.shrink_to_fit();
+	_exitreason = ExitReason::Running;
+	_skipOracle = false;
+	_skipExclusionCheck = false;
+	_valid = true;
+	_pipeinit = false;
 	_input.reset();
 	//if (_valid)
 	//	InValidate();
-	if (_callback)
-	{
-		_callback->Dispose();
-		_callback.reset();
-	}
+	_callback.reset();
 }
 
 void Test::FreeMemory()
@@ -724,6 +741,18 @@ void Test::FreeMemory()
 		}
 		Form::Unlock();
 	}
+}
+
+bool Test::Freed()
+{
+	if (_cmdArgs.empty() && _scriptArgs.empty() && _output.empty())
+		return true;
+	return false;
+}
+
+size_t Test::MemorySize()
+{
+	return sizeof(Test) + _output.size() + _cmdArgs.size() + _scriptArgs.size() + _reactiontime.size() * sizeof(uint64_t) * 2;
 }
 
 void Test::DeepCopy(std::shared_ptr<Test> other)
@@ -773,9 +802,9 @@ namespace Functions
 			} else {
 				// ----- SESSION STUFF -----
 				SessionFunctions::TestEnd(_sessiondata, _input);
+				_input->UnsetFlag(Form::FormFlags::DoNotFree);
+				_input->test->UnsetFlag(Form::FormFlags::DoNotFree);
 			}
-			_input->UnsetFlag(Form::FormFlags::DoNotFree);
-			_input->test->UnsetFlag(Form::FormFlags::DoNotFree);
 		}
 		// schedule test generation
 		SessionFunctions::GenerateTests(_sessiondata);

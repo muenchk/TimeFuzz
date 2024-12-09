@@ -90,6 +90,7 @@ public:
 	void Clear() override;
 	inline static bool _registeredFactories = false;
 	static void RegisterFactories();
+	size_t MemorySize() override;
 	
 	int32_t GetType() override
 	{

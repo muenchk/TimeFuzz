@@ -159,4 +159,5 @@ public:
 	void Clear();
 	inline static bool _registeredFactories = false;
 	static void RegisterFactories();
+	size_t MemorySize() override;
 };

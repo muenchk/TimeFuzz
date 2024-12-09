@@ -249,7 +249,7 @@ void TaskController::InternalLoop_SingleThread(int32_t number)
 			std::unique_lock<std::mutex> guard(_lock);
 			_status[number] = ThreadStatus::Waiting;
 			// while freeze is [true], this will never return, if freeze is [false] it only returns when [tasks is non-empty], when [terinated and not waiting], or when [terminating and tasks is empty]
-			_condition.wait(guard, [this] { return _freeze == false && (!_tasks_light.empty() || !_tasks_medium.empty() || !_tasks.empty() || _terminate && _wait == false || _terminate && _tasks_light.empty() && _tasks_medium.empty() && _tasks.empty()); });
+			_condition.wait_for(guard, std::chrono::milliseconds(100), [this] { return _freeze == false && (!_tasks_light.empty() || !_tasks_medium.empty() || !_tasks.empty() || _terminate && _wait == false || _terminate && _tasks_light.empty() && _tasks_medium.empty() && _tasks.empty()); });
 			if (_terminate && _wait == false || _terminate && _tasks_light.empty() && _tasks_medium.empty() && _tasks.empty())
 				return;
 			_status[number] = ThreadStatus::Running;
@@ -438,6 +438,7 @@ void TaskController::Delete(Data*)
 
 void TaskController::Clear()
 {
+	Form::ClearForm();
 	_terminate = true;
 	_wait = false;
 	_condition.notify_all();
@@ -450,6 +451,16 @@ void TaskController::Clear()
 			_tasks.front()->Dispose();
 		_tasks.pop_front();
 	}
+	while (_tasks_light.empty() == false) {
+		if (_tasks_light.front())
+			_tasks_light.front()->Dispose();
+		_tasks_light.pop_front();
+	}
+	while (_tasks_medium.empty() == false) {
+		if (_tasks_medium.front())
+			_tasks_medium.front()->Dispose();
+		_tasks_medium.pop_front();
+	}
 }
 
 void TaskController::RegisterFactories()
@@ -458,6 +469,12 @@ void TaskController::RegisterFactories()
 		_registeredFactories = !_registeredFactories;
 	}
 }
+
+size_t TaskController::MemorySize()
+{
+	return sizeof(TaskController);
+}
+
 
 void TaskController::RequestFreeze()
 {

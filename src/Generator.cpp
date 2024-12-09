@@ -18,6 +18,8 @@ void Generator::Clean()
 
 void Generator::Clear()
 {
+	Form::ClearForm();
+	_grammar.reset();
 
 }
 
@@ -179,7 +181,7 @@ bool Generator::BuildSequence(std::shared_ptr<Input> input)
 bool Generator::GenerateInputGrammar(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>& gram, std::shared_ptr<SessionData>& sessiondata)
 {
 	if (input->derive->_valid == false) {
-		if (input->derive && input->derive->_regenerate == true) {
+		if (input->derive && input->derive->GetRegenerate() == true) {
 			// we already generated the _input some time ago, so we will reuse the past generation parameters to
 			// regenerate the same derivation tree
 			int32_t sequencelen = input->derive->_targetlen;
@@ -205,6 +207,12 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 	FlagHolder<Input> inputflag(input, Form::FormFlags::DoNotFree);
 	std::vector<std::unique_ptr<FlagHolder<Input>>> parentflags;
 	std::vector<std::unique_ptr<FlagHolder<DerivationTree>>> parenttreeflags;
+	std::vector<std::shared_ptr<Form>> locklist;
+	auto unlock = [&locklist]() {
+		for (auto form : locklist)
+			form->Unlock();
+		locklist.clear();
+	};
 	std::shared_ptr<Grammar> gram = _grammar;
 	if (grammar)
 		gram = grammar;
@@ -220,6 +228,8 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 		return ret;
 	}
 
+	int32_t actions = 0;
+
 	// if we don't have this special case above, we
 	// need to go over the other options, which might require looping over parents
 	std::stack<std::pair<std::shared_ptr<Input>, std::shared_ptr<Input>>> forward;
@@ -227,18 +237,21 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 
 	forward.push({ input, parent });
 	while (forward.size() > 0) {
+		actions++;
 		auto [inp, par] = forward.top();
 		forward.pop();
 		inp->Lock();
+		inp->derive->Lock();
+		locklist.push_back(inp);
+		locklist.push_back(inp->derive);
 		if (!inp->HasFlag(Input::Flags::GeneratedDeltaDebugging)) {
 			// we only need to generate a new tree if there isn't a valid one
 			// this can happen with temporary _input forms, that reuse existing
 			// derivation trees, even though the _input forms themselves don't have
 			// the derived sequences
-			inp->derive->Lock();
 			if (inp->HasFlag(Input::Flags::GeneratedGrammarParent)) {
 				std::shared_ptr<DerivationTree> partree;
-				if (inp->derive->_regenerate == true) {
+				if (inp->derive->GetRegenerate() == true) {
 					// the only difference between re-extending and extending in the first place is that the parent information either
 					// comes from the caller or in the case of re-generating from the input itself
 					//partree = sessiondata->data->LookupFormID<DerivationTree>(inp->derive->_parent._parentID);
@@ -248,9 +261,8 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 				}
 				// check parent
 				if (!par) {
-					inp->derive->Unlock();
-					inp->Unlock();
-					profile(TimeProfiling, "Time taken for input Generation");
+					profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
+					unlock();
 					return false;
 				} else {
 					parentflags.push_back(std::make_unique<FlagHolder<Input>>(par, Form::FormFlags::DoNotFree));
@@ -261,47 +273,44 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 					forward.push({ par, {} });
 					// continue the loop until everything has been generated
 				} else {
-					if (parent->derive->_valid == false) {
-						if (parent->derive->_regenerate) {
+					if (par->derive->_valid == false) {
+						if (par->derive->GetRegenerate()) {
 							forward.push({ par, {} });
 						} else {
 							// crit error
-							logwarn("Cannot generate input as some parent input cannot be regenerated, Parent: {}", Input::PrintForm(parent));
-							inp->derive->Unlock();
-							inp->Unlock();
-							profile(TimeProfiling, "Time taken for input Generation");
+							logwarn("Cannot generate input as some parent input cannot be regenerated, Parent: {}", Input::PrintForm(par));
+							profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
+							unlock();
 							return false;
 						}
 					}
 				}
 				// if that's not the case, we can generate the input itself, but that'll take place in another loop.
 				// end this one and push the input onto the backward stack
-				backward.push({ input, par });
+				backward.push({ inp, par });
 			} else {
 				bool ret = GenerateInputGrammar(inp, gram, sessiondata);
 				// we are done here, so push this stuff onto the stack
 				if (ret == false) {
 					// we cannot regenerate this input, thus we fail the whole operation
 					logwarn("Cannot generate input: {}", Input::PrintForm(inp));
-					inp->Unlock();
-					inp->derive->Unlock();
-					profile(TimeProfiling, "Time taken for input Generation");
+					profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
+					unlock();
 					return false;
 				} else {
 					// we did the generation successfully, and there aren't any further generations to be done
 					// so slowly end this loop
 				}
 			}
-			inp->derive->Unlock();
 		} else {
 			// DD stuff
 			
 			// the input has beeen created by delta debuggging, so reconstruct it
 			// first get parent input
-			par = sessiondata->data->LookupFormID<Input>(input->GetParentID());
+			par = sessiondata->data->LookupFormID<Input>(inp->GetParentID());
 			if (!par) {
-				profile(TimeProfiling, "Time taken for input Generation");
-				inp->Unlock();
+				profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
+				unlock();
 				return false;
 			} else {
 				parentflags.push_back(std::make_unique<FlagHolder<Input>>(par, Form::FormFlags::DoNotFree));
@@ -311,94 +320,118 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 				forward.push({ par, {} });
 				// continue the loop until everything has been generated
 			} else {
-				if (parent->derive->_valid == false) {
-					if (parent->derive->_regenerate) {
+				if (par->derive->_valid == false) {
+					if (par->derive->GetRegenerate()) {
 						forward.push({ par, {} });
 					} else {
 						// crit error
-						logwarn("Cannot generate input as some parent input cannot be regenerated, Parent: {}", Input::PrintForm(parent));
-						inp->derive->Unlock();
-						inp->Unlock();
-						profile(TimeProfiling, "Time taken for input Generation");
+						logwarn("Cannot generate input as some parent input cannot be regenerated, Parent: {}", Input::PrintForm(par));
+						profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
+						unlock();
 						return false;
 					}
 				}
 			}
 			// if that's not the case, we can generate the input itself, but that'll take place in another loop.
 			// end this one and push the input onto the backward stack
-			backward.push({ input, par });
+			backward.push({ inp, par });
 		}
-		inp->Unlock();
+		unlock();
 	}
 
 	while (backward.size() > 0) {
+		actions++;
 		auto [inp, par] = backward.top();
 		backward.pop();
 		inp->Lock();
+		inp->derive->Lock();
+		locklist.push_back(inp);
+		locklist.push_back(inp->derive);
+		if (par) {
+			par->Lock();
+			par->derive->Lock();
+			locklist.push_back(par);
+			locklist.push_back(par->derive);
+		}
 		if (!inp->HasFlag(Input::Flags::GeneratedDeltaDebugging)) {
 			// we only need to generate a new tree if there isn't a valid one
 			// this can happen with temporary _input forms, that reuse existing
 			// derivation trees, even though the _input forms themselves don't have
 			// the derived sequences
-			inp->derive->Lock();
 			if (inp->HasFlag(Input::Flags::GeneratedGrammarParent)) {
-				if (inp->derive && inp->derive->_regenerate == true) {
+				if (inp->derive && inp->derive->GetRegenerate() == true) {
 					// now extend input
-					if (inp->HasFlag(Input::Flags::GeneratedGrammarParentBacktrack))
+					if (inp->HasFlag(Input::Flags::GeneratedGrammarParentBacktrack)) {
 						gram->Extend(par, inp->derive, true, inp->derive->_targetlen, inp->derive->_seed);
-					else
+						if (inp->derive->_valid == false) {
+							unlock();
+							return false;
+						}
+					} else {
 						gram->Extend(par, inp->derive, false, inp->derive->_targetlen, inp->derive->_seed);
+						if (inp->derive->_valid == false) {
+							unlock();
+							return false;
+						}
+					}
 				} else {
 					// this is a new input
 					std::uniform_int_distribution<signed> dist(sessiondata->_settings->generation.generationLengthMin, sessiondata->_settings->generation.generationLengthMax);
 					int32_t sequencelen = dist(randan);
 					// now extend input
-					if (inp->HasFlag(Input::Flags::GeneratedGrammarParentBacktrack))
-						gram->Extend(parent, inp->derive, true, sequencelen, (unsigned int)(std::chrono::system_clock::now().time_since_epoch().count()));
-					else
-						gram->Extend(parent, inp->derive, false, sequencelen, (unsigned int)(std::chrono::system_clock::now().time_since_epoch().count()));
+					if (inp->HasFlag(Input::Flags::GeneratedGrammarParentBacktrack)) {
+						gram->Extend(par, inp->derive, true, sequencelen, (unsigned int)(std::chrono::system_clock::now().time_since_epoch().count()));
+						if (inp->derive->_valid == false) {
+							unlock();
+							return false;
+						}
+					} else {
+						gram->Extend(par, inp->derive, false, sequencelen, (unsigned int)(std::chrono::system_clock::now().time_since_epoch().count()));
+						if (inp->derive->_valid == false) {
+							unlock();
+							return false;
+						}
+					}
 					// set parent information and flags
 					inp->SetParentGenerationInformation(parent->GetFormID());
 					// increase number of inputs derived from parent
-					parent->IncDerivedInputs();
+					par->IncDerivedInputs();
 
 					// build sequence
-					bool ret = BuildSequence(input);
-					inp->Unlock();
-					inp->derive->Unlock();
-					profile(TimeProfiling, "Time taken for input Generation");
+					bool ret = BuildSequence(inp);
+					profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
+					unlock();
 					return ret;
 				}
 			} else {
 				// case already fully handled above
 			}
-			input->derive->Unlock();
 		} else {
 			// DD stuff
 
-			input->derive->Lock();
 			// extract the corresponding derivation tree
-			if (input->derive->_valid == false)
+			if (inp->derive->_valid == false)
 			{
-				auto segments = input->GetParentSplits();
-				gram->Extract(parent->derive, input->derive, segments, parent->Length(), input->GetParentSplitComplement());
-				if (input->derive->_valid == false) {
+				auto segments = inp->GetParentSplits();
+				gram->Extract(par->derive, inp->derive, segments, par->Length(), inp->GetParentSplitComplement());
+				if (inp->derive->_valid == false) {
 					// the input cannot be derived from the given grammar
-					logwarn("The input {} cannot be derived from the grammar.", Utility::GetHex(input->GetFormID()));
-					input->Unlock();
-					profile(TimeProfiling, "Time taken for input Generation");
+					logwarn("The input {} cannot be derived from the grammar.", Utility::GetHex(inp->GetFormID()));
+					profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
+					unlock();
 					return false;
 				}
 			}
-			input->derive->Unlock();
 
-			bool ret = BuildSequence(input);
-			profile(TimeProfiling, "Time taken for input Generation");
+			bool ret = BuildSequence(inp);
+			profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
+			unlock();
 			return ret;
 		}
-		inp->Unlock();
+		unlock();
 	}
-	profile(TimeProfiling, "Time taken for input Generation");
+	profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
+	unlock();
 	return false;
 }
 /*
@@ -431,7 +464,7 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 			if (input->derive->_valid == false) {
 				if (input->HasFlag(Input::Flags::GeneratedGrammarParent)) {
 					// implement derivation from a parent derivationtree here
-					if (input->derive && input->derive->_regenerate == true)
+					if (input->derive && input->derive->GetRegenerate() == true)
 					{
 						// the only difference between re-extending and extending in the first place is that the parent information either
 						// comes from the caller or in the case of re-generating from the input itself
@@ -464,7 +497,7 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 						}
 					}
 					if (parent->derive->_valid == false) {
-						if (parent->derive->_regenerate) {
+						if (parent->derive->GetRegenerate()) {
 							// we are trying to add an _input that hasn't been generated or regenerated
 							// try the generate it and if it succeeds add the test
 							SessionFunctions::GenerateInput(parent, sessiondata);
@@ -485,7 +518,7 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 						}
 					}
 
-					if (input->derive && input->derive->_regenerate == true) {
+					if (input->derive && input->derive->GetRegenerate() == true) {
 						// now extend input
 						if (input->HasFlag(Input::Flags::GeneratedGrammarParentBacktrack))
 							gram->Extend(parent, input->derive, true, input->derive->_targetlen, input->derive->_seed);
@@ -509,7 +542,7 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 					// free the parents DerivationTree
 
 				} else {
-					if (input->derive && input->derive->_regenerate == true) {
+					if (input->derive && input->derive->GetRegenerate() == true) {
 						// we already generated the _input some time ago, so we will reuse the past generation parameters to
 						// regenerate the same derivation tree
 						int32_t sequencelen = input->derive->_targetlen;
@@ -569,7 +602,7 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 				}
 			}
 			if (parent->derive->_valid == false) {
-				if (parent->derive->_regenerate) {
+				if (parent->derive->GetRegenerate()) {
 					// we are trying to add an _input that hasn't been generated or regenerated
 					// try the generate it and if it succeeds add the test
 					SessionFunctions::GenerateInput(parent, sessiondata);
@@ -642,4 +675,9 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 void SimpleGenerator::Clean()
 {
 
+}
+
+size_t Generator::MemorySize()
+{
+	return sizeof(Generator);
 }

@@ -11,10 +11,12 @@
 #include <queue>
 #include <unordered_map>
 #include <mutex>
+#include <atomic>
 #include <chrono>
 #include <boost/bimap.hpp>
 #include <boost/bimap/unordered_set_of.hpp>
 #include <boost/thread.hpp>
+#include <boost/unordered_map.hpp>
 
 #include "TaskController.h"
 #include "Form.h"
@@ -25,6 +27,7 @@
 #include "ExclusionTree.h"
 #include "ExecutionHandler.h"
 #include "Logging.h"
+#include "Utility.h"
 
 class LoadResolver;
 
@@ -78,6 +81,30 @@ public:
 	};
 
 private:
+	struct ObjStorage
+	{
+	private:
+		std::queue<std::shared_ptr<Form>> storage;
+		std::atomic_flag _flag = ATOMIC_FLAG_INIT;
+
+	public:
+		std::shared_ptr<Form> GetObj()
+		{
+			Utility::SpinLock spin(_flag);
+			if (storage.size() > 0) {
+				auto ret = storage.front();
+				storage.pop();
+				return ret;
+			}
+			return {};
+		}
+		void StoreObj(std::shared_ptr<Form> obj)
+		{
+			Utility::SpinLock spin(_flag);
+			storage.push(obj);
+		}
+	};
+
 	const uint64_t guid1 = 0xe30db97c4f1e478f;
 	const uint64_t guid2 = 0x8b03f3d9e946dcf3;
 	const int32_t saveversion = 0x2;
@@ -129,7 +156,8 @@ private:
 	/// <summary>
 	/// hashmap holding all forms
 	/// </summary>
-	std::unordered_map<FormID, std::shared_ptr<Form>> _hashmap;
+	//std::unordered_map<FormID, std::shared_ptr<Form>> _hashmap;
+	boost::unordered_map<FormID, std::shared_ptr<Form>> _hashmap;
 	/// <summary>
 	/// mutex for _hashmap access
 	/// </summary>
@@ -151,6 +179,11 @@ private:
 	/// mutex for _stringHashmap access
 	/// </summary>
 	boost::upgrade_mutex _stringHashmapLock;
+
+	/// <summary>
+	/// holds references to reusable objects
+	/// </summary>
+	std::unordered_map<int32_t, ObjStorage*> _objectRecycler;
 
 	friend LoadResolver;
 
@@ -206,6 +239,22 @@ public:
 	/// <returns></returns>
 	std::chrono::nanoseconds GetRuntime() { return _runtime + std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - _sessionBegin); }
 
+	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+	void RecycleObject(std::shared_ptr<T> form)
+	{
+		if (form)
+		{
+			auto stor = _objectRecycler.at(form->GetType());
+			stor->StoreObj(form);
+		}
+	}
+	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+	std::shared_ptr<T> GetRecycledObject()
+	{
+		auto stor = _objectRecycler.at(T::GetTypeStatic());
+		return dynamic_pointer_cast<T>(stor->GetObj());
+	}
+
 	/// <summary>
 	/// Creates a new dynamic form and registers it
 	/// </summary>
@@ -215,6 +264,9 @@ public:
 	std::shared_ptr<T> CreateForm()
 	{
 		//loginfo("Create Form");
+		//std::shared_ptr<T> ptr = GetRecycledObject<T>();
+		//if (!ptr)
+		//	ptr = std::make_shared<T>();
 		std::shared_ptr<T> ptr = std::make_shared<T>();
 		FormID formid = 0;
 		{
@@ -276,6 +328,8 @@ public:
 				std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 				_hashmap.erase(form->GetFormID());
 				form->SetFlag(Form::FormFlags::Deleted);
+				//form->Clear();
+				//RecycleObject<T>(form);
 				form.reset();
 				return;
 			}

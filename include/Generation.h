@@ -372,6 +372,7 @@ public:
 	/// Registers all factiories necessary for the class
 	/// </summary>
 	static void RegisterFactories();
+	size_t MemorySize() override;
 
 	#pragma endregion
 };

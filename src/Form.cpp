@@ -21,6 +21,16 @@ void Form::FreeMemory()
 
 }
 
+bool Form::Freed()
+{
+	return false;
+}
+
+size_t Form::MemorySize()
+{
+	return GetDynamicSize();
+}
+
 bool Form::CanDelete(Data*)
 {
 	return true;
@@ -170,4 +180,11 @@ bool Form::HasFlag(EnumType flag)
 EnumType Form::GetFlags()
 {
 	return _flagsAlloc;
+}
+
+void Form::ClearForm()
+{
+	std::unique_lock<std::mutex> guard(_flaglock);
+	_flagsAlloc = 0;
+	_flags.clear();
 }

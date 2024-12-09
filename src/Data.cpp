@@ -33,19 +33,33 @@ void Data::RegisterForms()
 	// this is a bit brute force, and needs to be updated when a new class is introduced,
 	// but then again the save and load methods need to be updated as well
 	Input::RegisterFactories();
+	_objectRecycler.insert_or_assign(Input::GetTypeStatic(), new ObjStorage());
 	Grammar::RegisterFactories();
+	_objectRecycler.insert_or_assign(Grammar::GetTypeStatic(), new ObjStorage());
 	DerivationTree::RegisterFactories();
+	_objectRecycler.insert_or_assign(DerivationTree::GetTypeStatic(), new ObjStorage());
 	ExclusionTree::RegisterFactories();
+	_objectRecycler.insert_or_assign(ExclusionTree::GetTypeStatic(), new ObjStorage());
 	Generator::RegisterFactories();
+	_objectRecycler.insert_or_assign(Generator::GetTypeStatic(), new ObjStorage());
 	Generation::RegisterFactories();
+	_objectRecycler.insert_or_assign(Generation::GetTypeStatic(), new ObjStorage());
 	Session::RegisterFactories();
+	_objectRecycler.insert_or_assign(Session::GetTypeStatic(), new ObjStorage());
 	Settings::RegisterFactories();
+	_objectRecycler.insert_or_assign(Settings::GetTypeStatic(), new ObjStorage());
 	Test::RegisterFactories();
+	_objectRecycler.insert_or_assign(Test::GetTypeStatic(), new ObjStorage());
 	TaskController::RegisterFactories();
+	_objectRecycler.insert_or_assign(TaskController::GetTypeStatic(), new ObjStorage());
 	ExecutionHandler::RegisterFactories();
+	_objectRecycler.insert_or_assign(ExecutionHandler::GetTypeStatic(), new ObjStorage());
 	Oracle::RegisterFactories();
+	_objectRecycler.insert_or_assign(Oracle::GetTypeStatic(), new ObjStorage());
 	SessionData::RegisterFactories();
+	_objectRecycler.insert_or_assign(SessionData::GetTypeStatic(), new ObjStorage());
 	DeltaDebugging::DeltaController::RegisterFactories();
+	_objectRecycler.insert_or_assign(DeltaDebugging::DeltaController::GetTypeStatic(), new ObjStorage());
 }
 
 std::string Data::GetSaveName()
@@ -1422,6 +1436,9 @@ void Data::Clear()
 		_actionloadsave_current++;
 	}
 	_hashmap.clear();
+	for (auto& [id, stor] : _objectRecycler)
+		delete stor;
+	_objectRecycler.clear();
 	_stringHashmap.clear();
 	_actionloadsave = false;
 }

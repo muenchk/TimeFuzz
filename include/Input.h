@@ -21,6 +21,9 @@ class Input : public Form
 	friend class SessionFunctions;
 
 	const int32_t classversion = 0x2;
+
+	std::atomic_flag _derivedFlag = ATOMIC_FLAG_INIT;
+
 	#pragma region InheritedForm
 public:
 	size_t GetStaticSize(int32_t version) override;
@@ -39,6 +42,7 @@ public:
 	void Clear() override;
 	inline static bool _registeredFactories = false;
 	static void RegisterFactories();
+	size_t MemorySize() override;
 
 	#pragma endregion
 
@@ -360,6 +364,11 @@ public:
 	/// Attempts to release as much memory as possible
 	/// </summary>
 	void FreeMemory() override;
+	/// <summary>
+	/// returns whether the memmory of this form has been freed
+	/// </summary>
+	/// <returns></returns>
+	bool Freed() override;	
 
 	/// <summary>
 	/// Sets the input as generated as split of a parent input, also sets corresponding flags

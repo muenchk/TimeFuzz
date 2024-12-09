@@ -413,6 +413,8 @@ private:
 	/// </summary>
 	/// <returns></returns>
 	bool CheckForSequenceSimplicityAndSimplify();
+
+	size_t MemorySize();
 };
 
 class Grammar : public Form
@@ -468,6 +470,7 @@ public:
 	void Clear() override;
 	inline static bool _registeredFactories = false;
 	static void RegisterFactories();
+	size_t MemorySize() override;
 
 	void SetGenerationParameters(int32_t extension_min, int32_t extension_max, int32_t backtrack_min, int32_t backtrack_max)
 	{

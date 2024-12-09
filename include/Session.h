@@ -269,6 +269,8 @@ public:
 
 	void UI_CheckForAlternatives();
 
+	void UI_GetDatabaseObjectStatus();
+
 	void PauseSession();
 
 	void ResumeSession();
@@ -436,6 +438,7 @@ private:
 	void Clear() override;
 	inline static bool _registeredFactories = false;
 	static void RegisterFactories();
+	size_t MemorySize() override;
 
 	friend class SessionFunctions;
 	friend class Data;
