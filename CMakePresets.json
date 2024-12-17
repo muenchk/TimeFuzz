@@ -39,6 +39,13 @@
       }
     },
     {
+      "name": "ui",
+      "hidden": true,
+      "cacheVariables": {
+        "EnableUI": "ON"
+      }
+    },
+    {
       "name": "vcpkg-linux",
       "hidden": true,
       "cacheVariables": {
@@ -143,6 +150,7 @@
       "inherits": [
         "base",
         "vcpkg",
+        "ui",
         "win32-unicode",
         "x64",
         "clang-cl",
@@ -164,6 +172,7 @@
       "inherits": [
         "base",
         "vcpkg",
+        "ui",
         "win32-unicode",
         "x64",
         "generator-ninja",
@@ -185,6 +194,7 @@
       "inherits": [
         "base",
         "vcpkg",
+        "ui",
         "win32-unicode",
         "x64",
         "generator-ninja",
@@ -206,6 +216,7 @@
       "inherits": [
         "base",
         "vcpkg",
+        "ui",
         "win32-unicode",
         "x64",
         "generator-ninja",
@@ -228,6 +239,7 @@
       "inherits": [
         "base",
         "vcpkg-linux",
+        "ui",
         "x64",
         "clang",
         "generator-ninja"
@@ -248,6 +260,7 @@
       "inherits": [
         "base",
         "vcpkg-linux",
+        "ui",
         "x64",
         "clang",
         "generator-ninja"
@@ -276,10 +289,29 @@
       }
     },
     {
+      "name": "kaliNoUI",
+      "inherits": [
+        "base",
+        "vcpkg-linux",
+        "x64",
+        "clang",
+        "generator-ninja"
+      ],
+      "displayName": "Kali",
+      "binaryDir": "${sourceDir}/buildKaliNoUI",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": {
+          "type": "STRING",
+          "value": "Release"
+        }
+      }
+    },
+    {
       "name": "gnulinux",
       "inherits": [
         "base",
         "vcpkg-linux",
+        "ui",
         "x64",
         "gnu",
         "generator-ninja",
@@ -330,6 +362,7 @@
       "inherits": [
         "base",
         "vcpkg-remote",
+        "ui",
         "x64",
         "clang-remote",
         "build-tests"

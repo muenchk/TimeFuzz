@@ -11,45 +11,49 @@
 #	include "CrashHandler.h"
 #endif
 
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
+#ifdef EnableUI
 
-// The openGL texture and drawing stuff (the background) are adapted from code published on
-// learnopengl.com by JOEY DE VRIES and is available under
-// the following license: https://creativecommons.org/licenses/by-nc/4.0/legalcode
+	#define STB_IMAGE_IMPLEMENTATION
+	#include <stb_image.h>
 
-// The imgui stuff is adapted from the official examples of the repository https://github.com/ocornut/imgui which is available under MIT license
-// date: [2024/10/23]
+	// The openGL texture and drawing stuff (the background) are adapted from code published on
+	// learnopengl.com by JOEY DE VRIES and is available under
+	// the following license: https://creativecommons.org/licenses/by-nc/4.0/legalcode
 
-#include "glad/glad.h"
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
-//#include "GL/GL.h"
-#include <stdio.h>
-#define GL_SILENCE_DEPRECATION
-//#if defined(IMGUI_IMPL_OPENGL_ES2)
-//#include <GLES2/gl2.h>
-//#endif
-#include <GLFW/glfw3.h>  // Will drag system OpenGL headers
+	// The imgui stuff is adapted from the official examples of the repository https://github.com/ocornut/imgui which is available under MIT license
+	// date: [2024/10/23]
 
-static void glfw_error_callback(int error, const char* description)
-{
-	fprintf(stderr, "GLFW Error %d: %s\n", error, description);
-}
+	#include "glad/glad.h"
+	#include "imgui.h"
+	#include "imgui_impl_glfw.h"
+	#include "imgui_impl_opengl3.h"
+	//#include "GL/GL.h"
+	#include <stdio.h>
+	#define GL_SILENCE_DEPRECATION
+	//#if defined(IMGUI_IMPL_OPENGL_ES2)
+	//#include <GLES2/gl2.h>
+	//#endif
+	#include <GLFW/glfw3.h>  // Will drag system OpenGL headers
+
+	static void glfw_error_callback(int error, const char* description)
+	{
+		fprintf(stderr, "GLFW Error %d: %s\n", error, description);
+	}
+
+	// glfw: whenever the window size changed (by OS or user resize) this _callback function executes
+	// ---------------------------------------------------------------------------------------------
+	void framebuffer_size_callback(GLFWwindow* /*window*/, int width, int height)
+	{
+		// make sure the viewport matches the new window dimensions; note that width and
+		// height will be significantly larger than specified on retina displays.
+		glViewport(0, 0, width, height);
+	}
+
+#endif
 
 void endCallback()
 {
 	fprintf(stdin, "exitinternal");
-}
-
-// glfw: whenever the window size changed (by OS or user resize) this _callback function executes
-// ---------------------------------------------------------------------------------------------
-void framebuffer_size_callback(GLFWwindow* /*window*/, int width, int height)
-{
-	// make sure the viewport matches the new window dimensions; note that width and
-	// height will be significantly larger than specified on retina displays.
-	glViewport(0, 0, width, height);
 }
 
 std::shared_ptr<Session> session = nullptr;
@@ -348,6 +352,7 @@ int32_t main(int32_t argc, char** argv)
 	// set debugging
 	Logging::EnableDebug = CmdArgs::_debug;
 
+#ifdef EnableUI
 	// -----go into responsive loop-----
 	if (CmdArgs::_ui) {
 		Logging::StdOutDebug = false;
@@ -1571,6 +1576,9 @@ int32_t main(int32_t argc, char** argv)
 		session.reset();
 
 	} else if (CmdArgs::_responsive) {
+#else
+	if (CmdArgs::_responsive) {
+#endif
 Responsive:
 		Logging::StdOutDebug = false;
 		Logging::StdOutLogging = false;

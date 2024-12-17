@@ -89,6 +89,10 @@ endif()
 
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 
+if ("${EnableUI}" STREQUAL "ON")
+	add_compile_definitions(EnableUI)
+endif()
+
 add_library(
 	"${PROJECT_NAME}_lib"
 	STATIC
@@ -119,79 +123,138 @@ if(DIASDK_LIBRARIES)
 endif()
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
-	target_link_libraries(
-		"${PROJECT_NAME}"
-		PRIVATE
-		fmt::fmt
-		lua
-		CrashHandler
-		imgui::imgui
-		glfw
-		glad::glad
-		glm::glm
-		liblzma::liblzma
-		${PROJECT_NAME}_lib
-	)
-	target_link_libraries(
-		"${PROJECT_NAME}_lib"
-		PRIVATE
-		fmt::fmt
-		lua
-		CrashHandler
-		imgui::imgui
-		glfw
-		glad::glad
-		glm::glm
-		liblzma::liblzma
-	)
-else()
-	target_link_libraries(
-		"${PROJECT_NAME}"
-		PRIVATE
-		fmt::fmt
-		lua
-		c
-		imgui::imgui
-		glfw
-		glad::glad
-		glm::glm
-		liblzma::liblzma
-		${PROJECT_NAME}_lib
-	)
-	add_compile_options(add_compile_options("$<$<CONFIG:Debug>:-fsanitize=address -fno-omit-frame-pointer>"))
-	if (LIBEXPLAIN_INCLUDE)
-	target_link_libraries(
-		"${PROJECT_NAME}_lib"
-		PRIVATE
-		fmt::fmt
-		lua
-		Threads::Threads
-		pthread
-		explain
-		c
-		imgui::imgui
-		glfw
-		glad::glad
-		glm::glm
-		liblzma::liblzma
-		Boost::thread
-	)
+	if ("${EnableUI}" STREQUAL "ON")
+		target_link_libraries(
+			"${PROJECT_NAME}"
+			PRIVATE
+			fmt::fmt
+			lua
+			CrashHandler
+			imgui::imgui
+			glfw
+			glad::glad
+			glm::glm
+			liblzma::liblzma
+			${PROJECT_NAME}_lib
+		)
+		target_link_libraries(
+			"${PROJECT_NAME}_lib"
+			PRIVATE
+			fmt::fmt
+			lua
+			CrashHandler
+			imgui::imgui
+			glfw
+			glad::glad
+			glm::glm
+			liblzma::liblzma
+		)
 	else()
-	target_link_libraries(
-		"${PROJECT_NAME}_lib"
-		PRIVATE
-		fmt::fmt
-		lua
-		Threads::Threads
-		pthread
-		c
-		imgui::imgui
-		glfw
-		glad::glad
-		glm::glm
-		liblzma::liblzma
-		Boost::thread
-	)
+		target_link_libraries(
+			"${PROJECT_NAME}"
+			PRIVATE
+			fmt::fmt
+			lua
+			CrashHandler
+			liblzma::liblzma
+			${PROJECT_NAME}_lib
+		)
+		target_link_libraries(
+			"${PROJECT_NAME}_lib"
+			PRIVATE
+			fmt::fmt
+			lua
+			CrashHandler
+			liblzma::liblzma
+		)
+	endif()
+else()
+	if ("${EnableUI}" STREQUAL "ON")
+		target_link_libraries(
+			"${PROJECT_NAME}"
+			PRIVATE
+			fmt::fmt
+			lua
+			c
+			imgui::imgui
+			glfw
+			glad::glad
+			glm::glm
+			liblzma::liblzma
+			${PROJECT_NAME}_lib
+		)
+		add_compile_options(add_compile_options("$<$<CONFIG:Debug>:-fsanitize=address -fno-omit-frame-pointer>"))
+		if (LIBEXPLAIN_INCLUDE)
+			target_link_libraries(
+				"${PROJECT_NAME}_lib"
+				PRIVATE
+				fmt::fmt
+				lua
+				Threads::Threads
+				pthread
+				explain
+				c
+				imgui::imgui
+				glfw
+				glad::glad
+				glm::glm
+				liblzma::liblzma
+				Boost::thread
+			)
+		else()
+			target_link_libraries(
+				"${PROJECT_NAME}_lib"
+				PRIVATE
+				fmt::fmt
+				lua
+				Threads::Threads
+				pthread
+				c
+				imgui::imgui
+				glfw
+				glad::glad
+				glm::glm
+				liblzma::liblzma
+				Boost::thread
+			)
+		endif()
+	else()
+		target_link_libraries(
+			"${PROJECT_NAME}"
+			PRIVATE
+			fmt::fmt
+			lua
+			c
+			liblzma::liblzma
+			${PROJECT_NAME}_lib
+		)
+		add_compile_options(add_compile_options("$<$<CONFIG:Debug>:-fsanitize=address -fno-omit-frame-pointer>"))
+		if (LIBEXPLAIN_INCLUDE)
+			target_link_libraries(
+				"${PROJECT_NAME}_lib"
+				PRIVATE
+				fmt::fmt
+				lua
+				Threads::Threads
+				pthread
+				explain
+				c
+				liblzma::liblzma
+				Boost::thread
+			)
+		else()
+			target_link_libraries(
+				"${PROJECT_NAME}_lib"
+				PRIVATE
+				fmt::fmt
+				lua
+				Threads::Threads
+				pthread
+				c
+				liblzma::liblzma
+				Boost::thread
+			)
+		endif()
 	endif()
 endif()
 
