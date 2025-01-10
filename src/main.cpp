@@ -60,6 +60,457 @@ std::shared_ptr<Session> session = nullptr;
 
 SessionStatus status;
 
+std::string Snapshot()
+{
+	std::stringstream snap;
+
+	static UI::UIGeneration ActiveGeneration;
+
+	static std::vector<UI::UIDeltaDebugging> ddcontrollers;
+	static size_t numddcontrollers = 0;
+	static UI::UIInputInformation inputinfo;
+	bool updatedddcontrollers = false;
+
+	// get session status
+	session->GetStatus(status);
+
+	// general
+	snap << "### GENERAL\n";
+	{
+		snap << fmt::format("Memory Usage:    {}MB", session->UI_GetMemoryUsage())
+			 << "\n";
+	}
+	snap << "\n\n";
+	// status
+	snap << "### STATUS\n";
+	{
+		snap << fmt::format("Executed Tests:    {}", status.overallTests) << "\n";
+		snap << fmt::format("Positive Tests:    {}", status.positiveTests) << "\n";
+		snap << fmt::format("Negative Tests:    {}", status.negativeTests) << "\n";
+		snap << fmt::format("Unfinished Tests:  {}", status.unfinishedTests) << "\n";
+		snap << fmt::format("Pruned Tests:      {}", status.prunedTests) << "\n";
+		snap << fmt::format("Runtime:           {} s", std::chrono::duration_cast<std::chrono::seconds>(status.runtime).count()) << "\n";
+		snap << "\n";
+		snap << fmt::format("Status:    {}", status.status.c_str());
+		snap << "\n";
+
+		if (status.saveload) {
+			snap << fmt::format("Save / Load Progress:                            {}/{}", status.saveload_current, status.saveload_max) << "\n";
+			snap << fmt::format("Record: {:20}                 {}/{}", FormType::ToString(status.record).c_str(), status.saveload_record_current, status.saveload_record_len) << "\n";
+		} else {
+			if (status.goverall >= 0.f) {
+				snap << fmt::format("Progress towards overall generated tests:    {}%", status.goverall * 100) << "\n";
+			}
+			if (status.gpositive >= 0.f) {
+				snap << fmt::format("Progress towards positive generated tests:   {}%", status.gpositive * 100) << "\n";
+			}
+			if (status.gnegative >= 0.f) {
+				snap << fmt::format("Progress towards negative generated tests:   {}%", status.gnegative * 100) << "\n";
+			}
+			if (status.gtime >= 0.f) {
+				snap << fmt::format("Progress towards timeout:                    {}%", status.gtime * 100) << "\n";
+			}
+
+		}
+	}
+	snap << "\n\n";
+
+	// advanced stats
+	snap << "### ADVANCED STATS\n";
+	{
+		static size_t hashmapSize;
+		session->UI_GetHashmapInformation(hashmapSize);
+
+		snap << ("Exclusion Tree") << "\n";
+		snap << fmt::format("Depth:                   {}", status.excl_depth) << "\n";
+		snap << fmt::format("Nodes:                   {}", status.excl_nodecount) << "\n";
+		snap << fmt::format("Leaves:                  {}", status.excl_leafcount) << "\n";
+
+		snap << ("Task Controller") << "\n";
+		snap << fmt::format("Waiting [All]:           {}", status.task_waiting) << "\n";
+		snap << fmt::format("Waiting [Medium]:        {}", status.task_waiting_medium) << "\n";
+		snap << fmt::format("Waiting [Light]:         {}", status.task_waiting_light) << "\n";
+		snap << fmt::format("Completed:               {}", status.task_completed) << "\n";
+
+		snap << ("Execution Handler") << "\n";
+		snap << fmt::format("Waiting:                 {}", status.exec_waiting) << "\n";
+		snap << fmt::format("Initialized:             {}", status.exec_initialized) << "\n";
+		snap << fmt::format("Running:                 {}", status.exec_running) << "\n";
+		snap << fmt::format("Stopping:                {}", status.exec_stopping) << "\n";
+
+		snap << ("Generation") << "\n";
+		snap << fmt::format("Generated Inputs:        {}", status.gen_generatedInputs) << "\n";
+		snap << fmt::format("Excluded with Prefix:    {}", status.gen_generatedWithPrefix) << "\n";
+		snap << fmt::format("Excluded Approximation:  {}", status.gen_excludedApprox) << "\n";
+		snap << fmt::format("Generation Fails:        {}", status.gen_generationFails) << "\n";
+		snap << fmt::format("Add Test Fails:          {}", status.gen_addtestfails) << "\n";
+		snap << fmt::format("Failure Rate:            {}", status.gen_failureRate) << "\n";
+
+		snap << ("Test exit stats") << "\n";
+		snap << fmt::format("Natural:                 {}", status.exitstats.natural) << "\n";
+		snap << fmt::format("Last Input:              {}", status.exitstats.lastinput) << "\n";
+		snap << fmt::format("Terminated:              {}", status.exitstats.terminated) << "\n";
+		snap << fmt::format("Timeout:                 {}", status.exitstats.timeout) << "\n";
+		snap << fmt::format("Fragment Timeout:        {}", status.exitstats.fragmenttimeout) << "\n";
+		snap << fmt::format("Memory:                  {}", status.exitstats.memory) << "\n";
+		snap << fmt::format("Init error:              {}", status.exitstats.initerror) << "\n";
+
+		snap << ("Internals") << "\n";
+		snap << fmt::format("Hashmap size:            {}", hashmapSize) << "\n";
+	}
+	snap << "\n\n";
+
+	// tasks
+	snap << "### TASKS\n";
+	{
+		static UI::UITaskController controller;
+		if (controller.Initialized() == false)
+			session->UI_GetTaskController(controller);
+		if (controller.Initialized()) {
+			controller.LockExecutedTasks();
+			auto itr = controller.beginExecutedTasks();
+			while (itr != controller.endExecutedTasks()) {
+				snap << fmt::format("{}: {}", itr->first.c_str(), itr->second) << "\n";
+				itr++;
+			}
+			controller.UnlockExecutedTasks();
+		}
+	}
+	snap << "\n\n";
+
+	// inputs
+	snap << "### INPUT INFO\n";
+	{
+		if (inputinfo.Initialized()) {
+			static bool listview = false;
+
+			snap << ("General Information") << "\n";
+			snap << fmt::format("Input ID:                   {}", Utility::GetHexFill(inputinfo._inputID).c_str()) << "\n";
+			snap << fmt::format("Parent ID:                  {}", Utility::GetHexFill(inputinfo._parentInput).c_str()) << "\n";
+			snap << fmt::format("Generation ID:              {}", Utility::GetHexFill(inputinfo._generationID).c_str()) << "\n";
+			snap << fmt::format("Derived Inputs:             {}", inputinfo._derivedInputs) << "\n";
+			snap << fmt::format("Flags:                      {}", Utility::GetHexFill(inputinfo._flags).c_str()) << "\n";
+			snap << fmt::format("Has Finished:               {}", inputinfo._hasfinished ? "true" : "false") << "\n";
+			snap << "\n";
+
+			snap << ("Generation Information") << "\n";
+			snap << fmt::format("Generation Time:            {} ns", inputinfo._generationTime.count()) << "\n";
+			snap << fmt::format("Generation Length:          {}", inputinfo._naturallength) << "\n";
+			snap << fmt::format("Trimmed Length:             {}", inputinfo._trimmedlength) << "\n";
+			snap << "\n";
+
+			snap << ("Test Information") << "\n";
+			snap << fmt::format("Execution Time:             {} ns", inputinfo._executionTime.count()) << "\n";
+			snap << fmt::format("Primary Score:              {}", inputinfo._primaryScore) << "\n";
+			snap << fmt::format("Secondary Score:            {}", inputinfo._secondaryScore) << "\n";
+			snap << fmt::format("Exitcode:                   {}", inputinfo._exitcode) << "\n";
+			snap << fmt::format("ExitReason:                 {}", inputinfo._exitreason) << "\n";
+
+			snap << ("Command Line Args:") << "\n";
+			snap << fmt::format("{}", inputinfo._cmdArgs.c_str()) << "\n";
+			snap << ("Script Args:") << "\n";
+			snap << fmt::format("{}", inputinfo._cmdArgs.c_str()) << "\n";
+			snap << "\n";
+
+			snap << ("Input") << "\n";
+			snap << fmt::format("{}", inputinfo._inputlist.c_str()) << "\n";
+			snap << "\n";
+			snap << ("Output") << "\n";
+			snap << fmt::format("{}", inputinfo._output.c_str()) << "\n";
+		} else {
+			snap << fmt::format("Not available") << "\n";
+		}
+	}
+	snap << "\n\n";
+
+	// thread status
+	snap << "### THREAD STATUS\n";
+	{
+		auto toString = [](TaskController::ThreadStatus stat) {
+			switch (stat) {
+			case TaskController::ThreadStatus::Initializing:
+				return "Intializing";
+			case TaskController::ThreadStatus::Running:
+				return "Running";
+			case TaskController::ThreadStatus::Waiting:
+				return "Waiting";
+			}
+			return "None";
+		};
+		auto toStringExec = [](ExecHandlerStatus stat) {
+			switch (stat) {
+			case ExecHandlerStatus::None:
+				return "None";
+			case ExecHandlerStatus::Exitted:
+				return "Exitted";
+			case ExecHandlerStatus::HandlingTests:
+				return "HandlingTests";
+			case ExecHandlerStatus::MainLoop:
+				return "MainLoop";
+			case ExecHandlerStatus::Sleeping:
+				return "Sleeping";
+			case ExecHandlerStatus::StartingTests:
+				return "StartingTests";
+			case ExecHandlerStatus::Waiting:
+				return "Waiting";
+			case ExecHandlerStatus::KillingProcessMemory:
+				return "KillingProcessMemory";
+			case ExecHandlerStatus::WriteFragment:
+				return "WriteFragment";
+			case ExecHandlerStatus::KillingProcessTimeout:
+				return "KillingProcessTimeout";
+			case ExecHandlerStatus::StoppingTest:
+				return "StoppingTest";
+			}
+			return "None";
+		};
+
+		static std::vector<TaskController::ThreadStatus> stati;
+		static ExecHandlerStatus execstatus;
+		session->UI_GetThreadStatus(stati);
+		snap << ("TaskController") << "\n";
+		for (size_t i = 0; i < stati.size(); i++) {
+			snap << fmt::format("Status: {}", toString(stati[i])) << "\n";
+		}
+		snap << ("ExecutionHandler") << "\n";
+		execstatus = session->UI_GetExecHandlerStatus();
+		snap << fmt::format("Status: {}", toStringExec(execstatus)) << "\n";
+	}
+	snap << "\n\n";
+
+	auto res = [](UI::Result result) {
+		if (result == UI::Result::Failing)
+			return std::string("Failing");
+		else if (result == UI::Result::Passing)
+			return std::string("Passing");
+		else if (result == UI::Result::Running)
+			return std::string("Running");
+		else
+			return std::string("Unfinished");
+	};
+
+	// generation
+	snap << "### GENERATION\n";
+	{
+		session->UI_GetCurrentGeneration(ActiveGeneration);
+		if (session->Loaded()) {
+			static std::vector<std::pair<FormID, int32_t>> generations;
+			static size_t numgenerations;
+			static std::pair<FormID, FormID> selection = { 0, 0 };
+			static bool changed = false;
+			if (!ActiveGeneration.Initialized()) {
+				changed = true;
+				session->UI_GetGenerations(generations, numgenerations);
+				session->UI_GetCurrentGeneration(ActiveGeneration);
+				if (ActiveGeneration.Initialized()) {
+					selection = { ActiveGeneration.GetFormID(), ActiveGeneration.GetGenerationNumber() };
+				}
+			}
+
+			static std::string preview;
+			if (changed) {
+				changed = false;
+				if (ActiveGeneration.Initialized())
+					preview = std::to_string(ActiveGeneration.GetGenerationNumber());
+				else
+					preview = "None";
+			}
+
+			snap << "Generation: " << preview << "\n";
+
+			if (ActiveGeneration.Initialized()) {
+				// update stuff
+				static std::vector<UI::UIInput> sources;
+				ActiveGeneration.GetSources(sources);
+				static int64_t numsources;
+				numsources = ActiveGeneration.GetNumberOfSources();
+				ActiveGeneration.GetDDControllers(ddcontrollers, numddcontrollers);
+
+				// build ui
+				snap << fmt::format("Generation Number:          {}", ActiveGeneration.GetGenerationNumber()) << "\n";
+				snap << fmt::format("Total Size:                 {}", ActiveGeneration.GetSize()) << "\n";
+				snap << fmt::format("Generated Size:             {}", ActiveGeneration.GetGeneratedSize())
+					 << "\t\t"
+					 << fmt::format("Target Size:                {}", ActiveGeneration.GetTargetSize()) << "\n";
+				snap << fmt::format("DD Size:                    {}", ActiveGeneration.GetDDSize()) << "\n";
+				snap << fmt::format("Active Inputs:              {}", ActiveGeneration.GetActiveInputs()) << "\n";
+				snap << fmt::format("Number of DD controllers:   {}", numddcontrollers) << "\n";
+				snap << "\n";
+				snap << fmt::format("Source Inputs: {}", numsources) << "\n";
+
+				snap << "\n";
+				// do something with sources
+
+				snap << "Sources:\n";
+				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs") << "\n";
+
+				for (int i = 0; i < (int32_t)sources.size(); i++) {
+					auto item = &sources[i];
+					snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs) << "\n";
+				}
+			}
+		}
+	}
+	snap << "\n\n";
+
+	// top k
+	snap << "### TOP K\n";
+	{
+		static int32_t MAX_ITEMS = 100;
+		static ImVector<UI::UIInput> imElements;
+		static std::vector<UI::UIInput> elements;
+		if (imElements.Size == 0)
+			imElements.resize(MAX_ITEMS);
+
+		// GET ITEMS FROM SESSION
+		session->UI_GetTopK(elements, MAX_ITEMS);
+
+		for (int i = 0; i < MAX_ITEMS && i < (int32_t)elements.size(); i++)
+			imElements[i] = elements[i];
+
+		static int32_t rownum = 0;
+
+		snap << "Inputs:\n";
+		snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs") << "\n";
+
+		for (int i = 0; i < (int32_t)imElements.size(); i++) {
+			auto item = &imElements[i];
+			if (item->id != 0) {
+				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs) << "\n";
+			}
+		}
+	}
+	snap << "\n\n";
+
+	// profiling
+	snap << "### PROFILING\n";
+	{
+		static int32_t MAX_ITEMS = 100;
+		static std::vector<UI::UIExecTime> dimElements(MAX_ITEMS);
+		int32_t count = 0;
+		auto itr = Profile::exectimes.begin();
+		while (count < 100 && itr != Profile::exectimes.end()) {
+			Profile::ExecTime* exec = itr->second;
+			dimElements[count].ns = exec->exectime;
+			dimElements[count].time = exec->lastexec;
+			dimElements[count].func = exec->functionName;
+			dimElements[count].file = exec->fileName;
+			dimElements[count].usermes = exec->usermessage;
+			dimElements[count].tmpid = count;
+			count++;
+			itr++;
+		}
+
+		snap << "Profile Times:\n";
+		snap << fmt::format("{:<20} {:<30} {:<15} {:<15} {}", "File", "Function", "Exec Time", "Last executed", "Message") << "\n";
+
+		for (int i = 0; i < count; i++) {
+			auto item = &dimElements[i];
+			snap << fmt::format("{:<20} {:<30} {:<15} {:<15} {}", item->file, item->func, Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(item->ns).count()), Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - item->time).count()), item->usermes) << "\n";
+		}
+	}
+	snap << "\n\n";
+
+	// delta debugging
+	snap << "### DELTA DEBUGGING\n";
+	{
+		static int32_t ITEMS = 100;
+		static std::vector<UI::UIInput> inputs(ITEMS);
+		static size_t numinputs;
+		static std::vector<UI::UIDDResult> results(ITEMS);
+		static size_t numresults;
+		static UI::UIInput input;
+		static UI::UIInput origInput;
+		static UI::UIDeltaDebugging dd;
+		static bool changed = false;
+		if (ActiveGeneration.Initialized() && (dd.Initialized() == false || dd.Finished() == true)) {
+			if (!updatedddcontrollers) {
+				ActiveGeneration.GetDDControllers(ddcontrollers, numddcontrollers);
+				updatedddcontrollers = true;
+			}
+			changed = true;
+			if (dd.Initialized() && dd.Finished() == true)
+			{
+				bool f = false;
+				for (size_t i = 0; i < ddcontrollers.size(); i++)
+					if (ddcontrollers[i].Initialized() && ddcontrollers[i].Finished() == false) {
+						dd = ddcontrollers[i];
+						f = true;
+					}
+				if (!f)
+					dd = ddcontrollers[0];
+			}
+			else if (ddcontrollers.size() > 0)
+				dd = ddcontrollers[0];
+		}
+		static std::string preview;
+		if (changed) {
+			changed = false;
+			if (dd.Initialized())
+				preview = Utility::GetHexFill(dd.GetFormID());
+			else
+				preview = "None";
+		}
+
+		snap << "DeltaController: " << preview << "\n";
+		if (dd.Initialized() && ActiveGeneration.Initialized()) {
+			// update stuff
+			dd.GetInput(input);
+			dd.GetOriginalInput(origInput);
+			dd.GetActiveInputs(inputs, numinputs);
+			dd.GetResults(results, numresults);
+
+			// build ui
+			snap << fmt::format("Finished: {}", dd.Finished() ? "True" : "False");
+			snap << fmt::format("Goal:  {}", dd.GetGoal().c_str());
+			snap << fmt::format("Mode:  {}", dd.GetMode().c_str());
+			snap << fmt::format("Level: {}", dd.GetLevel());
+			snap << fmt::format("Total Tests: {}", dd.GetTotalTests());
+			snap << fmt::format("Tests done: {}", dd.GetTests());
+			snap << fmt::format("Tests Remaining: {}", dd.GetTestsRemaining());
+			snap << "\n";
+
+			
+			snap << "Original Input:\n";
+			snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs") << "\n";
+			{
+				auto item = &origInput;
+				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs) << "\n";
+			}
+			
+			snap << "Input:\n";
+			snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs") << "\n";
+			{
+				auto item = &input;
+				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs) << "\n";
+			}
+
+			snap << "Results:\n";
+			snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<10} {:<16} {:<17}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Level", "Loss (Primary)", "Loss (Secondary)") << "\n";
+
+			for (int i = 0; i < (int32_t)results.size(); i++) {
+				auto item = &results[i];
+				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<10} {:<16} {:<17}", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->level, item->primaryLoss, item->secondaryLoss) << "\n";
+			}
+
+
+			snap << "Active Inputs:\n";
+			snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs") << "\n";
+
+			for (int i = 0; i < (int32_t)inputs.size(); i++) {
+				auto item = &inputs[i];
+				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs) << "\n";
+			}
+
+		} else {
+			snap << ("No delta debugging active.") << "\n";
+		}
+	}
+	snap << "\n\n";
+
+	return snap.str();
+}
+
 void StartSession()
 {
 	// -----Start the session or do whatever-----
@@ -1576,10 +2027,10 @@ int32_t main(int32_t argc, char** argv)
 		session.reset();
 
 	} else if (CmdArgs::_responsive) {
+Responsive:
 #else
 	if (CmdArgs::_responsive) {
 #endif
-Responsive:
 		Logging::StdOutDebug = false;
 		Logging::StdOutLogging = false;
 		// wait for session to load
@@ -1616,7 +2067,7 @@ Responsive:
 			}
 			// CMD: stats
 			else if (line.substr(0, 5).find("stats") != std::string::npos) {
-				std::cout << session->PrintStats();
+				std::cout << Snapshot();
 			}
 			// CMD: INTERNAL: exitinternal
 			else if (line.substr(0, 12).find("exitinternal") != std::string::npos) {
@@ -1628,11 +2079,22 @@ Responsive:
 		session->DestroySession();
 		session.reset();
 	} else {
+		Logging::StdOutDebug = false;
+		Logging::StdOutLogging = false;
 		// wait for session to load
 		StartSession();
-		while (session->Loaded() == false)
+		std::chrono::steady_clock::time_point last = std::chrono::steady_clock::now();
+		while (session->Loaded() == false) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(50));
+		}
 		std::cout << "Beginning infinite wait for session end";
+		while (session->Finished() == false) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(50));
+			if (std::chrono::steady_clock::now() - last >= std::chrono::seconds(10)) {
+				last = std::chrono::steady_clock::now();
+				std::cout << Snapshot();
+			}
+		}
 		session->Wait();
 		session->DestroySession();
 		session.reset();

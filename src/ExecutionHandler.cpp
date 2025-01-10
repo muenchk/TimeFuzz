@@ -507,7 +507,7 @@ void ExecutionHandler::TestStarter(std::stop_token stoken)
 	while (_stopHandler == false || _finishtests || stoken.stop_requested() == false) {
 		{
 			std::unique_lock<std::mutex> guard(_startingLock);
-			_startingLockCond.wait_for(guard, std::chrono::seconds(1), [this] { return _stopHandler || !_startingTests.empty(); });
+			_startingLockCond.wait_for(guard, std::chrono::seconds(1), [this] { return _stopHandler || !_startingTests.empty() && _currentTests < _maxConcurrentTests; });
 			if (!_startingTests.empty()) {
 				test = _startingTests.front();
 				_startingTests.pop();
