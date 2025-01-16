@@ -357,24 +357,19 @@ std::string Snapshot()
 	snap << "### TOP K\n";
 	{
 		static int32_t MAX_ITEMS = 100;
-		static ImVector<UI::UIInput> imElements;
 		static std::vector<UI::UIInput> elements;
-		if (imElements.Size == 0)
-			imElements.resize(MAX_ITEMS);
 
 		// GET ITEMS FROM SESSION
 		session->UI_GetTopK(elements, MAX_ITEMS);
 
-		for (int i = 0; i < MAX_ITEMS && i < (int32_t)elements.size(); i++)
-			imElements[i] = elements[i];
 
 		static int32_t rownum = 0;
 
 		snap << "Inputs:\n";
 		snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs") << "\n";
 
-		for (int i = 0; i < (int32_t)imElements.size(); i++) {
-			auto item = &imElements[i];
+		for (int i = 0; i < (int32_t)elements.size(); i++) {
+			auto item = &elements[i];
 			if (item->id != 0) {
 				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs) << "\n";
 			}
