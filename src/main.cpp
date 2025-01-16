@@ -3,7 +3,6 @@
 #include "Session.h"
 #include "Settings.h"
 #include "UIClasses.h"
-#include "shader/learnopengl_shader_s.h"
 #include <filesystem>
 #include <iostream>
 
@@ -12,6 +11,7 @@
 #endif
 
 #ifdef EnableUI
+	#include "shader/learnopengl_shader_s.h"
 
 	#define STB_IMAGE_IMPLEMENTATION
 	#include <stb_image.h>
