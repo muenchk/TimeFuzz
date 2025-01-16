@@ -61,7 +61,8 @@ int main()
 	input->derive = stree;
 
 	auto generator = data->CreateForm<Generator>();
-	generator->Generate(input, grammar, data->CreateForm<SessionData>());
+	auto sessdata = data->CreateForm<SessionData>();
+	generator->Generate(input, {}, grammar, sessdata);
 
 	auto dtree = data->CreateForm<DerivationTree>();
 	std::vector<std::pair<int64_t, int64_t>> segments1 = { { 2, 3 }, { 7, 2 } };
@@ -74,7 +75,7 @@ int main()
 	auto inp = data->CreateForm<Input>();
 	inp->derive = dtree;
 	inp->SetParentSplitInformation(input->GetFormID(), segments1, false);
-	generator->Generate(inp, grammar, data->CreateForm<SessionData>());
+	generator->Generate(inp, {}, grammar, sessdata);
 
 	auto exttree = data->CreateForm<DerivationTree>();
 	auto extinput = data->CreateForm<Input>();
@@ -82,5 +83,5 @@ int main()
 	input->SetFlag(Input::Flags::GeneratedGrammarParent);
 	grammar->Extend(inp, exttree, false, 15, 0);
 
-	generator->Generate(extinput, grammar, data->CreateForm<SessionData>());
+	generator->Generate(extinput, {}, grammar, sessdata);
 }

@@ -8,9 +8,8 @@
 class LoadResolver;
 class ExecutionHandler;
 
-class Records
+struct Records
 {
-public:
 	static void CreateRecordHeaderStringHashmap(std::ostream* buffer, size_t& length, size_t& offset)
 	{
 		offset = 0;
@@ -37,8 +36,6 @@ public:
 		Buffer::Write(T::GetTypeStatic(), buffer, offset);
 		value->WriteData(buffer, offset);
 	}
-	template <>
-	void CreateRecord(ExecutionHandler* value, std::ostream* buffer, size_t& offset, size_t& length);
 
 	/// <summary>
 	/// Creates a new record and returns the length in [length]
@@ -76,3 +73,6 @@ public:
 		return std::shared_ptr<T>(rec);
 	}
 };
+
+template <>
+void Records::CreateRecord(ExecutionHandler* value, std::ostream* buffer, size_t& offset, size_t& length);

@@ -1,9 +1,4 @@
-build/
-buildLinux/
-buildKali*
-buildall/
-buildRelease/
-buildLinuxGnu
+build*
 .vs/
 .vscode/
 src/.vs/

@@ -307,7 +307,7 @@
       }
     },
     {
-      "name": "gnulinux",
+      "name": "Gnu",
       "inherits": [
         "base",
         "vcpkg-linux",
@@ -321,6 +321,27 @@
       "description": "Optimized release build.",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/buildLinuxGnu",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": {
+          "type": "STRING",
+          "value": "Release"
+        }
+      }
+    },
+    {
+      "name": "GnuNoUI",
+      "inherits": [
+        "base",
+        "vcpkg-linux",
+        "x64",
+        "gnu",
+        "generator-ninja",
+        "build-tests"
+      ],
+      "displayName": "Linux",
+      "description": "Optimized release build.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/buildLinuxGnuNoUI",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": {
           "type": "STRING",

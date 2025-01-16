@@ -207,7 +207,6 @@ private:
 	bool ReadStringHashmap(std::istream* buffer, size_t& offset, size_t length);
 
 public:
-
 	bool _globalTasks = false;
 	bool _globalExec = false;
 	bool _loaded = false;
@@ -216,7 +215,7 @@ public:
 
 	std::string _status;
 	int32_t _record;
-	bool _actionloadsave = false; 
+	bool _actionloadsave = false;
 	uint64_t _actionloadsave_max = 0;
 	uint64_t _actionloadsave_current = 0;
 	size_t _actionrecord_len = 0;
@@ -241,8 +240,7 @@ public:
 	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 	void RecycleObject(std::shared_ptr<T> form)
 	{
-		if (form)
-		{
+		if (form) {
 			auto stor = _objectRecycler.at(form->GetType());
 			stor->StoreObj(form);
 		}
@@ -279,22 +277,6 @@ public:
 		}
 		return ptr;
 	}
-	template <>
-	std::shared_ptr<Session> CreateForm();
-	template <>
-	std::shared_ptr<TaskController> CreateForm();
-	template <>
-	std::shared_ptr<Settings> CreateForm();
-	template <>
-	std::shared_ptr<Oracle> CreateForm();
-	template <>
-	std::shared_ptr<Generator> CreateForm();
-	template <>
-	std::shared_ptr<ExclusionTree> CreateForm();
-	template <>
-	std::shared_ptr<ExecutionHandler> CreateForm();
-	template <>
-	std::shared_ptr<SessionData> CreateForm();
 
 	/// <summary>
 	/// Registers an existing form [used during loading]
@@ -305,8 +287,7 @@ public:
 	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 	bool RegisterForm(std::shared_ptr<T> form)
 	{
-		if (form)
-		{
+		if (form) {
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 			_hashmap.insert(std::pair<FormID, std::shared_ptr<Form>>{ form->GetFormID(), dynamic_pointer_cast<Form>(form) });
 			return true;
@@ -359,8 +340,7 @@ public:
 	{
 		std::vector<std::shared_ptr<T>> results;
 		std::shared_lock<std::shared_mutex> guard(_hashmaplock);
-		for (auto& [_, form] : _hashmap)
-		{
+		for (auto& [_, form] : _hashmap) {
 			if (form->GetType() == T::GetTypeStatic())
 				results.push_back(dynamic_pointer_cast<T>(form));
 		}
@@ -399,7 +379,6 @@ public:
 	/// <returns></returns>
 	std::pair<std::string, bool> GetStringFromID(FormID id);
 
-
 	/// <summary>
 	/// clears all forms
 	/// </summary>
@@ -428,14 +407,13 @@ public:
 	/// </summary>
 	/// <param name="name"></param>
 	void Load(std::string name, LoadSaveArgs& loadArgs);
-	
+
 	/// <summary>
 	/// Loads the [number]-th savefile with the uniquename [name]
 	/// </summary>
 	/// <param name="name"></param>
 	/// <param name="number"></param>
 	void Load(std::string name, int32_t number, LoadSaveArgs& loadArgs);
-
 };
 
 class LoadResolver
@@ -494,3 +472,20 @@ private:
 		TaskFn _fn;
 	};
 };
+
+template <>
+std::shared_ptr<Session> Data::CreateForm();
+template <>
+std::shared_ptr<TaskController> Data::CreateForm();
+template <>
+std::shared_ptr<Settings> Data::CreateForm();
+template <>
+std::shared_ptr<Oracle> Data::CreateForm();
+template <>
+std::shared_ptr<Generator> Data::CreateForm();
+template <>
+std::shared_ptr<ExclusionTree> Data::CreateForm();
+template <>
+std::shared_ptr<ExecutionHandler> Data::CreateForm();
+template <>
+std::shared_ptr<SessionData> Data::CreateForm();
