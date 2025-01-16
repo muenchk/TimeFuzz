@@ -158,14 +158,46 @@ class SessionData : public Form
 	/// map holding all prior generations for fast access
 	/// </summary>
 	std::unordered_map<FormID, std::shared_ptr<Generation>> _generations;
+	/// <summary>
+	/// lock for threadsafe access to _generations
+	/// </summary>
 	std::shared_mutex _generationsLock;
 	/// <summary>
 	/// indicates whether the current generation is ending, aka. the end generation callback has been deployed
 	/// </summary>
 	std::atomic<bool> _generationEnding = false;
 
-	std::atomic<std::shared_ptr<Generation>> _generation;
+	/// <summary>
+	/// currently active generation
+	/// </summary>
+	std::shared_ptr<Generation> _generation;
+	/// <summary>
+	/// flag for spinlock for _generation
+	/// </summary>
+	std::atomic_flag _generationFlag = ATOMIC_FLAG_INIT;
+	/// <summary>
+	/// thread safe access to _generation
+	/// </summary>
+	/// <returns></returns>
+	std::shared_ptr<Generation> GetGen();
+	/// <summary>
+	/// thread safe updaate of _generation
+	/// </summary>
+	/// <param name="gen"></param>
+	void SetGen(std::shared_ptr<Generation> gen);
+	/// <summary>
+	/// thread safe exchange of _generation
+	/// </summary>
+	/// <param name="newgen"></param>
+	/// <returns></returns>
+	std::shared_ptr<Generation> ExchangeGen(std::shared_ptr<Generation> newgen);
+	/// <summary>
+	/// ID of the current generation
+	/// </summary>
 	FormID _generationID;
+	/// <summary>
+	/// ID of the last generation
+	/// </summary>
 	FormID _lastGenerationID = 0;
 
 	/// <summary>

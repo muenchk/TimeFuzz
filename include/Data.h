@@ -15,7 +15,6 @@
 #include <chrono>
 #include <boost/bimap.hpp>
 #include <boost/bimap/unordered_set_of.hpp>
-#include <boost/thread.hpp>
 #include <boost/unordered_map.hpp>
 
 #include "TaskController.h"
@@ -178,7 +177,7 @@ private:
 	/// <summary>
 	/// mutex for _stringHashmap access
 	/// </summary>
-	boost::upgrade_mutex _stringHashmapLock;
+	std::mutex _stringHashmapLock;
 
 	/// <summary>
 	/// holds references to reusable objects

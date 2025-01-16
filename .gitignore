@@ -3,6 +3,7 @@ buildLinux/
 buildKali*
 buildall/
 buildRelease/
+buildLinuxGnu
 .vs/
 .vscode/
 src/.vs/

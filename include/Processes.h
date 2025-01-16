@@ -4,6 +4,7 @@
 #include <thread>
 #include <string>
 #include <memory>
+#include <vector>
 
 #ifndef H_PROCESSES
 #define H_PROCESSES

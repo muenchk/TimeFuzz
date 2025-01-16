@@ -37,6 +37,23 @@ class Session;
 *	Whole Execution: Executes the test in one go, and applies an overall timeout
 */
 
+struct stop_token
+{
+private:
+	bool stop = false;
+
+public:
+	void request_stop()
+	{
+		stop = true;
+	}
+
+	bool stop_requested()
+	{
+		return stop;
+	}
+};
+
 namespace Functions
 {
 
@@ -226,13 +243,17 @@ private:
 	/// </summary>
 	ExecHandlerStatus _tstatus;
 
-	std::jthread _thread;
+	std::thread _thread;
 
-	std::jthread _threadTS;
+	std::shared_ptr<stop_token> _threadStopToken;
 
-	void InternalLoop(std::stop_token stoken);
+	std::thread _threadTS;
 
-	void TestStarter(std::stop_token stoken);
+	std::shared_ptr<stop_token> _threadTSStopToken;
+
+	void InternalLoop(std::shared_ptr<stop_token> stoken);
+
+	void TestStarter(std::shared_ptr<stop_token> stoken);
 
 	bool StartTest(std::shared_ptr<Test> test);
 

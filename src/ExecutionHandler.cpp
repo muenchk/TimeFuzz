@@ -10,6 +10,7 @@
 #include "LuaEngine.h"
 #include "SessionFunctions.h"
 #include "Generation.h"
+#include <functional>
 //#include <io.h>
 
 ExecutionHandler::ExecutionHandler()
@@ -138,8 +139,10 @@ void ExecutionHandler::StartHandlerAsIs()
 		}
 	}
 	// start thread
-	_thread = std::jthread([this](std::stop_token s) { ExecutionHandler::InternalLoop(s); });
-	_threadTS = std::jthread([this](std::stop_token s) { ExecutionHandler::TestStarter(s); });
+	_threadStopToken = std::make_shared<stop_token>();
+	_threadTSStopToken = std::make_shared<stop_token>();
+	_thread = std::thread(std::bind(&ExecutionHandler::InternalLoop, this, std::placeholders::_1), _threadStopToken);
+	_threadTS = std::thread(std::bind(&ExecutionHandler::TestStarter, this, std::placeholders::_1), _threadStopToken);
 }
 
 void ExecutionHandler::StartHandler()
@@ -230,16 +233,18 @@ void ExecutionHandler::StartHandler()
 		_thread = {};
 	}
 	// start thread
-	_thread = std::jthread([this](std::stop_token s) { ExecutionHandler::InternalLoop(s); });
-	_threadTS = std::jthread([this](std::stop_token s) { ExecutionHandler::TestStarter(s); });
+	_threadStopToken = std::make_shared<stop_token>();
+	_threadTSStopToken = std::make_shared<stop_token>();
+	_thread = std::thread(std::bind(&ExecutionHandler::InternalLoop, this, std::placeholders::_1), _threadStopToken);
+	_threadTS = std::thread(std::bind(&ExecutionHandler::TestStarter, this, std::placeholders::_1), _threadStopToken);
 }
 
 void ExecutionHandler::ReinitHandler()
 {
-	_thread.request_stop();
-	_thread.detach();
+	_threadStopToken->request_stop();
 	_stale = true;
-	_thread = std::jthread([this](std::stop_token s) { ExecutionHandler::InternalLoop(s); });
+	_threadStopToken = std::make_shared<stop_token>();
+	_thread = std::thread(std::bind(&ExecutionHandler::InternalLoop, this, std::placeholders::_1), _threadStopToken);
 }
 
 void ExecutionHandler::StopHandler()
@@ -501,10 +506,10 @@ void ExecutionHandler::StopTest(std::shared_ptr<Test> test)
 	_currentTests--;
 }
 
-void ExecutionHandler::TestStarter(std::stop_token stoken)
+void ExecutionHandler::TestStarter(std::shared_ptr<stop_token> stoken)
 {
 	std::shared_ptr<Test> test;
-	while (_stopHandler == false || _finishtests || stoken.stop_requested() == false) {
+	while (_stopHandler == false || _finishtests || stoken->stop_requested() == false) {
 		{
 			std::unique_lock<std::mutex> guard(_startingLock);
 			_startingLockCond.wait_for(guard, std::chrono::seconds(1), [this] { return _stopHandler || !_startingTests.empty() && _currentTests < _maxConcurrentTests; });
@@ -523,7 +528,7 @@ void ExecutionHandler::TestStarter(std::stop_token stoken)
 	}
 }
 
-void ExecutionHandler::InternalLoop(std::stop_token stoken)
+void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 {
 	// time_point used to record enter times and to calculate timeouts
 	auto time = std::chrono::steady_clock::now();
@@ -565,7 +570,7 @@ void ExecutionHandler::InternalLoop(std::stop_token stoken)
 
 	logdebug("Entering loop");
 	int32_t newtests = 0;
-	while (_stopHandler == false || _finishtests || stoken.stop_requested() == false) {
+	while (_stopHandler == false || _finishtests || stoken->stop_requested() == false) {
 		StartProfiling;
 		logdebug("find new tests");
 		_lastExec = std::chrono::steady_clock::now();
@@ -670,7 +675,7 @@ void ExecutionHandler::InternalLoop(std::stop_token stoken)
 		logdebug("Handling running tests: {}", _currentTests);
 
 		for (int32_t i = 0; i < tohandle; i++) {
-			if (stoken.stop_requested()) {
+			if (stoken->stop_requested()) {
 				return;
 			}
 			_tstatus = ExecHandlerStatus::HandlingTests;
@@ -711,7 +716,7 @@ void ExecutionHandler::InternalLoop(std::stop_token stoken)
 					goto TestFinished;
 				}
 			}
-			if (stoken.stop_requested()) {
+			if (stoken->stop_requested()) {
 				return;
 			}
 			logdebug("Checked Input {}", ptr->_identifier);
@@ -738,7 +743,7 @@ void ExecutionHandler::InternalLoop(std::stop_token stoken)
 			}
 			goto TestRunning;
 TestFinished:
-			if (stoken.stop_requested())
+			if (stoken->stop_requested())
 				return;
 			{
 				_tstatus = ExecHandlerStatus::StoppingTest;

@@ -1319,12 +1319,14 @@ size_t Data::GetHashmapSize()
 
 FormID Data::GetIDFromString(std::string str)
 {
-	boost::upgrade_lock<boost::upgrade_mutex> guard(_stringHashmapLock);
+	//_stringHashmapLock.lock_shared();
+	//boost::upgrade_lock<boost::upgrade_mutex> guard(_stringHashmapLock);
 	auto itr = _stringHashmap.right.find(str);
 	if (itr != _stringHashmap.right.end()) {
 		return itr->second;
 	} else {
-		boost::upgrade_to_unique_lock<boost::upgrade_mutex> guardunique(guard);
+		//boost::upgrade_to_unique_lock<boost::upgrade_mutex> guardunique(guard);
+		std::unique_lock<std::mutex> guard(_stringHashmapLock);
 		FormID formid = 0;
 		{
 			formid = _stringNextFormID++;
@@ -1335,7 +1337,7 @@ FormID Data::GetIDFromString(std::string str)
 }
 std::pair<std::string, bool> Data::GetStringFromID(FormID id)
 {
-	boost::shared_lock<boost::upgrade_mutex> guard(_stringHashmapLock);
+	//std::shared_lock<std::shared_mutex> guard(_stringHashmapLock);
 	auto itr = _stringHashmap.left.find(id);
 	if (itr != _stringHashmap.left.end()) {
 		return { itr->second, true };

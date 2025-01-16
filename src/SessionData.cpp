@@ -93,6 +93,26 @@ void SessionData::AddInput(std::shared_ptr<Input>& input, EnumType list, double 
 	}
 }
 
+std::shared_ptr<Generation> SessionData::GetGen()
+{
+	Utility::SpinLock guard(_generationFlag);
+	return _generation;
+}
+
+void SessionData::SetGen(std::shared_ptr<Generation> gen)
+{
+	Utility::SpinLock guard(_generationFlag);
+	_generation = gen;
+}
+
+std::shared_ptr<Generation> SessionData::ExchangeGen(std::shared_ptr<Generation> newgen)
+{
+	Utility::SpinLock guard(_generationFlag);
+	auto gen = _generation;
+	_generation = newgen;
+	return gen;
+}
+
 int64_t SessionData::GetGenerationFails() 
 {
 	return _generationfails;
@@ -316,7 +336,7 @@ std::vector<std::shared_ptr<Input>> SessionData::FindKSources(int32_t k, std::se
 std::shared_ptr<Generation> SessionData::GetCurrentGeneration()
 {
 	if (_settings->generation.generationalMode)
-		return _generation.load();
+		return GetGen();
 	else {
 		static Generation gen;
 		static std::shared_ptr<Generation> genptr = std::shared_ptr<Generation>(std::addressof(gen));
@@ -396,7 +416,7 @@ void SessionData::SetNewGeneration()
 		newgen->SetMaxSimultaneuosGeneration(_settings->generation.generationstep);
 		newgen->SetMaxActiveInputs(_settings->generation.activeGeneratedInputs);
 		newgen->SetMaxDerivedFailingInput(_settings->generation.maxNumberOfFailsPerSource);
-		oldgen = _generation.exchange(newgen);
+		oldgen = ExchangeGen(newgen);
 		if (oldgen) {
 			newgen->SetGenerationNumber(oldgen->GetGenerationNumber() + 1);  // increment generation
 			_lastGenerationID = oldgen->GetFormID();
@@ -412,7 +432,7 @@ bool SessionData::CheckGenerationEnd(bool toomanyfails)
 {
 	// checks whether the current session should end and prepares to do so
 	bool exp = false;
-	auto gen = _generation.load();
+	auto gen = GetGen();
 	if ((gen->IsActive() == false || !gen->NeedsGeneration() && _exechandler->WaitingTasks() == 0 && _exechandler->GetRunningTests() == 0) && _generationEnding.compare_exchange_strong(exp, true) /*if gen is inactive and genending is false, set it to true and execute this block*/) {
 		// generation has finished
 		auto call = dynamic_pointer_cast<Functions::GenerationEndCallback>(Functions::GenerationEndCallback::Create());
@@ -445,7 +465,7 @@ int64_t SessionData::GetNumberInputsToGenerate()
 {
 	if (_settings->generation.generationalMode)
 	{
-		auto [res, num] = _generation.load()->CanGenerate();
+		auto [res, num] = GetGen()->CanGenerate();
 		if (res)
 			return num;
 		else
@@ -464,8 +484,8 @@ int64_t SessionData::CheckNumberInputsToGenerate(int64_t generated, int64_t fail
 
 void SessionData::FailNumberInputsToGenerate(int64_t fails, int64_t)
 {
-	if (_settings->generation.generationalMode)
-		_generation.load()->FailGeneration(fails);
+	if (_settings->generation.generationalMode) 
+		GetGen()->FailGeneration(fails);
 }
 
 uint64_t SessionData::GetUsedMemory()
@@ -571,8 +591,8 @@ bool SessionData::WriteData(std::ostream* buffer, size_t& offset)
 		Buffer::Write(_grammar->GetFormID(), buffer, offset);
 	else
 		Buffer::Write((uint64_t)0, buffer, offset);
-	if (_generation.load())
-		Buffer::Write(_generation.load()->GetFormID(), buffer, offset);
+	if (GetGen())
+		Buffer::Write(GetGen()->GetFormID(), buffer, offset);
 	else
 		Buffer::Write((FormID)0, buffer, offset);
 	Buffer::Write(_lastGenerationID, buffer, offset);
@@ -695,7 +715,7 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 				this->_grammar = resolver->ResolveFormID<Grammar>(grammarid);
 				this->_settings = resolver->ResolveFormID<Settings>(Data::StaticFormIDs::Settings);
 				this->_excltree = resolver->ResolveFormID<ExclusionTree>(Data::StaticFormIDs::ExclusionTree);
-				this->_generation = resolver->ResolveFormID<Generation>(generationid);
+				this->SetGen(resolver->ResolveFormID<Generation>(generationid));
 				switch (this->_settings->generation.sourcesType)
 				{
 				case Settings::GenerationSourcesType::FilterLength:
@@ -708,8 +728,8 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 					_negativeInputs.set_ordering(std::SetOrdering::Secondary);
 					break;
 				}
-				if (this->_generation.load())
-					this->_generationID = _generation.load()->GetFormID();
+				if (this->GetGen())
+					this->_generationID = GetGen()->GetFormID();
 				// this is redundant and has already been set
 				this->data = resolver->_data;
 				auto gens = resolver->_data->GetFormArray<Generation>();
