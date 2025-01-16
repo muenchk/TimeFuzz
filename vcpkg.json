@@ -30,7 +30,6 @@
       "name": "lua"
     },
     "magic-enum",
-    "rsm-binary-io",
     "zycore",
     "zydis",
     {
