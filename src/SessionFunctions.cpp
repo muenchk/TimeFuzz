@@ -210,19 +210,23 @@ void SessionFunctions::SaveSession_Async(std::shared_ptr<SessionData> sessiondat
 	sessiondata->data->Save(callback);
 }
 
-bool SessionFunctions::EndCheck(std::shared_ptr<SessionData>& sessiondata)
+bool SessionFunctions::EndCheck(std::shared_ptr<SessionData>& sessiondata, bool generationEnded)
 {
 	// check whether end conditions are met
 	bool end = false;
-	if (sessiondata->_settings->conditions.use_foundnegatives && SessionStatistics::NegativeTestsGenerated(sessiondata) >= sessiondata->_settings->conditions.foundnegatives)
+	if (sessiondata->_settings->generation.generationalMode && generationEnded) {
+		// only check for test end conditions on the end of each generation in generational mode
+		// to give the program time to complete all outstanding delta debuggings
+		if (sessiondata->_settings->conditions.use_foundnegatives && SessionStatistics::NegativeTestsGenerated(sessiondata) >= sessiondata->_settings->conditions.foundnegatives)
+			end = true;
+		else if (sessiondata->_settings->conditions.use_foundpositives && SessionStatistics::PositiveTestsGenerated(sessiondata) >= sessiondata->_settings->conditions.foundpositives)
+			end = true;
+		
+		else if (sessiondata->_settings->conditions.use_overalltests && SessionStatistics::TestsExecuted(sessiondata) >= sessiondata->_settings->conditions.overalltests)
+			end = true;
+	}
+	if (sessiondata->_settings->conditions.use_timeout && std::chrono::duration_cast<std::chrono::seconds>(SessionStatistics::Runtime(sessiondata)).count() >= sessiondata->_settings->conditions.timeout)
 		end = true;
-	else if (sessiondata->_settings->conditions.use_foundpositives && SessionStatistics::PositiveTestsGenerated(sessiondata) >= sessiondata->_settings->conditions.foundpositives)
-		end = true;
-	else if (sessiondata->_settings->conditions.use_timeout && std::chrono::duration_cast<std::chrono::seconds>(SessionStatistics::Runtime(sessiondata)).count() >= sessiondata->_settings->conditions.timeout)
-		end = true;
-	else if (sessiondata->_settings->conditions.use_overalltests && SessionStatistics::TestsExecuted(sessiondata) >= sessiondata->_settings->conditions.overalltests)
-		end = true;
-
 	double failureRate = 0.0f;
 
 	// check whether the recent _input generation is converging and we should abort the program 
@@ -243,12 +247,20 @@ bool SessionFunctions::EndCheck(std::shared_ptr<SessionData>& sessiondata)
 	if (end == false)
 		return false;
 
-	// start thread that clears the session
-	std::thread(EndSession_Async, sessiondata).detach();
+	if (generationEnded) {
+		// if we are performing a generation end check, just do it and skip the rest
+		auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
+		callback->_sessiondata = sessiondata;
+		callback->_afterSave = true;
+		std::thread(EndSession_Async, sessiondata, callback).detach();
+	} else {
+		// start thread that clears the session
+		std::thread(EndSession_Async, sessiondata, std::shared_ptr<Functions::BaseFunction>{}).detach();
+	}
 	return true;
 }
 
-void SessionFunctions::EndSession_Async(std::shared_ptr<SessionData> sessiondata)
+void SessionFunctions::EndSession_Async(std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Functions::BaseFunction> callback)
 {
 	loginfo("Master End Session");
 	auto session = sessiondata->data->CreateForm<Session>();
@@ -262,7 +274,7 @@ void SessionFunctions::EndSession_Async(std::shared_ptr<SessionData> sessiondata
 	// end the session
 
 	// set abort flag to catch all threads that try to escape
-	session->StopSession(false);
+	session->StopSession(false, false);
 }
 
 Data::VisitAction HandleForms(std::shared_ptr<Form> form)
@@ -349,7 +361,7 @@ void SessionFunctions::MasterControl(std::shared_ptr<SessionData>& sessiondata, 
 				// if we have more memory consumption than the limit, exit
 				if ((int64_t)sessiondata->_memory_mem > sessiondata->_settings->general.memory_limit) {
 					sessiondata->_memory_ending = true;
-					std::thread(EndSession_Async, sessiondata).detach();
+					std::thread(EndSession_Async, sessiondata, std::shared_ptr<Functions::BaseFunction>{}).detach();
 				} else
 					sessiondata->_memory_outofmemory = false;
 			}
@@ -422,7 +434,7 @@ void SessionFunctions::MasterControl(std::shared_ptr<SessionData>& sessiondata, 
 	return;
 }
 
-void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input, bool replay)
+bool SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input, bool replay)
 {
 	if (replay == true)
 	{
@@ -442,10 +454,10 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 		sessiondata->data->DeleteForm(input);
 		std::cout << "Delete Done\n";
 
-		return;
+		return false;
 	}
 	if (input->test->_skipOracle) {
-		return;
+		return false;
 	}
 	// add this input to the current generation
 	if (input->HasFlag(Input::Flags::GeneratedDeltaDebugging))
@@ -469,8 +481,16 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 			sessiondata->GetGeneration(input->GetGenerationID())->RemoveDDInput(input);
 		else
 			sessiondata->GetGeneration(input->GetGenerationID())->RemoveGeneratedInput(input);
-		return;
+		return false;
 	}
+	if (input->GetOracleResult() == OracleResult::Repeat) {
+		// the oracle decided there was a problem with the test, so go and repeat it
+		input->test->_exitreason = Test::ExitReason::Repeat;
+		sessiondata->_exechandler->AddTest(input, input->test->_callback->DeepCopy(), true, false);
+		AddTestExitReason(sessiondata, Test::ExitReason::Repeat);
+		return true;
+	}
+
 	// check whether _output should be stored
 	input->test->_storeoutput = sessiondata->_settings->tests.storePUToutput || (sessiondata->_settings->tests.storePUToutputSuccessful && input->GetOracleResult() == OracleResult::Passing);
 
@@ -479,12 +499,12 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 
 	if (!input->test || !input->derive) {
 		logwarn("Input has neither test nor derivationtree");
-		return;
+		return false;
 	}
 	if (input->derive->GetRegenerate() == false)
 	{
 		logwarn("Regeneration of Dev Tree is not possible.");
-		return;
+		return false;
 	}
 
 	// check _input result
@@ -519,8 +539,11 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 			// -----Add _input to exclusion tree as result is fixed-----
 			sessiondata->_excltree->AddInput(input, OracleResult::Passing);
 
-			// -----Begin Delta Debugging the test with ReproduceResults-----
-			BeginDeltaDebugging(sessiondata, input, {}, true, DeltaDebugging::DDGoal::ReproduceResult);
+			// only begin delta debugging if the input has been generated ligitimately and not as a result of delta debugging
+			if (!input->HasFlag(Input::Flags::GeneratedDeltaDebugging)) {
+				// -----Begin Delta Debugging the test with ReproduceResults-----
+				BeginDeltaDebugging(sessiondata, input, {}, true, DeltaDebugging::DDGoal::ReproduceResult);
+			}
 
 		}
 		break;
@@ -563,7 +586,7 @@ void SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 		break;
 	}
 
-	return;
+	return false;
 }
 
 void SessionFunctions::AddTestExitReason(std::shared_ptr<SessionData>& sessiondata, int32_t reason)
@@ -589,6 +612,8 @@ void SessionFunctions::AddTestExitReason(std::shared_ptr<SessionData>& sessionda
 		break;
 	case Test::ExitReason::InitError:
 		sessiondata->exitstats.initerror++;
+	case Test::ExitReason::Repeat:
+		sessiondata->exitstats.repeat++;
 		break;
 	}
 }
@@ -604,8 +629,10 @@ std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDeb
 {
 	if (goal == DeltaDebugging::DDGoal::None)
 		goal = DeltaDebugging::DDGoal::MaximizeBothScores;
+	//if (secondarygoal == DeltaDebugging::DDGoal::None)
+	//	secondarygoal = DeltaDebugging::DDGoal::MaximizeBothScores;
 	DeltaDebugging::DDMode mode = sessiondata->_settings->dd.mode;
-	if (input->IsIndividualPrimaryScoresEnabled())
+	if (input->IsIndividualPrimaryScoresEnabled() && sessiondata->_settings->dd.allowScoreOptimization)
 		mode = DeltaDebugging::DDMode::ScoreProgress;
 	DeltaDebugging::DDParameters* params = nullptr;
 	switch (goal)
@@ -677,6 +704,11 @@ uint64_t SessionStatistics::NegativeTestsGenerated(std::shared_ptr<SessionData>&
 uint64_t SessionStatistics::UnfinishedTestsGenerated(std::shared_ptr<SessionData>& sessiondata)
 {
 	return (uint64_t)sessiondata->_unfinishedInputNumbers;
+}
+
+uint64_t SessionStatistics::UndefinedTestsGenerated(std::shared_ptr<SessionData>& sessiondata)
+{
+	return (uint64_t)sessiondata->_undefinedInputNumbers;
 }
 
 uint64_t SessionStatistics::TestsPruned(std::shared_ptr<SessionData>&)
@@ -872,7 +904,12 @@ namespace Functions
 		profile(TimeProfiling, "Time taken for MasterGenerationCallback");
 	}
 
-	
+	std::shared_ptr<BaseFunction> MasterGenerationCallback::DeepCopy()
+	{
+		auto ptr = std::make_shared<MasterGenerationCallback>();
+		ptr->_sessiondata = _sessiondata;
+		return dynamic_pointer_cast<BaseFunction>(ptr);
+	}
 
 	bool MasterGenerationCallback::ReadData(std::istream* buffer, size_t& offset, size_t, LoadResolver* resolver)
 	{
@@ -906,6 +943,10 @@ namespace Functions
 	void GenerationEndCallback::Run()
 	{
 		loginfo("Generation ended.");
+		// if there is are delta debugging instances active, get them and assign generation finished callbacks to it,so we make sure they are finished before we start the next generation
+		std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> controllers;
+		_sessiondata->GetCurrentGeneration()->GetDDControllers(controllers);
+
 		if (_sessiondata->_settings->dd.deltadebugging && _sessiondata->_settings->dd.allowScoreOptimization) {
 			// this callback calculates the top k inputs that will be kept for future generation of new inputs
 			// it will start k delta controllers for the top k inputs
@@ -950,6 +991,17 @@ namespace Functions
 					loginfo("Startet Delta Debugging for Input: {}", Input::PrintForm(ptr));
 				}
 			}
+			// check if there was an active delta debugging beforehand
+			for (auto ptr : controllers)
+			{
+				if (ptr->Finished() == false)
+				{
+					begun = true;
+					auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
+					callback->_sessiondata = _sessiondata;
+					ptr->AddCallback(callback);
+				}
+			}
 
 			if (begun == false) {
 				// we haven't been able to start delta debugging, so add Generation Finished callback ourselves
@@ -961,10 +1013,30 @@ namespace Functions
 		}
 		else
 		{
-			auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
-			callback->_sessiondata = _sessiondata;
-			_sessiondata->_controller->AddTask(callback);
+			bool begun = false;
+			// check if there was an active delta debugging beforehand
+			for (auto ptr : controllers) {
+				if (ptr->Finished() == false) {
+					auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
+					callback->_sessiondata = _sessiondata;
+					if (ptr->AddCallback(callback))
+						begun = true;
+				}
+			}
+			if (begun == false) {
+				// there is no delta debugging active in the current generation, so add Generation Finished callback ourselves
+				auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
+				callback->_sessiondata = _sessiondata;
+				_sessiondata->_controller->AddTask(callback);
+			}
 		}
+	}
+
+	std::shared_ptr<BaseFunction> GenerationEndCallback::DeepCopy()
+	{
+		auto ptr = std::make_shared<GenerationEndCallback>();
+		ptr->_sessiondata = _sessiondata;
+		return dynamic_pointer_cast<BaseFunction>(ptr);
 	}
 
 	bool GenerationEndCallback::ReadData(std::istream* buffer, size_t& offset, size_t, LoadResolver* resolver)
@@ -1001,23 +1073,28 @@ namespace Functions
 			loginfo("Stats:\tGenerated: {}\tDD Controllers: {}\tDDSize: {}",
 				_sessiondata->GetCurrentGeneration()->GetGeneratedSize(),
 				_sessiondata->GetCurrentGeneration()->GetNumberOfDDControllers(),
-				_sessiondata->GetCurrentGeneration()->GetDDSize()
-				);
+				_sessiondata->GetCurrentGeneration()->GetDDSize());
+			auto generation = _sessiondata->GetCurrentGeneration();
+			while (generation->GetActiveInputs() > 0 && _sessiondata->_exechandler->WaitingTasks() > 0 || _sessiondata->_controller->GetWaitingLightJobs() > 0);
 			if (_sessiondata->GetCurrentGeneration()->IsDeltaDebuggingActive() == false) {
-
+				if (SessionFunctions::EndCheck(_sessiondata, true)) {
+					// we are ending the session, so the callback is gonna be saved and we don't need to do anything else
+					return;
+				}
 				SessionFunctions::SaveCheck(_sessiondata, true);
 				SessionFunctions::MasterControl(_sessiondata);
 			}
 		} else {
-
 			auto generation = _sessiondata->GetCurrentGeneration();
-			while (generation->GetActiveInputs() > 0 && _sessiondata->_exechandler->WaitingTasks() > 0);
+			while (generation->GetActiveInputs() > 0 && _sessiondata->_exechandler->WaitingTasks() > 0 || _sessiondata->_controller->GetWaitingLightJobs() > 0);
+			
 
 			// get writers lock for input generation
 			_sessiondata->Acquire_InputGenerationWritersLock();
 
 			loginfo("Initializing New Generation");
 			_sessiondata->SetNewGeneration();
+			auto lastgen = _sessiondata->GetLastGeneration();
 			loginfo("Gather new sources");
 			// determine new sources and copy them
 
@@ -1058,6 +1135,7 @@ namespace Functions
 				{
 					std::set<std::shared_ptr<Input>, InputGainGreaterPrimary> inputs;
 					auto topk = _sessiondata->GetTopK(1);
+
 					if (topk.size() > 0)
 						max = topk[0]->GetPrimaryScore();
 					// if the max is 0 just run loop a single time since 0 is the minimal value for primaryScore
@@ -1067,10 +1145,10 @@ namespace Functions
 						loginfo("Iteration with fractal: {}, and maxPrimaryScore: {}", frac, max);
 						inputs.clear();
 						// we don't filter for secondary score at this point
-						_sessiondata->GetLastGeneration()->GetAllInputs<InputGainGreaterPrimary>(inputs, true, (max - (max * frac)), 0, _sessiondata->_settings->generation.allowBacktrackFailedInputs, 1, 2 /*cannot backtrack on length 1*/);
+						lastgen->GetAllInputs<InputGainGreaterPrimary>(inputs, true, (max - (max * frac)), -1.f, _sessiondata->_settings->generation.allowBacktrackFailedInputs, 1, 2 /*cannot backtrack on length 1*/);
 						auto itr = inputs.begin();
 						while (itr != inputs.end() && (int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration) {
-							if (sources.contains(*itr) == false && (_sessiondata->_settings->generation.maxNumberOfFailsPerSource > (*itr)->GetDerivedFails() || _sessiondata->_settings->generation.maxNumberOfFailsPerSource == 0)) {
+							if (sources.contains(*itr) == false && (_sessiondata->_settings->generation.maxNumberOfFailsPerSource == 0 || _sessiondata->_settings->generation.maxNumberOfFailsPerSource > (*itr)->GetDerivedFails()) && (_sessiondata->_settings->generation.maxNumberOfGenerationsPerSource == 0 || _sessiondata->_settings->generation.maxNumberOfGenerationsPerSource > (*itr)->GetDerivedInputs())) {
 								// check that the length of the source is longer than min backtrack, such that it can be extended in the first place
 								if ((*itr)->GetOracleResult() == OracleResult::Unfinished && (*itr)->Length() > _sessiondata->_settings->methods.IterativeConstruction_Extension_Backtrack_min || (*itr)->GetOracleResult() == OracleResult::Failing && (*itr)->Length() > _sessiondata->_settings->methods.IterativeConstruction_Backtrack_Backtrack_min) {
 									sources.insert(*itr);
@@ -1081,11 +1159,9 @@ namespace Functions
 						}
 						frac += _sessiondata->_settings->dd.optimizationLossThreshold;
 					}
-					if ((int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration)
-					{
+					if ((int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration) {
 						auto vec = _sessiondata->FindKSources(_sessiondata->_settings->generation.numberOfSourcesPerGeneration - (int32_t)sources.size(), std::set<std::shared_ptr<Input>>{ sources.begin(), sources.end() }, _sessiondata->_settings->generation.allowBacktrackFailedInputs, 1, 2 /*cannot backtrack on length 1*/);
-						for (auto input : vec)
-						{
+						for (auto input : vec) {
 							sources.insert(input);
 						}
 					}
@@ -1104,7 +1180,7 @@ namespace Functions
 						loginfo("Iteration with fractal: {}, and maxSecondaryScore: {}", frac, max);
 						inputs.clear();
 						// we don't filter for primary score at this point
-						_sessiondata->GetLastGeneration()->GetAllInputs<InputGainGreaterSecondary>(inputs, true, (max - (max * frac)), 0, _sessiondata->_settings->generation.allowBacktrackFailedInputs, 1, 2 /*cannot backtrack on length 1*/);
+						lastgen->GetAllInputs<InputGainGreaterSecondary>(inputs, true, -1.f, (max - (max * frac)), _sessiondata->_settings->generation.allowBacktrackFailedInputs, 1, 2 /*cannot backtrack on length 1*/);
 						auto itr = inputs.begin();
 						while (itr != inputs.end() && (int32_t)sources.size() < _sessiondata->_settings->generation.numberOfSourcesPerGeneration) {
 							if (sources.contains(*itr) == false && (_sessiondata->_settings->generation.maxNumberOfFailsPerSource > (*itr)->GetDerivedFails() || _sessiondata->_settings->generation.maxNumberOfFailsPerSource == 0)) {
@@ -1127,7 +1203,7 @@ namespace Functions
 				}
 				break;
 			}
-			
+
 			// we now have the set of new sources
 			auto gen = _sessiondata->GetCurrentGeneration();
 			for (auto input : sources)
@@ -1144,6 +1220,14 @@ namespace Functions
 			// release writers lock for input generation
 			_sessiondata->Release_InputGenerationWritersLock();
 		}
+	}
+
+	std::shared_ptr<BaseFunction> GenerationFinishedCallback::DeepCopy()
+	{
+		auto ptr = std::make_shared<GenerationFinishedCallback>();
+		ptr->_sessiondata = _sessiondata;
+		ptr->_afterSave = _afterSave;
+		return dynamic_pointer_cast<BaseFunction>(ptr);
 	}
 
 	bool GenerationFinishedCallback::ReadData(std::istream* buffer, size_t& offset, size_t, LoadResolver* resolver)

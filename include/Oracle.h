@@ -30,6 +30,10 @@ enum OracleResult : EnumType
 	/// </summary>
 	Prefix = 0b1000000,
 	/// <summary>
+	/// Repeat test
+	/// </summary>
+	Repeat = 0b10000000,
+	/// <summary>
 	/// The result is still pending execution
 	/// </summary>
 	Running = 0x4000000000000000,

@@ -86,8 +86,8 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMA
 	add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:REF>")
 	add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:ICF>")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-	add_compile_options(-stdlib=libc++ -std=c++23)
-	add_link_options(-stdlib=libc++ -std=c++23)
+	add_compile_options(-std=c++23)
+	add_link_options( -std=c++23)
 endif()
 
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)

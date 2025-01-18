@@ -165,6 +165,11 @@ LZMAStreambuf::LZMAStreambuf(std::ostream* pOut, uint32_t compressionLevel, bool
 	_lzmaStream.avail_out = _bufferSize;
 }
 
+LZMAStreambuf::~LZMAStreambuf()
+{
+	lzma_end(&_lzmaStream);
+}
+
 int LZMAStreambuf::underflow()
 {
 	lzma_action action = LZMA_RUN;

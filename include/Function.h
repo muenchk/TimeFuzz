@@ -53,6 +53,8 @@ namespace Functions
 		
 		virtual FunctionType GetFunctionType() = 0;
 
+		virtual std::shared_ptr<BaseFunction> DeepCopy() = 0;
+
 		template <class T, typename = std::enable_if<std::is_base_of<BaseFunction, T>::value>>
 		T* As()
 		{

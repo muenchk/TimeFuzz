@@ -801,7 +801,11 @@ namespace Functions
 				_sessiondata->data->DeleteForm(_input);
 			} else {
 				// ----- SESSION STUFF -----
-				SessionFunctions::TestEnd(_sessiondata, _input);
+				if (SessionFunctions::TestEnd(_sessiondata, _input))
+				{
+					// test has to be repeated
+					return;
+				}
 				_input->UnsetFlag(Form::FormFlags::DoNotFree);
 				_input->test->UnsetFlag(Form::FormFlags::DoNotFree);
 			}
@@ -810,6 +814,14 @@ namespace Functions
 		SessionFunctions::GenerateTests(_sessiondata);
 		// perform master checks
 		SessionFunctions::MasterControl(_sessiondata);
+	}
+
+	std::shared_ptr<BaseFunction> TestCallback::DeepCopy()
+	{
+		auto ptr = std::make_shared<TestCallback>();
+		ptr->_sessiondata = _sessiondata;
+		ptr->_input = _input;
+		return dynamic_pointer_cast<BaseFunction>(ptr);
 	}
 
 	bool TestCallback::ReadData(std::istream* buffer, size_t& offset, size_t, LoadResolver* resolver)
@@ -854,7 +866,11 @@ namespace Functions
 		// this is the run funtion for replaying already run tests, 
 		// thus we don't want to actually save the test and the _input,
 		// but delete it instead
-		SessionFunctions::TestEnd(_sessiondata, _input, true);
+		if (SessionFunctions::TestEnd(_sessiondata, _input, true))
+		{
+			// test has to be repeated
+			return;
+		}
 
 		if (_feedback != nullptr)
 		{
@@ -863,6 +879,14 @@ namespace Functions
 
 		_input->UnsetFlag(Form::FormFlags::DoNotFree);
 		_input->test->UnsetFlag(Form::FormFlags::DoNotFree);
+	}
+
+	std::shared_ptr<BaseFunction> ReplayTestCallback::DeepCopy()
+	{
+		auto ptr = std::make_shared<ReplayTestCallback>();
+		ptr->_sessiondata = _sessiondata;
+		ptr->_input = _input;
+		return dynamic_pointer_cast<BaseFunction>(ptr);
 	}
 }
 

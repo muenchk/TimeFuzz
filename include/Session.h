@@ -16,7 +16,7 @@ class Data;
 class SessionFunctions;
 class SessionStatistics;
 class ExclusionTree;
-class Records;
+struct Records;
 class Lua;
 
 struct LoadSessionArgs
@@ -63,6 +63,8 @@ struct SessionStatus
 	uint64_t negativeTests_goal;
 
 	uint64_t unfinishedTests;
+
+	uint64_t undefinedTests;
 
 	uint64_t prunedTests;
 
@@ -164,7 +166,7 @@ public:
 	/// stops the ongoing session.
 	/// </summary>
 	/// <param name="savesession"></param>
-	void StopSession(bool savesession = true);
+	void StopSession(bool savesession = true, bool stopHandler = true);
 
 	/// <summary>
 	/// Deletes session. [MUST BE CALLED]
@@ -191,6 +193,7 @@ public:
 	void Replay(FormID inputid, UI::UIInputInformation* feedback);
 
 	void UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k);
+	void UI_GetPositiveInputs(std::vector<UI::UIInput>& vector, size_t k);
 
 	/// <summary>
 	/// Begins delta debugging the given input
@@ -442,7 +445,7 @@ private:
 
 	friend class SessionFunctions;
 	friend class Data;
-	friend class Records;
+	friend struct Records;
 	//friend class SessionStatistics;
 	//friend class Lua;
 

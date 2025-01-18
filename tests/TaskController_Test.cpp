@@ -26,6 +26,15 @@ namespace Functions
 		static uint64_t GetTypeStatic() { return 'TATE'; }
 		uint64_t GetType() override { return 'TATE'; }
 		FunctionType GetFunctionType() override { return FunctionType::Heavy; };
+
+		virtual std::shared_ptr<BaseFunction> DeepCopy() override
+		{
+			auto ptr = std::make_shared<TaskControllerTestCallback>();
+			ptr->arr = arr;
+			ptr->i = i;
+			return dynamic_pointer_cast<BaseFunction>(ptr);
+		}
+
 		bool ReadData(std::istream*, size_t&, size_t, LoadResolver*)
 		{
 			return true;

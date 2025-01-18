@@ -36,9 +36,7 @@ public:
 	LZMAStreambuf(std::istream* pIn);
 	LZMAStreambuf(std::ostream* pOut, uint32_t compressionLevel = 9, bool extreme = false, int32_t threads = 1);
 
-	virtual ~LZMAStreambuf()
-	{
-	}
+	virtual ~LZMAStreambuf();
 
 	virtual int underflow() override final;
 	virtual int overflow(int c = EOF) override final;

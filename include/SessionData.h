@@ -37,6 +37,7 @@ struct TestExitStats
 	uint64_t fragmenttimeout = 0;
 	uint64_t memory = 0;
 	uint64_t initerror = 0;
+	uint64_t repeat = 0;
 };
 
 template <class Key, class Compare>
@@ -110,7 +111,7 @@ class SessionData : public Form
 	/// <summary>
 	/// list of input formids that have positive test results
 	/// </summary>
-	std::list<FormID> _positiveInputs;
+	std::ordered_multiset<std::shared_ptr<Input>> _positiveInputs;
 	/// <summary>
 	/// shared lock for the list of positive input formids
 	/// </summary>
@@ -367,7 +368,7 @@ public:
 	/// <summary>
 	/// Sets up a new generation
 	/// </summary>
-	void SetNewGeneration();
+	void SetNewGeneration(bool force = false);
 
 	/// <summary>
 	/// checks wether the current generation has ended and initiates proper procedures
@@ -462,6 +463,14 @@ public:
 	std::vector<std::shared_ptr<Input>> GetTopK_Length_Unfinished(int32_t k, size_t min_length = 0);
 
 	std::vector<std::shared_ptr<Input>> FindKSources(int32_t k, std::set<std::shared_ptr<Input>> exclusionlist, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0);
+
+	void GetPositiveInputs(int32_t k, std::vector<std::shared_ptr<Input>>& posinputs);
+
+	/// <summary>
+	/// Visits all positive inputs
+	/// </summary>
+	/// <param name="visitor">return value indicates whether the next input should be visited next</param>
+	void VisitPositiveInputs(std::function<bool(std::shared_ptr<Input>)> visitor);
 
 	/// <summary>
 	/// aqcuires a readers lock for input generation

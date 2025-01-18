@@ -864,8 +864,9 @@ std::vector<std::pair<size_t, size_t>> ExtractRanges(std::vector<T> range)
 				length++;
 			else {
 				// it's not identical so all elements within the range from begin until begin + length have the same value
-				// if the length is longer than 1 element, consider it valid for our purposes
-				if (length > 1)
+				// -----if the length is longer than 1 element, consider it valid for our purposes
+				// cut it we want perfection
+				if (length > 0)
 					ranges.push_back({ begin, length });
 				length = 0;
 				begin = current;
@@ -919,6 +920,19 @@ void Input::RegisterLuaFunctions(lua_State* L)
 	lua_register(L, "Input_EnableSecondaryScoreIndividual", Input::lua_EnableSecondaryScoreIndividual);
 	lua_register(L, "Input_AddPrimaryScoreIndividual", Input::lua_AddPrimaryScoreIndividual);
 	lua_register(L, "Input_AddSecondaryScoreIndividual", Input::lua_AddSecondaryScoreIndividual);
+	lua_register(L, "Input_ClearScores", Input::lua_ClearScores);
+	lua_register(L, "Input_ClearTrim", Input::lua_ClearTrim);
+	lua_register(L, "IsOSWindows", Input::lua_IsOSWindows);
+}
+
+int Input::lua_IsOSWindows(lua_State* L)
+{
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+	lua_pushboolean(L, true);
+#else
+	lua_pushboolean(L, false);
+#endif
+	return 1;
 }
 
 int Input::lua_ConvertToPython(lua_State* L)
@@ -1125,6 +1139,27 @@ int Input::lua_AddSecondaryScoreIndividual(lua_State* L)
 	lua_Number score = lua_tonumber(L, 2);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
 	input->_secondaryScoreIndividual.push_back(score);
+	return 0;
+}
+
+int Input::lua_ClearScores(lua_State* L)
+{
+	Input* input = (Input*)lua_touserdata(L, 1);
+	luaL_argcheck(L, input != nullptr, 1, "input expected");
+	input->_primaryScore = 0;
+	input->_secondaryScore = 0;
+	input->_enableSecondaryScoreIndividual = false;
+	input->_enablePrimaryScoreIndividual = false;
+	input->_primaryScoreIndividual.clear();
+	input->_secondaryScoreIndividual.clear();
+	return 0;
+}
+int Input::lua_ClearTrim(lua_State* L)
+{
+	Input* input = (Input*)lua_touserdata(L, 1);
+	luaL_argcheck(L, input != nullptr, 1, "input expected");
+	input->_trimmed = false;
+	input->_trimmedlength = -1;
 	return 0;
 }
 

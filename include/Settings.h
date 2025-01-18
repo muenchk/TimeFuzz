@@ -40,6 +40,13 @@ public:
 	static inline bool _clearTasks = false;
 };
 
+enum class RangeSkipOptions
+{
+	None = 0,
+	SkipFirst = 1,
+	SkipLast = 2,
+};
+
 class Settings : public Form
 {
 private:
@@ -356,6 +363,9 @@ public:
 		/// </summary>
 		double approximativeExecutionThreshold = 0.2f;
 		const char* approximativeExecutionThreshold_NAME = "ApproximativeExecutionThreshold";
+
+		RangeSkipOptions skipoptions = RangeSkipOptions::SkipFirst;
+		const char* skipoptions_NAME = "ScoreProgressSkipOptions";
 	};
 
 	DeltaDebugging dd;
@@ -437,6 +447,19 @@ public:
 		/// </summary>
 		uint64_t maxNumberOfFailsPerSource = 100;
 		const char* maxNumberOfFailsPerSource_NAME = "MaximumNumberOfFailsPerSource";
+
+		/// <summary>
+		/// the maximum number of total derived inputs for an input to be elligible to be a source
+		/// </summary>
+		uint64_t maxNumberOfGenerationsPerSource = 100;
+		const char* maxNumberOfGenerationsPerSource_NAME = "MaximumNumberOfGenerationsPerSource";
+
+		/// <summary>
+		/// at the beginning of a new generation the globally best inputs are chosen, instead of choosing only inputs from 
+		/// the last generation.
+		/// </summary>
+		bool globalSources = false;
+		const char* globalSources_NAME = "UseGlobalSources";
 	};
 
 	Generation generation;

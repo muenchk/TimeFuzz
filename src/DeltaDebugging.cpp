@@ -32,7 +32,11 @@ namespace Functions
 				_input = input;
 			}
 		} else {
-			SessionFunctions::TestEnd(_sessiondata, _input);
+			if (SessionFunctions::TestEnd(_sessiondata, _input))
+			{
+				// test has to be repeated, don't do anything yet
+				return;
+			}
 		}
 
 		_DDcontroller->CallbackTest(_input);
@@ -51,6 +55,15 @@ namespace Functions
 		// To counteract this we make sure to push for new generations when the queue is too empty
 		if (_sessiondata->_settings->generation.generationsize - (int64_t)_sessiondata->_exechandler->WaitingTasks() > 0)
 			SessionFunctions::GenerateTests(_sessiondata);
+	}
+
+	std::shared_ptr<BaseFunction> DDTestCallback::DeepCopy()
+	{
+		auto ptr = std::make_shared<DDTestCallback>();
+		ptr->_sessiondata = _sessiondata;
+		ptr->_DDcontroller = _DDcontroller;
+		ptr->_input = _input;
+		return dynamic_pointer_cast<BaseFunction>(ptr);
 	}
 
 	bool DDTestCallback::ReadData(std::istream* buffer, size_t& offset, size_t, LoadResolver* resolver)
@@ -101,6 +114,13 @@ namespace Functions
 	void DDEvaluateExplicitCallback::Run()
 	{
 		_DDcontroller->CallbackExplicitEvaluate();
+	}
+
+	std::shared_ptr<BaseFunction> DDEvaluateExplicitCallback::DeepCopy()
+	{
+		auto ptr = std::make_shared<DDEvaluateExplicitCallback>();
+		ptr->_DDcontroller = _DDcontroller;
+		return dynamic_pointer_cast<BaseFunction>(ptr);
 	}
 
 	bool DDEvaluateExplicitCallback::ReadData(std::istream* buffer, size_t& offset, size_t, LoadResolver* resolver)
@@ -155,7 +175,7 @@ namespace DeltaDebugging
 		_self.reset();
 		_activeInputs.clear();
 		_completedTests.clear();
-		_callback.reset();
+		_callback.clear();
 		_bestScore = { 0.0f, 0.0f };
 		_level = 2;
 		delete _params;
@@ -178,7 +198,10 @@ namespace DeltaDebugging
 		_tests = 0;
 		_remainingtests = 0;
 		_totaltests = 0;
-		_callback = callback;
+		{
+			std::unique_lock<std::mutex> guardl(_callbackLock);
+			_callback.push_back(callback);
+		}
 		input->SetFlag(Form::FormFlags::DoNotFree);
 		input->derive->SetFlag(Form::FormFlags::DoNotFree);
 		input->SetFlag(Input::Flags::DeltaDebugged);
@@ -214,7 +237,10 @@ namespace DeltaDebugging
 				_bestScore = { _input->GetPrimaryScore(), _input->GetSecondaryScore() };
 				break;
 			case DDGoal::ReproduceResult:
+				_bestScore = { _input->GetPrimaryScore(), _input->GetSecondaryScore() };
+				break;
 			case DDGoal::None:
+				_bestScore = { _input->GetPrimaryScore(), _input->GetSecondaryScore() };
 				break;
 			}
 			break;
@@ -282,6 +308,8 @@ namespace DeltaDebugging
 		std::vector<std::shared_ptr<Input>> splits;
 		// calculate the ideal size we would get from the current level
 		int32_t tmp = (int32_t)(std::trunc(_input->Length() / number));
+		if (tmp < 1)
+			tmp = 1;
 		// this value is rounded so the actual length our inputs get is different from 
 		// the naive caluclation we need to recalculate [number] and can then calculate
 		// the actual splitsize
@@ -401,7 +429,7 @@ namespace DeltaDebugging
 
 		}
 		profile(TimeProfiling, "Time taken for split generation.");
-		return splits;
+		return  splits;
 	}
 
 	bool DeltaController::CheckInput(std::shared_ptr<Input> inp, double approxthreshold)
@@ -447,23 +475,29 @@ namespace DeltaDebugging
 			if (hasPrefix == false) {
 				// do the other stuff
 			} else {
-				_sessiondata->IncGeneratedWithPrefix();
-				_tests++;
-				if (prefixID != 0) {
-					auto ptr = _sessiondata->data->LookupFormID<Input>(prefixID);
-					if (ptr) {
-						_activeInputs.insert(ptr);
-						ptr->SetFlag(Form::FormFlags::DoNotFree);
-						if (ptr->derive)
-							ptr->derive->SetFlag(Form::FormFlags::DoNotFree);
+				// if we are in reproduction mode we actually want to get inputs that have prefixes into our data set again
+				if (_params->GetGoal() == DDGoal::ReproduceResult)
+				{
+
+				} else {
+					_sessiondata->IncGeneratedWithPrefix();
+					_tests++;
+					if (prefixID != 0) {
+						auto ptr = _sessiondata->data->LookupFormID<Input>(prefixID);
+						if (ptr) {
+							_activeInputs.insert(ptr);
+							ptr->SetFlag(Form::FormFlags::DoNotFree);
+							if (ptr->derive)
+								ptr->derive->SetFlag(Form::FormFlags::DoNotFree);
+						}
 					}
+					if (inp->test)
+						_sessiondata->data->DeleteForm(inp->test);
+					if (inp->derive)
+						_sessiondata->data->DeleteForm(inp->derive);
+					_sessiondata->data->DeleteForm(inp);
+					return false;
 				}
-				if (inp->test)
-					_sessiondata->data->DeleteForm(inp->test);
-				if (inp->derive)
-					_sessiondata->data->DeleteForm(inp->derive);
-				_sessiondata->data->DeleteForm(inp);
-				return false;
 			}
 		}
 
@@ -850,7 +884,7 @@ namespace DeltaDebugging
 				// automatically sorted based on the primary score
 				// begin() -> end() == higher score -> lower score
 				auto sortprimary = [this]() {
-					std::set<std::shared_ptr<Input>, PrimaryLess> res;
+					std::multiset<std::shared_ptr<Input>, PrimaryLess> res;
 					auto itr = _activeInputs.begin();
 					while (itr != _activeInputs.end()) {
 						res.insert(*itr);
@@ -918,7 +952,7 @@ namespace DeltaDebugging
 				// automatically sorted based on the primary score
 				// begin() -> end() == higher score -> lower score
 				auto sortprimary = [this]() {
-					std::set<std::shared_ptr<Input>, SecondaryLess> res;
+					std::multiset<std::shared_ptr<Input>, SecondaryLess> res;
 					auto itr = _activeInputs.begin();
 					while (itr != _activeInputs.end()) {
 						res.insert(*itr);
@@ -986,7 +1020,7 @@ namespace DeltaDebugging
 				// automatically sorted based on the primary score
 				// begin() -> end() == higher score -> lower score
 				auto sortprimary = [this]() {
-					std::set<std::shared_ptr<Input>, PrimaryLess> res;
+					std::multiset<std::shared_ptr<Input>, PrimaryLess> res;
 					auto itr = _activeInputs.begin();
 					while (itr != _activeInputs.end()) {
 						res.insert(*itr);
@@ -1048,7 +1082,7 @@ namespace DeltaDebugging
 		StartProfiling;
 		double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
 		std::vector<std::shared_ptr<Input>> complements;
-		RangeIterator<size_t> rangeIterator(&_inputRanges, true);
+		RangeIterator<size_t> rangeIterator(&_inputRanges, _sessiondata->_settings->dd.skipoptions);
 		size_t size = rangeIterator.GetLength() / level;
 		
 		auto ranges = rangeIterator.GetRangesAbove(size);
@@ -1144,7 +1178,7 @@ namespace DeltaDebugging
 		{
 			bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
 			{
-				return lhs->GetPrimaryScore() == rhs->GetPrimaryScore() ? lhs->GetSecondaryScore() > rhs->GetSecondaryScore() : lhs->GetPrimaryScore() > rhs->GetPrimaryScore();
+				return lhs->GetPrimaryScore() == rhs->GetPrimaryScore() ? (lhs->Length() == rhs->Length() ? lhs->GetSecondaryScore() > rhs->GetSecondaryScore() : lhs->Length() < rhs->Length()) : lhs->GetPrimaryScore() > rhs->GetPrimaryScore();
 			}
 		};
 
@@ -1156,10 +1190,19 @@ namespace DeltaDebugging
 			}
 		};
 
+		struct LengthLess
+		{
+			bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
+			{
+				//return lhs->Length() < rhs->Length();
+				return lhs->Length() == rhs->Length() ? (lhs->GetPrimaryScore() == rhs->GetPrimaryScore() ? lhs->GetSecondaryScore() > rhs->GetSecondaryScore() : lhs->GetPrimaryScore() < rhs->GetPrimaryScore()) : lhs->Length() > rhs->Length();
+			}
+		};
+
 		// automatically sorted based on the primary score
 		// begin() -> end() == higher score -> lower score
 		auto sortprimary = [this]() {
-			std::set<std::shared_ptr<Input>, PrimaryLess> res;
+			std::multiset<std::shared_ptr<Input>, PrimaryLess> res;
 			auto itr = _completedTests.begin();
 			while (itr != _completedTests.end()) {
 				res.insert(*itr);
@@ -1168,7 +1211,16 @@ namespace DeltaDebugging
 			return res;
 		};
 		auto sortsecondary = [this]() {
-			std::set<std::shared_ptr<Input>, SecondaryLess> res;
+			std::multiset<std::shared_ptr<Input>, SecondaryLess> res;
+			auto itr = _completedTests.begin();
+			while (itr != _completedTests.end()) {
+				res.insert(*itr);
+				itr++;
+			}
+			return res;
+		};
+		auto sortlength = [this]() {
+			std::multiset<std::shared_ptr<Input>, LengthLess> res;
 			auto itr = _completedTests.begin();
 			while (itr != _completedTests.end()) {
 				res.insert(*itr);
@@ -1230,6 +1282,80 @@ namespace DeltaDebugging
 			}
 			break;
 		case DDGoal::ReproduceResult:
+			{
+				ReproduceResult* rpparams = (ReproduceResult*)_params;
+				switch (rpparams->secondarygoal) {
+				case DDGoal::MaximizePrimaryScore:
+					{
+						auto rinputs = sortprimary();
+						auto oracle = _origInput->GetOracleResult();
+						auto itr = rinputs.begin();
+						while (itr != rinputs.end()) {
+							double l = lossPrimary(*itr);
+							if (oracle == (*itr)->GetOracleResult()) {
+								passing.push_back(*itr);
+								ploss.push_back({ l, 0.0f });
+								_results.insert_or_assign(*itr, std::tuple<double, double, int32_t>{ l, 0, _level });
+							}
+							itr++;
+						}
+					}
+					break;
+				case DDGoal::MaximizeSecondaryScore:
+					{
+						auto rinputs = sortsecondary();
+						auto oracle = _origInput->GetOracleResult();
+						auto itr = rinputs.begin();
+						while (itr != rinputs.end()) {
+							double l = lossSecondary(*itr);
+							if (oracle == (*itr)->GetOracleResult()) {
+								passing.push_back(*itr);
+								ploss.push_back({ l, 0.0f });
+								_results.insert_or_assign(*itr, std::tuple<double, double, int32_t>{ l, 0, _level });
+							}
+							itr++;
+						}
+					}
+					break;
+				case DDGoal::MaximizeBothScores:
+					{
+						MaximizeBothScores* mbparams = (MaximizeBothScores*)_params;
+						auto rinputs = sortprimary();
+						auto oracle = _origInput->GetOracleResult();
+						auto itr = rinputs.begin();
+						while (itr != rinputs.end()) {
+							double priml = lossPrimary(*itr);
+							double seconl = lossSecondary(*itr);
+							if (oracle == (*itr)->GetOracleResult()) {
+								passing.push_back(*itr);
+								ploss.push_back({ priml, seconl });
+								_results.insert_or_assign(*itr, std::tuple<double, double, int32_t>{ priml, seconl, _level });
+							}
+							itr++;
+						}
+					}
+					break;
+				case DDGoal::ReproduceResult:
+				case DDGoal::None:
+					{
+						auto rinputs = sortlength();
+						auto oracle = _origInput->GetOracleResult();
+						auto itr = rinputs.begin();
+						while (itr != rinputs.end()) {
+							if (oracle == (*itr)->GetOracleResult()) {
+								double priml = lossPrimary(*itr);
+								double seconl = lossSecondary(*itr);
+								passing.push_back(*itr);
+								ploss.push_back({ 9, 0.0f });
+								_results.insert_or_assign(*itr, std::tuple<double, double, int32_t>{ priml, seconl, _level });
+							}
+							itr++;
+						}
+					}
+					break;
+				}
+			}
+			break;
 		case DDGoal::None:
 			break;
 		}
@@ -1238,7 +1364,7 @@ namespace DeltaDebugging
 		clearFlags();
 
 		if (passing.size() == 0) {
-			if (_level >= (int32_t)RangeIterator<size_t>(&_inputRanges, true).GetMaxRange()) {
+			if (_level >= (int32_t)RangeIterator<size_t>(&_inputRanges, _sessiondata->_settings->dd.skipoptions).GetLength()) {
 				// we have already reached the maximum level
 				// so we are effectively done with delta debugging.
 				// Since our results are naturally integrated into the overall database we
@@ -1248,18 +1374,23 @@ namespace DeltaDebugging
 				return;
 			}
 
+			if (_level*2 >= (int32_t)RangeIterator<size_t>(&_inputRanges, _sessiondata->_settings->dd.skipoptions).GetLength()) {
+				std::cout << " ";
+			}
+
 			// no inputs were found that reproduce the original result
 			// so we increase the level and try new sets of inputs
-			_level = std::min(_level * 2, (int32_t)RangeIterator<size_t>(&_inputRanges, true).GetMaxRange());
+			_level = std::min(_level * 2, (int32_t)RangeIterator<size_t>(&_inputRanges, _sessiondata->_settings->dd.skipoptions).GetLength());
 			ScoreProgressGenerateNextLevel();
 		} else {
 			// set new base _input
 			_input = passing[0];
-			if (_bestScore.first < _input->GetPrimaryScore())
+			if (_bestScore.first <= _input->GetPrimaryScore())
 				_bestScore = { _input->GetPrimaryScore(), _input->GetSecondaryScore() };
-			auto initranges = _input->FindIndividualPrimaryScoreRangesWithoutChanges();
+			_inputRanges = _input->FindIndividualPrimaryScoreRangesWithoutChanges();
 			// adjust level
-			_level = std::max(_level - 1, 2);
+			//_level = std::max(_level - 1, 2);
+			_level = 2;
 			// run next generation
 			ScoreProgressGenerateNextLevel();
 		}
@@ -1277,10 +1408,24 @@ namespace DeltaDebugging
 			_origInput->derive->UnsetFlag(Form::FormFlags::DoNotFree);
 		_activeInputs.clear();
 		_completedTests.clear();
-		if (_callback) {
-			_sessiondata->_controller->AddTask(_callback);
-			_callback.reset();
+		{
+			std::unique_lock<std::mutex> guard(_callbackLock);
+			for (auto ptr : _callback) {
+				if (ptr)
+					_sessiondata->_controller->AddTask(ptr);
+			}
+			_callback.clear();
 		}
+	}
+
+	bool DeltaController::AddCallback(std::shared_ptr<Functions::BaseFunction> callback)
+	{
+		std::unique_lock<std::mutex> guard(_callbackLock);
+		if (_finished == false) {
+			_callback.push_back(callback);
+			return true;
+		} else
+			return false;
 	}
 
 	size_t DeltaController::GetStaticSize(int32_t version)
@@ -1306,7 +1451,7 @@ namespace DeltaDebugging
 		                        + 8    // origInput
 		                        + 8    // _input
 		                        + 4    // level
-		                        + 1    // has callback
+		                        + 8    // number of callbacks
 		                        + 16;  // best score
 
 		switch (version)
@@ -1348,8 +1493,10 @@ namespace DeltaDebugging
 			break;
 		} // size of param class
 
-		if (_callback)
-			sz += _callback->GetLength();
+		std::unique_lock<std::mutex> guard(_callbackLock);
+		for (auto ptr : _callback)
+			if (ptr)
+				sz += ptr->GetLength();
 		return sz;
 	}
 
@@ -1443,9 +1590,18 @@ namespace DeltaDebugging
 			break;
 		}
 		// _callback
-		Buffer::Write(_callback.operator bool(), buffer, offset);
-		if (_callback)
-			_callback->WriteData(buffer, offset);
+		std::unique_lock<std::mutex> guard(_callbackLock);
+		size_t num = 0;
+		for (auto ptr : _callback)
+			if (ptr)
+				num++;
+		Buffer::WriteSize(num, buffer, offset);
+		for (auto ptr : _callback)
+		{
+			if (ptr) {
+				ptr->WriteData(buffer, offset);
+			}
+		}
 		Buffer::Write(_bestScore.first, buffer, offset);
 		Buffer::Write(_bestScore.second, buffer, offset);
 		return true;
@@ -1578,7 +1734,7 @@ namespace DeltaDebugging
 				// _callback
 				bool hascall = Buffer::ReadBool(buffer, offset);
 				if (hascall)
-					_callback = Functions::BaseFunction::Create(buffer, offset, length, resolver);
+					_callback.push_back(Functions::BaseFunction::Create(buffer, offset, length, resolver));
 				return true;
 			}
 			break;
@@ -1699,10 +1855,12 @@ namespace DeltaDebugging
 				//memcpy((void*)_params, dat, sz);
 				//delete dat;
 				// _callback
-				bool hascall = Buffer::ReadBool(buffer, offset);
-				if (hascall)
-					_callback = Functions::BaseFunction::Create(buffer, offset, length, resolver);
-
+				size_t hascall = Buffer::ReadSize(buffer, offset);
+				for (size_t i = 0; i < hascall; i++)
+				{
+					_callback.push_back(Functions::BaseFunction::Create(buffer, offset, length, resolver));
+				}
+				
 				double prim = Buffer::ReadDouble(buffer, offset);
 				_bestScore = { prim,
 					Buffer::ReadDouble(buffer, offset) };
@@ -1733,5 +1891,118 @@ namespace DeltaDebugging
 	{
 		return sizeof(DeltaController) + _completedTests.size() * sizeof(std::shared_ptr<Input>) + _activeInputs.size() * sizeof(std::pair<std::shared_ptr<Input>, FormIDLess<Input>>) + sizeof(std::pair<size_t, size_t>) * _inputRanges.size() + sizeof(std::pair<std::shared_ptr<Input>, std::tuple<double, double, int32_t>>) * _results.size();
 	}
+}
 
+template <class T>
+RangeIterator<T>::RangeIterator(std::vector<std::pair<T, T>>* ranges, RangeSkipOptions skipfirst)
+{
+	_ranges = ranges;
+	_skipoptions = skipfirst;
+	_length = GetLength();
+
+	// calc max range
+	size_t result = 0;
+	for (size_t i = 0; i < _ranges->size(); i++) {
+		if (_skipoptions == RangeSkipOptions::SkipFirst && result < _ranges->at(i).second - 1)
+			result = _ranges->at(i).second - 1;
+		else if (_skipoptions == RangeSkipOptions::SkipLast && result < _ranges->at(i).second - 1)
+			result = _ranges->at(i).second - 1;
+		else if (_skipoptions == RangeSkipOptions::None && result < _ranges->at(i).second)
+			result = _ranges->at(i).second;
+
+	}
+	_maxRange = result;
+}
+
+template <class T>
+size_t RangeIterator<T>::GetLength()
+{
+	// don't count the first element, it is suspected to be unique
+	T total = 0;
+	for (size_t i = 0; i < _ranges->size(); i++) {
+		if (_skipoptions == RangeSkipOptions::SkipFirst || _skipoptions == RangeSkipOptions::SkipLast)
+			total += _ranges->at(i).second - 1;
+		else
+			total += _ranges->at(i).second;
+	}
+	return total;
+}
+
+template <class T>
+std::vector<T> RangeIterator<T>::GetRange(size_t length)
+{
+	std::vector<size_t> result;
+	while (length > 0 && _position < _length) {
+		result.push_back(_ranges->at(_posX).first + _posY);
+		_posY++;
+		if (_posY >= _ranges->at(_posX).second) {
+			_posX++;
+			_posY = 0;
+		}
+		length--;
+		_position++;
+	}
+	return result;
+}
+
+template <class T>
+std::vector<std::pair<T, T>> RangeIterator<T>::GetRanges(size_t maxsize)
+{
+	std::vector<std::pair<T, T>> result;
+	for (size_t i = 0; i < _ranges->size(); i++) {
+		if (_ranges->at(i).second < maxsize) {
+			if (_skipoptions == RangeSkipOptions::SkipFirst)
+				result.push_back({ _ranges->at(i).first + 1, _ranges->at(i).second - 1 });
+			else if (_skipoptions == RangeSkipOptions::SkipLast)
+				result.push_back({ _ranges->at(i).first, _ranges->at(i).second - 1 });
+			else
+				result.push_back({ _ranges->at(i).first, _ranges->at(i).second });
+		} else {
+			auto [begin, length] = _ranges->at(i);
+			size_t position = 0;
+			if (_skipoptions == RangeSkipOptions::SkipFirst)
+				position = 1;
+			else if (_skipoptions == RangeSkipOptions::SkipLast)
+				length -= 1;
+			while (position < length) {
+				if (length - position > maxsize)
+					result.push_back({ begin + position, maxsize });
+				else
+					result.push_back({ begin + position, length - position });
+
+				position += maxsize;
+			}
+		}
+	}
+	return result;
+}
+template <class T>
+std::vector<std::pair<T, T>> RangeIterator<T>::GetRangesAbove(size_t minsize)
+{
+	std::vector<std::pair<T, T>> result;
+	for (size_t i = 0; i < _ranges->size(); i++) {
+		if (_ranges->at(i).second < minsize){
+		/* if (_ranges->at(i).second > minsize) {
+			if (_skipoptions == RangeSkipOptions::SkipFirst)
+				result.push_back({ _ranges->at(i).first + 1, _ranges->at(i).second - 1 });
+			else if (_skipoptions == RangeSkipOptions::SkipLast)
+				result.push_back({ _ranges->at(i).first, _ranges->at(i).second - 1 });
+			else
+				result.push_back({ _ranges->at(i).first, _ranges->at(i).second });*/
+		} else {
+			auto [begin, length] = _ranges->at(i);
+			size_t position = 0;
+			if (_skipoptions == RangeSkipOptions::SkipFirst)
+				position = 1;
+			else if (_skipoptions == RangeSkipOptions::SkipLast)
+				length -= 1;
+			while (position < length) {
+				if (length - position >= minsize)
+					result.push_back({ begin + position, minsize });
+
+				position += minsize;
+			}
+		}
+	}
+	return result;
 }

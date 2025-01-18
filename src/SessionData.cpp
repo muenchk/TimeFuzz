@@ -14,12 +14,18 @@ void SessionData::Init()
 	switch (this->_settings->generation.sourcesType) {
 	case Settings::GenerationSourcesType::FilterLength:
 		_negativeInputs.set_ordering(std::SetOrdering::Length);
+		_unfinishedInputs.set_ordering(std::SetOrdering::Length);
+		_positiveInputs.set_ordering(std::SetOrdering::Length);
 		break;
 	case Settings::GenerationSourcesType::FilterPrimaryScore:
 		_negativeInputs.set_ordering(std::SetOrdering::Primary);
+		_unfinishedInputs.set_ordering(std::SetOrdering::Primary);
+		_positiveInputs.set_ordering(std::SetOrdering::Primary);
 		break;
 	case Settings::GenerationSourcesType::FilterSecondaryScore:
 		_negativeInputs.set_ordering(std::SetOrdering::Secondary);
+		_unfinishedInputs.set_ordering(std::SetOrdering::Secondary);
+		_positiveInputs.set_ordering(std::SetOrdering::Secondary);
 		break;
 	}
 }
@@ -60,7 +66,7 @@ void SessionData::AddInput(std::shared_ptr<Input>& input, EnumType list, double 
 	case OracleResult::Passing:
 		{
 			std::unique_lock<std::shared_mutex> guard(_positiveInputsLock);
-			_positiveInputs.push_back(input->GetFormID());
+			_positiveInputs.insert(input);
 		}
 		break;
 	case OracleResult::Undefined:
@@ -312,7 +318,7 @@ std::vector<std::shared_ptr<Input>> SessionData::FindKSources(int32_t k, std::se
 				itr++;
 				continue;
 			}
-			if ((_settings->generation.maxNumberOfFailsPerSource > input->GetDerivedFails() || _settings->generation.maxNumberOfFailsPerSource == 0) && exclusionlist.contains(input) == false)
+			if ((_settings->generation.maxNumberOfFailsPerSource > input->GetDerivedFails() || _settings->generation.maxNumberOfFailsPerSource == 0) && (_settings->generation.maxNumberOfGenerationsPerSource == 0 || _settings->generation.maxNumberOfGenerationsPerSource > input->GetDerivedInputs()) && exclusionlist.contains(input) == false)
 				ret.push_back(input);
 		}
 		itr++;
@@ -325,13 +331,43 @@ std::vector<std::shared_ptr<Input>> SessionData::FindKSources(int32_t k, std::se
 				itra++;
 				continue;
 			}
-			if ((_settings->generation.maxNumberOfFailsPerSource > input->GetDerivedFails() || _settings->generation.maxNumberOfFailsPerSource == 0) && exclusionlist.contains(input) == false)
+			if ((_settings->generation.maxNumberOfFailsPerSource > input->GetDerivedFails() || _settings->generation.maxNumberOfFailsPerSource == 0) && (_settings->generation.maxNumberOfGenerationsPerSource == 0 || _settings->generation.maxNumberOfGenerationsPerSource > input->GetDerivedInputs()) && exclusionlist.contains(input) == false)
 				ret.push_back(input);
 		}
 		itra++;
 	}
 	return ret;
 }
+
+void SessionData::GetPositiveInputs(int32_t k, std::vector<std::shared_ptr<Input>>& posinputs)
+{
+	std::shared_lock<std::shared_mutex> guard(_positiveInputsLock);
+	if (k != 0 && posinputs.size() < k)
+		posinputs.resize(k);
+	else if (posinputs.size() < _positiveInputs.size())
+		posinputs.resize(_positiveInputs.size());
+	auto itr = _positiveInputs.begin();
+	int32_t count = 0;
+	while ((k == 0 || count < k) && itr != _positiveInputs.end())
+	{
+		posinputs[count] = *itr;
+		count++;
+		itr++;
+	}
+}
+
+void SessionData::VisitPositiveInputs(std::function<bool(std::shared_ptr<Input>)> visitor)
+{
+	std::shared_lock<std::shared_mutex> guard(_positiveInputsLock);
+	auto itr = _positiveInputs.begin();
+	while (itr != _positiveInputs.end())
+	{
+		if (visitor(*itr) == false)
+			break;
+		itr++;
+	}
+}
+
 
 std::shared_ptr<Generation> SessionData::GetCurrentGeneration()
 {
@@ -401,9 +437,9 @@ void SessionData::GetGenerationIDs(std::vector<std::pair<FormID, int32_t>>& gens
 	}
 }
 
-void SessionData::SetNewGeneration()
+void SessionData::SetNewGeneration(bool force)
 {
-	if (_settings->generation.generationalMode) {
+	if (force || _settings->generation.generationalMode) {
 		std::shared_ptr<Generation> oldgen;
 		std::shared_ptr<Generation> newgen = data->CreateForm<Generation>();
 		// add to generations map
@@ -416,6 +452,7 @@ void SessionData::SetNewGeneration()
 		newgen->SetMaxSimultaneuosGeneration(_settings->generation.generationstep);
 		newgen->SetMaxActiveInputs(_settings->generation.activeGeneratedInputs);
 		newgen->SetMaxDerivedFailingInput(_settings->generation.maxNumberOfFailsPerSource);
+		newgen->SetMaxDerivedInput(_settings->generation.maxNumberOfGenerationsPerSource);
 		oldgen = ExchangeGen(newgen);
 		if (oldgen) {
 			newgen->SetGenerationNumber(oldgen->GetGenerationNumber() + 1);  // increment generation
@@ -436,11 +473,16 @@ bool SessionData::CheckGenerationEnd(bool toomanyfails)
 	if ((gen->IsActive() == false || !gen->NeedsGeneration() && _exechandler->WaitingTasks() == 0 && _exechandler->GetRunningTests() == 0) && _generationEnding.compare_exchange_strong(exp, true) /*if gen is inactive and genending is false, set it to true and execute this block*/) {
 		// generation has finished
 		auto call = dynamic_pointer_cast<Functions::GenerationEndCallback>(Functions::GenerationEndCallback::Create());
-		call->_sessiondata = data->CreateForm<SessionData>(); // self
+		call->_sessiondata = data->CreateForm<SessionData>();  // self
 		_controller->AddTask(call);
 		return true;
-	} else if (_settings->generation.maxNumberOfFailsPerSource != 0 && gen->CheckSourceValidity([this](std::shared_ptr<Input> input) { if (input && input->GetDerivedFails() < _settings->generation.maxNumberOfFailsPerSource) return true; else return false; }) == false && _generationEnding.compare_exchange_strong(exp, true))
-	{
+	} else if ((_settings->generation.maxNumberOfFailsPerSource != 0 || _settings->generation.maxNumberOfGenerationsPerSource != 0) && gen->CheckSourceValidity([this](std::shared_ptr<Input> input) {
+				   if ((_settings->generation.maxNumberOfFailsPerSource == 0 || input->GetDerivedFails() < _settings->generation.maxNumberOfFailsPerSource) &&
+					   (_settings->generation.maxNumberOfGenerationsPerSource == 0 || input->GetDerivedInputs() < _settings->generation.maxNumberOfGenerationsPerSource))
+					   return true;
+				   else
+					   return false;
+			   }) == false && _generationEnding.compare_exchange_strong(exp, true)) {
 		// generation is being forcefully ended
 		auto call = dynamic_pointer_cast<Functions::GenerationEndCallback>(Functions::GenerationEndCallback::Create());
 		call->_sessiondata = data->CreateForm<SessionData>();  // self
@@ -526,10 +568,10 @@ bool SessionData::WriteData(std::ostream* buffer, size_t& offset)
 	Buffer::Write(_undefinedInputNumbers, buffer, offset);
 	// positive inputs
 	Buffer::WriteSize(_positiveInputs.size(), buffer, offset);
-	auto itr = _positiveInputs.begin();
-	while (itr != _positiveInputs.end()) {
-		Buffer::Write(*itr, buffer, offset);
-		itr++;
+	auto itran = _positiveInputs.begin();
+	while (itran != _positiveInputs.end()) {
+		Buffer::Write((*itran)->GetFormID(), buffer, offset);
+		itran++;
 	}
 	// negative inputs
 	Buffer::WriteSize(_negativeInputs.size(), buffer, offset);
@@ -559,7 +601,7 @@ bool SessionData::WriteData(std::ostream* buffer, size_t& offset)
 	}
 	// undefined inputs
 	Buffer::WriteSize(_undefinedInputs.size(), buffer, offset);
-	itr = _undefinedInputs.begin();
+	auto itr = _undefinedInputs.begin();
 	while (itr != _undefinedInputs.end()) {
 		Buffer::Write(*itr, buffer, offset);
 		itr++;
@@ -608,8 +650,9 @@ bool SessionData::ReadData0x1(std::istream* buffer, size_t& offset, size_t /*len
 	// positive inputs
 	_positiveInputs.clear();
 	size_t sizepos = Buffer::ReadSize(buffer, offset);
+	std::vector<FormID> posInp(sizepos);
 	for (int64_t i = 0; i < (int64_t)sizepos; i++) {
-		_positiveInputs.push_back(Buffer::ReadUInt64(buffer, offset));
+		posInp.push_back(Buffer::ReadUInt64(buffer, offset));
 	}
 	// negative inputs
 	_negativeInputs.clear();
@@ -620,7 +663,7 @@ bool SessionData::ReadData0x1(std::istream* buffer, size_t& offset, size_t /*len
 		tmp = Buffer::ReadUInt64(buffer, offset);
 		negInp[i] = { tmp, Buffer::ReadDouble(buffer, offset) };
 	}
-	resolver->AddLateTask([this, negInp, resolver]() {
+	resolver->AddLateTask([this, negInp, posInp, resolver]() {
 		for (int64_t i = 0; i < (int64_t)negInp.size(); i++) {
 			auto shared = resolver->ResolveFormID<Input>(negInp[i].first);
 			if (shared && shared->derive && shared->test) {
@@ -635,6 +678,11 @@ bool SessionData::ReadData0x1(std::istream* buffer, size_t& offset, size_t /*len
 				_topK_secondary.insert(node);
 				_topK_length.insert(node);
 			}
+		}
+		for (int64_t i = 0; i < (int64_t)posInp.size(); i++) {
+			auto shared = resolver->ResolveFormID<Input>(posInp[i]);
+			if (shared)
+				_positiveInputs.insert(shared);
 		}
 	});
 	// unfinished inputs
@@ -720,12 +768,18 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 				{
 				case Settings::GenerationSourcesType::FilterLength:
 					_negativeInputs.set_ordering(std::SetOrdering::Length);
+					_unfinishedInputs.set_ordering(std::SetOrdering::Length);
+					_positiveInputs.set_ordering(std::SetOrdering::Length);
 					break;
 				case Settings::GenerationSourcesType::FilterPrimaryScore:
 					_negativeInputs.set_ordering(std::SetOrdering::Primary);
+					_unfinishedInputs.set_ordering(std::SetOrdering::Primary);
+					_positiveInputs.set_ordering(std::SetOrdering::Primary);
 					break;
 				case Settings::GenerationSourcesType::FilterSecondaryScore:
 					_negativeInputs.set_ordering(std::SetOrdering::Secondary);
+					_unfinishedInputs.set_ordering(std::SetOrdering::Secondary);
+					_positiveInputs.set_ordering(std::SetOrdering::Secondary);
 					break;
 				}
 				if (this->GetGen())

@@ -88,6 +88,7 @@ std::string Snapshot()
 		snap << fmt::format("Positive Tests:    {}", status.positiveTests) << "\n";
 		snap << fmt::format("Negative Tests:    {}", status.negativeTests) << "\n";
 		snap << fmt::format("Unfinished Tests:  {}", status.unfinishedTests) << "\n";
+		snap << fmt::format("Undefined Tests:   {}", status.undefinedTests) << "\n";
 		snap << fmt::format("Pruned Tests:      {}", status.prunedTests) << "\n";
 		snap << fmt::format("Runtime:           {} s", std::chrono::duration_cast<std::chrono::seconds>(status.runtime).count()) << "\n";
 		snap << "\n";
@@ -154,6 +155,7 @@ std::string Snapshot()
 		snap << fmt::format("Fragment Timeout:        {}", status.exitstats.fragmenttimeout) << "\n";
 		snap << fmt::format("Memory:                  {}", status.exitstats.memory) << "\n";
 		snap << fmt::format("Init error:              {}", status.exitstats.initerror) << "\n";
+		snap << fmt::format("Repeated Inputs:         {}", status.exitstats.repeat) << "\n";
 
 		snap << ("Internals") << "\n";
 		snap << fmt::format("Hashmap size:            {}", hashmapSize) << "\n";
@@ -849,7 +851,7 @@ int32_t main(int32_t argc, char** argv)
 
 		// Setup Dear ImGui context
 		IMGUI_CHECKVERSION();
-		ImGui::CreateContext();
+		auto context = ImGui::CreateContext();
 		ImGuiIO& io = ImGui::GetIO();
 		(void)io;
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
@@ -938,6 +940,7 @@ int32_t main(int32_t argc, char** argv)
 		bool showThreadStatus = true;
 		bool showGeneration = true;
 		bool showInput = false;
+		bool showPositiveInputs = true;
 
 		bool interrupted = false;
 
@@ -1035,6 +1038,7 @@ int32_t main(int32_t argc, char** argv)
 						ImGui::Text("Positive Tests:    %llu", status.positiveTests);
 						ImGui::Text("Negative Tests:    %llu", status.negativeTests);
 						ImGui::Text("Unfinished Tests:  %llu", status.unfinishedTests);
+						ImGui::Text("Undefined Tests:   %llu", status.undefinedTests);
 						ImGui::Text("Pruned Tests:      %llu", status.prunedTests);
 						ImGui::Text("Runtime:           %llu s", std::chrono::duration_cast<std::chrono::seconds>(status.runtime).count());
 
@@ -1095,12 +1099,12 @@ int32_t main(int32_t argc, char** argv)
 								}
 								ImGui::SameLine();
 								if (ImGui::Button("Stop")) {
-									std::thread th(std::bind(&Session::StopSession, session, std::placeholders::_1), true);
+									std::thread th(std::bind(&Session::StopSession, session, std::placeholders::_1, std::placeholders::_2), true, false);
 									th.detach();
 								}
 								ImGui::SameLine();
 								if (ImGui::Button("Abort")) {
-									std::thread th(std::bind(&Session::StopSession, session, std::placeholders::_1), false);
+									std::thread th(std::bind(&Session::StopSession, session, std::placeholders::_1, std::placeholders::_2), false, false);
 									th.detach();
 								}
 								ImGui::SameLine();
@@ -1169,6 +1173,7 @@ int32_t main(int32_t argc, char** argv)
 						ImGui::Text("Fragment Timeout:        %llu", status.exitstats.fragmenttimeout);
 						ImGui::Text("Memory:                  %llu", status.exitstats.memory);
 						ImGui::Text("Init error:              %llu", status.exitstats.initerror);
+						ImGui::Text("Repeated Inputs:         %llu", status.exitstats.repeat);
 
 						ImGui::SeparatorText("Internals");
 						ImGui::Text("Hashmap size:            %lu", hashmapSize);
@@ -1246,6 +1251,13 @@ int32_t main(int32_t argc, char** argv)
 						ImGui::NewLine();
 
 						ImGui::SeparatorText("Input");
+						ImGui::SameLine();
+						if (ImGui::SmallButton("Copy")) {
+							if (listview) {
+								ImGui::GetPlatformIO().Platform_SetClipboardTextFn(context, inputinfo._inputlist.c_str());
+							} else
+								ImGui::GetPlatformIO().Platform_SetClipboardTextFn(context, inputinfo._inputconcat.c_str());
+						}
 						ImGui::Checkbox("Show as list", &listview);
 						if (listview)
 							ImGui::TextWrapped("%s", inputinfo._inputlist.c_str());
@@ -1460,6 +1472,102 @@ int32_t main(int32_t argc, char** argv)
 					}
 				} else
 					session->UI_GetCurrentGeneration(ActiveGeneration);
+				ImGui::End();
+			}
+
+			if (showPositiveInputs)
+			{
+				static bool wopen = true;
+				ImGui::Begin("Positive Inputs", &wopen);
+				if (wopen) {
+					static std::vector<UI::UIInput> elements;
+
+					// GET ITEMS FROM SESSION
+					session->UI_GetPositiveInputs(elements, 0);
+
+					static char buf[32];
+					ImGui::InputText("Number of rows", buf, 32, ImGuiInputTextFlags_CharsDecimal);
+					static int32_t rownum = 0;
+					try {
+						rownum = std::atoi(buf);
+					} catch (std::exception&) {
+						rownum = 10;
+					}
+
+					// construct table
+					static ImGuiTableFlags flags =
+						ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable | ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_ScrollY;
+					//PushStyleCompact
+					//...
+					//PopStyleCompact
+					if (ImGui::BeginTable("postable", 9, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * rownum), 0.0f)) {
+						ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputID);
+						ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputLength);
+						ImGui::TableSetupColumn("Primary Score", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputPrimaryScore);
+						ImGui::TableSetupColumn("Secondary Score", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputSecondaryScore);
+						ImGui::TableSetupColumn("Result", ImGuiTableColumnFlags_WidthFixed, 120.0f, UI::UIInput::ColumnID::InputResult);
+						ImGui::TableSetupColumn("Flags", ImGuiTableColumnFlags_WidthFixed, 80.0f, UI::UIInput::ColumnID::InputFlags);
+						ImGui::TableSetupColumn("Generation", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputGenerationNum);
+						ImGui::TableSetupColumn("Derived Inputs", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputDerivedNum);
+						ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputAction);
+						ImGui::TableSetupScrollFreeze(0, 1);
+						ImGui::TableHeadersRow();
+
+						// DO SOME SORTING
+
+						// use clipper for large vertical lists
+						ImGuiListClipper clipper;
+						clipper.Begin((int32_t)elements.size());
+						while (clipper.Step()) {
+							for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
+								auto item = &elements[i];
+								ImGui::PushID((uint32_t)item->id);
+								ImGui::TableNextRow();
+								ImGui::TableNextColumn();
+								ImGui::Text("%8llx", item->id);
+								ImGui::TableNextColumn();
+								ImGui::Text("%10llu", item->length);
+								ImGui::TableNextColumn();
+								ImGui::Text("%10.2f", item->primaryScore);
+								ImGui::TableNextColumn();
+								ImGui::Text("%10.2f", item->secondaryScore);
+								ImGui::TableNextColumn();
+								if (item->result == UI::Result::Failing)
+									ImGui::Text("Failing");
+								else if (item->result == UI::Result::Passing)
+									ImGui::Text("Passing");
+								else if (item->result == UI::Result::Running)
+									ImGui::Text("Running");
+								else
+									ImGui::Text("Unfinished");
+								ImGui::TableNextColumn();
+								ImGui::TextUnformatted(Utility::GetHexFill(item->flags).c_str());
+								ImGui::TableNextColumn();
+								ImGui::Text("%6d", item->generationNumber);
+								ImGui::TableNextColumn();
+								ImGui::Text("%6lld", item->derivedInputs);
+								ImGui::TableNextColumn();
+								if (ImGui::SmallButton("Replay")) {
+									std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1, std::placeholders::_2), item->id, &inputinfo);
+									th.detach();
+								}
+								ImGui::SameLine();
+								if (ImGui::SmallButton("Info")) {
+									showInput = true;
+									std::thread th([id = item->id]() { session->UI_GetInputInformation(inputinfo, id); });
+									th.detach();
+								}
+								ImGui::SameLine();
+								if (ImGui::SmallButton("DeltaDebug")) {
+									std::thread th(std::bind(&Session::UI_StartDeltaDebugging, session, std::placeholders::_1), item->id);
+									th.detach();
+								}
+								ImGui::PopID();
+							}
+						}
+						ImGui::EndTable();
+					}
+				}
 				ImGui::End();
 			}
 

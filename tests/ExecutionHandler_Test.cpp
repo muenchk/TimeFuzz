@@ -33,6 +33,13 @@ namespace Functions
 		static uint64_t GetTypeStatic() { return 'CALL'; }
 		uint64_t GetType() override { return 'CALL'; }
 		FunctionType GetFunctionType() override { return FunctionType::Heavy; };
+
+		virtual std::shared_ptr<BaseFunction> DeepCopy() override
+		{
+			auto ptr = std::make_shared<Callback>();
+			return dynamic_pointer_cast<BaseFunction>(ptr);
+		}
+
 		bool ReadData(std::istream*, size_t&, size_t, LoadResolver*)
 		{
 			return true;

@@ -201,6 +201,7 @@ public:
 	/// Sets the meximum number of failing derivations for sources
 	/// </summary>
 	void SetMaxDerivedFailingInput(uint64_t maxDerivedFailingInputs);
+	void SetMaxDerivedInput(uint64_t maxDerivedInputs);
 
 private:
 	/// <summary>
@@ -229,6 +230,7 @@ private:
 	/// specifies meximum number of failing derivations for sources
 	/// </summary>
 	uint64_t _maxDerivedFailingInputs = 0;
+	uint64_t _maxDerivedInputs = 0;
 
 	/// <summary>
 	/// Number of currently active inputs

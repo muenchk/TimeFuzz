@@ -123,12 +123,14 @@ void UIDeltaDebugging::GetOriginalInput(UIInput& input)
 void UIDeltaDebugging::GetInput(UIInput& input)
 {
 	auto inp = _ddcontroller->GetInput();
-	input.id = inp->GetFormID();
-	input.length = inp->Length();
-	input.primaryScore = inp->GetPrimaryScore();
-	input.secondaryScore = inp->GetSecondaryScore();
-	input.result = (UI::Result)inp->GetOracleResult();
-	input.flags = inp->GetFlags();
+	if (inp) {
+		input.id = inp->GetFormID();
+		input.length = inp->Length();
+		input.primaryScore = inp->GetPrimaryScore();
+		input.secondaryScore = inp->GetSecondaryScore();
+		input.result = (UI::Result)inp->GetOracleResult();
+		input.flags = inp->GetFlags();
+	}
 }
 
 void UIDeltaDebugging::GetActiveInputs(std::vector<UIInput>& inputs, size_t& size)

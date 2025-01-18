@@ -68,6 +68,8 @@ namespace Functions
 
 		FunctionType GetFunctionType() override { return FunctionType::Light; }
 
+		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
+
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool WriteData(std::ostream* buffer, size_t& offset) override;
 
@@ -268,6 +270,7 @@ private:
 
 public:
 	ExecutionHandler();
+	~ExecutionHandler();
 
 	void Init(std::shared_ptr<Session> session, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Settings> settings, std::shared_ptr<TaskController> threadpool, int32_t maxConcurrentTests, std::shared_ptr<Oracle> oracle);
 
@@ -322,7 +325,7 @@ public:
 	/// Returns the number of currently waiting tests
 	/// </summary>
 	/// <returns></returns>
-	size_t WaitingTasks() { return _waitingTests.size() + _waitingTestsExec.size() + _runningTests.size() + _stoppingTests.size(); }
+	size_t WaitingTasks() { return _waitingTests.size() + _waitingTestsExec.size() + _runningTests.size() + _stoppingTests.size() + _startingTests.size(); }
 
 	/// <summary>
 	/// sets the period of the test engine

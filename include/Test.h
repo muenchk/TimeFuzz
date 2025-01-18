@@ -68,6 +68,10 @@ public:
 			/// An error occured when starting the test -> discard result
 			/// </summary>
 			InitError = 1 << 10,
+			/// <summary>
+			/// Not really an exit reason as this is decided by the oracle
+			/// </summary>
+			Repeat = 1 << 11,
 		};
 	};
 
@@ -303,6 +307,8 @@ namespace Functions
 
 		FunctionType GetFunctionType() override { return FunctionType::Light; }
 
+		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
+
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 		bool WriteData(std::ostream* buffer, size_t& offset);
 
@@ -317,6 +323,9 @@ namespace Functions
 		UI::UIInputInformation* _feedback;
 
 		void Run() override;
+
+		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
+
 		static uint64_t GetTypeStatic() { return 'RTES'; }
 		uint64_t GetType() override { return 'RTES'; }
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<ReplayTestCallback>()); }

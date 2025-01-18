@@ -136,6 +136,8 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "DeltaDebugging:          ", dd.approximativeTestExecution_NAME, dd.approximativeTestExecution);
 	dd.approximativeExecutionThreshold = ini.GetDoubleValue("DeltaDebugging", dd.approximativeExecutionThreshold_NAME, dd.approximativeExecutionThreshold);
 	loginfo("{}{} {}", "DeltaDebugging:          ", dd.approximativeExecutionThreshold_NAME, dd.approximativeExecutionThreshold);
+	dd.skipoptions = (RangeSkipOptions)ini.GetLongValue("DeltaDebugging", dd.skipoptions_NAME, (long)0);
+	loginfo("{}{} {}", "DeltaDebugging:          ", dd.skipoptions_NAME, (long)dd.skipoptions);
 
 	// generation
 	generation.generationsize = (int32_t)ini.GetLongValue("Generation", generation.generationsize_NAME, generation.generationsize);
@@ -168,6 +170,8 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "Generation:       ", generation.generationLengthMax_NAME, generation.generationLengthMax);
 	generation.maxNumberOfFailsPerSource = (uint64_t)ini.GetLongValue("Generation", generation.maxNumberOfFailsPerSource_NAME, (long)generation.maxNumberOfFailsPerSource);
 	loginfo("{}{} {}", "Generation:       ", generation.maxNumberOfFailsPerSource_NAME, generation.maxNumberOfFailsPerSource);
+	generation.maxNumberOfGenerationsPerSource = (uint64_t)ini.GetLongValue("Generation", generation.maxNumberOfGenerationsPerSource_NAME, (long)generation.maxNumberOfGenerationsPerSource);
+	loginfo("{}{} {}", "Generation:       ", generation.maxNumberOfGenerationsPerSource_NAME, generation.maxNumberOfGenerationsPerSource);
 
 	// endconditions
 	conditions.use_foundnegatives = ini.GetBoolValue("EndConditions", conditions.use_foundnegatives_NAME, conditions.use_foundnegatives);
@@ -314,8 +318,8 @@ void Settings::Save(std::wstring _path)
 	ini.SetLongValue("DeltaDebugging", dd.executeAboveLength_NAME, (long)dd.executeAboveLength, "\\\\ Only executes subsets that are longer than this value to save on the number of tests executed.");
 	ini.SetLongValue("DeltaDebugging", dd.mode_NAME, (long)dd.mode,
 		"\\\\ Algorithm to use for delta debugging.\n"
-		"0 = Standard - DDmin developed by Andreas Zeller executing subsets and their complements\n"
-		"[currently not selectable, activate AllowScoreOptimization instead] 1 = ScoreProgress - DDmin based custom algorithm that removes entries with that show no score progress");
+		"\\\\ 0 = Standard - DDmin developed by Andreas Zeller executing subsets and their complements\n"
+		"\\\\ [currently not selectable, activate AllowScoreOptimization instead] 1 = ScoreProgress - DDmin based custom algorithm that removes entries with that show no score progress");
 	ini.SetBoolValue("DeltaDebugging", dd.allowScoreOptimization_NAME, (long)dd.allowScoreOptimization, "\\\\ Allows the application of Delta debugging to reduce generated inputs while optimizing their score instead of reproducing their result.");
 	ini.SetDoubleValue("DeltaDebugging", dd.optimizationLossThreshold_NAME, dd.optimizationLossThreshold, "\\\\ The maximum loss when optimizing score to be considered a success.");
 	ini.SetBoolValue("DeltaDebugging", dd.approximativeTestExecution_NAME, dd.approximativeTestExecution,
@@ -326,6 +330,10 @@ void Settings::Save(std::wstring _path)
 	ini.SetDoubleValue("DeltaDebugging", dd.approximativeExecutionThreshold_NAME, dd.approximativeExecutionThreshold,
 		"\\\\ [For Primary Score Optimization only]\n"
 		"\\\\ Generated inputs minimum approximated score must be greater than [Delta Debugged inputs primary score * thisvalue].\n");
+	ini.SetLongValue("DeltaDebugging", dd.skipoptions_NAME, (long)dd.skipoptions,
+		"\\\\ When executing Delta Debugging in Score Optimization mode, the first, last, or no element\n"
+		"\\\\ of a passage with no score progress are skipped.\n"
+		"\\\\ [0 - None, 1 - Skip First, 2 - Skip Last\n");
 
 
 	// generation
@@ -352,6 +360,7 @@ void Settings::Save(std::wstring _path)
 	ini.SetLongValue("Generation", generation.generationLengthMin_NAME, generation.generationLengthMin, "\\\\ Minimum input length generated in each generation.");
 	ini.SetLongValue("Generation", generation.generationLengthMax_NAME, generation.generationLengthMax, "\\\\ Maximum input length generated in each generation.");
 	ini.SetLongValue("Generation", generation.maxNumberOfFailsPerSource_NAME, (long)generation.maxNumberOfFailsPerSource, "\\\\ The maximum number of derived inputs that can fail for an input to be elligible to be a source.");
+	ini.SetLongValue("Generation", generation.maxNumberOfGenerationsPerSource_NAME, (long)generation.maxNumberOfGenerationsPerSource, "\\\\ The maximum number of total derived inputs for an input to be elligible to be a source.");
 
 	// endconditions
 	ini.SetBoolValue("EndConditions", conditions.use_foundnegatives_NAME, conditions.use_foundnegatives, "\\\\ Stop execution after foundnegatives failing inputs have been found.");
@@ -436,13 +445,15 @@ size_t Settings::GetStaticSize(int32_t version)
 	                 + 4      // Generation::generationLengthMax
 	                 + 4      // Generation::sourcesType
 	                 + 8      // Generation::maxNumberOfFailsPerSource
+	                 + 8      // Generation::maxNumberOfGenerationsPerSource
 	                 + 1      // Optimization::disableExclusionTree
 	                 + 1      // SaveFiles::saveAfterEachGeneration
 	                 + 4      // Methods::IterativeConstruction_Extension_Backtrack_min
 	                 + 4      // Methods::IterativeConstruction_Extension_Backtrack_max
 	                 + 4      // Methods::IterativeConstruction_Backtrack_Backtrack_min
 	                 + 4      // Methods::IterativeConstruction_Backtrack_Backtrack_max
-	                 + 8;     // General::testEnginePeriod
+	                 + 8      // General::testEnginePeriod
+	                 + 4;     // DeltaDebugging::skipoptions
 
 	switch (version) {
 	case 0x1:
@@ -541,6 +552,7 @@ bool Settings::WriteData(std::ostream* buffer, size_t& offset)
 	Buffer::Write(generation.generationLengthMax, buffer, offset);
 	Buffer::Write((int32_t)generation.sourcesType, buffer, offset);
 	Buffer::Write(generation.maxNumberOfFailsPerSource, buffer, offset);
+	Buffer::Write(generation.maxNumberOfGenerationsPerSource, buffer, offset);
 	// optimization
 	Buffer::Write(optimization.disableExclusionTree, buffer, offset);
 	// saves
@@ -552,6 +564,8 @@ bool Settings::WriteData(std::ostream* buffer, size_t& offset)
 	Buffer::Write(methods.IterativeConstruction_Backtrack_Backtrack_max, buffer, offset);
 	// general
 	Buffer::Write(general.testEnginePeriod, buffer, offset);
+	// delta debugging
+	Buffer::Write((int32_t)dd.skipoptions, buffer, offset);
 	return true;
 }
 
@@ -638,6 +652,7 @@ bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, Loa
 			generation.generationLengthMax = Buffer::ReadInt32(buffer, offset);
 			generation.sourcesType = (GenerationSourcesType)Buffer::ReadInt32(buffer, offset);
 			generation.maxNumberOfFailsPerSource = Buffer::ReadUInt64(buffer, offset);
+			generation.maxNumberOfGenerationsPerSource = Buffer::ReadUInt64(buffer, offset);
 			// optimization
 			optimization.disableExclusionTree = Buffer::ReadBool(buffer, offset);
 			// saves
@@ -649,6 +664,8 @@ bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, Loa
 			methods.IterativeConstruction_Backtrack_Backtrack_max = Buffer::ReadInt32(buffer, offset);
 			// general
 			general.testEnginePeriod = Buffer::ReadNanoSeconds(buffer, offset);
+			// delta debugging
+			dd.skipoptions = (RangeSkipOptions)Buffer::ReadInt32(buffer, offset);
 		}
 		return true;
 	default:

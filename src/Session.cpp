@@ -248,7 +248,7 @@ std::vector<std::shared_ptr<Input>> Session::GenerateNegatives(int32_t /*negativ
 	return {};
 }
 
-void Session::StopSession(bool savesession)
+void Session::StopSession(bool savesession, bool stopHandler)
 {
 	if (_abort == true)
 		return;
@@ -262,11 +262,11 @@ void Session::StopSession(bool savesession)
 	if (_sessiondata) {
 		// stop executionhandler first, so no more new tests are started and the 
 		// taskcontroller can catch up if necessary
-		if (_sessiondata->_exechandler) {
+		if (_sessiondata->_exechandler && stopHandler) {
 			_sessiondata->_exechandler->StopHandler();
 		}
 		// stop controller
-		if (_sessiondata->_controller) {
+		if (_sessiondata->_controller && stopHandler) {
 			_sessiondata->_controller->Stop(false);
 		}
 	}
@@ -470,7 +470,7 @@ void Session::StartSessionIntern(bool &error)
 		}
 
 		// init generation
-		_sessiondata->SetNewGeneration();
+		_sessiondata->SetNewGeneration(true);
 
 		// set generator
 		_sessiondata->_generator = data->CreateForm<Generator>();
@@ -631,6 +631,7 @@ void Session::GetStatus(SessionStatus& status)
 		status.positiveTests = SessionStatistics::PositiveTestsGenerated(_sessiondata);
 		status.negativeTests = SessionStatistics::NegativeTestsGenerated(_sessiondata);
 		status.unfinishedTests = SessionStatistics::UnfinishedTestsGenerated(_sessiondata);
+		status.undefinedTests = SessionStatistics::UndefinedTestsGenerated(_sessiondata);
 		status.prunedTests = SessionStatistics::TestsPruned(_sessiondata);
 		status.runtime = SessionStatistics::Runtime(_sessiondata);
 		if (status.overallTests_goal != 0)
@@ -816,6 +817,44 @@ void Session::UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k)
 		vector[i].derivedInputs = vec[i]->GetDerivedInputs();
 		vector[i].generationNumber = _sessiondata->GetGeneration(vec[i]->GetGenerationID())->GetGenerationNumber();
 	}
+}
+
+void Session::UI_GetPositiveInputs(std::vector<UI::UIInput>& vector, size_t k)
+{
+	int* c = new int;
+	*c = 0;
+	std::vector<UI::UIInput>* vec = &vector; 
+	auto visitor = [&k, &c, &vec, sessdata = _sessiondata](std::shared_ptr<Input> input) {
+		if ((int)vec->size() > *c) {
+			(*vec)[*c].id = input->GetFormID();
+			(*vec)[*c].length = input->Length();
+			(*vec)[*c].primaryScore = input->GetPrimaryScore();
+			(*vec)[*c].secondaryScore = input->GetSecondaryScore();
+			(*vec)[*c].result = (UI::Result)input->GetOracleResult();
+			(*vec)[*c].flags = input->GetFlags();
+			(*vec)[*c].derivedInputs = input->GetDerivedInputs();
+			(*vec)[*c].generationNumber = sessdata->GetGeneration(input->GetGenerationID())->GetGenerationNumber();
+		}
+		else
+		{
+			UI::UIInput uinp;
+			uinp.id = input->GetFormID();
+			uinp.length = input->Length();
+			uinp.primaryScore = input->GetPrimaryScore();
+			uinp.secondaryScore = input->GetSecondaryScore();
+			uinp.result = (UI::Result)input->GetOracleResult();
+			uinp.flags = input->GetFlags();
+			uinp.derivedInputs = input->GetDerivedInputs();
+			uinp.generationNumber = sessdata->GetGeneration(input->GetGenerationID())->GetGenerationNumber();
+			vec->push_back(uinp);
+		}
+		(*c)++;
+		if (k == 0 || *c < k) {
+			return true;
+		} else
+			return false;
+	};
+	_sessiondata->VisitPositiveInputs(visitor);
 }
 
 UI::UIDeltaDebugging Session::UI_StartDeltaDebugging(FormID inputid)

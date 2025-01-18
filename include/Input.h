@@ -227,6 +227,10 @@ public:
 	static int lua_AddPrimaryScoreIndividual(lua_State* L);
 	static int lua_AddSecondaryScoreIndividual(lua_State* L);
 
+	static int lua_ClearScores(lua_State* L);
+	static int lua_ClearTrim(lua_State* L);
+
+	static int lua_IsOSWindows(lua_State* L);
 	static void RegisterLuaFunctions(lua_State* L);
 
 	/// <summary>

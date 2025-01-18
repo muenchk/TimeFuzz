@@ -75,6 +75,8 @@ namespace Functions
 
 		FunctionType GetFunctionType() override { return FunctionType::Heavy; }
 
+		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
+
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 		bool WriteData(std::ostream* buffer, size_t& offset);
 
@@ -96,6 +98,8 @@ namespace Functions
 		uint64_t GetType() override { return 'SESE'; }
 
 		FunctionType GetFunctionType() override { return FunctionType::Medium; }
+
+		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
 
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 		bool WriteData(std::ostream* buffer, size_t& offset);
@@ -119,6 +123,8 @@ namespace Functions
 		uint64_t GetType() override { return 'SEFI'; }
 
 		FunctionType GetFunctionType() override { return FunctionType::Medium; }
+
+		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
 
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 		bool WriteData(std::ostream* buffer, size_t& offset);
@@ -166,8 +172,9 @@ public:
 	/// <summary>
 	/// This function checks whether we have achieved our goals and initiates the end of the session
 	/// </summary>
+	/// <param name="generationEnded">Whether this check is performed after a generation has ended</param>
 	/// <returns>Wether session is being ended</returns>
-	static bool EndCheck(std::shared_ptr<SessionData>& sessiondata);
+	static bool EndCheck(std::shared_ptr<SessionData>& sessiondata, bool generationEnded = false);
 
 	/// <summary>
 	/// Attempts to free up as much memory as possible
@@ -187,7 +194,8 @@ public:
 	/// <param name="session"></param>
 	/// <param name="input"></param>
 	/// <param name="test"></param>
-	static void TestEnd(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input, bool replay = false);
+	/// <returns>If true is returned the test is repeated, so cease all actions in calling callback</returns>
+	static bool TestEnd(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input, bool replay = false);
 
 	/// <summary>
 	/// Updates test exit statistics
@@ -207,13 +215,13 @@ public:
 	/// </summary>
 	/// <param name="sessiondata"></param>
 	/// <param name="input"></param>
-	static std::shared_ptr<DeltaDebugging::DeltaController> BeginDeltaDebugging(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback = {}, bool bypassTests = false, DeltaDebugging::DDGoal goal = DeltaDebugging::DDGoal::None, DeltaDebugging::DDGoal secondarygoal = DeltaDebugging::DDGoal::ReproduceResult);
+	static std::shared_ptr<DeltaDebugging::DeltaController> BeginDeltaDebugging(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback = {}, bool bypassTests = false, DeltaDebugging::DDGoal goal = DeltaDebugging::DDGoal::None, DeltaDebugging::DDGoal secondarygoal = DeltaDebugging::DDGoal::None);
 
 private:
 	/// <summary>
 	/// Async Function that will end the session
 	/// </summary>
-	static void EndSession_Async(std::shared_ptr<SessionData> sessiondata);
+	static void EndSession_Async(std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Functions::BaseFunction> callback);
 
 	/// <summary>
 	/// Async Function that will save the session, since we are likely operating from inside the taskcontroller
@@ -248,6 +256,12 @@ public:
 	/// <param name=""></param>
 	/// <returns></returns>
 	static uint64_t UnfinishedTestsGenerated(std::shared_ptr<SessionData>&);
+	/// <summary>
+	/// returns the number of undefined tests generated
+	/// </summary>
+	/// <param name=""></param>
+	/// <returns></returns>
+	static uint64_t UndefinedTestsGenerated(std::shared_ptr<SessionData>&);
 	/// <summary>
 	/// returns the number of test pruned from memory
 	/// </summary>

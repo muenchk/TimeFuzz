@@ -68,7 +68,7 @@ void Generation::FailGeneration(int64_t fails)
 	_activeInputs -= fails;
 	if (_activeInputs < 0) {
 		_activeInputs = 0;
-		logwarn("_activeInputs went into the negative");
+		//logwarn("_activeInputs went into the negative");
 	}
 }
 
@@ -139,7 +139,7 @@ void Generation::SetInputCompleted()
 	_activeInputs--;
 	if (_activeInputs < 0) {
 		_activeInputs = 0;
-		logwarn("_activeInputs went into the negative");
+		//logwarn("_activeInputs went into the negative");
 	}
 }
 
@@ -208,10 +208,22 @@ std::vector<std::shared_ptr<Input>> Generation::GetSources()
 
 void Generation::GetSources(std::vector<std::shared_ptr<Input>>& sources)
 {
+	while (_sourcesFlag.test_and_set(std::memory_order_acquire))
+#if defined(__cpp_lib_atomic_wait) && __cpp_lib_atomic_wait >= 201907L
+		_sourcesFlag.wait(true, std::memory_order_relaxed)
+#endif
+			;
+
 	if (sources.size() < _sources.size())
 		sources.resize(_sources.size());
 	for (size_t i = 0; i < _sources.size(); i++)
 		sources[i] = _sources[i];
+
+	// exit flag
+	_sourcesFlag.clear(std::memory_order_release);
+#if defined(__cpp_lib_atomic_wait) && __cpp_lib_atomic_wait >= 201907L
+	_sourcesFlag.notify_one();
+#endif
 }
 
 std::shared_ptr<Input> Generation::GetRandomSource()
@@ -232,7 +244,8 @@ std::shared_ptr<Input> Generation::GetRandomSource()
 		size_t count = _sources.size();
 		while (count > 0) {
 			if (_sourcesIter != _sources.end()) {
-				if (_maxDerivedFailingInputs == 0 || (*_sourcesIter)->GetDerivedFails() < _maxDerivedFailingInputs) {
+				if ((_maxDerivedFailingInputs == 0 || (*_sourcesIter)->GetDerivedFails() < _maxDerivedFailingInputs) && 
+					(_maxDerivedInputs == 0 || (*_sourcesIter)->GetDerivedInputs() < _maxDerivedInputs)) {
 					itr = _sourcesIter++;
 					break;
 				} else
@@ -297,7 +310,7 @@ bool Generation::CheckSourceValidity(std::function<bool(std::shared_ptr<Input>)>
 			;
 	bool result = true;
 	for (auto input : _sources)
-		result &= !predicate(input);
+		result |= !predicate(input);
 
 	// exit flag
 	_sourcesFlag.clear(std::memory_order_release);
@@ -311,6 +324,7 @@ void Generation::GetDDControllers(std::vector<std::shared_ptr<DeltaDebugging::De
 {
 	if (_ddControllers.size() > controllers.size())
 		controllers.resize(_ddControllers.size());
+	std::unique_lock<std::shared_mutex> guard(_lock);
 	auto itr = _ddControllers.begin();
 	int i = 0;
 	while (itr != _ddControllers.end())
@@ -361,6 +375,10 @@ void Generation::SetMaxDerivedFailingInput(uint64_t maxDerivedFailingInputs)
 {
 	_maxDerivedFailingInputs = maxDerivedFailingInputs;
 }
+void Generation::SetMaxDerivedInput(uint64_t maxDerivedInputs)
+{
+	_maxDerivedInputs = maxDerivedInputs;
+}
 
 #pragma region FORM
 
@@ -376,7 +394,8 @@ size_t Generation::GetStaticSize(int32_t version)
 	                        + 8                     // maxActiveInputs
 	                        + 4;                    // generationNumber
 	static size_t size0x2 = size0x1  // old size
-	                        + 8;     // maxDerivedFailingInputs
+	                        + 8      // maxDerivedFailingInputs
+	                        + 8;     // maxDerivedInputs
 	switch (version) {
 	case 0x1:
 		return size0x1;
@@ -430,6 +449,7 @@ bool Generation::WriteData(std::ostream* buffer, size_t& offset)
 		else
 			Buffer::Write((FormID)0, buffer, offset);
 	Buffer::Write(_maxDerivedFailingInputs, buffer, offset);
+	Buffer::Write(_maxDerivedInputs, buffer, offset);
 	return true;
 }
 
@@ -495,8 +515,10 @@ bool Generation::ReadData(std::istream* buffer, size_t& offset, size_t length, L
 				_sourcesDistr = std::uniform_int_distribution<signed>(0, (uint32_t)_sources.size() - 1);
 			_sourcesIter = _sources.begin();
 		});
-		if (version == 0x2)
+		if (version == 0x2) {
 			_maxDerivedFailingInputs = Buffer::ReadUInt64(buffer, offset);
+			_maxDerivedInputs = Buffer::ReadUInt64(buffer, offset);
+		}
 		return true;
 	}
 	return false;

@@ -33,6 +33,14 @@ namespace Functions
 		static uint64_t GetTypeStatic() { return 'CALL'; }
 		uint64_t GetType() override { return 'CALL'; }
 		FunctionType GetFunctionType() override { return FunctionType::Heavy; };
+
+		virtual std::shared_ptr<BaseFunction> DeepCopy() override
+		{
+			auto ptr = std::make_shared<Callback>();
+			ptr->input = input;
+			return dynamic_pointer_cast<BaseFunction>(ptr);
+		}
+
 		bool ReadData(std::istream* buffer, size_t& offset, size_t, LoadResolver* resolver) override
 		{
 			uint64_t id = Buffer::ReadUInt64(buffer, offset);
@@ -80,6 +88,14 @@ namespace Functions
 		static uint64_t GetTypeStatic() { return 'TATE'; }
 		uint64_t GetType() override { return 'TATE'; }
 		FunctionType GetFunctionType() override { return FunctionType::Heavy; };
+
+		virtual std::shared_ptr<BaseFunction> DeepCopy() override
+		{
+			auto ptr = std::make_shared<TaskControllerTestCallback>();
+			ptr->i = i;
+			return dynamic_pointer_cast<BaseFunction>(ptr);
+		}
+
 		bool ReadData(std::istream* buffer, size_t& offset, size_t, LoadResolver*) override
 		{
 			i = Buffer::ReadInt32(buffer, offset);

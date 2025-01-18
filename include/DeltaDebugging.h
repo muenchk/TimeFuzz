@@ -10,6 +10,8 @@
 
 class SessionData;
 
+enum class RangeSkipOptions;
+
 namespace DeltaDebugging
 {
 	class DeltaController;
@@ -26,6 +28,8 @@ namespace Functions
 		void Run() override;
 		static uint64_t GetTypeStatic() { return 'DDSC'; }
 		uint64_t GetType() override { return 'DDSC'; }
+
+		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
 
 		FunctionType GetFunctionType() override { return FunctionType::Light; }
 
@@ -47,6 +51,8 @@ namespace Functions
 		uint64_t GetType() override { return 'DDEC'; }
 
 		FunctionType GetFunctionType() override { return FunctionType::Medium; }
+
+		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
 
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool WriteData(std::ostream* buffer, size_t& offset) override;
@@ -199,6 +205,12 @@ namespace DeltaDebugging
 		std::shared_ptr<Input> GetOriginalInput() { return _origInput; }
 		std::set<std::shared_ptr<Input>, FormIDLess<Input>>* GetActiveInputs() { return &_activeInputs; }
 
+		/// <summary>
+		/// Adds a callback to the controller [if the controller has already finished the callback is not called
+		/// </summary>
+		/// <param name="callback"></param>
+		bool AddCallback(std::shared_ptr<Functions::BaseFunction> callback);
+
 		
 		/// <summary>
 		/// returns the total size of the fields with static size
@@ -349,7 +361,8 @@ namespace DeltaDebugging
 
 		std::mutex _completedTestsLock;
 
-		std::shared_ptr<Functions::BaseFunction> _callback;
+		std::vector<std::shared_ptr<Functions::BaseFunction>> _callback;
+		std::mutex _callbackLock;
 
 		std::pair<double, double> _bestScore = { 0.0f, 0.0f };
 
@@ -369,7 +382,7 @@ template <class T>
 class RangeIterator
 {
 	std::vector<std::pair<T, T>>* _ranges;
-	bool _skipfirst = true;
+	RangeSkipOptions _skipoptions;
 	/// <summary>
 	/// Absolute position relative to length
 	/// </summary>
@@ -392,39 +405,13 @@ class RangeIterator
 	T _maxRange = 0;
 
 public:
-	RangeIterator(std::vector<std::pair<T, T>>* ranges,bool skipfirst)
-	{
-		_ranges = ranges;
-		_skipfirst = skipfirst;
-		_length = GetLength();
-
-		// calc max range
-		size_t result = 0;
-		for (size_t i = 0; i < _ranges->size(); i++) {
-			if (_skipfirst && result < _ranges->at(i).second - 1)
-				result = _ranges->at(i).second - 1;
-			else if (_skipfirst == false && result < _ranges->at(i).second)
-				result = _ranges->at(i).second;
-		}
-		_maxRange = result;
-	}
+	RangeIterator(std::vector<std::pair<T, T>>* ranges, RangeSkipOptions skipfirst);
+	
 	/// <summary>
 	/// returns the length of all non-unique items in the range
 	/// </summary>
 	/// <returns></returns>
-	size_t GetLength()
-	{
-		// don't count the first element, it is suspected to be unique
-		T total = 0;
-		for (size_t i = 0; i < _ranges->size(); i++)
-		{
-			if (_skipfirst)
-				total += _ranges->at(i).second - 1;
-			else
-				total += _ranges->at(i).second;
-		}
-		return total;
-	}
+	size_t GetLength();
 
 	/// <summary>
 	/// Returns the next range with size [length]
@@ -432,22 +419,7 @@ public:
 	/// </summary>
 	/// <param name="length"></param>
 	/// <returns></returns>
-	std::vector<T> GetRange(size_t length)
-	{
-		std::vector<size_t> result;
-		while (length > 0 && _position < _length)
-		{
-			result.push_back(_ranges->at(_posX).first + _posY);
-			_posY++;
-			if (_posY >= _ranges->at(_posX).second) {
-				_posX++;
-				_posY = 0;
-			}
-			length--;
-			_position++;
-		}
-		return result;
-	}
+	std::vector<T> GetRange(size_t length);
 
 	/// <summary>
 	/// Returns a list of ranges that are at most [maxsize] long.
@@ -455,59 +427,8 @@ public:
 	/// </summary>
 	/// <param name="maxsize"></param>
 	/// <returns></returns>
-	std::vector<std::pair<T, T>> GetRanges(size_t maxsize)
-	{
-		std::vector<std::pair<T, T>> result;
-		for (size_t i = 0; i < _ranges->size(); i++)
-		{
-			if (_ranges->at(i).second < maxsize) {
-				if (_skipfirst)
-					result.push_back({ _ranges->at(i).first + 1, _ranges->at(i).second - 1 });
-				else
-					result.push_back({ _ranges->at(i).first, _ranges->at(i).second });
-			}
-			else
-			{
-				auto [begin, length] = _ranges->at(i);
-				size_t position = 0;
-				if (_skipfirst)
-					position = 1;
-				while (position < length) {
-					if (length - position > maxsize)
-						result.push_back({ begin + position, maxsize });
-					else
-						result.push_back({ begin + position, length - position });
-
-					position += maxsize;
-				}
-			}
-		}
-		return result;
-	}
-	std::vector<std::pair<T, T>> GetRangesAbove(size_t minsize)
-	{
-		std::vector<std::pair<T, T>> result;
-		for (size_t i = 0; i < _ranges->size(); i++) {
-			if (_ranges->at(i).second > minsize) {
-				if (_skipfirst)
-					result.push_back({ _ranges->at(i).first + 1, _ranges->at(i).second - 1 });
-				else
-					result.push_back({ _ranges->at(i).first, _ranges->at(i).second });
-			} else {
-				auto [begin, length] = _ranges->at(i);
-				size_t position = 0;
-				if (_skipfirst)
-					position = 1;
-				while (position < length) {
-					if (length - position > minsize)
-						result.push_back({ begin + position, minsize });
-
-					position += minsize;
-				}
-			}
-		}
-		return result;
-	}
+	std::vector<std::pair<T, T>> GetRanges(size_t maxsize);
+	std::vector<std::pair<T, T>> GetRangesAbove(size_t minsize);
 
 	T GetMaxRange()
 	{

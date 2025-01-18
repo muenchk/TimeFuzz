@@ -16,6 +16,10 @@
 ExecutionHandler::ExecutionHandler()
 {
 }
+ExecutionHandler::~ExecutionHandler()
+{
+	Clear();
+}
 
 void ExecutionHandler::Init(std::shared_ptr<Session> session, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Settings> settings, std::shared_ptr<TaskController> threadpool, int32_t maxConcurrentTests, std::shared_ptr<Oracle> oracle)
 {
@@ -98,9 +102,18 @@ void ExecutionHandler::Clear()
 	_active = false;
 	_nextid = 1;
 	_enableFragments = false;
-	_stopHandler = false;
+	_stopHandler = true;
 	_finishtests = false;
+	if (_threadStopToken)
+		_threadStopToken->request_stop();
+	if (_thread.joinable())
+		_thread.detach();
 	_thread = {};
+	if (_threadTSStopToken)
+		_threadTSStopToken->request_stop();
+	if (_threadTS.joinable())
+		_threadTS.detach();
+	_threadTS = {};
 }
 
 void ExecutionHandler::RegisterFactories()
@@ -590,7 +603,7 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 		newtests = 0;
 		// while we are not at the max concurrent tests, there are tests waiting to be executed and we are not FROZEN
 		_tstatus = ExecHandlerStatus::StartingTests;
-		if (_currentTests < _maxConcurrentTests && (_waitingTestsExec.size() > 0 || _waitingTests.size() > 0) && (!_frozen || _frozen && _freeze_waitfortestcompletion))
+		if (_currentTests < _maxConcurrentTests && _startingTests.size() < _maxConcurrentTests && (_waitingTestsExec.size() > 0 || _waitingTests.size() > 0) && (!_frozen || _frozen && _freeze_waitfortestcompletion))
 		{
 			std::unique_lock<std::mutex> guard(_lockqueue);
 			std::unique_lock<std::mutex> guardS(_startingLock);
@@ -663,7 +676,7 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 			logdebug("no tests active -> wait for new tests");
 			std::unique_lock<std::mutex> guard(_lockqueue);
 			_tstatus = ExecHandlerStatus::Waiting;
-			_waitforjob.wait_for(guard, std::chrono::milliseconds(200), [this] { return !_waitingTests.empty() || !_waitingTestsExec.empty() || _stopHandler; });
+			_waitforjob.wait_for(guard, std::chrono::milliseconds(200), [this] { return !_runningTests.empty() || !_waitingTests.empty() || !_waitingTestsExec.empty() || _stopHandler; });
 			if (_stopHandler && _finishtests == false) {
 				profile(TimeProfiling, "Round");
 				break;
@@ -1021,6 +1034,13 @@ namespace Functions
 	void ExecInitTestsCallback::Run()
 	{
 		_sessiondata->_exechandler->InitTests();
+	}
+
+	std::shared_ptr<BaseFunction> ExecInitTestsCallback::DeepCopy()
+	{
+		auto ptr = std::make_shared<ExecInitTestsCallback>();
+		ptr->_sessiondata = _sessiondata;
+		return dynamic_pointer_cast<BaseFunction>(ptr);
 	}
 
 	bool ExecInitTestsCallback::ReadData(std::istream*, size_t&, size_t, LoadResolver* resolver)
