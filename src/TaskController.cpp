@@ -59,6 +59,39 @@ void TaskController::Start(std::shared_ptr<SessionData> session, int32_t numthre
 	}
 }
 
+void TaskController::Start(std::shared_ptr<SessionData> session, int32_t numLightThreads, int32_t numMediumThreads, int32_t numHeavyThreads, int32_t numAllThreads)
+{
+	_sessiondata = session;
+	if (numHeavyThreads == 0)
+		throw std::runtime_error("Cannot start a TaskController with 0 heavy threads.");
+	_numthreads = numLightThreads + numMediumThreads + numHeavyThreads + numAllThreads;
+	if (_numthreads < 1)
+		_numthreads = 1;
+	_optimizeFuncExec = true;
+	int32_t i = 0;
+	if (_numthreads == 1 && _optimizeFuncExec) {
+		_status.push_back(ThreadStatus::Initializing);
+		_threads.emplace_back(std::thread(&TaskController::InternalLoop_SingleThread, this, 0));
+	} else {
+		for (int32_t c = 0; c < numLightThreads; c++, i++) {
+			_status.push_back(ThreadStatus::Initializing);
+			_threads.emplace_back(std::thread(&TaskController::InternalLoop_LightExclusive, this, i));
+		}
+		for (int32_t c = 0; c < numMediumThreads; c++, i++) {
+			_status.push_back(ThreadStatus::Initializing);
+			_threads.emplace_back(std::thread(&TaskController::InternalLoop_Light, this, i));
+		}
+		for (int32_t c = 0; c < numHeavyThreads; c++, i++) {
+			_status.push_back(ThreadStatus::Initializing);
+			_threads.emplace_back(std::thread(&TaskController::InternalLoop, this, i));
+		}
+		for (int32_t c = 0; c < numAllThreads; c++, i++) {
+			_status.push_back(ThreadStatus::Initializing);
+			_threads.emplace_back(std::thread(&TaskController::InternalLoop_SingleThread, this, i));
+		}
+	}
+}
+
 int32_t TaskController::GetHeavyThreadCount()
 {
 	if (_optimizeFuncExec && _threads.size() != 1)

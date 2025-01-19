@@ -26,6 +26,7 @@
 class Session;
 class Input;
 class SessionData;
+class Generation;
 
 struct InputGainGreaterPrimary
 {
@@ -116,6 +117,7 @@ namespace Functions
 	{
 	public:
 		std::shared_ptr<SessionData> _sessiondata;
+		std::shared_ptr<Generation> _generation;
 		bool _afterSave = false;
 
 		void Run() override;

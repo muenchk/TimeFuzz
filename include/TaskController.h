@@ -190,6 +190,12 @@ public:
 	/// <param name="numthreads"></param>
 	void Start(std::shared_ptr<SessionData> session, int32_t numthreads = 0);
 	/// <summary>
+	/// Starts the TaskController
+	/// </summary>
+	/// <param name="session"></param>
+	/// <param name="numthreads"></param>
+	void Start(std::shared_ptr<SessionData> session, int32_t numLightThreads, int32_t numMediumThreads, int32_t numHeavyThreads, int32_t numAllThreads);
+	/// <summary>
 	/// Stops the TaskController, optionally waiting for the completion of all tasks
 	/// </summary>
 	/// <param name="completeall"></param>

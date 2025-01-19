@@ -281,6 +281,7 @@ void Session::DestroySession()
 {
 	// delete everything. If this isn't called the session is likely to persist until the program ends
 	_loaded = false;
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	_lastError = 0;
 	Delete(data);
 }
@@ -518,10 +519,13 @@ void Session::SessionControl()
 	if (execthreads == 0)
 		execthreads = 1;
 	_self = data->CreateForm<Session>();
-	_sessiondata->_controller->Start(_sessiondata, taskthreads);
+	if (_sessiondata->_settings->controller.activateSettings)
+		_sessiondata->_controller->Start(_sessiondata, _sessiondata->_settings->controller.numLightThreads, _sessiondata->_settings->controller.numMediumThreads, _sessiondata->_settings->controller.numHeavyThreads, _sessiondata->_settings->controller.numAllThreads);
+	else
+		_sessiondata->_controller->Start(_sessiondata, taskthreads);
 	_sessiondata->_exechandler->Init(_self, _sessiondata, _sessiondata->_settings, _sessiondata->_controller, _sessiondata->_settings->general.concurrenttests, _sessiondata->_oracle);
 	_sessiondata->_exechandler->SetEnableFragments(_sessiondata->_settings->tests.executeFragments);
-	_sessiondata->_exechandler->SetPeriod(_sessiondata->_settings->general.testEnginePeriod);
+	_sessiondata->_exechandler->SetPeriod(_sessiondata->_settings->general.testEnginePeriod());
 	_sessiondata->_exechandler->StartHandlerAsIs();
 	_sessiondata->_excltree = data->CreateForm<ExclusionTree>();
 	_sessiondata->_excltree->Init(_sessiondata);
@@ -821,6 +825,8 @@ void Session::UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k)
 
 void Session::UI_GetPositiveInputs(std::vector<UI::UIInput>& vector, size_t k)
 {
+	if (!_loaded)
+		return;
 	int* c = new int;
 	*c = 0;
 	std::vector<UI::UIInput>* vec = &vector; 

@@ -612,7 +612,6 @@ int32_t main(int32_t argc, char** argv)
 		if (option.find("--help") != std::string::npos) {
 			// print help dialogue and exit
 			std::cout << cmdargs;
-			scanf("%s", buffer);
 			exit(0);
 		} else if (option.find("--load-num") != std::string::npos) {
 			if (i + 2 < argc) {
@@ -623,14 +622,12 @@ int32_t main(int32_t argc, char** argv)
 					CmdArgs::_number = std::stoi(std::string(argv[i + 2]));
 				} catch (std::exception&) {
 					std::cerr << "missing number of save to load";
-					scanf("%s", buffer);
 					exit(ExitCodes::ArgumentError);
 				}
 				CmdArgs::_load = true;
 				i++;
 			} else {
 				std::cerr << "missing name of save to load";
-				scanf("%s", buffer);
 				exit(ExitCodes::ArgumentError);
 			}
 		} else if (option.find("--clear-tasks") != std::string::npos) {
@@ -660,7 +657,6 @@ int32_t main(int32_t argc, char** argv)
 				i++;
 			} else {
 				std::cerr << "missing name of save to load";
-				scanf("%s", buffer);
 				exit(ExitCodes::ArgumentError);
 			}
 		} else if (option.find("--print-num") != std::string::npos) {
@@ -672,14 +668,12 @@ int32_t main(int32_t argc, char** argv)
 					CmdArgs::_number = std::stoi(std::string(argv[i + 2]));
 				} catch (std::exception&) {
 					std::cerr << "missing number of save to load";
-					scanf("%s", buffer);
 					exit(ExitCodes::ArgumentError);
 				}
 				CmdArgs::_print = true;
 				i++;
 			} else {
 				std::cerr << "missing name of save to print";
-				scanf("%s", buffer);
 				exit(ExitCodes::ArgumentError);
 			}
 		} else if (option.find("--print") != std::string::npos) {
@@ -690,7 +684,6 @@ int32_t main(int32_t argc, char** argv)
 				i++;
 			} else {
 				std::cerr << "missing name of save to print";
-				scanf("%s", buffer);
 				exit(ExitCodes::ArgumentError);
 			}
 		} else if (option.find("--dry-i") != std::string::npos) {
@@ -702,7 +695,6 @@ int32_t main(int32_t argc, char** argv)
 				i++;
 			} else {
 				std::cerr << "missing input for dry run";
-				scanf("%s", buffer);
 				exit(ExitCodes::ArgumentError);
 			}
 		} else if (option.find("--dry") != std::string::npos) {
@@ -730,7 +722,6 @@ int32_t main(int32_t argc, char** argv)
 				exit(ExitCodes::Success);
 			} else {
 				std::cerr << "missing configuration file name";
-				scanf("%s", buffer);
 				exit(ExitCodes::ArgumentError);
 			}
 		} else if (option.find("--conf") != std::string::npos) {
@@ -741,7 +732,6 @@ int32_t main(int32_t argc, char** argv)
 				i++;
 			} else {
 				std::cerr << "missing configuration file name";
-				scanf("%s", buffer);
 				exit(ExitCodes::ArgumentError);
 			}
 		}
@@ -2151,6 +2141,8 @@ Responsive:
 
 			// CMD: kill
 			if (line.substr(0, 4).find("kill") != std::string::npos) {
+				session->StopSession(false, true);
+				break;
 			}
 			// CMD: stop [save | nosave]
 			else if (line.substr(0, 4).find("stop") != std::string::npos) {

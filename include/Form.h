@@ -100,6 +100,14 @@ public:
 	/// <returns></returns>
 	virtual bool CanDelete(Data* data);
 	/// <summary>
+	/// returns whether the form has been marked deleted
+	/// </summary>
+	/// <returns></returns>
+	virtual bool IsDeleted()
+	{
+		return _flagsAlloc & FormFlags::Deleted;
+	}
+	/// <summary>
 	/// clear form internals
 	/// </summary>
 	void ClearForm();

@@ -170,6 +170,7 @@ void SessionFunctions::SaveCheck(std::shared_ptr<SessionData>& sessiondata, bool
 			// if we are performing a generation end check, just do it and skip the rest
 			auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
 			callback->_sessiondata = sessiondata;
+			callback->_generation = sessiondata->GetCurrentGeneration();
 			callback->_afterSave = true;
 			if (sessiondata->_settings->saves.saveAfterEachGeneration) {
 				std::thread(SaveSession_Async, sessiondata, callback).detach();
@@ -251,6 +252,7 @@ bool SessionFunctions::EndCheck(std::shared_ptr<SessionData>& sessiondata, bool 
 		// if we are performing a generation end check, just do it and skip the rest
 		auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
 		callback->_sessiondata = sessiondata;
+		callback->_generation = sessiondata->GetCurrentGeneration();
 		callback->_afterSave = true;
 		std::thread(EndSession_Async, sessiondata, callback).detach();
 	} else {
@@ -983,6 +985,7 @@ namespace Functions
 			bool begun = false;
 			for (auto ptr : topk) {
 				auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
+				callback->_generation = _sessiondata->GetCurrentGeneration();
 				callback->_sessiondata = _sessiondata;
 				auto ddcontroller = SessionFunctions::BeginDeltaDebugging(_sessiondata, ptr, callback, false);
 				if (ddcontroller) {
@@ -999,7 +1002,9 @@ namespace Functions
 					begun = true;
 					auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
 					callback->_sessiondata = _sessiondata;
-					ptr->AddCallback(callback);
+					callback->_generation = _sessiondata->GetCurrentGeneration();
+					if (ptr->AddCallback(callback))
+						begun = true;
 				}
 			}
 
@@ -1007,6 +1012,7 @@ namespace Functions
 				// we haven't been able to start delta debugging, so add Generation Finished callback ourselves
 
 				auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
+				callback->_generation = _sessiondata->GetCurrentGeneration();
 				callback->_sessiondata = _sessiondata;
 				_sessiondata->_controller->AddTask(callback);
 			}
@@ -1019,6 +1025,7 @@ namespace Functions
 				if (ptr->Finished() == false) {
 					auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
 					callback->_sessiondata = _sessiondata;
+					callback->_generation = _sessiondata->GetCurrentGeneration();
 					if (ptr->AddCallback(callback))
 						begun = true;
 				}
@@ -1027,6 +1034,7 @@ namespace Functions
 				// there is no delta debugging active in the current generation, so add Generation Finished callback ourselves
 				auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
 				callback->_sessiondata = _sessiondata;
+				callback->_generation = _sessiondata->GetCurrentGeneration();
 				_sessiondata->_controller->AddTask(callback);
 			}
 		}
@@ -1069,6 +1077,7 @@ namespace Functions
 
 	void GenerationFinishedCallback::Run()
 	{
+		bool exp = false;
 		if (_afterSave == false) {
 			loginfo("Stats:\tGenerated: {}\tDD Controllers: {}\tDDSize: {}",
 				_sessiondata->GetCurrentGeneration()->GetGeneratedSize(),
@@ -1076,13 +1085,28 @@ namespace Functions
 				_sessiondata->GetCurrentGeneration()->GetDDSize());
 			auto generation = _sessiondata->GetCurrentGeneration();
 			while (generation->GetActiveInputs() > 0 && _sessiondata->_exechandler->WaitingTasks() > 0 || _sessiondata->_controller->GetWaitingLightJobs() > 0);
-			if (_sessiondata->GetCurrentGeneration()->IsDeltaDebuggingActive() == false) {
+			if (_sessiondata->GetCurrentGeneration()->IsDeltaDebuggingActive() == false && 
+				_sessiondata->_generationFinishing.compare_exchange_strong(exp, true) /*if there are multiple callbacks for the same generation, make sure that only one gets executed, i.e. the fastest*/) {
 				if (SessionFunctions::EndCheck(_sessiondata, true)) {
 					// we are ending the session, so the callback is gonna be saved and we don't need to do anything else
 					return;
 				}
 				SessionFunctions::SaveCheck(_sessiondata, true);
 				SessionFunctions::MasterControl(_sessiondata);
+			}
+			else
+			{
+				// delta debugging is active 
+				std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> controllers;
+				_sessiondata->GetCurrentGeneration()->GetDDControllers(controllers);
+				for (auto ptr : controllers) {
+					if (ptr->Finished() == false) {
+						auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
+						callback->_sessiondata = _sessiondata;
+						callback->_generation = _sessiondata->GetCurrentGeneration();
+						ptr->AddCallback(callback);
+					}
+				}
 			}
 		} else {
 			auto generation = _sessiondata->GetCurrentGeneration();
@@ -1210,6 +1234,7 @@ namespace Functions
 				gen->AddSource(input);
 			gen->SetActive();
 			generation->SetInactive();
+			_sessiondata->_generationFinishing = false;
 
 			// now we can continue with our generation as normal
 			int32_t maxtasks = _sessiondata->_controller->GetHeavyThreadCount();
@@ -1226,6 +1251,7 @@ namespace Functions
 	{
 		auto ptr = std::make_shared<GenerationFinishedCallback>();
 		ptr->_sessiondata = _sessiondata;
+		ptr->_generation = _generation;
 		ptr->_afterSave = _afterSave;
 		return dynamic_pointer_cast<BaseFunction>(ptr);
 	}
@@ -1234,8 +1260,10 @@ namespace Functions
 	{
 		// get id of sessiondata and resolve link
 		uint64_t sessid = Buffer::ReadUInt64(buffer, offset);
-		resolver->AddTask([this, sessid, resolver]() {
+		uint64_t genid = Buffer::ReadUInt64(buffer, offset);
+		resolver->AddTask([this, sessid, genid, resolver]() {
 			this->_sessiondata = resolver->ResolveFormID<SessionData>(sessid);
+			this->_generation = resolver->ResolveFormID<Generation>(genid);
 		});
 		_afterSave = Buffer::ReadBool(buffer, offset);
 		return true;
@@ -1245,17 +1273,19 @@ namespace Functions
 	{
 		BaseFunction::WriteData(buffer, offset);
 		Buffer::Write(_sessiondata->GetFormID(), buffer, offset);  // +8
+		Buffer::Write(_generation->GetFormID(), buffer, offset);  // +8
 		Buffer::Write(_afterSave, buffer, offset);                 // +1
 		return true;
 	}
 
 	size_t GenerationFinishedCallback::GetLength()
 	{
-		return BaseFunction::GetLength() + 8 + 1;
+		return BaseFunction::GetLength() + 8 + 8+ 1;
 	}
 
 	void GenerationFinishedCallback::Dispose()
 	{
 		_sessiondata.reset();
+		_generation.reset();
 	}
 }

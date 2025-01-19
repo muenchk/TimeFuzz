@@ -161,6 +161,41 @@ public:
 
 	std::filesystem::path GetOraclePath();
 
+	struct Controller
+	{
+		/// <summary>
+		/// whether to enable settings for the TaskController
+		/// </summary>
+		bool activateSettings = false;
+		const char* activateSettings_NAME = "UseHardwareThreads";
+
+		/// <summary>
+		/// number of threads executing light tasks only
+		/// </summary>
+		int32_t numLightThreads = 1;
+		const char* numLightThreads_NAME = "NumberOfLightThreads";
+
+		/// <summary>
+		/// number of threads executing light and medium tasks
+		/// </summary>
+		int32_t numMediumThreads = 1;
+		const char* numMediumThreads_NAME = "NumberOfMediumThreads";
+
+		/// <summary>
+		/// number of threads executing medium and heavy tasks
+		/// </summary>
+		int32_t numHeavyThreads = 1;
+		const char* numHeavyThreads_NAME = "NumberOfHeavyThreads";
+
+		/// <summary>
+		/// number of threads executing light, medium, and heavy tasks
+		/// </summary>
+		int32_t numAllThreads = 1;
+		const char* numAllThreads_NAME = "NumberOfAllThreads";
+	};
+
+	Controller controller;
+
 	struct General
 	{
 		/// <summary>
@@ -169,7 +204,7 @@ public:
 		bool usehardwarethreads = false;
 		const char* usehardwarethreads_NAME = "UseHardwareThreads";
 		/// <summary>
-		/// the number of backgroundthreads to use if [usehardwarethreads] is set to false
+		/// the number of backgroundthreads to use for computations if [usehardwarethreads] is set to false
 		/// </summary>
 		int32_t numthreads = 20;
 		const char* numthreads_NAME = "NumThreads";
@@ -208,8 +243,21 @@ public:
 		/// <summary>
 		/// period of the execution handler
 		/// </summary>
-		std::chrono::nanoseconds testEnginePeriod = std::chrono::nanoseconds(500000);
-		const char* testEnginePeriod_NAME = "TestEnginePeriod";
+		std::chrono::nanoseconds testEnginePeriodWindows = std::chrono::nanoseconds(500000);
+		std::chrono::nanoseconds testEnginePeriodUnix = std::chrono::nanoseconds(500000);
+		const char* testEnginePeriodWindows_NAME = "TestEnginePeriodWindows";
+		const char* testEnginePeriodUnix_NAME = "TestEnginePeriodUnix";
+
+		std::chrono::nanoseconds testEnginePeriod()
+		{
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+			return testEnginePeriodWindows;
+#else
+			return testEnginePeriodUnix;
+#endif
+		}
+
+
 	};
 
 	General general;

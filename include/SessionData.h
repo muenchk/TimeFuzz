@@ -212,6 +212,8 @@ class SessionData : public Form
 	friend class SessionStatistics;
 
 public:
+	std::atomic<bool> _generationFinishing = false;
+
 	/// <summary>
 	/// the number of retries for single input generations
 	/// </summary>

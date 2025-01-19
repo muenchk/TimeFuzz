@@ -111,25 +111,31 @@ void UIDeltaDebugging::GetResults(std::vector<UIDDResult>& results, size_t& size
 
 void UIDeltaDebugging::GetOriginalInput(UIInput& input)
 {
-	auto inp = _ddcontroller->GetOriginalInput();
-	input.id = inp->GetFormID();
-	input.length = inp->Length();
-	input.primaryScore = inp->GetPrimaryScore();
-	input.secondaryScore = inp->GetSecondaryScore();
-	input.result = (UI::Result)inp->GetOracleResult();
-	input.flags = inp->GetFlags();
+	if (!_ddcontroller->IsDeleted()) {
+		auto inp = _ddcontroller->GetOriginalInput();
+		if (inp) {
+			input.id = inp->GetFormID();
+			input.length = inp->Length();
+			input.primaryScore = inp->GetPrimaryScore();
+			input.secondaryScore = inp->GetSecondaryScore();
+			input.result = (UI::Result)inp->GetOracleResult();
+			input.flags = inp->GetFlags();
+		}
+	}
 }
 
 void UIDeltaDebugging::GetInput(UIInput& input)
 {
-	auto inp = _ddcontroller->GetInput();
-	if (inp) {
-		input.id = inp->GetFormID();
-		input.length = inp->Length();
-		input.primaryScore = inp->GetPrimaryScore();
-		input.secondaryScore = inp->GetSecondaryScore();
-		input.result = (UI::Result)inp->GetOracleResult();
-		input.flags = inp->GetFlags();
+	if (!_ddcontroller->IsDeleted()) {
+		auto inp = _ddcontroller->GetInput();
+		if (inp) {
+			input.id = inp->GetFormID();
+			input.length = inp->Length();
+			input.primaryScore = inp->GetPrimaryScore();
+			input.secondaryScore = inp->GetSecondaryScore();
+			input.result = (UI::Result)inp->GetOracleResult();
+			input.flags = inp->GetFlags();
+		}
 	}
 }
 

@@ -257,6 +257,7 @@ void ExecutionHandler::ReinitHandler()
 	_threadStopToken->request_stop();
 	_stale = true;
 	_threadStopToken = std::make_shared<stop_token>();
+	_thread.detach();
 	_thread = std::thread(std::bind(&ExecutionHandler::InternalLoop, this, std::placeholders::_1), _threadStopToken);
 }
 
@@ -672,7 +673,7 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 
 		// check if we are running tests, if not wait until we are given one to run
 		// if we found some above it was started and this should be above 0
-		if (_currentTests == 0) {
+		if (_currentTests == 0 && tohandle == 0) {
 			logdebug("no tests active -> wait for new tests");
 			std::unique_lock<std::mutex> guard(_lockqueue);
 			_tstatus = ExecHandlerStatus::Waiting;

@@ -142,7 +142,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 
 		Streambuf* sbuf = nullptr;
 		if (settings->saves.compressionLevel != -1) {
-			sbuf = new LZMAStreambuf(&fsave, settings->saves.compressionLevel, settings->saves.compressionExtreme, settings->general.numcomputingthreads + settings->general.concurrenttests -1);
+			sbuf = new LZMAStreambuf(&fsave, settings->saves.compressionLevel, settings->saves.compressionExtreme, settings->general.numthreads);
 		} else
 			sbuf = new Streambuf(&fsave);
 		std::ostream save(sbuf);

@@ -83,8 +83,25 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "General:          ", general.memory_softlimit_NAME, general.memory_softlimit);
 	general.memory_sweep_period = std::chrono::milliseconds((int64_t)ini.GetLongValue("General", general.memory_sweep_period_NAME, (long)general.memory_sweep_period.count()));
 	loginfo("{}{} {}", "General:          ", general.memory_sweep_period_NAME, general.memory_sweep_period.count());
-	general.testEnginePeriod = std::chrono::nanoseconds((int64_t)ini.GetLongValue("General", general.testEnginePeriod_NAME, (long)general.testEnginePeriod.count()));
-	loginfo("{}{} {}", "General:          ", general.testEnginePeriod_NAME, general.testEnginePeriod.count());
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+	general.testEnginePeriodWindows = std::chrono::nanoseconds((int64_t)ini.GetLongValue("General", general.testEnginePeriodWindows_NAME, (long)general.testEnginePeriodWindows.count()));
+	loginfo("{}{} {}", "General:          ", general.testEnginePeriodWindows_NAME, general.testEnginePeriodWindows.count());
+#else
+	general.testEnginePeriodUnix = std::chrono::nanoseconds((int64_t)ini.GetLongValue("General", general.testEnginePeriodUnix_NAME, (long)general.testEnginePeriodUnix.count()));
+	loginfo("{}{} {}", "General:          ", general.testEnginePeriodUnix_NAME, general.testEnginePeriodUnix.count());
+#endif
+
+	// controller
+	controller.activateSettings = ini.GetBoolValue("TaskController", controller.activateSettings_NAME, controller.activateSettings);
+	loginfo("{}{} {}", "TaskController:          ", controller.activateSettings_NAME, controller.activateSettings);
+	controller.numLightThreads = (int32_t)ini.GetLongValue("TaskController", controller.numLightThreads_NAME, controller.numLightThreads);
+	loginfo("{}{} {}", "TaskController:          ", controller.numLightThreads_NAME, controller.numLightThreads);
+	controller.numMediumThreads = (int32_t)ini.GetLongValue("TaskController", controller.numMediumThreads_NAME, controller.numMediumThreads);
+	loginfo("{}{} {}", "TaskController:          ", controller.numMediumThreads_NAME, controller.numMediumThreads);
+	controller.numHeavyThreads = (int32_t)ini.GetLongValue("TaskController", controller.numHeavyThreads_NAME, controller.numHeavyThreads);
+	loginfo("{}{} {}", "TaskController:          ", controller.numHeavyThreads_NAME, controller.numHeavyThreads);
+	controller.numAllThreads = (int32_t)ini.GetLongValue("TaskController", controller.numAllThreads_NAME, controller.numAllThreads);
+	loginfo("{}{} {}", "TaskController:          ", controller.numAllThreads_NAME, controller.numAllThreads);
 
 	// saves
 	saves.enablesaves = ini.GetBoolValue("SaveFiles", saves.enablesaves_NAME, saves.enablesaves);
@@ -270,8 +287,27 @@ void Settings::Save(std::wstring _path)
 		"\\\\ When memory consumption exceeds the soft limit, the application will periodically free used memory. [in MB]");
 	ini.SetLongValue("General", general.memory_sweep_period_NAME, (long)general.memory_sweep_period.count(),
 		"\\\\ The period of memory sweeps trying to the free up space. [in milliseconds]");
-	ini.SetLongValue("General", general.testEnginePeriod_NAME, (long)general.testEnginePeriod.count(),
+
+	ini.SetLongValue("General", general.testEnginePeriodWindows_NAME, (long)general.testEnginePeriodWindows.count(),
 		"\\\\ The period in which the test engine handles tests. [in nanoseconds]");
+	ini.SetLongValue("General", general.testEnginePeriodUnix_NAME, (long)general.testEnginePeriodUnix.count(),
+		"\\\\ The period in which the test engine handles tests. [in nanoseconds]");
+
+	// controller
+	ini.SetBoolValue("TaskController", controller.activateSettings_NAME, controller.activateSettings,
+		"\\\\ Activates fine-grained controll of the task controllers thread distribution, \n"
+		"\\\\ and overrides settings in [General].\n"
+		"\\\\ Only use if you know what you are doing.");
+	ini.SetLongValue("TaskController", controller.numLightThreads_NAME, (long)controller.numLightThreads,
+		"\\\\ Number of threads executing light tasks only");
+	ini.SetLongValue("TaskController", controller.numMediumThreads_NAME, (long)controller.numMediumThreads,
+		"\\\\ Number of threads executing light and medium tasks");
+	ini.SetLongValue("TaskController", controller.numHeavyThreads_NAME, (long)controller.numHeavyThreads,
+		"\\\\ Number of threads executing medium and heavy weight tasks");
+	ini.SetLongValue("TaskController", controller.numAllThreads_NAME, (long)controller.numAllThreads,
+		"\\\\ Number of threads executing light, medium and heavy weight tasks");
+
+
 
 	// saves
 	ini.SetBoolValue("SaveFiles", saves.enablesaves_NAME, saves.enablesaves,
@@ -453,7 +489,12 @@ size_t Settings::GetStaticSize(int32_t version)
 	                 + 4      // Methods::IterativeConstruction_Backtrack_Backtrack_min
 	                 + 4      // Methods::IterativeConstruction_Backtrack_Backtrack_max
 	                 + 8      // General::testEnginePeriod
-	                 + 4;     // DeltaDebugging::skipoptions
+	                 + 4      // DeltaDebugging::skipoptions
+	                 + 1      // Controller::activateSettings
+	                 + 4      // Controller::numLightThreads
+	                 + 4      // Controller::numMediumThreads
+	                 + 4      // Controller::numHeavyThreads
+	                 + 4;     // Controller::numAllThreads
 
 	switch (version) {
 	case 0x1:
@@ -563,9 +604,19 @@ bool Settings::WriteData(std::ostream* buffer, size_t& offset)
 	Buffer::Write(methods.IterativeConstruction_Backtrack_Backtrack_min, buffer, offset);
 	Buffer::Write(methods.IterativeConstruction_Backtrack_Backtrack_max, buffer, offset);
 	// general
-	Buffer::Write(general.testEnginePeriod, buffer, offset);
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+	Buffer::Write(general.testEnginePeriodWindows, buffer, offset);
+#else
+	Buffer::Write(general.testEnginePeriodUnix, buffer, offset);
+#endif
 	// delta debugging
 	Buffer::Write((int32_t)dd.skipoptions, buffer, offset);
+	// controller
+	Buffer::Write(controller.activateSettings, buffer, offset);
+	Buffer::Write(controller.numLightThreads, buffer, offset);
+	Buffer::Write(controller.numMediumThreads, buffer, offset);
+	Buffer::Write(controller.numHeavyThreads, buffer, offset);
+	Buffer::Write(controller.numAllThreads, buffer, offset);
 	return true;
 }
 
@@ -663,9 +714,19 @@ bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, Loa
 			methods.IterativeConstruction_Backtrack_Backtrack_min = Buffer::ReadInt32(buffer, offset);
 			methods.IterativeConstruction_Backtrack_Backtrack_max = Buffer::ReadInt32(buffer, offset);
 			// general
-			general.testEnginePeriod = Buffer::ReadNanoSeconds(buffer, offset);
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__) 
+			general.testEnginePeriodWindows = Buffer::ReadNanoSeconds(buffer, offset);
+#else
+			general.testEnginePeriodUnix = Buffer::ReadNanoSeconds(buffer, offset);
+#endif
 			// delta debugging
 			dd.skipoptions = (RangeSkipOptions)Buffer::ReadInt32(buffer, offset);
+			// controller
+			controller.activateSettings = Buffer::ReadBool(buffer, offset);
+			controller.numLightThreads = Buffer::ReadInt32(buffer, offset);
+			controller.numMediumThreads = Buffer::ReadInt32(buffer, offset);
+			controller.numHeavyThreads = Buffer::ReadInt32(buffer, offset);
+			controller.numAllThreads = Buffer::ReadInt32(buffer, offset);
 		}
 		return true;
 	default:
