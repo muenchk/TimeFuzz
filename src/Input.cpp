@@ -923,6 +923,7 @@ void Input::RegisterLuaFunctions(lua_State* L)
 	lua_register(L, "Input_ClearScores", Input::lua_ClearScores);
 	lua_register(L, "Input_ClearTrim", Input::lua_ClearTrim);
 	lua_register(L, "IsOSWindows", Input::lua_IsOSWindows);
+	lua_register(L, "Input_GetRetries", Input::lua_GetRetries);
 }
 
 int Input::lua_IsOSWindows(lua_State* L)
@@ -1161,6 +1162,14 @@ int Input::lua_ClearTrim(lua_State* L)
 	input->_trimmed = false;
 	input->_trimmedlength = -1;
 	return 0;
+}
+
+int Input::lua_GetRetries(lua_State* L)
+{
+	Input* input = (Input*)lua_touserdata(L, 1);
+	luaL_argcheck(L, input != nullptr, 1, "input expected");
+	lua_pushinteger(L, input->_retries);
+	return 1;
 }
 
 #pragma endregion

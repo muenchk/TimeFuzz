@@ -103,15 +103,13 @@ public:
 	static void InitializeLog(std::filesystem::path _path, bool append = false, bool timestamp = false);
 };
 
-#ifdef BUILD_DEBUG
+#ifndef NDEBUG
 #	define StartProfilingDebug \
 	auto $$profiletimebegin$$ = std::chrono::steady_clock::now();
 #	define TimeProfilingDebug \
 	$$profiletimebegin$$
 #	define profileDebug(...)                                    \
-		if (Logging::EnableProfile) {                       \
-			static_cast<void>(prof(__func__, __VA_ARGS__)); \
-		}
+		static_cast<void>(prof(__func__, __VA_ARGS__));
 #else
 #	define StartProfilingDebug ;
 #	define TimeProfilingDebug ;

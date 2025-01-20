@@ -559,18 +559,21 @@ namespace DeltaDebugging
 	{
 		int32_t fails = 0;
 		for (int32_t i = 0; i < (int32_t)inputs.size(); i++) {
-			auto call = dynamic_pointer_cast<Functions::DDTestCallback>(Functions::DDTestCallback::Create());
-			call->_DDcontroller = _self;
-			call->_input = inputs[i];
-			call->_sessiondata = _sessiondata;
-			// add the tests bypassing regular tests so we can get this done with as fast as possible
-			if (_sessiondata->_exechandler->AddTest(inputs[i], call, _params->bypassTests) == false) {
-				fails++;
-				_sessiondata->IncAddTestFails();
-				_sessiondata->data->DeleteForm(inputs[i]);
-				call->Dispose();
+			if (inputs[i]) {
+				auto call = dynamic_pointer_cast<Functions::DDTestCallback>(Functions::DDTestCallback::Create());
+				call->_DDcontroller = _self;
+				call->_input = inputs[i];
+				call->_sessiondata = _sessiondata;
+				// add the tests bypassing regular tests so we can get this done with as fast as possible
+				if (_sessiondata->_exechandler->AddTest(inputs[i], call, _params->bypassTests) == false) {
+					fails++;
+					_sessiondata->IncAddTestFails();
+					_sessiondata->data->DeleteForm(inputs[i]);
+					call->Dispose();
+				} else
+					_activeInputs.insert(inputs[i]);
 			} else
-				_activeInputs.insert(inputs[i]);
+				fails++;
 		}
 		_remainingtests -= fails;
 	}

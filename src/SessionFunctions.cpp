@@ -486,17 +486,21 @@ bool SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 		return false;
 	}
 	if (input->GetOracleResult() == OracleResult::Repeat || sessiondata->_settings->fixes.repeatTimeoutedTests && input->test && input->test->_exitreason == Test::ExitReason::Timeout) {
-		// the oracle decided there was a problem with the test, so go and repeat it
-		input->test->_exitreason = Test::ExitReason::Repeat;
-		input->Debug_ClearSequence();
-		input->SetGenerated(false);
-		auto test = input->test;
-		input->test.reset();
-		auto callback = test->_callback->DeepCopy();
-		sessiondata->data->DeleteForm(test);
-		sessiondata->_exechandler->AddTest(input, callback, true, false);
-		AddTestExitReason(sessiondata, Test::ExitReason::Repeat);
-		return true;
+		if (input->GetRetries() < 5) {
+			// the oracle decided there was a problem with the test, so go and repeat it
+			input->IncRetries();
+			input->test->_exitreason = Test::ExitReason::Repeat;
+			input->Debug_ClearSequence();
+			input->SetGenerated(false);
+			auto test = input->test;
+			input->test.reset();
+			auto callback = test->_callback->DeepCopy();
+			sessiondata->data->DeleteForm(test);
+			sessiondata->_exechandler->AddTest(input, callback, true, false);
+			AddTestExitReason(sessiondata, Test::ExitReason::Repeat);
+			return true;
+		} else
+			input->_oracleResult = OracleResult::Undefined;
 	}
 
 	// check whether _output should be stored

@@ -151,6 +151,12 @@ private:
 	/// </summary>
 	std::chrono::nanoseconds _generationTime = std::chrono::nanoseconds(0);
 
+	/// <summary>
+	/// number of times this input was repeated
+	/// [runtime only]
+	/// </summary>
+	short _retries = 0;
+
 public:
 	struct Flags
 	{
@@ -221,6 +227,7 @@ public:
 	static int lua_GetReactionTimeNext(lua_State* L);
 	static int lua_SetPrimaryScore(lua_State* L);
 	static int lua_SetSecondaryScore(lua_State* L);
+	static int lua_GetRetries(lua_State* L);
 
 	static int lua_EnablePrimaryScoreIndividual(lua_State* L);
 	static int lua_EnableSecondaryScoreIndividual(lua_State* L);
@@ -480,6 +487,16 @@ public:
 		if (!form)
 			return "None";
 		return std::string("[") + typeid(Input).name() + "<FormID:" + Utility::GetHex(form->GetFormID()) + "><ParentID:" + Utility::GetHex(form->GetParentID()) +  "><Length:" + std::to_string(form->Length()) + "><PrimScore:" + std::to_string(form->GetPrimaryScore()) + "><SeconScore:" + std::to_string(form->GetSecondaryScore()) + ">]";
+	}
+
+	short GetRetries()
+	{
+		return _retries;
+	}
+
+	void IncRetries()
+	{
+		_retries++;
 	}
 
 private:

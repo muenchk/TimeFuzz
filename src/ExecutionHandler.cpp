@@ -351,6 +351,7 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 			_waitingTests.push_back(test);
 	}
 	_waitforjob.notify_all();
+	_startingLockCond.notify_all();
 	profileDebug(TimeProfilingDebug, "");
 	return true;
 }
@@ -531,22 +532,51 @@ void ExecutionHandler::TestStarter(std::shared_ptr<stop_token> stoken)
 	if (!_settings->fixes.disableExecHandlerSleep)
 		waittime = _waittime;
 	std::shared_ptr<Test> test;
+	std::weak_ptr<Test> testweak;
+	std::unique_lock<std::mutex> guard(_startingLock);
+	int32_t newtests = 0;
 	while (_stopHandler == false || _finishtests || stoken->stop_requested() == false) {
-		{
-			std::unique_lock<std::mutex> guard(_startingLock);
-			_startingLockCond.wait_for(guard, waittime, [this] { return _stopHandler || !_startingTests.empty() && _currentTests < _maxConcurrentTests; });
-			if (!_startingTests.empty()) {
-				test = _startingTests.front();
-				_startingTests.pop();
+		newtests = 0;
+		// while we are not at the max concurrent tests, there are tests waiting to be executed and we are not FROZEN
+		if (_currentTests < _maxConcurrentTests && (_waitingTestsExec.size() > 0 || _waitingTests.size() > 0) && (!_frozen || _frozen && _freeze_waitfortestcompletion)) {
+			std::unique_lock<std::mutex> guards(_lockqueue);
+			while (_currentTests < _maxConcurrentTests && (_waitingTestsExec.size() > 0 || _waitingTests.size() > 0)) {
+				testweak.reset();
+				{
+					if (_waitingTestsExec.size() > 0) {
+						testweak = _waitingTestsExec.front();
+						_waitingTestsExec.pop_front();
+					} else {
+						// if there aren't any tests ready for execution grab some that aren't and make them ready
+						InitTestsLockFree();
+						if (_waitingTestsExec.size() > 0) {
+							testweak = _waitingTestsExec.front();
+							_waitingTestsExec.pop_front();
+						}
+					}
+				}
+				if (auto ptr = testweak.lock(); ptr) {
+					_startingTests.push(ptr);
+				}
+				newtests++;
 			}
 		}
-		if (test)
-			if (StartTest(test)) {
-				Utility::SpinLock guard(_runningTestsFlag);
-				_runningTests.push_back(test);
-				_waitforjob.notify_all();
+		if (newtests > 0)
+			_threadpool->AddTask(Functions::ExecInitTestsCallback::CreateFull(_sessiondata));
+		while (_startingTests.size() > 0)
+		{
+			test = _startingTests.front();
+				_startingTests.pop();
+			if (test) {
+				if (StartTest(test)) {
+					Utility::SpinLock guardm(_runningTestsFlag);
+					_runningTests.push_back(test);
+					_waitforjob.notify_all();
+				}
 			}
-		test.reset();
+		}
+
+		_startingLockCond.wait_for(guard, waittime, [this] { return _stopHandler || (!_waitingTests.empty() || !_waitingTestsExec.empty()) && _currentTests < _maxConcurrentTests; });
 	}
 }
 
@@ -609,39 +639,6 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 				_stoppingTests.clear();
 			}
 		}
-		newtests = 0;
-		// while we are not at the max concurrent tests, there are tests waiting to be executed and we are not FROZEN
-		_tstatus = ExecHandlerStatus::StartingTests;
-		if (_currentTests < _maxConcurrentTests && _startingTests.size() < _maxConcurrentTests && (_waitingTestsExec.size() > 0 || _waitingTests.size() > 0) && (!_frozen || _frozen && _freeze_waitfortestcompletion))
-		{
-			std::unique_lock<std::mutex> guard(_lockqueue);
-			std::unique_lock<std::mutex> guardS(_startingLock);
-			while (_currentTests < _maxConcurrentTests && (_waitingTestsExec.size() > 0 || _waitingTests.size() > 0)) {
-				test.reset();
-				{
-					if (_waitingTestsExec.size() > 0) {
-						test = _waitingTestsExec.front();
-						_waitingTestsExec.pop_front();
-					} else {
-						// if there aren't any tests ready for execution grab some that aren't and make them ready
-						InitTestsLockFree();
-						if (_waitingTestsExec.size() > 0) {
-							test = _waitingTestsExec.front();
-							_waitingTestsExec.pop_front();
-						}
-					}
-				}
-				if (auto ptr = test.lock(); ptr) {
-					_startingTests.push(ptr);
-					//if (StartTest(ptr) == false)
-					//	_internalwaitingTests.push_back(ptr);
-				}
-				newtests++;
-			}
-			_startingLockCond.notify_one();
-		}
-		if (newtests > 0)
-			_threadpool->AddTask(Functions::ExecInitTestsCallback::CreateFull(_sessiondata));
 
 		lasttime = time;
 		time = std::chrono::steady_clock::now();  // record the enter time
