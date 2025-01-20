@@ -226,6 +226,12 @@ void Settings::Load(std::wstring path, bool reload)
 	tests.maxUsedMemory = (int64_t)ini.GetLongValue("Tests", tests.maxUsedMemory_NAME, (long)tests.maxUsedMemory);
 	loginfo("{}{} {}", "Tests:       ", tests.maxUsedMemory_NAME, tests.maxUsedMemory);
 
+	// fixes
+	fixes.disableExecHandlerSleep = ini.GetBoolValue("Fixes", fixes.disableExecHandlerSleep_NAME, fixes.disableExecHandlerSleep);
+	loginfo("{}{} {}", "Fixes:       ", fixes.disableExecHandlerSleep_NAME, fixes.disableExecHandlerSleep);
+	fixes.repeatTimeoutedTests = ini.GetBoolValue("Fixes", fixes.repeatTimeoutedTests_NAME, fixes.repeatTimeoutedTests);
+	loginfo("{}{} {}", "Fixes:       ", fixes.repeatTimeoutedTests_NAME, fixes.repeatTimeoutedTests);
+
 	loginfo("Finished loading settings.");
 }
 
@@ -301,11 +307,12 @@ void Settings::Save(std::wstring _path)
 	ini.SetLongValue("TaskController", controller.numLightThreads_NAME, (long)controller.numLightThreads,
 		"\\\\ Number of threads executing light tasks only");
 	ini.SetLongValue("TaskController", controller.numMediumThreads_NAME, (long)controller.numMediumThreads,
-		"\\\\ Number of threads executing light and medium tasks");
+		"\\\\ Number of threads executing medium tasks");
 	ini.SetLongValue("TaskController", controller.numHeavyThreads_NAME, (long)controller.numHeavyThreads,
-		"\\\\ Number of threads executing medium and heavy weight tasks");
+		"\\\\ Number of threads executing heavy weight tasks");
 	ini.SetLongValue("TaskController", controller.numAllThreads_NAME, (long)controller.numAllThreads,
-		"\\\\ Number of threads executing light, medium and heavy weight tasks");
+		"\\\\ Number of threads executing light, medium and heavy weight tasks.\n"
+		"\\\\ If this is set the options above are ignored and only threads handling all tasks are used.");
 
 
 
@@ -424,6 +431,24 @@ void Settings::Save(std::wstring _path)
 		"\\\\ Memory limit for PUT. If PUT goes above this limit it will be killed.\n"
 		"\\\\ Set to 0 to disable.");
 
+	/// fixes
+	ini.SetBoolValue("Fixes", fixes.disableExecHandlerSleep_NAME, fixes.disableExecHandlerSleep,
+		"\\\\ The ExecutionHandler sleeps whenever there are no tests running and \n"
+		"\\\\ no new tests available that can be started.\n"
+		"\\\\ This behaviour seems to cause some issues on some systems (Linux), \n"
+		"\\\\ in which the handler does not wake from sleep even when new tests \n"
+		"\\\\ have been issued. This setting disables the sleep option for the \n"
+		"\\\\ handler.\n"
+		"\\\\ This option results in increased cpu usage if there are no tests running.\n"
+		"\\\\ This is independent and has no interactions with the [TestEnginePeriod] setting.");
+	ini.SetBoolValue("Fixes", fixes.repeatTimeoutedTests_NAME, fixes.repeatTimeoutedTests,
+		"\\\\ Sometimes when compiling with gnu tests seem to run into a timeout, even though\n"
+		"\\\\ they do not actually do that. This only occurs when compiling with GCC and \n"
+		"\\\\ may cause wrong results to surface or progression to be stuck.\n"
+		"\\\\ This setting repeats tests that ran into a timeout in an attempt to get the proper result.\n"
+		"\\\\ Only use this if you are sure your tests are not running into actual timeouts.\n"
+		"\\\\ [The preferred solution for this is to set the oracle result to Repeat within the lua oracle.]");
+
 	ini.SaveFile(path.c_str());
 #endif
 }
@@ -494,7 +519,9 @@ size_t Settings::GetStaticSize(int32_t version)
 	                 + 4      // Controller::numLightThreads
 	                 + 4      // Controller::numMediumThreads
 	                 + 4      // Controller::numHeavyThreads
-	                 + 4;     // Controller::numAllThreads
+	                 + 4      // Controller::numAllThreads
+	                 + 1      // Fixes::disableExecHandlerSleep
+	                 + 1;     // Fixes::repeatTimeoutedTests
 
 	switch (version) {
 	case 0x1:
@@ -617,6 +644,9 @@ bool Settings::WriteData(std::ostream* buffer, size_t& offset)
 	Buffer::Write(controller.numMediumThreads, buffer, offset);
 	Buffer::Write(controller.numHeavyThreads, buffer, offset);
 	Buffer::Write(controller.numAllThreads, buffer, offset);
+	// fixes
+	Buffer::Write(fixes.disableExecHandlerSleep, buffer, offset);
+	Buffer::Write(fixes.repeatTimeoutedTests, buffer, offset);
 	return true;
 }
 
@@ -727,6 +757,9 @@ bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, Loa
 			controller.numMediumThreads = Buffer::ReadInt32(buffer, offset);
 			controller.numHeavyThreads = Buffer::ReadInt32(buffer, offset);
 			controller.numAllThreads = Buffer::ReadInt32(buffer, offset);
+			// fixes
+			fixes.disableExecHandlerSleep = Buffer::ReadBool(buffer, offset);
+			fixes.repeatTimeoutedTests = Buffer::ReadBool(buffer, offset);
 		}
 		return true;
 	default:

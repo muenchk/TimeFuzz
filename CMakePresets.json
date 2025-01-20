@@ -108,7 +108,7 @@
       },
       "environment": {
         "PROJECT_COMPILER": "GNU",
-        "PROJECT_COMPILER_FLAGS": "-Wno-overloaded-virtual -Wno-delete-non-abstract-non-virtual-dtor -Wno-inconsistent-missing-override -Wno-reinterpret-base-class -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format"
+        "PROJECT_COMPILER_FLAGS": "-Wno-overloaded-virtual -Wno-multichar -Wno-inconsistent-missing-override  -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format"
       }
     },
     {
@@ -362,6 +362,18 @@
       }
     },
     {
+      "name": "gnu-remote",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "/usr/bin/gcc-13",
+        "CMAKE_CXX_COMPILER": "/usr/bin/g++-13"
+      },
+      "environment": {
+        "PROJECT_COMPILER": "gnu",
+        "PROJECT_COMPILER_FLAGS": "-Wno-overloaded-virtual -Wno-multichar -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format"
+      }
+    },
+    {
       "name": "vcpkg-remote",
       "hidden": true,
       "cacheVariables": {
@@ -375,7 +387,7 @@
       "binaryDir": "${sourceDir}/buildremote",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_MAKE_PROGRAM": "ninja"
+        "CMAKE_MAKE_PROGRAM": "/usr/bin/ninja"
       },
       "cmakeExecutable": "cmake",
       "displayName": "Remote Linux",
@@ -383,12 +395,29 @@
       "inherits": [
         "base",
         "vcpkg-remote",
-        "ui",
         "x64",
         "clang-remote",
         "build-tests"
       ],
       "name": "remote"
+    },
+    {
+      "binaryDir": "${sourceDir}/buildremotegnu",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_MAKE_PROGRAM": "ninja"
+      },
+      "cmakeExecutable": "cmake",
+      "displayName": "Remote Linux Gnu",
+      "generator": "Ninja",
+      "inherits": [
+        "base",
+        "vcpkg-remote",
+        "x64",
+        "gnu-remote",
+        "build-tests"
+      ],
+      "name": "remotegnu"
     }
   ]
 }

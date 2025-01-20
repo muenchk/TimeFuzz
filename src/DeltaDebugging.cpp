@@ -310,6 +310,7 @@ namespace DeltaDebugging
 		int32_t tmp = (int32_t)(std::trunc(_input->Length() / number));
 		if (tmp < 1)
 			tmp = 1;
+
 		// this value is rounded so the actual length our inputs get is different from 
 		// the naive caluclation we need to recalculate [number] and can then calculate
 		// the actual splitsize

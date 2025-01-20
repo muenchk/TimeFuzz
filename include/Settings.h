@@ -38,6 +38,7 @@ public:
 	static inline bool _updateGrammar = false;
 	static inline bool _doNotLoadExclusionTree = false;
 	static inline bool _clearTasks = false;
+	static inline bool _consoleUI = false;
 };
 
 enum class RangeSkipOptions
@@ -176,13 +177,13 @@ public:
 		const char* numLightThreads_NAME = "NumberOfLightThreads";
 
 		/// <summary>
-		/// number of threads executing light and medium tasks
+		/// number of threads executing medium tasks
 		/// </summary>
 		int32_t numMediumThreads = 1;
 		const char* numMediumThreads_NAME = "NumberOfMediumThreads";
 
 		/// <summary>
-		/// number of threads executing medium and heavy tasks
+		/// number of threads executing heavy tasks
 		/// </summary>
 		int32_t numHeavyThreads = 1;
 		const char* numHeavyThreads_NAME = "NumberOfHeavyThreads";
@@ -190,7 +191,7 @@ public:
 		/// <summary>
 		/// number of threads executing light, medium, and heavy tasks
 		/// </summary>
-		int32_t numAllThreads = 1;
+		int32_t numAllThreads = 0;
 		const char* numAllThreads_NAME = "NumberOfAllThreads";
 	};
 
@@ -606,4 +607,23 @@ public:
 	};
 
 	Tests tests;
+
+	struct Fixes
+	{
+		/// <summary>
+		/// disables sleeping of the execution handler
+		/// </summary>
+		bool disableExecHandlerSleep = false;
+		const char* disableExecHandlerSleep_NAME = "DisableExecHandlerSleeping";
+
+		/// <summary>
+		/// sometimes using g++ results in tests running into timeouts even though they shouldn't.
+		/// This setting repeats timeouted tests to get a better result.
+		/// Only use if you are sure the PUT does not actually run into any timeouts.
+		/// </summary>
+		bool repeatTimeoutedTests = false;
+		const char* repeatTimeoutedTests_NAME = "RepeatTimeoutedTests";
+	};
+
+	Fixes fixes;
 };

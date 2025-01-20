@@ -44,17 +44,29 @@ void TaskController::Start(std::shared_ptr<SessionData> session, int32_t numthre
 	_numthreads = numthreads;
 	if (_numthreads < 1)
 		_numthreads = 1;
-	if (_numthreads == 1 && _optimizeFuncExec) {
+	if (_numthreads == 1) {
+		_numLightThreads = 0;
+		_numMediumThreads = 0;
+		_numHeavyThreads = 0;
+		_numAllThreads = 1;
+		_controlEnableFine = false;
 		_status.push_back(ThreadStatus::Initializing);
 		_threads.emplace_back(std::thread(&TaskController::InternalLoop_SingleThread, this, 0));
-	}
-	else {
+	} else {
+		_controlEnableFine = true;
+		_controlEnableLight = true;
+		_controlEnableMedium = false;
+		_controlEnableHeavy = true;
+		_numLightThreads = 1;
+		_numMediumThreads = 0;
+		_numHeavyThreads = _numthreads - 1;
+		_numAllThreads = 0;
 		for (int32_t i = 0; i < numthreads; i++) {
 			_status.push_back(ThreadStatus::Initializing);
-			if (_optimizeFuncExec && i == 0)
+			if (i == 0)
 				_threads.emplace_back(std::thread(&TaskController::InternalLoop_LightExclusive, this, i));
 			else
-				_threads.emplace_back(std::thread(&TaskController::InternalLoop, this, i));
+				_threads.emplace_back(std::thread(&TaskController::InternalLoop_Heavy, this, i));
 		}
 	}
 }
@@ -64,48 +76,72 @@ void TaskController::Start(std::shared_ptr<SessionData> session, int32_t numLigh
 	_sessiondata = session;
 	if (numHeavyThreads == 0)
 		throw std::runtime_error("Cannot start a TaskController with 0 heavy threads.");
-	_numthreads = numLightThreads + numMediumThreads + numHeavyThreads + numAllThreads;
-	if (_numthreads < 1)
+	_numLightThreads = numLightThreads;
+	_numMediumThreads = numMediumThreads;
+	_numHeavyThreads = numHeavyThreads;
+	_numAllThreads = numAllThreads;
+	if (_numAllThreads == 0)
+		_numthreads = numLightThreads + numMediumThreads + numHeavyThreads;
+	else {
+		_numthreads = numAllThreads;
+		_numLightThreads = 0;
+		_numMediumThreads = 0;
+		_numHeavyThreads = 0;
+	}
+	if (_numthreads < 1 || _numthreads == 1) {
 		_numthreads = 1;
-	_optimizeFuncExec = true;
+		_numAllThreads = 1;
+		_numLightThreads = 0;
+		_numMediumThreads = 0;
+		_numHeavyThreads = 0;
+	}
 	int32_t i = 0;
-	if (_numthreads == 1 && _optimizeFuncExec) {
-		_status.push_back(ThreadStatus::Initializing);
-		_threads.emplace_back(std::thread(&TaskController::InternalLoop_SingleThread, this, 0));
+	if (_numthreads == 1 || _numAllThreads > 0) {
+		_numLightThreads = 0;
+		_numMediumThreads = 0;
+		_numHeavyThreads = 0;
+		_controlEnableFine = false;
+		for (int32_t c = 0; c < _numAllThreads; c++, i++) {
+			_status.push_back(ThreadStatus::Initializing);
+			_threads.emplace_back(std::thread(&TaskController::InternalLoop_SingleThread, this, i));
+		}
 	} else {
-		for (int32_t c = 0; c < numLightThreads; c++, i++) {
+		_controlEnableFine = true;
+		if (_numLightThreads > 0)
+			_controlEnableLight = true;
+		for (int32_t c = 0; c < _numLightThreads; c++, i++) {
 			_status.push_back(ThreadStatus::Initializing);
 			_threads.emplace_back(std::thread(&TaskController::InternalLoop_LightExclusive, this, i));
 		}
-		for (int32_t c = 0; c < numMediumThreads; c++, i++) {
+		if (_numMediumThreads > 0)
+			_controlEnableMedium = true;
+		for (int32_t c = 0; c < _numMediumThreads; c++, i++) {
 			_status.push_back(ThreadStatus::Initializing);
-			_threads.emplace_back(std::thread(&TaskController::InternalLoop_Light, this, i));
+			_threads.emplace_back(std::thread(&TaskController::InternalLoop_Medium, this, i));
 		}
-		for (int32_t c = 0; c < numHeavyThreads; c++, i++) {
+		if (_numHeavyThreads > 0)
+			_controlEnableHeavy = true;
+		for (int32_t c = 0; c < _numHeavyThreads; c++, i++) {
 			_status.push_back(ThreadStatus::Initializing);
-			_threads.emplace_back(std::thread(&TaskController::InternalLoop, this, i));
-		}
-		for (int32_t c = 0; c < numAllThreads; c++, i++) {
-			_status.push_back(ThreadStatus::Initializing);
-			_threads.emplace_back(std::thread(&TaskController::InternalLoop_SingleThread, this, i));
+			_threads.emplace_back(std::thread(&TaskController::InternalLoop_Heavy, this, i));
 		}
 	}
 }
 
 int32_t TaskController::GetHeavyThreadCount()
 {
-	if (_optimizeFuncExec && _threads.size() != 1)
-		return (int32_t)_threads.size() - 1;
-	else
-		return (int32_t)_threads.size();
+	return _numHeavyThreads + _numAllThreads;
+}
+
+int32_t TaskController::GetMediumThreadCount()
+{
+	return _numMediumThreads + _numAllThreads;
 }
 
 int32_t TaskController::GetLightThreadCount()
 {
-	if (_optimizeFuncExec)
-		return 1;
-	else
-		return (int32_t)_threads.size();
+	// all of the below can execute light threads and will do so first if some are available
+	return (_numLightThreads + _numAllThreads);
 }
 
 void TaskController::Stop(bool completeall)
@@ -176,7 +212,7 @@ void TaskController::InternalLoop_LightExclusive(int32_t number)
 	while (true) {
 		std::shared_ptr<Functions::BaseFunction> del;
 		{
-			std::unique_lock<std::mutex> guard(_lock);
+			std::unique_lock<std::mutex> guard(_lockLight);
 			_status[number] = ThreadStatus::Waiting;
 			// while freeze is [true], this will never return, if freeze is [false] it only returns when [tasks is non-empty], when [terinated and not waiting], or when [terminating and tasks is empty]
 			_condition_light.wait(guard, [this] { return _freeze == false && (!_tasks_light.empty() || _terminate && _wait == false || _terminate && _tasks_light.empty()); });
@@ -198,7 +234,7 @@ void TaskController::InternalLoop_LightExclusive(int32_t number)
 		Lua::UnregisterThread();
 }
 
-void TaskController::InternalLoop_Light(int32_t number)
+void TaskController::InternalLoop_Medium(int32_t number)
 {
 	// register new lua state for lua functions executed by the thread
 	if (!_disableLua)
@@ -207,17 +243,14 @@ void TaskController::InternalLoop_Light(int32_t number)
 	while (true) {
 		std::shared_ptr<Functions::BaseFunction> del;
 		{
-			std::unique_lock<std::mutex> guard(_lock);
+			std::unique_lock<std::mutex> guard(_lockMedium);
 			_status[number] = ThreadStatus::Waiting;
 			// while freeze is [true], this will never return, if freeze is [false] it only returns when [tasks is non-empty], when [terinated and not waiting], or when [terminating and tasks is empty]
-			_condition.wait(guard, [this] { return _freeze == false && (!_tasks_light.empty() || !_tasks_medium.empty() || _terminate && _wait == false || _terminate && _tasks_light.empty() && _tasks_medium.empty()); });
-			if (_terminate && _wait == false || _terminate && _tasks_light.empty() && _tasks_medium.empty())
+			_condition_medium.wait(guard, [this] { return _freeze == false && (!_tasks_medium.empty() || _terminate && _wait == false || _terminate && _tasks_medium.empty()); });
+			if (_terminate && _wait == false || _terminate && _tasks_medium.empty())
 				return;
 			_status[number] = ThreadStatus::Running;
-			if (!_tasks_light.empty()) {
-				del = _tasks_light.front();
-				_tasks_light.pop_front();
-			} else if (!_tasks_medium.empty()) {
+			if (!_tasks_medium.empty()) {
 				del = _tasks_medium.front();
 				_tasks_medium.pop_front();
 			}
@@ -234,7 +267,7 @@ void TaskController::InternalLoop_Light(int32_t number)
 		Lua::UnregisterThread();
 }
 
-void TaskController::InternalLoop(int32_t number)
+void TaskController::InternalLoop_Heavy(int32_t number)
 {
 	// register new lua state for lua functions executed by the thread
 	if (!_disableLua)
@@ -246,14 +279,11 @@ void TaskController::InternalLoop(int32_t number)
 			std::unique_lock<std::mutex> guard(_lock);
 			_status[number] = ThreadStatus::Waiting;
 			// while freeze is [true], this will never return, if freeze is [false] it only returns when [tasks is non-empty], when [terinated and not waiting], or when [terminating and tasks is empty]
-			_condition.wait(guard, [this] { return _freeze == false && (!_tasks_medium.empty() || !_tasks.empty() || _terminate && _wait == false || _terminate && _tasks_medium.empty() && _tasks.empty()); });
-			if (_terminate && _wait == false || _terminate && _tasks_medium.empty() && _tasks.empty())
+			_condition.wait(guard, [this] { return _freeze == false && (!_tasks.empty() || _terminate && _wait == false || _terminate && _tasks.empty()); });
+			if (_terminate && _wait == false || _terminate && _tasks.empty())
 				return;
 			_status[number] = ThreadStatus::Running;
-			if (!_tasks_medium.empty()) {
-				del = _tasks_medium.front();
-				_tasks_medium.pop_front();
-			} else if (!_tasks.empty()) {
+			if (!_tasks.empty()) {
 				del = _tasks.front();
 				_tasks.pop_front();
 			}

@@ -35,13 +35,13 @@ private:
 	/// Parallel function that executes the waiting tasks
 	/// </summary>
 	/// <param name="number"></param>
-	void InternalLoop(int32_t number);
+	void InternalLoop_Heavy(int32_t number);
 
 	/// <summary>
 	/// Parallel function that executes the waiting tasks
 	/// </summary>
 	/// <param name="number"></param>
-	void InternalLoop_Light(int32_t number);
+	void InternalLoop_Medium(int32_t number);
 
 	/// <summary>
 	/// Parallel function that only executes the waiting light tasks
@@ -79,6 +79,7 @@ private:
 	bool _freeze = false;
 	std::condition_variable _condition;
 	std::condition_variable _condition_light;
+	std::condition_variable _condition_medium;
 	/// <summary>
 	/// threads that run InternalLoop
 	/// </summary>
@@ -96,9 +97,17 @@ private:
 	/// </summary>
 	std::deque<std::shared_ptr<Functions::BaseFunction>> _tasks;
 	/// <summary>
-	/// locks access to _tasks_light and _tasks
+	/// locks access to _tasks
 	/// </summary>
 	std::mutex _lock;
+	/// <summary>
+	/// locks access to _tasks_light
+	/// </summary>
+	std::mutex _lockLight;
+	/// <summary>
+	/// locks access to _tasks_medium
+	/// </summary>
+	std::mutex _lockMedium;
 	/// <summary>
 	/// number of jobs completed in this session/this instance
 	/// </summary>
@@ -111,17 +120,21 @@ private:
 	/// number of threads used by this instance
 	/// </summary>
 	int32_t _numthreads = 0;
-	/// <summary>
-	/// whether to optimize function execution by allowing light tasks to skip queue
-	/// [only available when two or more threads are in use]
-	/// </summary>
-	bool _optimizeFuncExec = true;
+	int32_t _numLightThreads = 0;
+	int32_t _numMediumThreads = 0;
+	int32_t _numHeavyThreads = 0;
+	int32_t _numAllThreads = 0;
 	/// <summary>
 	/// map holding the number of individual executed tasks
 	/// </summary>
 	std::unordered_map<std::string, int64_t> _executedTasks;
 
 	std::mutex _executedTasksLock;
+
+	bool _controlEnableFine = true;
+	bool _controlEnableLight = true;
+	bool _controlEnableMedium = true;
+	bool _controlEnableHeavy = true;
 
 public:
 
@@ -136,21 +149,79 @@ public:
 	/// </summary>
 	/// <param name="a_task"></param>
 	template <class T, typename = std::enable_if<std::is_base_of<Functions::BaseFunction, T>::value>>
-	void AddTask(std::shared_ptr<T> a_task)
+	void AddTask(std::shared_ptr<T> a_task, bool bypass = false)
 	{
 		if (a_task) {
-			if (_optimizeFuncExec && a_task->GetFunctionType() == Functions::FunctionType::Light) {
-				std::unique_lock<std::mutex> guard(_lock);
-				_tasks_light.push_back(a_task);
-				_condition_light.notify_one();
-			} else if (_optimizeFuncExec && a_task->GetFunctionType() == Functions::FunctionType::Medium) {
-				std::unique_lock<std::mutex> guard(_lock);
-				_tasks_medium.push_back(a_task);
-			} else {
-				std::unique_lock<std::mutex> guard(_lock);
-				_tasks.push_back(a_task);
+			if (_controlEnableFine) {
+				Functions::FunctionType type = a_task->GetFunctionType();
+				switch (type) {
+				case Functions::FunctionType::Light:
+					if (_controlEnableLight) {
+						std::unique_lock<std::mutex> guard(_lockLight);
+						if (!bypass) [[likely]]
+							_tasks_light.push_back(a_task);
+						else
+							_tasks_light.push_front(a_task);
+						_condition_light.notify_one();
+						break;
+					}
+				case Functions::FunctionType::Medium:
+					if (_controlEnableMedium) {
+						std::unique_lock<std::mutex> guard(_lockMedium);
+						if (!bypass) [[likely]]
+							_tasks_medium.push_back(a_task);
+						else
+							_tasks_medium.push_front(a_task);
+						_condition_medium.notify_one();
+						break;
+					}
+				case Functions::FunctionType::Heavy:
+					{
+						std::unique_lock<std::mutex> guard(_lock);
+						if (!bypass) [[likely]]
+							_tasks.push_back(a_task);
+						else
+							_tasks.push_front(a_task);
+						_condition.notify_one();
+					}
+					break;
+				};
 			}
-			_condition.notify_one();
+			else {
+				Functions::FunctionType type = a_task->GetFunctionType();
+				switch (type) {
+				case Functions::FunctionType::Light:
+					if (_controlEnableLight) {
+						std::unique_lock<std::mutex> guard(_lock);
+						if (!bypass) [[likely]]
+							_tasks_light.push_back(a_task);
+						else
+							_tasks_light.push_front(a_task);
+						_condition.notify_one();
+						break;
+					}
+				case Functions::FunctionType::Medium:
+					if (_controlEnableMedium) {
+						std::unique_lock<std::mutex> guard(_lock);
+						if (!bypass) [[likely]]
+							_tasks_medium.push_back(a_task);
+						else
+							_tasks_medium.push_front(a_task);
+						_condition.notify_one();
+						break;
+					}
+				case Functions::FunctionType::Heavy:
+					{
+						std::unique_lock<std::mutex> guard(_lock);
+						if (!bypass) [[likely]]
+							_tasks.push_back(a_task);
+						else
+							_tasks.push_front(a_task);
+						_condition.notify_one();
+					}
+					break;
+				};
+			}
 			std::unique_lock<std::mutex> execLock(_executedTasksLock);
 			int32_t type = (int32_t)a_task->GetType();
 			std::string name = std::string(typeid(T).name()) + " | " + std::string((char*)&type, 4);
@@ -162,6 +233,11 @@ public:
 		} else {
 			logcritical("Tried to add nullptr as task to taskcontroller");
 		}
+	}
+
+	int32_t GetNumThreads()
+	{
+		return _numthreads;
 	}
 
 	void LockExecutedTasks()
@@ -206,6 +282,11 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	int32_t GetHeavyThreadCount();
+	/// <summary>
+	/// returns the number of threads handling medium tasks
+	/// </summary>
+	/// <returns></returns>
+	int32_t GetMediumThreadCount();
 	/// <summary>
 	/// returns the number of threads handling light tasks
 	/// </summary>

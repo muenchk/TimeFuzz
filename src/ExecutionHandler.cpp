@@ -301,6 +301,7 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 {
 	StartProfilingDebug;
 	loginfo("Adding new test");
+
 	if (input->GetGenerated() == false)
 	{
 		// we are trying to add an _input that hasn't been generated or regenerated
@@ -311,6 +312,7 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 	}
 	if (input->Length() == 0)
 		return false;
+
 	uint64_t id = 0;
 	{
 		std::unique_lock<std::mutex> guard(_lockqueue);
@@ -348,7 +350,7 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 		else
 			_waitingTests.push_back(test);
 	}
-	_waitforjob.notify_one();
+	_waitforjob.notify_all();
 	profileDebug(TimeProfilingDebug, "");
 	return true;
 }
@@ -510,6 +512,9 @@ void ExecutionHandler::StopTest(std::shared_ptr<Test> test)
 		// inform generation that an inut has finished if applicable
 		if (!ptr->HasFlag(Input::Flags::GeneratedDeltaDebugging))
 			_sessiondata->GetCurrentGeneration()->SetInputCompleted();
+
+		if ((int64_t)ptr->Length() > ptr->derive->_sequenceNodes)
+			logcritical("Input is longer than dev tree large");
 	} else {
 		logwarn("ptr invalid");
 	}
@@ -522,11 +527,14 @@ void ExecutionHandler::StopTest(std::shared_ptr<Test> test)
 
 void ExecutionHandler::TestStarter(std::shared_ptr<stop_token> stoken)
 {
+	std::chrono::nanoseconds waittime = std::chrono::seconds(1);
+	if (!_settings->fixes.disableExecHandlerSleep)
+		waittime = _waittime;
 	std::shared_ptr<Test> test;
 	while (_stopHandler == false || _finishtests || stoken->stop_requested() == false) {
 		{
 			std::unique_lock<std::mutex> guard(_startingLock);
-			_startingLockCond.wait_for(guard, std::chrono::seconds(1), [this] { return _stopHandler || !_startingTests.empty() && _currentTests < _maxConcurrentTests; });
+			_startingLockCond.wait_for(guard, waittime, [this] { return _stopHandler || !_startingTests.empty() && _currentTests < _maxConcurrentTests; });
 			if (!_startingTests.empty()) {
 				test = _startingTests.front();
 				_startingTests.pop();
@@ -536,7 +544,7 @@ void ExecutionHandler::TestStarter(std::shared_ptr<stop_token> stoken)
 			if (StartTest(test)) {
 				Utility::SpinLock guard(_runningTestsFlag);
 				_runningTests.push_back(test);
-				_waitforjob.notify_one();
+				_waitforjob.notify_all();
 			}
 		test.reset();
 	}
@@ -673,7 +681,7 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 
 		// check if we are running tests, if not wait until we are given one to run
 		// if we found some above it was started and this should be above 0
-		if (_currentTests == 0 && tohandle == 0) {
+		if (!_settings->fixes.disableExecHandlerSleep && _currentTests == 0 && tohandle == 0) {
 			logdebug("no tests active -> wait for new tests");
 			std::unique_lock<std::mutex> guard(_lockqueue);
 			_tstatus = ExecHandlerStatus::Waiting;

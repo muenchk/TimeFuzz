@@ -3,6 +3,7 @@
 #include "Session.h"
 #include "Settings.h"
 #include "UIClasses.h"
+#include "ansi_escapes.h"
 #include <filesystem>
 #include <iostream>
 
@@ -56,11 +57,12 @@ void endCallback()
 	fprintf(stdin, "exitinternal");
 }
 
+
 std::shared_ptr<Session> session = nullptr;
 
 SessionStatus status;
 
-std::string Snapshot()
+std::string Snapshot(bool full)
 {
 	std::stringstream snap;
 
@@ -346,7 +348,10 @@ std::string Snapshot()
 				snap << "Sources:\n";
 				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs") << "\n";
 
-				for (int i = 0; i < (int32_t)sources.size(); i++) {
+				int32_t max = 5;
+				if (full || sources.size() < max)
+					max = (int32_t)sources.size();
+				for (int32_t i = 0; i < max; i++) {
 					auto item = &sources[i];
 					snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs) << "\n";
 				}
@@ -370,7 +375,10 @@ std::string Snapshot()
 		snap << "Inputs:\n";
 		snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs") << "\n";
 
-		for (int i = 0; i < (int32_t)elements.size(); i++) {
+		int32_t max = 5;
+		if (full || elements.size() < max)
+			max = (int32_t)elements.size();
+		for (int32_t i = 0; i < max; i++) {
 			auto item = &elements[i];
 			if (item->id != 0) {
 				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs) << "\n";
@@ -389,6 +397,7 @@ std::string Snapshot()
 		while (count < 100 && itr != Profile::exectimes.end()) {
 			Profile::ExecTime* exec = itr->second;
 			dimElements[count].ns = exec->exectime;
+			dimElements[count].average = exec->average;
 			dimElements[count].time = exec->lastexec;
 			dimElements[count].func = exec->functionName;
 			dimElements[count].file = exec->fileName;
@@ -399,11 +408,11 @@ std::string Snapshot()
 		}
 
 		snap << "Profile Times:\n";
-		snap << fmt::format("{:<20} {:<30} {:<15} {:<15} {}", "File", "Function", "Exec Time", "Last executed", "Message") << "\n";
+		snap << fmt::format("{:<20} {:<30} {:<15} {:<15} {:<15} {}", "File", "Function", "Exec Time", "Average ExecT", "Last executed", "Message") << "\n";
 
 		for (int i = 0; i < count; i++) {
 			auto item = &dimElements[i];
-			snap << fmt::format("{:<20} {:<30} {:<15} {:<15} {}", item->file, item->func, Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(item->ns).count()), Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - item->time).count()), item->usermes) << "\n";
+			snap << fmt::format("{:<20} {:<30} {:<15}{:<15} {:<15} {}", item->file, item->func, Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(item->ns).count()), Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(item->average).count()) , Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - item->time).count()), item->usermes) << "\n";
 		}
 	}
 	snap << "\n\n";
@@ -458,13 +467,13 @@ std::string Snapshot()
 			dd.GetResults(results, numresults);
 
 			// build ui
-			snap << fmt::format("Finished: {}", dd.Finished() ? "True" : "False");
-			snap << fmt::format("Goal:  {}", dd.GetGoal().c_str());
-			snap << fmt::format("Mode:  {}", dd.GetMode().c_str());
-			snap << fmt::format("Level: {}", dd.GetLevel());
-			snap << fmt::format("Total Tests: {}", dd.GetTotalTests());
-			snap << fmt::format("Tests done: {}", dd.GetTests());
-			snap << fmt::format("Tests Remaining: {}", dd.GetTestsRemaining());
+			snap << fmt::format("Finished: {}", dd.Finished() ? "True" : "False") << "\n";
+			snap << fmt::format("Goal:  {}", dd.GetGoal().c_str()) << "\t\t";
+			snap << fmt::format("Mode:  {}", dd.GetMode().c_str()) << "\n";
+			snap << fmt::format("Level: {}", dd.GetLevel()) << "\t\t";
+			snap << fmt::format("Total Tests: {}", dd.GetTotalTests()) << "\n";
+			snap << fmt::format("Tests done: {}", dd.GetTests()) << "\t\t";
+			snap << fmt::format("Tests Remaining: {}", dd.GetTestsRemaining()) << "\n";
 			snap << "\n";
 
 			
@@ -485,7 +494,10 @@ std::string Snapshot()
 			snap << "Results:\n";
 			snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<10} {:<16} {:<17}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Level", "Loss (Primary)", "Loss (Secondary)") << "\n";
 
-			for (int i = 0; i < (int32_t)results.size(); i++) {
+			int32_t max = 5;
+			if (full || results.size() < max)
+				max = (int32_t)results.size();
+			for (int i = 0; i < max; i++) {
 				auto item = &results[i];
 				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<10} {:<16} {:<17}", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->level, item->primaryLoss, item->secondaryLoss) << "\n";
 			}
@@ -494,7 +506,10 @@ std::string Snapshot()
 			snap << "Active Inputs:\n";
 			snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs") << "\n";
 
-			for (int i = 0; i < (int32_t)inputs.size(); i++) {
+			max = 5;
+			if (full || inputs.size() < max)
+				max = (int32_t)inputs.size();
+			for (int i = 0; i < max; i++) {
 				auto item = &inputs[i];
 				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs) << "\n";
 			}
@@ -649,6 +664,9 @@ int32_t main(int32_t argc, char** argv)
 			std::cout << "Parameter: --separatelogfiles\n";
 			logtimestamps = true;
 			logpath = "logs";
+		} else if (option.find("--consoleui") != std::string::npos) {
+			std::cout << "Parameter: --consoleui\n";
+			CmdArgs::_consoleUI = true;
 		} else if (option.find("--load") != std::string::npos) {
 			if (i + 1 < argc) {
 				std::cout << "Parameter: --load\n";
@@ -1685,6 +1703,7 @@ int32_t main(int32_t argc, char** argv)
 						while (count < 100 && itr != Profile::exectimes.end()) {
 							Profile::ExecTime* exec = itr->second;
 							dimElements[count].ns = exec->exectime;
+							dimElements[count].average = exec->average;
 							dimElements[count].time = exec->lastexec;
 							dimElements[count].func = exec->functionName;
 							dimElements[count].file = exec->fileName;
@@ -1709,10 +1728,11 @@ int32_t main(int32_t argc, char** argv)
 						//PushStyleCompact
 						//...
 						//PopStyleCompact
-						if (ImGui::BeginTable("itemtable", 5, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * rownum), 0.0f)) {
+						if (ImGui::BeginTable("itemtable", 6, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * rownum), 0.0f)) {
 							ImGui::TableSetupColumn("File", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIExecTime::ColumnID::ExecTimeFile);
 							ImGui::TableSetupColumn("Function", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIExecTime::ColumnID::ExecTimeFunction);
 							ImGui::TableSetupColumn("Exec Time", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIExecTime::ColumnID::ExecTimeNano);
+							ImGui::TableSetupColumn("Average Time", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIExecTime::ColumnID::ExecTimeAverage);
 							ImGui::TableSetupColumn("Last executed", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIExecTime::ColumnID::ExecTimeLast);
 							ImGui::TableSetupColumn("Message", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIExecTime::ColumnID::ExecTimeUserMes);
 							ImGui::TableSetupScrollFreeze(0, 1);
@@ -1734,6 +1754,8 @@ int32_t main(int32_t argc, char** argv)
 									ImGui::TextUnformatted(item->func.c_str());
 									ImGui::TableNextColumn();
 									ImGui::TextUnformatted(Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(item->ns).count()).c_str());
+									ImGui::TableNextColumn();
+									ImGui::TextUnformatted(Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(item->average).count()).c_str());
 									ImGui::TableNextColumn();
 									ImGui::TextUnformatted(Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - item->time).count()).c_str());
 									ImGui::TableNextColumn();
@@ -2162,7 +2184,7 @@ Responsive:
 			}
 			// CMD: stats
 			else if (line.substr(0, 5).find("stats") != std::string::npos) {
-				std::cout << Snapshot();
+				std::cout << Snapshot(false);
 			}
 			// CMD: INTERNAL: exitinternal
 			else if (line.substr(0, 12).find("exitinternal") != std::string::npos) {
@@ -2170,6 +2192,29 @@ Responsive:
 				stop = true;
 			}
 		}
+		session->Wait();
+		session->DestroySession();
+		session.reset();
+	} else if (CmdArgs::_consoleUI == true) {
+		setupConsole();
+		clearScreen();
+		moveTo(1, 1);
+		Logging::StdOutDebug = false;
+		Logging::StdOutLogging = false;
+		StartSession();
+		std::chrono::steady_clock::time_point last = std::chrono::steady_clock::now();
+		while (session->Loaded() == false) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(50));
+		}
+		while (session->Finished() == false) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+			clearScreen();
+			moveTo(1, 1);
+			std::cout << Snapshot(false);
+		}
+
+		restoreConsole();
+		std::cout << Snapshot(true);
 		session->Wait();
 		session->DestroySession();
 		session.reset();
@@ -2187,9 +2232,10 @@ Responsive:
 			std::this_thread::sleep_for(std::chrono::milliseconds(50));
 			if (std::chrono::steady_clock::now() - last >= std::chrono::seconds(10)) {
 				last = std::chrono::steady_clock::now();
-				std::cout << Snapshot();
+				std::cout << Snapshot(false);
 			}
 		}
+		std::cout << Snapshot(true);
 		session->Wait();
 		session->DestroySession();
 		session.reset();

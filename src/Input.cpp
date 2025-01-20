@@ -633,7 +633,7 @@ size_t Input::MemorySize()
 
 void Input::TrimInput(int32_t executed)
 {
-	if (executed != -1 && executed != _sequence.size()) {
+	if (executed != -1 && executed < _sequence.size()) {
 		// we are trimming to a specific length
 		_trimmed = true;
 		int32_t count = 0;

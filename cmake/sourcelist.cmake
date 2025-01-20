@@ -1,4 +1,5 @@
 set(SOURCE_FILES
+	"${SOURCE_DIR}/ansi_escapes.cpp"
 	"${SOURCE_DIR}/BufferOperations.cpp"
 	"${SOURCE_DIR}/Data.cpp"
 	"${SOURCE_DIR}/DerivationTree.cpp"

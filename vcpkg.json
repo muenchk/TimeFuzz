@@ -32,18 +32,25 @@
     "magic-enum",
     "zycore",
     "zydis",
-    {
-      "name": "imgui",
-      "features": [
-        "opengl3-binding",
-        "glfw-binding",
-        "freetype"
-      ]
-    },
-    "glfw3",
-    "glad",
-    "glm",
     "liblzma",
     "stb"
-  ]
+  ],
+  "features": {
+    "ui": {
+      "description": "ui",
+      "dependencies": [
+        {
+          "name": "imgui",
+          "features": [
+            "opengl3-binding",
+            "glfw-binding",
+            "freetype"
+          ]
+        },
+        "glfw3",
+        "glad",
+        "glm"
+      ]
+    }
+  }
 }

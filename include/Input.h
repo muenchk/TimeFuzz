@@ -247,7 +247,7 @@ public:
 	/// <returns></returns>
 	size_t Length();
 	/// <summary>
-	/// returns the current length of the seque´nce
+	/// returns the current length of the sequence
 	/// </summary>
 	/// <returns></returns>
 	size_t GetSequenceLength();

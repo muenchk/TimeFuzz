@@ -485,10 +485,16 @@ bool SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 			sessiondata->GetGeneration(input->GetGenerationID())->RemoveGeneratedInput(input);
 		return false;
 	}
-	if (input->GetOracleResult() == OracleResult::Repeat) {
+	if (input->GetOracleResult() == OracleResult::Repeat || sessiondata->_settings->fixes.repeatTimeoutedTests && input->test && input->test->_exitreason == Test::ExitReason::Timeout) {
 		// the oracle decided there was a problem with the test, so go and repeat it
 		input->test->_exitreason = Test::ExitReason::Repeat;
-		sessiondata->_exechandler->AddTest(input, input->test->_callback->DeepCopy(), true, false);
+		input->Debug_ClearSequence();
+		input->SetGenerated(false);
+		auto test = input->test;
+		input->test.reset();
+		auto callback = test->_callback->DeepCopy();
+		sessiondata->data->DeleteForm(test);
+		sessiondata->_exechandler->AddTest(input, callback, true, false);
 		AddTestExitReason(sessiondata, Test::ExitReason::Repeat);
 		return true;
 	}
@@ -1084,6 +1090,16 @@ namespace Functions
 				_sessiondata->GetCurrentGeneration()->GetNumberOfDDControllers(),
 				_sessiondata->GetCurrentGeneration()->GetDDSize());
 			auto generation = _sessiondata->GetCurrentGeneration();
+			if (_sessiondata->_controller->GetNumThreads() == 1 && _sessiondata->_controller->GetWaitingLightJobs() > 0)
+			{
+				// if we only have one thread running, put ourselves back into waiting queue and 
+				// give the taskhandler a chance to execute the waiting light tasks first
+				auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
+				callback->_sessiondata = _sessiondata;
+				callback->_generation = _generation;
+				_sessiondata->_controller->AddTask(callback, true);
+				return;
+			}
 			while (generation->GetActiveInputs() > 0 && _sessiondata->_exechandler->WaitingTasks() > 0 || _sessiondata->_controller->GetWaitingLightJobs() > 0);
 			if (_sessiondata->GetCurrentGeneration()->IsDeltaDebuggingActive() == false && 
 				_sessiondata->_generationFinishing.compare_exchange_strong(exp, true) /*if there are multiple callbacks for the same generation, make sure that only one gets executed, i.e. the fastest*/) {

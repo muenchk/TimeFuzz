@@ -72,6 +72,7 @@ namespace UI
 			ExecTimeFunction,
 			ExecTimeFile,
 			ExecTimeNano,
+			ExecTimeAverage,
 			ExecTimeLast,
 			ExecTimeUserMes,
 		};
@@ -79,6 +80,7 @@ namespace UI
 		std::string file = "";
 		std::string usermes = "";
 		std::chrono::nanoseconds ns;
+		std::chrono::nanoseconds average;
 		std::chrono::steady_clock::time_point time;
 		int32_t tmpid;
 	};

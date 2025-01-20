@@ -157,6 +157,7 @@ public:
 			public:
 		std::string functionName;
 		std::chrono::nanoseconds exectime;
+		std::chrono::nanoseconds average;
 		std::chrono::steady_clock::time_point lastexec;
 		std::string fileName;
 		std::string usermessage;
@@ -235,6 +236,7 @@ public:
 		{
 			itr->second->Lock();
 			itr->second->functionName = func;
+			itr->second->average = std::chrono::nanoseconds((long long)(itr->second->exectime.count() * 0.98 + ns.count() * 0.02));
 			itr->second->exectime = ns;
 			itr->second->lastexec = time;
 			itr->second->fileName = file;
@@ -247,6 +249,7 @@ public:
 			exectimes.insert_or_assign(file + "::" + func, exec);
 			exec->Lock();
 			exec->functionName = func;
+			exec->average = ns;
 			exec->exectime = ns;
 			exec->lastexec = time;
 			exec->fileName = file;
