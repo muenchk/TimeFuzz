@@ -185,9 +185,15 @@ bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRe
 			_exitcode = Buffer::ReadInt32(buffer, offset);
 			_oracleResult = Buffer::ReadUInt64(buffer, offset);
 			FormID testid = Buffer::ReadUInt64(buffer, offset);
-			resolver->AddTask([this, resolver, testid]() {
-				this->test = resolver->ResolveFormID<Test>(testid);
-			});
+			if (testid == 0) {
+				logwarn("Test ID invalid");
+			} else {
+				resolver->AddTask([this, resolver, testid]() {
+					this->test = resolver->ResolveFormID<Test>(testid);
+					if (!this->test)
+						logwarn("Test not found");
+				});
+			}
 			FormID deriveid = Buffer::ReadUInt64(buffer, offset);
 			resolver->AddTask([this, resolver, deriveid]() {
 				this->derive = resolver->ResolveFormID<DerivationTree>(deriveid);

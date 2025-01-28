@@ -653,6 +653,10 @@ bool Test::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRes
 					this->_itr = input->begin();
 					this->_itrend = input->end();
 					this->_input = input;
+					if (!input->test)
+					{
+						input->test = resolver->ResolveFormID<Test>(_formid);
+					}
 				}
 			});
 			//if (length < offset - initoff + 8 || length < offset - initoff + Buffer::CalcStringLength(buffer, offset))
