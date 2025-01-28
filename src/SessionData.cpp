@@ -154,55 +154,6 @@ TestExitStats& SessionData::GetTestExitStats()
 	return exitstats;
 }
 
-size_t SessionData::GetStaticSize(int32_t version)
-{
-	static size_t size0x1 = 4     // version
-	                        + 8   // _positiveInputNumbers
-	                        + 8   // _negativeInputNumbers
-	                        + 8   // _unfinishedInputNumbers
-	                        + 8   // _undefinedInputnNumbers
-	                        + 8   // listsize _positiveInputs
-	                        + 8   // listsize _negativeInputs
-	                        + 8   // listsize _unfinishedInputs
-	                        + 8   // listsize _undefinedInputs
-	                        + 8   // buffer size _recentfails
-	                        + 8   // _generationfails
-	                        + 8   // _generatedInputs
-	                        + 8   // _generatedWithPrefix
-	                        + 8   // _generatedExcludedApproximation
-	                        + 8   // lastchecks
-	                        + 8   // exitstats.natural
-	                        + 8   // exitstats.lastinput
-	                        + 8   // exitstats.terminated
-	                        + 8   // exitstats.timeout
-	                        + 8   // exitstats.fragmenttimeout
-	                        + 8   // exitstats.memory
-	                        + 8   // exitstats.initerror
-	                        + 8   // failureRate
-	                        + 8   // addTestFails
-	                        + 8   // grammar id
-	                        + 8   // generation ID
-	                        + 8;  // lastGenerationID
-
-	switch (version) {
-	case 0x1:
-		return size0x1;
-	default:
-		return 0;
-	}
-}
-
-size_t SessionData::GetDynamicSize()
-{
-	return Form::GetDynamicSize()           // form stuff
-	       + GetStaticSize(classversion) +  // static class size
-	       _positiveInputs.size() * 8       // list elements are uint64_t
-	       + _negativeInputs.size() * 16    // two list elements: uint64_t, double
-	       + _unfinishedInputs.size() * 16  // two list elements: uint64_t, double
-	       + _undefinedInputs.size() * 8    // list elements are uint64_t
-	       + _recentfailes.size();          // actual number of elements in the list * size of byte
-}
-
 std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Length(int32_t k, size_t min_length_unfinished, size_t min_length_failing)
 {
 	std::vector<std::shared_ptr<Input>> ret;
@@ -557,6 +508,64 @@ void SessionData::Release_InputGenerationWritersLock()
 
 #pragma region FORM
 
+size_t SessionData::GetStaticSize(int32_t version)
+{
+	static size_t size0x1 = 4     // version
+	                        + 8   // _positiveInputNumbers
+	                        + 8   // _negativeInputNumbers
+	                        + 8   // _unfinishedInputNumbers
+	                        + 8   // _undefinedInputnNumbers
+	                        + 8   // listsize _positiveInputs
+	                        + 8   // listsize _negativeInputs
+	                        + 8   // listsize _unfinishedInputs
+	                        + 8   // listsize _undefinedInputs
+	                        + 8   // buffer size _recentfails
+	                        + 8   // _generationfails
+	                        + 8   // _generatedInputs
+	                        + 8   // _generatedWithPrefix
+	                        + 8   // _generatedExcludedApproximation
+	                        + 8   // lastchecks
+	                        + 8   // exitstats.natural
+	                        + 8   // exitstats.lastinput
+	                        + 8   // exitstats.terminated
+	                        + 8   // exitstats.timeout
+	                        + 8   // exitstats.fragmenttimeout
+	                        + 8   // exitstats.memory
+	                        + 8   // exitstats.initerror
+	                        + 8   // failureRate
+	                        + 8   // addTestFails
+	                        + 8   // grammar id
+	                        + 8   // generation ID
+	                        + 8;  // lastGenerationID
+
+	static size_t size0x2 = size0x1  // last size
+	                        + 8      // listsize _generations
+	                        + 1      // _generationEnding
+	                        + 1;     // _generationFinishing
+
+	switch (version)
+	{
+	case 0x1:
+		return size0x1;
+	case 0x2:
+		return size0x2;
+	default:
+		return 0;
+	}
+}
+
+size_t SessionData::GetDynamicSize()
+{
+	return Form::GetDynamicSize()                    // form stuff
+	       + GetStaticSize(classversion) +           // static class size
+	       _positiveInputs.size() * 8                // list elements are uint64_t
+	       + _negativeInputs.size() * 16             // two list elements: uint64_t, double
+	       + _unfinishedInputs.size() * 16           // two list elements: uint64_t, double
+	       + _undefinedInputs.size() * 8             // list elements are uint64_t
+	       + _recentfailes.size()                    // actual number of elements in the list * size of byte
+	       + _generations.size() * 8;                // list elements are uint64_t
+}
+
 bool SessionData::WriteData(std::ostream* buffer, size_t& offset)
 {
 	Buffer::Write(classversion, buffer, offset);
@@ -614,6 +623,12 @@ bool SessionData::WriteData(std::ostream* buffer, size_t& offset)
 		Buffer::Write(*itre, buffer, offset);
 		itre++;
 	}
+	// generations
+	Buffer::WriteSize(_generations.size(), buffer, offset);
+	for (auto [id, _] : _generations){
+		Buffer::Write(id, buffer, offset);
+		itre++;
+	}
 	// rest
 	Buffer::Write(_generationfails, buffer, offset);
 	Buffer::Write(_generatedinputs, buffer, offset);
@@ -638,6 +653,8 @@ bool SessionData::WriteData(std::ostream* buffer, size_t& offset)
 	else
 		Buffer::Write((FormID)0, buffer, offset);
 	Buffer::Write(_lastGenerationID, buffer, offset);
+	Buffer::Write(_generationEnding.load(), buffer, offset);
+	Buffer::Write(_generationFinishing.load(), buffer, offset);
 	return true;
 }
 
@@ -793,6 +810,160 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 			_lastGenerationID = Buffer::ReadUInt64(buffer, offset);
 			return true;
 		}
+	case 0x2:
+		{
+			Form::ReadData(buffer, offset, length, resolver);
+			_positiveInputNumbers = Buffer::ReadInt64(buffer, offset);
+			_negativeInputNumbers = Buffer::ReadInt64(buffer, offset);
+			_unfinishedInputNumbers = Buffer::ReadInt64(buffer, offset);
+			_undefinedInputNumbers = Buffer::ReadInt64(buffer, offset);
+			// positive inputs
+			_positiveInputs.clear();
+			size_t sizepos = Buffer::ReadSize(buffer, offset);
+			std::vector<FormID> posInp(sizepos);
+			for (int64_t i = 0; i < (int64_t)sizepos; i++) {
+				posInp.push_back(Buffer::ReadUInt64(buffer, offset));
+			}
+			// negative inputs
+			_negativeInputs.clear();
+			size_t size = Buffer::ReadSize(buffer, offset);
+			std::vector<std::pair<FormID, double>> negInp(size);
+			FormID tmp = 0;
+			for (int64_t i = 0; i < (int64_t)size; i++) {
+				tmp = Buffer::ReadUInt64(buffer, offset);
+				negInp[i] = { tmp, Buffer::ReadDouble(buffer, offset) };
+			}
+			resolver->AddLateTask([this, negInp, posInp, resolver]() {
+				for (int64_t i = 0; i < (int64_t)negInp.size(); i++) {
+					auto shared = resolver->ResolveFormID<Input>(negInp[i].first);
+					if (shared && shared->derive && shared->test) {
+						auto node = std::make_shared<InputNode>();
+						node->input = shared;
+						node->weight = negInp[i].second;
+						node->primary = shared->GetPrimaryScore();
+						node->secondary = shared->GetSecondaryScore();
+						node->length = shared->Length();
+						_negativeInputs.insert(node);
+						_topK_primary.insert(node);
+						_topK_secondary.insert(node);
+						_topK_length.insert(node);
+					}
+				}
+				for (int64_t i = 0; i < (int64_t)posInp.size(); i++) {
+					auto shared = resolver->ResolveFormID<Input>(posInp[i]);
+					if (shared)
+						_positiveInputs.insert(shared);
+				}
+			});
+			// unfinished inputs
+			_unfinishedInputs.clear();
+			size = Buffer::ReadSize(buffer, offset);
+			std::vector<std::pair<FormID, double>> unfInp(size);
+			for (int64_t i = 0; i < (int64_t)size; i++) {
+				tmp = Buffer::ReadUInt64(buffer, offset);
+				unfInp[i] = { tmp, Buffer::ReadDouble(buffer, offset) };
+			}
+			resolver->AddLateTask([this, unfInp, resolver]() {
+				for (int64_t i = 0; i < (int64_t)unfInp.size(); i++) {
+					auto shared = resolver->ResolveFormID<Input>(unfInp[i].first);
+					if (shared && shared->derive && shared->test) {
+						auto node = std::make_shared<InputNode>();
+						node->input = shared;
+						node->weight = unfInp[i].second;
+						node->primary = shared->GetPrimaryScore();
+						node->secondary = shared->GetSecondaryScore();
+						node->length = shared->Length();
+						_unfinishedInputs.insert(node);
+						_topK_primary.insert(node);
+						_topK_secondary.insert(node);
+						_topK_length.insert(node);
+						_topK_primary_Unfinished.insert(node);
+						_topK_secondary_Unfinished.insert(node);
+						_topK_length_Unfinished.insert(node);
+					}
+				}
+			});
+			// undefined inputs
+			_undefinedInputs.clear();
+			sizepos = Buffer::ReadSize(buffer, offset);
+			for (int64_t i = 0; i < (int64_t)sizepos; i++) {
+				_undefinedInputs.push_back(Buffer::ReadUInt64(buffer, offset));
+			}
+			// recentfails
+			_recentfailes.clear();
+			size = Buffer::ReadSize(buffer, offset);
+			for (int64_t i = 0; i < (int64_t)size; i++) {
+				_recentfailes.push_back(Buffer::ReadUChar(buffer, offset));
+			}
+			// _generations
+			size = Buffer::ReadSize(buffer, offset);
+			std::vector<FormID> gens;
+			for (int64_t i = 0; i < (int64_t)size; i++)
+				gens.push_back(Buffer::ReadUInt64(buffer, offset));
+			resolver->AddTask([this, gens, resolver]() {
+				for (int64_t i = 0; i < (int64_t)gens.size(); i++) {
+					auto shared = resolver->ResolveFormID<Generation>(gens[i]);
+					if (shared)
+						_generations.insert_or_assign(gens[i], shared);
+				}
+			});
+			// rest
+			_generationfails = Buffer::ReadInt64(buffer, offset);
+			_generatedinputs = Buffer::ReadInt64(buffer, offset);
+			_generatedWithPrefix = Buffer::ReadInt64(buffer, offset);
+			_generatedExcludedApproximation = Buffer::ReadInt64(buffer, offset);
+			_lastchecks = Buffer::ReadTime(buffer, offset);
+			exitstats.natural = Buffer::ReadUInt64(buffer, offset);
+			exitstats.lastinput = Buffer::ReadUInt64(buffer, offset);
+			exitstats.terminated = Buffer::ReadUInt64(buffer, offset);
+			exitstats.timeout = Buffer::ReadUInt64(buffer, offset);
+			exitstats.fragmenttimeout = Buffer::ReadUInt64(buffer, offset);
+			exitstats.memory = Buffer::ReadUInt64(buffer, offset);
+			exitstats.initerror = Buffer::ReadUInt64(buffer, offset);
+			_failureRate = Buffer::ReadDouble(buffer, offset);
+			_addtestFails = Buffer::ReadInt64(buffer, offset);
+			FormID grammarid = Buffer::ReadUInt64(buffer, offset);
+			FormID generationid = Buffer::ReadUInt64(buffer, offset);
+			resolver->AddTask([this, resolver, grammarid, generationid]() {
+				this->_oracle = resolver->ResolveFormID<Oracle>(Data::StaticFormIDs::Oracle);
+				this->_controller = resolver->ResolveFormID<TaskController>(Data::StaticFormIDs::TaskController);
+				this->_exechandler = resolver->ResolveFormID<ExecutionHandler>(Data::StaticFormIDs::ExecutionHandler);
+				this->_generator = resolver->ResolveFormID<Generator>(Data::StaticFormIDs::Generator);
+				this->_grammar = resolver->ResolveFormID<Grammar>(grammarid);
+				this->_settings = resolver->ResolveFormID<Settings>(Data::StaticFormIDs::Settings);
+				this->_excltree = resolver->ResolveFormID<ExclusionTree>(Data::StaticFormIDs::ExclusionTree);
+				this->SetGen(resolver->ResolveFormID<Generation>(generationid));
+				switch (this->_settings->generation.sourcesType) {
+				case Settings::GenerationSourcesType::FilterLength:
+					_negativeInputs.set_ordering(std::SetOrdering::Length);
+					_unfinishedInputs.set_ordering(std::SetOrdering::Length);
+					_positiveInputs.set_ordering(std::SetOrdering::Length);
+					break;
+				case Settings::GenerationSourcesType::FilterPrimaryScore:
+					_negativeInputs.set_ordering(std::SetOrdering::Primary);
+					_unfinishedInputs.set_ordering(std::SetOrdering::Primary);
+					_positiveInputs.set_ordering(std::SetOrdering::Primary);
+					break;
+				case Settings::GenerationSourcesType::FilterSecondaryScore:
+					_negativeInputs.set_ordering(std::SetOrdering::Secondary);
+					_unfinishedInputs.set_ordering(std::SetOrdering::Secondary);
+					_positiveInputs.set_ordering(std::SetOrdering::Secondary);
+					break;
+				}
+				if (this->GetGen())
+					this->_generationID = GetGen()->GetFormID();
+				// this is redundant and has already been set
+				this->data = resolver->_data;
+				auto gens = resolver->_data->GetFormArray<Generation>();
+				for (auto gen : gens)
+					this->_generations.insert_or_assign(gen->GetFormID(), gen);
+			});
+			_lastGenerationID = Buffer::ReadUInt64(buffer, offset);
+			_generationEnding = Buffer::ReadBool(buffer, offset);
+			_generationFinishing = Buffer::ReadBool(buffer, offset);
+			return true;
+		}
+		break;
 	default:
 		return false;
 	}

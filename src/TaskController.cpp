@@ -378,13 +378,23 @@ void TaskController::ClearTasks()
 
 size_t TaskController::GetStaticSize(int32_t version)
 {
-	static size_t size0x1 = 4                     // version
-	                        + 1                     // terminate
-	                        + 1                     // wait
-	                        + 1                     // active
-	                        + 4                     // numthreads
-	                        + 8                     // size of waiting tasks
-	                        + 8;                    // completedjobs
+	static size_t size0x1 = 4     // version
+	                        + 1   // terminate
+	                        + 1   // wait
+	                        + 1   // active
+	                        + 4   // numthreads
+	                        + 4   // _numLightThreads
+	                        + 4   // _numMediumThreads
+	                        + 4   // _numHeavyThreads
+	                        + 4   // _numAllThreads
+	                        + 1   // _controlEnableFine
+	                        + 1   // _controlEnableLight
+	                        + 1   // _controlEnableMedium
+	                        + 1   // _controlEnableHeavy
+	                        + 8   // size of waiting tasks
+	                        + 8   // size of waiting tasks_medium
+	                        + 8   // size of waiting tasks_light
+	                        + 8;  // completedjobs
 	switch (version)
 	{
 	case 0x1:
@@ -406,6 +416,16 @@ size_t TaskController::GetDynamicSize()
 			sz += task->GetLength();
 		}
 	}
+	for (auto task : _tasks_medium) {
+		if (task != nullptr) {
+			sz += task->GetLength();
+		}
+	}
+	for (auto task : _tasks_light) {
+		if (task != nullptr) {
+			sz += task->GetLength();
+		}
+	}
 	sz += 8;
 	for (auto [str, val] : _executedTasks)
 	{
@@ -423,9 +443,25 @@ bool TaskController::WriteData(std::ostream* buffer, size_t& offset)
 	Buffer::Write(_wait, buffer, offset);
 	Buffer::Write(_threads.size() > 0, buffer, offset);
 	Buffer::Write(_numthreads, buffer, offset);
+	Buffer::Write(_numLightThreads, buffer, offset);
+	Buffer::Write(_numMediumThreads, buffer, offset);
+	Buffer::Write(_numHeavyThreads, buffer, offset);
+	Buffer::Write(_numAllThreads, buffer, offset);
+	Buffer::Write(_controlEnableFine, buffer, offset);
+	Buffer::Write(_controlEnableLight, buffer, offset);
+	Buffer::Write(_controlEnableMedium, buffer, offset);
+	Buffer::Write(_controlEnableHeavy, buffer, offset);
 	Buffer::WriteSize(_tasks.size(), buffer, offset);
 	for (auto task : _tasks)
 	{
+		task->WriteData(buffer, offset);
+	}
+	Buffer::WriteSize(_tasks_medium.size(), buffer, offset);
+	for (auto task : _tasks_medium) {
+		task->WriteData(buffer, offset);
+	}
+	Buffer::WriteSize(_tasks_light.size(), buffer, offset);
+	for (auto task : _tasks_light) {
 		task->WriteData(buffer, offset);
 	}
 	Buffer::Write((uint64_t)_completedjobs.load(), buffer, offset);
@@ -470,10 +506,28 @@ bool TaskController::ReadData(std::istream* buffer, size_t& offset, size_t lengt
 			_wait = Buffer::ReadBool(buffer, offset);
 			bool active = Buffer::ReadBool(buffer, offset);
 			_numthreads = Buffer::ReadInt32(buffer, offset);
+			_numLightThreads = Buffer::ReadInt32(buffer, offset);
+			_numMediumThreads = Buffer::ReadInt32(buffer, offset);
+			_numHeavyThreads = Buffer::ReadInt32(buffer, offset);
+			_numAllThreads = Buffer::ReadInt32(buffer, offset);
+			_controlEnableFine = Buffer::ReadBool(buffer, offset);
+			_controlEnableLight = Buffer::ReadBool(buffer, offset);
+			_controlEnableMedium = Buffer::ReadBool(buffer, offset);
+			_controlEnableHeavy = Buffer::ReadBool(buffer, offset);
 			size_t num = Buffer::ReadSize(buffer, offset);
 			for (int32_t i = 0; i < (int32_t)num; i++) {
 				std::shared_ptr<Functions::BaseFunction> func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
 				_tasks.push_back(func);
+			}
+			num = Buffer::ReadSize(buffer, offset);
+			for (int32_t i = 0; i < (int32_t)num; i++) {
+				std::shared_ptr<Functions::BaseFunction> func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
+				_tasks_medium.push_back(func);
+			}
+			num = Buffer::ReadSize(buffer, offset);
+			for (int32_t i = 0; i < (int32_t)num; i++) {
+				std::shared_ptr<Functions::BaseFunction> func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
+				_tasks_light.push_back(func);
 			}
 			_completedjobs = Buffer::ReadUInt64(buffer, offset);
 			if (active)
@@ -574,6 +628,8 @@ void TaskController::Thaw()
 	_freeze = false;
 	_lock.unlock();
 	_condition.notify_all();
+	_condition_light.notify_all();
+	_condition_medium.notify_all();
 	loginfo("Resumed execution.");
 }
 

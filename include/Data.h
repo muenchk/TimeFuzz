@@ -35,7 +35,6 @@ class Data
 public:
 	struct LoadSaveArgs
 	{
-		bool skipSettings = false;
 		bool skipExlusionTree = false;
 	};
 

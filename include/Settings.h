@@ -56,7 +56,6 @@ private:
 	/// <summary>
 	/// skip reading from savefile
 	/// </summary>
-	bool _skipread = false;
 
 public:
 	enum GenerationSourcesType
@@ -107,11 +106,6 @@ public:
 	static int32_t GetTypeStatic()
 	{
 		return FormType::Settings;
-	}
-
-	void SkipRead()
-	{
-		_skipread = true;
 	}
 
 	struct Oracle
@@ -168,7 +162,7 @@ public:
 		/// whether to enable settings for the TaskController
 		/// </summary>
 		bool activateSettings = false;
-		const char* activateSettings_NAME = "UseHardwareThreads";
+		const char* activateSettings_NAME = "ActivateFineGrainedControl";
 
 		/// <summary>
 		/// number of threads executing light tasks only

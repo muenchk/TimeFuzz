@@ -633,6 +633,13 @@ std::set<uint64_t> finished_ids;
 
 void GrammarTree::GatherFlags(std::shared_ptr<GrammarNode> node, std::set<uint64_t> path, bool reset)
 {
+	// define terminal patterns
+	static std::regex class_pattern("[:.*:]");
+	static std::regex class_pattern_ascii("[:ascii:]");
+	static std::regex class_pattern_alpha("[:alpha:]");
+	static std::regex class_pattern_alnum("[:alnum:]");
+	static std::regex class_pattern_digit("[:digit:]");
+
 	// if we are starting of from a new non-recursive function call, delete prior finished ids
 	StartProfiling;
 	if (reset) {
@@ -660,6 +667,18 @@ void GrammarTree::GatherFlags(std::shared_ptr<GrammarNode> node, std::set<uint64
 	if (node->IsLeaf()) {
 		node->_producing = true;
 		finished_ids.insert(node->_id);
+		if (std::regex_search(node->_identifier, class_pattern)) {
+			node->_flags |= GrammarNode::NodeFlags::TerminalCharClass;
+			if (std::regex_search(node->_identifier, class_pattern_ascii)) {
+				node->_flags |= GrammarNode::NodeFlags::TerminalCharClassAscii;
+			} else if (std::regex_search(node->_identifier, class_pattern_alpha)) {
+				node->_flags |= GrammarNode::NodeFlags::TerminalCharClassAlpha;
+			} else if (std::regex_search(node->_identifier, class_pattern_alnum)) {
+				node->_flags |= GrammarNode::NodeFlags::TerminalCharClassAlphaNumeric;
+			} else if (std::regex_search(node->_identifier, class_pattern_digit)) {
+				node->_flags |= GrammarNode::NodeFlags::TerminalCharClassDigit;
+			}
+		}
 		return;
 	}
 	std::set<std::shared_ptr<GrammarExpansion>> skip;
@@ -1191,7 +1210,7 @@ bool GrammarTree::CheckForSequenceSimplicityAndSimplify()
 		if (_rules[i] != true) {
 			// 'Node1 -> 'Node2
 			auto node = _hashmap.at(_ruleorder[i]);
-			if (node->_expansions.size() == 1 && node->_expansions[0]->_nodes.size() == 1) {
+			if (node->_expansions.size() == 1 && node->_expansions[0]->_nodes.size() == 1 && node->_type != GrammarNode::NodeType::Sequence) {
 				_rules[i] = true;
 				simplereplace.insert_or_assign(node->_id, node->_expansions[0]->_nodes[0]->_id);
 			}
@@ -1284,7 +1303,7 @@ bool GrammarTree::CheckForSequenceSimplicityAndSimplify()
 		for (size_t i = 0; i < _rules.size(); i++) {
 			auto node = _hashmap.at(_ruleorder[i]);
 
-			if (node->_expansions.size() == 1 && node->_expansions[0]->_nodes.size() == 1) {
+			if (node->_expansions.size() == 1 && node->_expansions[0]->_nodes.size() == 1 && node->IsSequence() == false) {
 				if (node->_parents.size() == 0) {
 					// root -> make child node the new tree root
 					if (node == _root) {
@@ -1895,6 +1914,40 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t targetlength
 	profile(TimeProfiling, "Time taken for derivation of length: {}", dtree->_sequenceNodes);
 }
 
+std::string GetSymbols(std::shared_ptr<GrammarNode> node, std::mt19937& randan)
+{
+	if ((node->_flags & GrammarNode::NodeFlags::TerminalCharClass) > 0) {
+		if ((node->_flags & GrammarNode::NodeFlags::TerminalCharClassAscii) > 0) {
+			std::uniform_int_distribution<signed> dist(0x1, 0x7E);
+			char c = (char)dist(randan);
+			return std::string(1, c);
+		} else if ((node->_flags & GrammarNode::NodeFlags::TerminalCharClassAlpha) > 0) {
+			std::uniform_int_distribution<signed> dist(0x0, 52);
+			char c = (char)dist(randan);
+			if (c < 26)
+				c += 0x41;
+			else
+				c += 0x61;
+			return std::string(1, c);
+		} else if ((node->_flags & GrammarNode::NodeFlags::TerminalCharClassAlphaNumeric) > 0) {
+			std::uniform_int_distribution<signed> dist(0x0, 62);
+			char c = (char)dist(randan);
+			if (c < 26)
+				c += 0x41;
+			else if (c < 52)
+				c += 0x61;
+			else
+				c += 0x30;
+			return std::string(1, c);
+		} else if ((node->_flags & GrammarNode::NodeFlags::TerminalCharClassDigit) > 0) {
+			std::uniform_int_distribution<signed> dist(0x30, 0x39);
+			char c = (char)dist(randan);
+			return std::string(1, c);
+		}
+	}
+	return node->_identifier;
+}
+
 void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<std::pair<DerivationTree::NonTerminalNode*, std::shared_ptr<GrammarNode>>>& qnonterminals, std::deque<std::pair<DerivationTree::NonTerminalNode*, std::shared_ptr<GrammarNode>>>& qseqnonterminals, std::mt19937& randan, int32_t& seq)
 {
 	DerivationTree::NonTerminalNode* nnode = nullptr;
@@ -2021,7 +2074,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 						ttnode = new DerivationTree::TerminalNode();
 						dtree->_nodes.insert(ttnode);
 						ttnode->_grammarID = regex->_node->_id;
-						ttnode->_content = regex->_node->_identifier;
+						ttnode->_content = GetSymbols(regex->_node, randan);
 						nnode->AddChild(ttnode);
 						break;
 					}
@@ -2056,7 +2109,8 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 						ttnode = new DerivationTree::TerminalNode();
 						dtree->_nodes.insert(ttnode);
 						ttnode->_grammarID = gexp->_nodes[i]->_id;
-						ttnode->_content = gexp->_nodes[i]->_identifier;
+						ttnode->_content = GetSymbols(gexp->_nodes[i], randan);
+						//ttnode->_content = gexp->_nodes[i]->_identifier;
 						nnode->AddChild(ttnode);
 						break;
 					}
@@ -2147,7 +2201,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 				ttnode = new DerivationTree::TerminalNode();
 				dtree->_nodes.insert(ttnode);
 				ttnode->_grammarID = gexp->_nodes[i]->_id;
-				ttnode->_content = gexp->_nodes[i]->_identifier;
+				ttnode->_content = GetSymbols(gexp->_nodes[i], randan);
 				nnode->AddChild(ttnode);
 				break;
 			}
@@ -2210,7 +2264,8 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 				ttnode = new DerivationTree::TerminalNode();
 				dtree->_nodes.insert(tnnode);
 				ttnode->_grammarID = gexp->_nodes[i]->_id;
-				ttnode->_content = gexp->_nodes[i]->_identifier;
+				ttnode->_content = GetSymbols(gexp->_nodes[i], randan);
+				//ttnode->_content = gexp->_nodes[i]->_identifier;
 				nnode->AddChild(ttnode);
 				break;
 			}

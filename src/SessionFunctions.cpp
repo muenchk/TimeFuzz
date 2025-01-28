@@ -110,6 +110,7 @@ void SessionFunctions::ExtendInput(std::shared_ptr<Input>& input, std::shared_pt
 				//input->derive.reset();
 				//sessiondata->data->DeleteForm(input);
 				//input.reset();
+				logwarn("failed to generate input");
 			}
 		} else {
 			auto grammar = sessiondata->data->LookupFormID<Grammar>(input->derive->_grammarID);
@@ -955,9 +956,22 @@ namespace Functions
 	void GenerationEndCallback::Run()
 	{
 		loginfo("Generation ended.");
+
+		auto generation = _sessiondata->GetCurrentGeneration();
+		if (_sessiondata->_controller->GetNumThreads() == 1 && _sessiondata->_controller->GetWaitingLightJobs() > 0) {
+			// if we only have one thread running, put ourselves back into waiting queue and
+			// give the taskhandler a chance to execute the waiting light tasks first
+			auto callback = dynamic_pointer_cast<Functions::GenerationEndCallback>(Functions::GenerationFinishedCallback::Create());
+			callback->_sessiondata = _sessiondata;
+			_sessiondata->_controller->AddTask(callback, true);
+			return;
+		}
+		while (generation->GetActiveInputs() > 0 && _sessiondata->_exechandler->WaitingTasks() > 0 || _sessiondata->_controller->GetWaitingLightJobs() > 0);
+
 		// if there is are delta debugging instances active, get them and assign generation finished callbacks to it,so we make sure they are finished before we start the next generation
 		std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> controllers;
 		_sessiondata->GetCurrentGeneration()->GetDDControllers(controllers);
+
 
 		if (_sessiondata->_settings->dd.deltadebugging && _sessiondata->_settings->dd.allowScoreOptimization) {
 			// this callback calculates the top k inputs that will be kept for future generation of new inputs
@@ -965,8 +979,10 @@ namespace Functions
 			// the callback for the delta controllers are instance of GenerationFinishedCallback
 			// if all delta controllers are finished the transtion will begin
 
-			// get top 5 percent generated inputs //_sessiondata->_settings->generation.generationsize * 0.05
-			std::vector<std::shared_ptr<Input>> topk;
+			std::set<std::shared_ptr<Input>, FormIDLess<Input>> targets;
+			// frac is the fraction of the max score that we check for in each iteration
+			double frac = _sessiondata->_settings->dd.optimizationLossThreshold;
+			double max = 0.0f;
 
 			switch (_sessiondata->_settings->generation.sourcesType) {
 			case Settings::GenerationSourcesType::FilterLength:
@@ -975,31 +991,110 @@ namespace Functions
 				break;
 			case Settings::GenerationSourcesType::FilterPrimaryScore:
 				{
-					if (_sessiondata->_settings->generation.allowBacktrackFailedInputs)
-						topk = _sessiondata->GetTopK((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));
+					/* if (_sessiondata->_settings->generation.allowBacktrackFailedInputs)
+						targets = _sessiondata->GetTopK((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));
 					else
-						topk = _sessiondata->GetTopK_Unfinished((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));
+						targets = _sessiondata->GetTopK_Unfinished((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));*/
+
+
+					std::set<std::shared_ptr<Input>, InputGainGreaterPrimary> inputs;
+					auto top = _sessiondata->GetTopK(1);
+
+					if (top.size() > 0)
+						max = top[0]->GetPrimaryScore();
+					// if the max is 0 just run loop a single time since 0 is the minimal value for primaryScore
+					if (max == 0.0f)
+						frac = 1.0f;
+					while ((int32_t)targets.size() < _sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration && frac <= 1.0) {
+						loginfo("Iteration with fractal: {}, and maxPrimaryScore: {}", frac, max);
+						inputs.clear();
+						// we don't filter for secondary score at this point
+						generation->GetAllInputs<InputGainGreaterPrimary>(inputs, true, (max - (max * frac)), -1.f, _sessiondata->_settings->generation.allowBacktrackFailedInputs, 1, 2 /*cannot backtrack on length 1*/);
+						auto itr = inputs.begin();
+						while (itr != inputs.end() && (int32_t)targets.size() < _sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration) {
+							if (targets.contains(*itr) == false && (_sessiondata->_settings->generation.maxNumberOfFailsPerSource == 0 || _sessiondata->_settings->generation.maxNumberOfFailsPerSource > (*itr)->GetDerivedFails()) && (_sessiondata->_settings->generation.maxNumberOfGenerationsPerSource == 0 || _sessiondata->_settings->generation.maxNumberOfGenerationsPerSource > (*itr)->GetDerivedInputs())) {
+								// check that the length of the source is longer than min backtrack, such that it can be extended in the first place
+								if (((*itr)->GetOracleResult() == OracleResult::Unfinished &&
+											(*itr)->Length() > _sessiondata->_settings->methods.IterativeConstruction_Extension_Backtrack_min ||
+										(*itr)->GetOracleResult() == OracleResult::Failing &&
+											(int32_t)(*itr)->Length() > _sessiondata->_settings->methods.IterativeConstruction_Backtrack_Backtrack_min) &&
+									(*itr)->HasFlag(Input::Flags::DeltaDebugged) == false) {
+									targets.insert(*itr);
+									loginfo("Found New Source: {}", Input::PrintForm(*itr));
+								}
+							}
+							itr++;
+						}
+						frac += _sessiondata->_settings->dd.optimizationLossThreshold;
+					}
+					if ((int32_t)targets.size() < _sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration) {
+						auto vec = _sessiondata->FindKSources(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration - (int32_t)targets.size(), std::set<std::shared_ptr<Input>>{ targets.begin(), targets.end() }, _sessiondata->_settings->generation.allowBacktrackFailedInputs, 1, 2 /*cannot backtrack on length 1*/);
+						for (auto input : vec) {
+							targets.insert(input);
+						}
+					}
 				}
 				break;
 			case Settings::GenerationSourcesType::FilterSecondaryScore:
 				{
-					if (_sessiondata->_settings->generation.allowBacktrackFailedInputs)
-						topk = _sessiondata->GetTopK_Secondary((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));
+					/* if (_sessiondata->_settings->generation.allowBacktrackFailedInputs)
+						targets = _sessiondata->GetTopK_Secondary((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));
 					else
-						topk = _sessiondata->GetTopK_Secondary_Unfinished((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));
+						targets = _sessiondata->GetTopK_Secondary_Unfinished((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));*/
+
+					std::set<std::shared_ptr<Input>, InputGainGreaterSecondary> inputs;
+					auto top = _sessiondata->GetTopK_Secondary(1);
+
+					if (top.size() > 0)
+						max = top[0]->GetSecondaryScore();
+					// if the max is 0 just run loop a single time since 0 is the minimal value for primaryScore
+					if (max == 0.0f)
+						frac = 1.0f;
+					while ((int32_t)targets.size() < _sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration && frac <= 1.0) {
+						loginfo("Iteration with fractal: {}, and maxPrimaryScore: {}", frac, max);
+						inputs.clear();
+						// we don't filter for secondary score at this point
+						generation->GetAllInputs<InputGainGreaterSecondary>(inputs, true, (max - (max * frac)), -1.f, _sessiondata->_settings->generation.allowBacktrackFailedInputs, 1, 2 /*cannot backtrack on length 1*/);
+						auto itr = inputs.begin();
+						while (itr != inputs.end() && (int32_t)targets.size() < _sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration) {
+							if (targets.contains(*itr) == false && (_sessiondata->_settings->generation.maxNumberOfFailsPerSource == 0 || _sessiondata->_settings->generation.maxNumberOfFailsPerSource > (*itr)->GetDerivedFails()) && (_sessiondata->_settings->generation.maxNumberOfGenerationsPerSource == 0 || _sessiondata->_settings->generation.maxNumberOfGenerationsPerSource > (*itr)->GetDerivedInputs())) {
+								// check that the length of the source is longer than min backtrack, such that it can be extended in the first place
+								if (((*itr)->GetOracleResult() == OracleResult::Unfinished &&
+											(*itr)->Length() > _sessiondata->_settings->methods.IterativeConstruction_Extension_Backtrack_min ||
+										(*itr)->GetOracleResult() == OracleResult::Failing &&
+											(int32_t)(*itr)->Length() > _sessiondata->_settings->methods.IterativeConstruction_Backtrack_Backtrack_min) &&
+									(*itr)->HasFlag(Input::Flags::DeltaDebugged) == false) {
+									targets.insert(*itr);
+									loginfo("Found New Source: {}", Input::PrintForm(*itr));
+								}
+							}
+							itr++;
+						}
+						frac += _sessiondata->_settings->dd.optimizationLossThreshold;
+					}
+					if ((int32_t)targets.size() < _sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration) {
+						auto vec = _sessiondata->FindKSources(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration - (int32_t)targets.size(), std::set<std::shared_ptr<Input>>{ targets.begin(), targets.end() }, _sessiondata->_settings->generation.allowBacktrackFailedInputs, 1, 2 /*cannot backtrack on length 1*/);
+						for (auto input : vec) {
+							targets.insert(input);
+						}
+					}
 				}
 				break;
 			}
 
 			// indicates whether we were able to start delta debugging
 			bool begun = false;
-			for (auto ptr : topk) {
+			int32_t count = 0;
+			for (auto ptr : targets) {
+				if (count >= (int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration))
+					break;
 				auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
 				callback->_generation = _sessiondata->GetCurrentGeneration();
 				callback->_sessiondata = _sessiondata;
 				auto ddcontroller = SessionFunctions::BeginDeltaDebugging(_sessiondata, ptr, callback, false);
 				if (ddcontroller) {
 					_sessiondata->GetCurrentGeneration()->AddDDController(ddcontroller);
+					count++;
 					begun = true;
 					loginfo("Startet Delta Debugging for Input: {}", Input::PrintForm(ptr));
 				}
@@ -1094,17 +1189,6 @@ namespace Functions
 				_sessiondata->GetCurrentGeneration()->GetNumberOfDDControllers(),
 				_sessiondata->GetCurrentGeneration()->GetDDSize());
 			auto generation = _sessiondata->GetCurrentGeneration();
-			if (_sessiondata->_controller->GetNumThreads() == 1 && _sessiondata->_controller->GetWaitingLightJobs() > 0)
-			{
-				// if we only have one thread running, put ourselves back into waiting queue and 
-				// give the taskhandler a chance to execute the waiting light tasks first
-				auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
-				callback->_sessiondata = _sessiondata;
-				callback->_generation = _generation;
-				_sessiondata->_controller->AddTask(callback, true);
-				return;
-			}
-			while (generation->GetActiveInputs() > 0 && _sessiondata->_exechandler->WaitingTasks() > 0 || _sessiondata->_controller->GetWaitingLightJobs() > 0);
 			if (_sessiondata->GetCurrentGeneration()->IsDeltaDebuggingActive() == false && 
 				_sessiondata->_generationFinishing.compare_exchange_strong(exp, true) /*if there are multiple callbacks for the same generation, make sure that only one gets executed, i.e. the fastest*/) {
 				if (SessionFunctions::EndCheck(_sessiondata, true)) {

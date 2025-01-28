@@ -650,10 +650,10 @@ int32_t main(int32_t argc, char** argv)
 			CmdArgs::_clearTasks = true;
 		} else if (option.find("--reloadconfig") != std::string::npos) {
 			std::cout << "Parameter: --reloadconfig\n";
-			CmdArgs::_updateGrammar = true;
+			CmdArgs::_reloadConfig = true;
 		} else if (option.find("--update-grammar") != std::string::npos) {
 			std::cout << "Parameter: --update-grammar\n";
-			CmdArgs::_reloadConfig = true;
+			CmdArgs::_updateGrammar = true;
 		} else if (option.find("--logtoconsole") != std::string::npos) {
 			std::cout << "Parameter: --logtoconsole\n";
 			Logging::StdOutError = true;
@@ -1141,7 +1141,7 @@ int32_t main(int32_t argc, char** argv)
 			}
 
 			// show window with advanced stats
-			if (showAdvancedWindow) {
+			if (showAdvancedWindow && !destroying) {
 				static bool wopen = true;
 				ImGui::Begin("Advanced", &wopen);
 				if (wopen) {
@@ -1202,7 +1202,7 @@ int32_t main(int32_t argc, char** argv)
 				ImGui::End();
 			}
 
-			if (showTaskWindow) {
+			if (showTaskWindow && !destroying) {
 				static bool wopen = true;
 				ImGui::Begin("Task Window", &wopen);
 				if (wopen) {
@@ -1223,7 +1223,7 @@ int32_t main(int32_t argc, char** argv)
 			}
 
 			// show inpu stats
-			if (showInput) {
+			if (showInput && !destroying) {
 				static bool wopen = true;
 				ImGui::Begin("Input Information", &wopen);
 				if (wopen) {
@@ -1281,7 +1281,7 @@ int32_t main(int32_t argc, char** argv)
 				ImGui::End();
 			}
 
-			if (showThreadStatus) {
+			if (showThreadStatus && !destroying) {
 				static bool wopen = true;
 				ImGui::Begin("Thread Status", &wopen);
 				if (wopen) {
@@ -1339,7 +1339,7 @@ int32_t main(int32_t argc, char** argv)
 			}
 
 			// show window with information about generations
-			if (showGeneration) {
+			if (showGeneration && !destroying) {
 				static bool wopen = true;
 				ImGui::Begin("Generation", &wopen);
 				if (wopen && session->Loaded()) {
@@ -1483,7 +1483,7 @@ int32_t main(int32_t argc, char** argv)
 				ImGui::End();
 			}
 
-			if (showPositiveInputs)
+			if (showPositiveInputs && !destroying)
 			{
 				static bool wopen = true;
 				ImGui::Begin("Positive Inputs", &wopen);
@@ -1580,7 +1580,7 @@ int32_t main(int32_t argc, char** argv)
 			}
 
 			// show window with information about the best generated inputs
-			if (showTopK) {
+			if (showTopK && !destroying) {
 				static bool wopen = true;
 				ImGui::Begin("Inputs", &wopen);
 				if (wopen) {
@@ -1688,7 +1688,7 @@ int32_t main(int32_t argc, char** argv)
 			}
 
 			// show window with information about function execution times
-			if (showProfiling) {
+			if (showProfiling && !destroying) {
 				static bool wopen = true;
 				ImGui::Begin("Profiling", &wopen);
 				if (wopen) {
@@ -1774,7 +1774,7 @@ int32_t main(int32_t argc, char** argv)
 			}
 
 			// delta debugging
-			if (showDeltaDebugging) {
+			if (showDeltaDebugging && !destroying) {
 				static bool wopen = true;
 				ImGui::Begin("Delta Debugging", &wopen);
 				if (wopen) {

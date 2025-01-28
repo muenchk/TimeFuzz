@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <queue>
 #include <random>
+#include <regex>
 
 #include "Utility.h"
 #include "TaskController.h"
@@ -56,6 +57,14 @@ public:
 		/// Produces the empty word
 		/// </summary>
 		ProduceEmptyWord = 0x8,
+		/// <summary>
+		/// node produces characters according to a character class
+		/// </summary>
+		TerminalCharClass = 0x10,
+		TerminalCharClassAscii = 0x20,
+		TerminalCharClassAlpha = 0x40,
+		TerminalCharClassAlphaNumeric = 0x80,
+		TerminalCharClassDigit = 0x100,
 	};
 
 	enum class NodeType : EnumType

@@ -230,6 +230,23 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 
 	int32_t actions = 0;
 
+	if (input->GetGenerated() == false && input->derive && input->derive->_valid)
+	{
+		input->Lock();
+		input->derive->Lock();
+		locklist.push_back(input);
+		locklist.push_back(input->derive);
+		if (input->derive->_valid)
+		{
+			actions++;
+			bool ret = BuildSequence(input);
+			profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
+			unlock();
+			return ret;
+		}
+		unlock();
+	}
+
 	// if we don't have this special case above, we
 	// need to go over the other options, which might require looping over parents
 	std::stack<std::pair<std::shared_ptr<Input>, std::shared_ptr<Input>>> forward;
@@ -359,50 +376,51 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 			// derivation trees, even though the _input forms themselves don't have
 			// the derived sequences
 			if (inp->HasFlag(Input::Flags::GeneratedGrammarParent)) {
-				if (inp->derive && inp->derive->GetRegenerate() == true) {
-					// now extend input
-					if (inp->HasFlag(Input::Flags::GeneratedGrammarParentBacktrack)) {
-						gram->Extend(par, inp->derive, true, inp->derive->_targetlen, inp->derive->_seed);
-						if (inp->derive->_valid == false) {
-							unlock();
-							return false;
+				if (inp->derive && inp->derive->_valid == false) {
+					if (inp->derive && inp->derive->GetRegenerate() == true) {
+						// now extend input
+						if (inp->HasFlag(Input::Flags::GeneratedGrammarParentBacktrack)) {
+							gram->Extend(par, inp->derive, true, inp->derive->_targetlen, inp->derive->_seed);
+							if (inp->derive->_valid == false) {
+								unlock();
+								return false;
+							}
+						} else {
+							gram->Extend(par, inp->derive, false, inp->derive->_targetlen, inp->derive->_seed);
+							if (inp->derive->_valid == false) {
+								unlock();
+								return false;
+							}
 						}
 					} else {
-						gram->Extend(par, inp->derive, false, inp->derive->_targetlen, inp->derive->_seed);
-						if (inp->derive->_valid == false) {
-							unlock();
-							return false;
+						// this is a new input
+						std::uniform_int_distribution<signed> dist(sessiondata->_settings->generation.generationLengthMin, sessiondata->_settings->generation.generationLengthMax);
+						int32_t sequencelen = dist(randan);
+						// now extend input
+						if (inp->HasFlag(Input::Flags::GeneratedGrammarParentBacktrack)) {
+							gram->Extend(par, inp->derive, true, sequencelen, (unsigned int)(std::chrono::system_clock::now().time_since_epoch().count()));
+							if (inp->derive->_valid == false) {
+								unlock();
+								return false;
+							}
+						} else {
+							gram->Extend(par, inp->derive, false, sequencelen, (unsigned int)(std::chrono::system_clock::now().time_since_epoch().count()));
+							if (inp->derive->_valid == false) {
+								unlock();
+								return false;
+							}
 						}
+						// set parent information and flags
+						inp->SetParentGenerationInformation(parent->GetFormID());
+						// increase number of inputs derived from parent
+						par->IncDerivedInputs();
 					}
-				} else {
-					// this is a new input
-					std::uniform_int_distribution<signed> dist(sessiondata->_settings->generation.generationLengthMin, sessiondata->_settings->generation.generationLengthMax);
-					int32_t sequencelen = dist(randan);
-					// now extend input
-					if (inp->HasFlag(Input::Flags::GeneratedGrammarParentBacktrack)) {
-						gram->Extend(par, inp->derive, true, sequencelen, (unsigned int)(std::chrono::system_clock::now().time_since_epoch().count()));
-						if (inp->derive->_valid == false) {
-							unlock();
-							return false;
-						}
-					} else {
-						gram->Extend(par, inp->derive, false, sequencelen, (unsigned int)(std::chrono::system_clock::now().time_since_epoch().count()));
-						if (inp->derive->_valid == false) {
-							unlock();
-							return false;
-						}
-					}
-					// set parent information and flags
-					inp->SetParentGenerationInformation(parent->GetFormID());
-					// increase number of inputs derived from parent
-					par->IncDerivedInputs();
-
-					// build sequence
-					bool ret = BuildSequence(inp);
-					profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
-					unlock();
-					return ret;
 				}
+				// build sequence
+				bool ret = BuildSequence(inp);
+				profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
+				unlock();
+				return ret;
 			} else {
 				// case already fully handled above
 			}

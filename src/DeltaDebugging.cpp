@@ -178,7 +178,9 @@ namespace DeltaDebugging
 		_callback.clear();
 		_bestScore = { 0.0f, 0.0f };
 		_level = 2;
-		delete _params;
+		if (_params)
+			delete _params;
+		_params = nullptr;
 	}
 
 	bool DeltaController::Start(DDParameters* params, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback)

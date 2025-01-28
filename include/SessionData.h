@@ -286,7 +286,7 @@ private:
 	std::chrono::steady_clock::time_point _cleanup;
 	std::chrono::seconds _cleanup_period = std::chrono::seconds(60);
 
-	const int32_t classversion = 0x1;
+	const int32_t classversion = 0x2;
 
 	inline static bool _registeredFactories = false;
 
@@ -534,6 +534,12 @@ public:
 	void Delete(Data*) override { Clear(); }
 	static void RegisterFactories();
 	size_t MemorySize() override;
+
+	#pragma endregion
+
+private:
+
+	#pragma region HelperFunctions
 
 	#pragma endregion
 };

@@ -538,9 +538,9 @@ void ExecutionHandler::TestStarter(std::shared_ptr<stop_token> stoken)
 	while (_stopHandler == false || _finishtests || stoken->stop_requested() == false) {
 		newtests = 0;
 		// while we are not at the max concurrent tests, there are tests waiting to be executed and we are not FROZEN
-		if (_currentTests < _maxConcurrentTests && (_waitingTestsExec.size() > 0 || _waitingTests.size() > 0) && (!_frozen || _frozen && _freeze_waitfortestcompletion)) {
+		if (_currentTests + newtests < _maxConcurrentTests && (_waitingTestsExec.size() > 0 || _waitingTests.size() > 0) && (!_frozen || _frozen && _freeze_waitfortestcompletion)) {
 			std::unique_lock<std::mutex> guards(_lockqueue);
-			while (_currentTests < _maxConcurrentTests && (_waitingTestsExec.size() > 0 || _waitingTests.size() > 0)) {
+			while (_currentTests + newtests < _maxConcurrentTests && (_waitingTestsExec.size() > 0 || _waitingTests.size() > 0)) {
 				testweak.reset();
 				{
 					if (_waitingTestsExec.size() > 0) {

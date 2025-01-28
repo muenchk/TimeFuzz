@@ -71,7 +71,7 @@ void Settings::Load(std::wstring path, bool reload)
 	// general
 	general.usehardwarethreads = ini.GetBoolValue("General", general.usehardwarethreads_NAME, general.usehardwarethreads);
 	loginfo("{}{} {}", "General:          ", general.usehardwarethreads_NAME, general.usehardwarethreads);
-	general.numthreads = ini.GetBoolValue("General", general.numthreads_NAME, general.numthreads);
+	general.numthreads = (int32_t)ini.GetLongValue("General", general.numthreads_NAME, general.numthreads);
 	loginfo("{}{} {}", "General:          ", general.numthreads_NAME, general.numthreads);
 	general.numcomputingthreads = (int32_t)ini.GetLongValue("General", general.numcomputingthreads_NAME, general.numcomputingthreads);
 	loginfo("{}{} {}", "General:          ", general.numcomputingthreads_NAME, general.numcomputingthreads);
@@ -652,8 +652,6 @@ bool Settings::WriteData(std::ostream* buffer, size_t& offset)
 
 bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
-	if (_skipread)
-		return true;
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
 	case 0x1:

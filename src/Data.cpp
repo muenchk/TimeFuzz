@@ -798,20 +798,16 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 									break;
 								case FormType::Settings:
 									{
-										if (!loadArgs.skipSettings) {
-											//logdebug("Read Record:      Settings");
-											auto sett = CreateForm<Settings>();
-											bool res = sett->ReadData(&save, _actionrecord_offset, rlen, _lresolve);
-											if (_actionrecord_offset > rlen)
-												res = false;
-											if (res) {
-												stats._Settings++;
-											} else {
-												stats._Fail++;
-												logcritical("Failed Record:    Settings");
-											}
+										//logdebug("Read Record:      Settings");
+										auto sett = CreateForm<Settings>();
+										bool res = sett->ReadData(&save, _actionrecord_offset, rlen, _lresolve);
+										if (_actionrecord_offset > rlen)
+											res = false;
+										if (res) {
+											stats._Settings++;
 										} else {
-											loginfo("Skipped Reading Record:    Settings");
+											stats._Fail++;
+											logcritical("Failed Record:    Settings");
 										}
 									}
 									break;

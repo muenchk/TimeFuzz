@@ -35,7 +35,6 @@ void Session::LoadSession_Async(Data* dat, std::string name, int32_t number, Loa
 {
 	Data::LoadSaveArgs loadArgs;
 	if (args) {
-		loadArgs.skipSettings = args->reloadSettings;
 		loadArgs.skipExlusionTree = args->skipExclusionTree;
 	}
 	if (number == -1)
@@ -71,6 +70,12 @@ void Session::LoadSession_Async(Data* dat, std::string name, int32_t number, Loa
 		{
 			sessdata->_generator->SetGrammar(sessdata->_grammar);
 		}
+	}
+	// relaod settings
+	if (args->reloadSettings)
+	{
+		auto sett = dat->CreateForm<Settings>();
+		sett->Load(args->settingsPath);
 	}
 	bool error = false;
 	if (args && args->clearTasks) {
@@ -111,8 +116,6 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, LoadSessionArgs&
 		asyncargs->settingsPath = loadargs.settingsPath;
 		asyncargs->loadNewGrammar = loadargs.loadNewGrammar;
 		asyncargs->clearTasks = loadargs.clearTasks;
-		if (loadargs.reloadSettings)
-			sett->SkipRead();
 	}
 	std::thread th(LoadSession_Async, dat, name, -1, asyncargs);
 	th.detach();
@@ -145,8 +148,6 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, 
 		asyncargs->settingsPath = loadargs.settingsPath;
 		asyncargs->loadNewGrammar = loadargs.loadNewGrammar;
 		asyncargs->clearTasks = loadargs.clearTasks;
-		if (loadargs.reloadSettings)
-			sett->SkipRead();
 	}
 	std::thread th(LoadSession_Async, dat, name, number, asyncargs);
 	th.detach();
@@ -280,6 +281,17 @@ void Session::StopSession(bool savesession, bool stopHandler)
 void Session::DestroySession()
 {
 	// delete everything. If this isn't called the session is likely to persist until the program ends
+	if (_sessiondata) {
+		// stop executionhandler first, so no more new tests are started and the
+		// taskcontroller can catch up if necessary
+		if (_sessiondata->_exechandler) {
+			_sessiondata->_exechandler->StopHandler();
+		}
+		// stop controller
+		if (_sessiondata->_controller) {
+			_sessiondata->_controller->Stop(false);
+		}
+	}
 	_loaded = false;
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	_lastError = 0;
