@@ -111,7 +111,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 		std::shared_ptr<TaskController> taskcontrol = CreateForm<TaskController>();
 		std::shared_ptr<ExecutionHandler> execcontrol = CreateForm<ExecutionHandler>();
 		taskcontrol->RequestFreeze();
-		execcontrol->Freeze(false);
+		execcontrol->Freeze(true);
 		taskcontrol->Freeze();
 
 		// write main information about savefile: name, _savenumber, nextformid, _runtime etc.
