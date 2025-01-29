@@ -88,6 +88,14 @@
       }
     },
     {
+      "name": "generator-ninja-fixedpath",
+      "hidden": true,
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_MAKE_PROGRAM": "/usr/bin/ninja"
+      }
+    },
+    {
       "name": "clang",
       "hidden": true,
       "cacheVariables": {
@@ -103,8 +111,8 @@
       "name": "gnu",
       "hidden": true,
       "cacheVariables": {
-        "CMAKE_C_COMPILER": "gcc-14",
-        "CMAKE_CXX_COMPILER": "g++-14"
+        "CMAKE_C_COMPILER": "gcc-13",
+        "CMAKE_CXX_COMPILER": "g++-13"
       },
       "environment": {
         "PROJECT_COMPILER": "GNU",
@@ -314,7 +322,7 @@
         "ui",
         "x64",
         "gnu",
-        "generator-ninja",
+        "generator-ninja-fixedpath",
         "build-tests"
       ],
       "displayName": "Linux",
@@ -335,7 +343,7 @@
         "vcpkg-linux",
         "x64",
         "gnu",
-        "generator-ninja",
+        "generator-ninja-fixedpath",
         "build-tests"
       ],
       "displayName": "Linux",
