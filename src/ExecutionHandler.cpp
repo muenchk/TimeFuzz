@@ -528,7 +528,7 @@ void ExecutionHandler::StopTest(std::shared_ptr<Test> test)
 
 void ExecutionHandler::TestStarter(std::shared_ptr<stop_token> stoken)
 {
-	std::chrono::nanoseconds waittime = std::chrono::seconds(1);
+	std::chrono::nanoseconds waittime = std::chrono::microseconds(100);
 	if (!_settings->fixes.disableExecHandlerSleep)
 		waittime = _waittime;
 	std::shared_ptr<Test> test;
