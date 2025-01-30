@@ -523,6 +523,29 @@ std::string Snapshot(bool full)
 	return snap.str();
 }
 
+void SaveStatus()
+{
+	static auto time = std::chrono::system_clock::now();
+	if (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - time).count() >= (long long)CmdArgs::_saveStatusSeconds) {
+		time = std::chrono::system_clock::now();
+		std::string snap = Snapshot(true);
+		if (!std::filesystem::exists(std::filesystem::path(CmdArgs::workdir / "status")))
+			std::filesystem::create_directories(std::filesystem::path(CmdArgs::workdir / "status"));
+		auto days = std::chrono::floor<std::chrono::days>(time);
+		std::chrono::year_month_day ymd { days};
+		std::chrono::hh_mm_ss td{std::chrono::floor<std::chrono::seconds>(time - days) };
+		auto path = CmdArgs::workdir / "status" /
+		            (status.sessionname + "_" + std::to_string(static_cast<int>(ymd.year())) + "_" + std::to_string(static_cast<unsigned>(ymd.month())) + "_" + std::to_string(static_cast<unsigned>(ymd.day())) + "_" + std::to_string(td.hours().count()) + "_" + std::to_string(td.minutes().count()) + "_" + std::to_string(td.seconds().count()) + ".txt");
+		std::ofstream out(path);
+		if (out.is_open()) {
+			out.write(snap.c_str(), snap.size());
+			out.flush();
+		} else
+			logcritical("Cannot open file for status.");
+		out.close();
+	}
+}
+
 void StartSession()
 {
 	// -----Start the session or do whatever-----
@@ -614,7 +637,8 @@ int32_t main(int32_t argc, char** argv)
 		"    --update-grammar           - Loads a new grammar and sets it as the default grammar for generation\n"
 		"    --No-ExclusionTree         - Skips the loading of data from the exclusion tree\n"
 		"    --debug                    - Enable debug logging\n"
-		"    --clear-tasks              - clears all tasks and active tests from the session\n";
+		"    --clear-tasks              - clears all tasks and active tests from the session\n"
+		"    --save-status <time / sec> - saves the current status every x seconds\n";
 
 	std::string logpath = "";
 	bool logtimestamps = false;
@@ -667,6 +691,21 @@ int32_t main(int32_t argc, char** argv)
 		} else if (option.find("--consoleui") != std::string::npos) {
 			std::cout << "Parameter: --consoleui\n";
 			CmdArgs::_consoleUI = true;
+		} else if (option.find("--save-status") != std::string::npos) {
+			if (i + 1 < argc) {
+				std::cout << "Parameter: --save-status\n";
+				try {
+					CmdArgs::_saveStatusSeconds = std::stoi(std::string(argv[i + 1]));
+				} catch (std::exception&) {
+					std::cerr << "missing number of seconds to save status";
+					exit(ExitCodes::ArgumentError);
+				}
+				CmdArgs::_saveStatus = true;
+				i++;
+			} else {
+				std::cerr << "missing name of save to load";
+				exit(ExitCodes::ArgumentError);
+			}
 		} else if (option.find("--load") != std::string::npos) {
 			if (i + 1 < argc) {
 				std::cout << "Parameter: --load\n";
@@ -974,6 +1013,10 @@ int32_t main(int32_t argc, char** argv)
 
 			// get session status
 			session->GetStatus(status);
+
+			if (CmdArgs::_saveStatus)
+				SaveStatus();
+
 			displayadd = true;
 
 			static UI::UIGeneration ActiveGeneration;
@@ -2155,6 +2198,8 @@ Responsive:
 		session->SetSessionEndCallback(endCallback);
 		// stops loop
 		while (!stop) {
+			if (CmdArgs::_saveStatus)
+				SaveStatus();
 			// read commands from cmd and act on them
 			std::string line;
 			getline(std::cin, line);
@@ -2211,6 +2256,9 @@ Responsive:
 			clearScreen();
 			moveTo(1, 1);
 			std::cout << Snapshot(false);
+
+			if (CmdArgs::_saveStatus)
+				SaveStatus();
 		}
 
 		restoreConsole();

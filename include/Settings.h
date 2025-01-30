@@ -39,6 +39,8 @@ public:
 	static inline bool _doNotLoadExclusionTree = false;
 	static inline bool _clearTasks = false;
 	static inline bool _consoleUI = false;
+	static inline bool _saveStatus = false;
+	static inline int32_t _saveStatusSeconds = 60;
 };
 
 enum class RangeSkipOptions
