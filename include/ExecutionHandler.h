@@ -358,6 +358,11 @@ public:
 	bool IsFrozen();
 
 	/// <summary>
+	/// Clears all active and waiting tests 
+	/// </summary>
+	void ClearTests();
+
+	/// <summary>
 	/// Returns the number of waiting tests
 	/// </summary>
 	/// <returns></returns>
@@ -383,8 +388,6 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	ExecHandlerStatus GetThreadStatus();
-
-	void ClearTests();
 
 	size_t GetStaticSize(int32_t version = 0x1) override;
 	size_t GetDynamicSize() override;

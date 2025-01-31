@@ -315,6 +315,11 @@ public:
 	void Thaw();
 
 	/// <summary>
+	/// Clears all waiting tasks
+	/// </summary>
+	void ClearTasks();
+
+	/// <summary>
 	/// returns whether the controller is currently frozen
 	/// </summary>
 	/// <returns></returns>
@@ -324,8 +329,6 @@ public:
 	/// Disables Lua support
 	/// </summary>
 	inline void SetDisableLua() { _disableLua = true; }
-
-	void ClearTasks();
 
 	/// <summary>
 	/// Returns the number of completed jobs

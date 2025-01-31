@@ -359,23 +359,6 @@ int32_t TaskController::GetWaitingMediumJobs()
 	return (int32_t)_tasks_medium.size();
 }
 
-void TaskController::ClearTasks()
-{
-	std::unique_lock<std::mutex> guard(_lock);
-	while (_tasks.empty() == false) {
-		_tasks.front()->Dispose();
-		_tasks.pop_front();
-	}
-	while (_tasks_light.empty() == false) {
-		_tasks_light.front()->Dispose();
-		_tasks_light.pop_front();
-	}
-	while (_tasks_medium.empty() == false) {
-		_tasks_medium.front()->Dispose();
-		_tasks_medium.pop_front();
-	}
-}
-
 size_t TaskController::GetStaticSize(int32_t version)
 {
 	static size_t size0x1 = 4     // version
@@ -614,6 +597,8 @@ void TaskController::Freeze()
 			frozen &= _status[i] == ThreadStatus::Waiting;
 	}
 	_lock.lock();
+	_lockLight.lock();
+	_lockMedium.lock();
 	loginfo("Frozen execution.");
 }
 
@@ -627,10 +612,43 @@ void TaskController::Thaw()
 	loginfo("Thawing execution...");
 	_freeze = false;
 	_lock.unlock();
+	_lockLight.unlock();
+	_lockMedium.unlock();
 	_condition.notify_all();
 	_condition_light.notify_all();
 	_condition_medium.notify_all();
 	loginfo("Resumed execution.");
+}
+
+void TaskController::ClearTasks()
+{
+	bool locks = false;
+	if (!IsFrozen())
+	{
+		// was not frozen so get lock first
+		_lock.lock();
+		_lockLight.lock();
+		_lockMedium.lock();
+		locks = true;
+	}
+	while (_tasks.empty() == false) {
+		_tasks.front()->Dispose();
+		_tasks.pop_front();
+	}
+	while (_tasks_light.empty() == false) {
+		_tasks_light.front()->Dispose();
+		_tasks_light.pop_front();
+	}
+	while (_tasks_medium.empty() == false) {
+		_tasks_medium.front()->Dispose();
+		_tasks_medium.pop_front();
+	}
+	if (locks)
+	{
+		_lock.unlock();
+		_lockLight.unlock();
+		_lockMedium.unlock();
+	}
 }
 
 void TaskController::GetThreadStatus(std::vector<ThreadStatus>& status)

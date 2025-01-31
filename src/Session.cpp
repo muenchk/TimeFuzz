@@ -261,14 +261,32 @@ void Session::StopSession(bool savesession, bool stopHandler)
 	_abort = true;
 	_sessionControlWait.notify_all();
 	if (_sessiondata) {
-		// stop executionhandler first, so no more new tests are started and the 
-		// taskcontroller can catch up if necessary
-		if (_sessiondata->_exechandler && stopHandler) {
-			_sessiondata->_exechandler->StopHandler();
-		}
-		// stop controller
-		if (_sessiondata->_controller && stopHandler) {
-			_sessiondata->_controller->Stop(false);
+		if (stopHandler) {
+			// stop executionhandler first, so no more new tests are started and the
+			// taskcontroller can catch up if necessary
+			if (_sessiondata->_exechandler) {
+				_sessiondata->_exechandler->StopHandler();
+			}
+			// stop controller
+			if (_sessiondata->_controller) {
+				_sessiondata->_controller->Stop(false);
+			}
+		} else {
+			// we don't want to stop the handlers, after all we might want to check stuff, etc.
+			// so try freezing them and delete any active tasks and tests
+			// this will effectively end the session and any ongoing stuff, without affecting the 
+			// availability of the handlers
+			if (_sessiondata->_controller)
+				_sessiondata->_controller->Freeze();
+			if (_sessiondata->_exechandler) {
+				_sessiondata->_exechandler->Freeze(false);
+				_sessiondata->_exechandler->ClearTests();
+				_sessiondata->_exechandler->Thaw();
+			}
+			if (_sessiondata->_controller) {
+				_sessiondata->_controller->ClearTasks();
+				_sessiondata->_controller->Thaw();
+			}
 		}
 	}
 	

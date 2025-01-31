@@ -877,25 +877,35 @@ int32_t ExecutionHandler::GetStoppingTests()
 
 void ExecutionHandler::ClearTests()
 {
-	std::unique_lock<std::mutex> guard(_lockqueue);
+	// get top level lock so we cannot get into conflict with top level functions when erasing the tests
+	std::unique_lock<std::mutex> guardtop(_toplevelsync);
+	// get lock on queue so we do not conflict with AddTests
+	std::unique_lock<std::mutex> guardqueue(_lockqueue);
+
+	std::unique_lock<std::mutex> guardstart(_startingLock);
 	while (!_waitingTests.empty()) {
 		std::weak_ptr<Test> test = _waitingTests.front();
 		_waitingTests.pop_front();
-		if (auto ptr = test.lock(); ptr && _session->data)
-			_session->data->DeleteForm(ptr);
 	}
 	while (!_waitingTestsExec.empty()) {
 		std::weak_ptr<Test> test = _waitingTestsExec.front();
 		_waitingTestsExec.pop_front();
 		if (auto ptr = test.lock(); ptr && _session->data)
-			_session->data->DeleteForm(ptr);
+			ptr->InValidatePreExec();
 	}
 	for (auto test : _runningTests) {
-		if (auto ptr = test.lock(); ptr) {
+		if (auto ptr = test.lock(); ptr && ptr->IsRunning()) {
 			ptr->KillProcess();
 			StopTest(ptr);
 		}
 	}
+	while (!_startingTests.empty()) {
+		std::shared_ptr<Test> test = _startingTests.front();
+		_startingTests.pop();
+		test->InValidatePreExec();
+
+	}
+	_currentTests = 0;
 }
 
 size_t ExecutionHandler::GetStaticSize(int32_t version)
