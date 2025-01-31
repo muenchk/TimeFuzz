@@ -92,7 +92,7 @@ std::string Snapshot(bool full)
 		snap << fmt::format("Unfinished Tests:  {}", status.unfinishedTests) << "\n";
 		snap << fmt::format("Undefined Tests:   {}", status.undefinedTests) << "\n";
 		snap << fmt::format("Pruned Tests:      {}", status.prunedTests) << "\n";
-		snap << fmt::format("Runtime:           {} s", std::chrono::duration_cast<std::chrono::seconds>(status.runtime).count()) << "\n";
+		snap << fmt::format("Runtime:           {} s", Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(status.runtime).count())) << "\n";
 		snap << "\n";
 		snap << fmt::format("Status:    {}", status.status.c_str());
 		snap << "\n";
@@ -1091,7 +1091,7 @@ int32_t main(int32_t argc, char** argv)
 						ImGui::Text("Unfinished Tests:  %llu", status.unfinishedTests);
 						ImGui::Text("Undefined Tests:   %llu", status.undefinedTests);
 						ImGui::Text("Pruned Tests:      %llu", status.prunedTests);
-						ImGui::Text("Runtime:           %llu s", std::chrono::duration_cast<std::chrono::seconds>(status.runtime).count());
+						ImGui::Text("Runtime:           %s", Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(status.runtime).count()).c_str());
 
 						ImGui::NewLine();
 						ImGui::Text("Status:    %s", status.status.c_str());
