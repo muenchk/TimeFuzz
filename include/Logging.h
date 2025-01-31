@@ -155,6 +155,7 @@ public:
 			public:
 		std::string functionName;
 		std::chrono::nanoseconds exectime;
+		uint64_t executions = 0;
 		std::chrono::nanoseconds average;
 		std::chrono::steady_clock::time_point lastexec;
 		std::string fileName;
@@ -234,7 +235,8 @@ public:
 		{
 			itr->second->Lock();
 			itr->second->functionName = func;
-			itr->second->average = std::chrono::nanoseconds((long long)(itr->second->exectime.count() * 0.98 + ns.count() * 0.02));
+			itr->second->average = std::chrono::nanoseconds((long long)(itr->second->exectime.count() * itr->second->executions + ns.count()) / (itr->second->executions + 1));
+			itr->second->executions++;
 			itr->second->exectime = ns;
 			itr->second->lastexec = time;
 			itr->second->fileName = file;
@@ -249,6 +251,7 @@ public:
 			exec->functionName = func;
 			exec->average = ns;
 			exec->exectime = ns;
+			exec->executions = 1;
 			exec->lastexec = time;
 			exec->fileName = file;
 			exec->usermessage = usermes;

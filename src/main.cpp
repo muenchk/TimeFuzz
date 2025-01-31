@@ -397,6 +397,7 @@ std::string Snapshot(bool full)
 		while (count < 100 && itr != Profile::exectimes.end()) {
 			Profile::ExecTime* exec = itr->second;
 			dimElements[count].ns = exec->exectime;
+			dimElements[count].executions = exec->executions;
 			dimElements[count].average = exec->average;
 			dimElements[count].time = exec->lastexec;
 			dimElements[count].func = exec->functionName;
@@ -408,11 +409,11 @@ std::string Snapshot(bool full)
 		}
 
 		snap << "Profile Times:\n";
-		snap << fmt::format("{:<20} {:<30} {:<15} {:<15} {:<15} {}", "File", "Function", "Exec Time", "Average ExecT", "Last executed", "Message") << "\n";
+		snap << fmt::format("{:<20} {:<30} {:<15} {:<15} {:<15} {:<15} {}", "File", "Function", "Exec Time", "Average ExecT", "Last executed", "Executions", "Message") << "\n";
 
 		for (int i = 0; i < count; i++) {
 			auto item = &dimElements[i];
-			snap << fmt::format("{:<20} {:<30} {:<15}{:<15} {:<15} {}", item->file, item->func, Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(item->ns).count()), Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(item->average).count()) , Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - item->time).count()), item->usermes) << "\n";
+			snap << fmt::format("{:<20} {:<30} {:<15} {:<15} {:<15} {:<15} {}", item->file, item->func, Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(item->ns).count()), Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(item->average).count()) , Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - item->time).count()), item->executions, item->usermes) << "\n";
 		}
 	}
 	snap << "\n\n";
@@ -1746,6 +1747,7 @@ int32_t main(int32_t argc, char** argv)
 						while (count < 100 && itr != Profile::exectimes.end()) {
 							Profile::ExecTime* exec = itr->second;
 							dimElements[count].ns = exec->exectime;
+							dimElements[count].executions = exec->executions;
 							dimElements[count].average = exec->average;
 							dimElements[count].time = exec->lastexec;
 							dimElements[count].func = exec->functionName;
@@ -1771,12 +1773,13 @@ int32_t main(int32_t argc, char** argv)
 						//PushStyleCompact
 						//...
 						//PopStyleCompact
-						if (ImGui::BeginTable("itemtable", 6, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * rownum), 0.0f)) {
+						if (ImGui::BeginTable("itemtable", 7, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * rownum), 0.0f)) {
 							ImGui::TableSetupColumn("File", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIExecTime::ColumnID::ExecTimeFile);
 							ImGui::TableSetupColumn("Function", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIExecTime::ColumnID::ExecTimeFunction);
 							ImGui::TableSetupColumn("Exec Time", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIExecTime::ColumnID::ExecTimeNano);
 							ImGui::TableSetupColumn("Average Time", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIExecTime::ColumnID::ExecTimeAverage);
 							ImGui::TableSetupColumn("Last executed", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIExecTime::ColumnID::ExecTimeLast);
+							ImGui::TableSetupColumn("Executions", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIExecTime::ColumnID::ExecTimeExecutions);
 							ImGui::TableSetupColumn("Message", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIExecTime::ColumnID::ExecTimeUserMes);
 							ImGui::TableSetupScrollFreeze(0, 1);
 							ImGui::TableHeadersRow();
@@ -1801,6 +1804,8 @@ int32_t main(int32_t argc, char** argv)
 									ImGui::TextUnformatted(Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(item->average).count()).c_str());
 									ImGui::TableNextColumn();
 									ImGui::TextUnformatted(Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - item->time).count()).c_str());
+									ImGui::TableNextColumn();
+									ImGui::Text("%llu", item->executions);
 									ImGui::TableNextColumn();
 									ImGui::TextUnformatted(item->usermes.c_str());
 									ImGui::PopID();
