@@ -166,6 +166,12 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "Generation:       ", generation.generationalMode_NAME, generation.generationalMode);
 	generation.activeGeneratedInputs = (int32_t)ini.GetLongValue("Generation", generation.activeGeneratedInputs_NAME, generation.activeGeneratedInputs);
 	loginfo("{}{} {}", "Generation:       ", generation.activeGeneratedInputs_NAME, generation.activeGeneratedInputs);
+	generation.chance_new_generations = (int32_t)ini.GetLongValue("Generation", generation.chance_new_generations_NAME, generation.chance_new_generations);
+	loginfo("{}{} {}", "Generation:       ", generation.chance_new_generations_NAME, generation.chance_new_generations);
+	if (generation.chance_new_generations > 100)
+		generation.chance_new_generations = 100;
+	else if (generation.chance_new_generations < 0)
+		generation.chance_new_generations = 0;
 
 	generation.generationtweakstart = (float)ini.GetDoubleValue("Generation", generation.generationtweakstart_NAME, generation.generationtweakstart);
 	loginfo("{}{} {}", "Generation:       ", generation.generationtweakstart_NAME, generation.generationtweakstart);
@@ -330,7 +336,7 @@ void Settings::Save(std::wstring _path)
 	ini.SetValue("SaveFiles", saves.savepath_NAME, saves.savepath.c_str(),
 		"\\\\ The path at which saves will be stored.");
 	ini.SetValue("SaveFiles", saves.savename_NAME, saves.savename.c_str(),
-		"\\\\ The name of savefiles.");
+		"\\\\ The name of savefiles. [Do not use UNDERSCORE, may include other sign including Whitespaces]");
 	ini.SetLongValue("SaveFiles", saves.compressionLevel_NAME, saves.compressionLevel,
 		"\\\\ CompressionLevel used for LZMA savefile compression\n"
 		"\\\\ Set to -1 to disable compression.");
@@ -386,6 +392,12 @@ void Settings::Save(std::wstring _path)
 		"After a generation has been finished additional methods are applied and \n"
 		"a new generation is generated based on the prior one.");
 	ini.SetLongValue("Generation", generation.generationsize_NAME, generation.generationsize, "\\\\ Maximum generated inputs per generation cycle.");
+	ini.SetLongValue("Generation", generation.chance_new_generations_NAME, generation.chance_new_generations,
+		"\\\\ Chance that a completely new random input is generated instead of \n"
+		"\\\\ extending or backtracking an existing prior input.\n"
+		"\\\\ This only applies to the second generation and later, \n"
+		"\\\\ as only random inputs are being generation in the first generation.\n"
+		"\\\\ [Max: 100, Min:0]");
 	ini.SetDoubleValue("Generation", generation.generationtweakstart_NAME, generation.generationtweakstart, "\\\\ Starting parameter for automatic generationsize scaling.");
 	ini.SetDoubleValue("Generation", generation.generationtweakmax_NAME, generation.generationtweakmax, "\\\\ Max parameter for automatic generationsize scaling.");
 

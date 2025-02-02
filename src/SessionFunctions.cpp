@@ -744,6 +744,9 @@ namespace Functions
 		StartProfiling;
 		logdebug("[MasterGenerationCallback] generation");
 
+		auto randan = std::mt19937((unsigned int)std::chrono::steady_clock::now().time_since_epoch().count());
+		auto gendistr = std::uniform_int_distribution<signed>(1, 100);
+
 		while (true) {
 			// get readers lock for input generation
 			_sessiondata->Acquire_InputGenerationReadersLock();
@@ -800,7 +803,7 @@ namespace Functions
 				}
 				else
 					input = SessionFunctions::GenerateInput(_sessiondata);*/
-				if (gen->HasSources())
+				if (gen->HasSources() && (_sessiondata->_settings->generation.chance_new_generations == 0 || _sessiondata->_settings->generation.chance_new_generations >= gendistr(randan)))
 				{
 					auto parent = gen->GetRandomSource();
 					if (parent)
