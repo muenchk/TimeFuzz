@@ -6,7 +6,7 @@ if ("${EnableUI}" STREQUAL "ON")
 endif()
 
 project(TimeFuzz
-	VERSION 0.0.1
+	VERSION 1.0.0
 	LANGUAGES C CXX
 )
 include(GNUInstallDirs)

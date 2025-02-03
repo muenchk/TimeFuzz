@@ -517,6 +517,7 @@ size_t Settings::GetStaticSize(int32_t version)
 	                 + 4      // Generation::generationLengthMin
 	                 + 4      // Generation::generationLengthMax
 	                 + 4      // Generation::sourcesType
+	                 + 4      // Generation::chance_new_generations
 	                 + 8      // Generation::maxNumberOfFailsPerSource
 	                 + 8      // Generation::maxNumberOfGenerationsPerSource
 	                 + 1      // Optimization::disableExclusionTree
@@ -533,7 +534,8 @@ size_t Settings::GetStaticSize(int32_t version)
 	                 + 4      // Controller::numHeavyThreads
 	                 + 4      // Controller::numAllThreads
 	                 + 1      // Fixes::disableExecHandlerSleep
-	                 + 1;     // Fixes::repeatTimeoutedTests
+	                 + 1;     // Fixes::repeatTimeoutedTest
+	            
 
 	switch (version) {
 	case 0x1:
@@ -633,6 +635,7 @@ bool Settings::WriteData(std::ostream* buffer, size_t& offset)
 	Buffer::Write((int32_t)generation.sourcesType, buffer, offset);
 	Buffer::Write(generation.maxNumberOfFailsPerSource, buffer, offset);
 	Buffer::Write(generation.maxNumberOfGenerationsPerSource, buffer, offset);
+	Buffer::Write(generation.chance_new_generations, buffer, offset);
 	// optimization
 	Buffer::Write(optimization.disableExclusionTree, buffer, offset);
 	// saves
@@ -744,6 +747,7 @@ bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, Loa
 			generation.sourcesType = (GenerationSourcesType)Buffer::ReadInt32(buffer, offset);
 			generation.maxNumberOfFailsPerSource = Buffer::ReadUInt64(buffer, offset);
 			generation.maxNumberOfGenerationsPerSource = Buffer::ReadUInt64(buffer, offset);
+			generation.chance_new_generations = Buffer::ReadInt32(buffer, offset);
 			// optimization
 			optimization.disableExclusionTree = Buffer::ReadBool(buffer, offset);
 			// saves

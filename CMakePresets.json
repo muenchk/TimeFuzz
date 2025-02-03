@@ -116,7 +116,7 @@
       },
       "environment": {
         "PROJECT_COMPILER": "GNU",
-        "PROJECT_COMPILER_FLAGS": "-Wno-overloaded-virtual -Wno-multichar -Wno-inconsistent-missing-override  -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format"
+        "PROJECT_COMPILER_FLAGS": "-Wno-overloaded-virtual -Wno-multichar -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format"
       }
     },
     {
