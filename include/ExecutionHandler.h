@@ -202,6 +202,14 @@ private:
 	/// </summary>
 	bool _frozen = false;
 	/// <summary>
+	/// response to freezing
+	/// </summary>
+	bool _frozenStarter = false;
+	/// <summary>
+	/// condition used to work with frozen TestStarter
+	/// </summary>
+	std::condition_variable _freezecond;
+	/// <summary>
 	/// locks access to _stoppingtests to provide a consistent evironment during freeze
 	/// </summary>
 	std::mutex _freezelock;

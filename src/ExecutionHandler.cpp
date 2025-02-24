@@ -537,6 +537,19 @@ void ExecutionHandler::TestStarter(std::shared_ptr<stop_token> stoken)
 	int32_t newtests = 0;
 	while (_stopHandler == false || _finishtests || stoken->stop_requested() == false) {
 		newtests = 0;
+		if (_freeze)
+		{
+			_frozenStarter = true;
+			_freezecond.wait_for(guard, std::chrono::milliseconds(100), [this] { return _stopHandler || !_freeze; });
+			if (_freeze)
+				continue;
+		}
+		else
+		{
+			if (_frozenStarter)
+				_frozenStarter = false;
+		}
+		
 		// while we are not at the max concurrent tests, there are tests waiting to be executed and we are not FROZEN
 		if (_currentTests + newtests < _maxConcurrentTests && (_waitingTestsExec.size() > 0 || _waitingTests.size() > 0) && (!_frozen || _frozen && _freeze_waitfortestcompletion)) {
 			std::unique_lock<std::mutex> guards(_lockqueue);
@@ -852,6 +865,7 @@ void ExecutionHandler::Thaw()
 {
 	loginfo("Thawing execution...");
 	_freeze = false;
+	_freezecond.notify_all();
 	loginfo("Resumed execution.");
 }
 
