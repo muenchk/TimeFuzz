@@ -564,7 +564,20 @@ void GrammarTree::Construct()
 					// if the rule is a terminal get the terminal and create a node
 					else {
 						std::string iden = productions[i];
-						Utility::RemoveSymbols(iden, '\"', '\\');
+						if (iden.substr(0, 2).find("\\x") != std::string::npos)
+						{
+							int ascii = 0;
+							try {
+								ascii = std::stoi(iden.substr(2, iden.size()), nullptr, 16);
+								iden = std::string(1, char(ascii));
+							}
+							catch (std::exception& )
+							{
+								Utility::RemoveSymbols(iden, '\"', '\\');
+							}
+						} else {
+							Utility::RemoveSymbols(iden, '\"', '\\');
+						}
 						auto tnode = std::make_shared<GrammarNode>();
 						tnode->_derivation = "";
 						tnode->_identifier = iden;
