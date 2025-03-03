@@ -240,7 +240,7 @@ std::shared_ptr<Input> Generation::GetRandomSource()
 				;
 
 		// do stuff
-		std::vector<std::shared_ptr<Input>>::iterator itr = _sources.end();
+		/*std::vector<std::shared_ptr<Input>>::iterator itr = _sources.end();
 		size_t count = _sources.size();
 		while (count > 0) {
 			if (_sourcesIter != _sources.end()) {
@@ -253,6 +253,22 @@ std::shared_ptr<Input> Generation::GetRandomSource()
 			} else
 				_sourcesIter = _sources.begin();
 			count--;
+		}*/
+		int32_t idx = -1;
+		size_t count = _sources.size();
+		while (count > 0)
+		{
+			if (_sourcesIter < _sources.size())
+			{
+				if ((_maxDerivedFailingInputs == 0 || _sources[_sourcesIter]->GetDerivedFails() < _maxDerivedFailingInputs) &&
+					(_maxDerivedInputs == 0 || _sources[_sourcesIter]->GetDerivedInputs() < _maxDerivedInputs)) {
+					idx = _sourcesIter++;
+					break;
+				} else
+					_sourcesIter++;
+			} else
+				_sourcesIter = 0;
+			count--;
 		}
 
 		// exit flag
@@ -260,8 +276,13 @@ std::shared_ptr<Input> Generation::GetRandomSource()
 #if defined(__cpp_lib_atomic_wait) && __cpp_lib_atomic_wait >= 201907L
 		_sourcesFlag.notify_one();
 #endif
-		if (itr != _sources.end())
-			return *itr;
+		//if (itr != _sources.end()) {
+			//logmessage("ID: {}", Utility::GetHex((*itr)->GetFormID()));
+			//return *itr;
+		if (idx != -1) {
+			logmessage("ID: {}", Utility::GetHex(_sources[idx]->GetFormID()));
+			return _sources[idx];
+		}
 		else
 			return {};
 	} else
@@ -284,7 +305,7 @@ void Generation::AddSource(std::shared_ptr<Input> input)
 		_sources.resize(_sources.size() + 1);
 		_sources[_sources.size() -1] = input;
 		_sourcesDistr = std::uniform_int_distribution<signed>(0, (uint32_t)_sources.size() - 1);
-		_sourcesIter = _sources.begin();
+		//_sourcesIter = _sources.begin();
 
 		// exit flag
 		_sourcesFlag.clear(std::memory_order_release);
@@ -513,7 +534,8 @@ bool Generation::ReadData(std::istream* buffer, size_t& offset, size_t length, L
 			}
 			if (_sources.size() > 0)
 				_sourcesDistr = std::uniform_int_distribution<signed>(0, (uint32_t)_sources.size() - 1);
-			_sourcesIter = _sources.begin();
+			//_sourcesIter = _sources.begin();
+			_sourcesIter = 0;
 		});
 		if (version == 0x2) {
 			_maxDerivedFailingInputs = Buffer::ReadUInt64(buffer, offset);
@@ -543,7 +565,8 @@ void Generation::Clear()
 	_ddInputs.clear();
 	_ddControllers.clear();
 	_sources.clear();
-	_sourcesIter = _sources.end();
+	//_sourcesIter = _sources.end();
+	_sourcesIter = (int32_t)_sources.size();
 	_sourcesDistr = std::uniform_int_distribution<signed>(0, 0);
 	_generationNumber = 0;
 }

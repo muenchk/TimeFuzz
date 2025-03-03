@@ -827,7 +827,7 @@ namespace Functions
 				}
 				else
 					input = SessionFunctions::GenerateInput(_sessiondata);*/
-				if (gen->HasSources() && (_sessiondata->_settings->generation.chance_new_generations == 0 || _sessiondata->_settings->generation.chance_new_generations >= gendistr(randan)))
+				if (gen->HasSources() && (_sessiondata->_settings->generation.chance_new_generations == 0 || _sessiondata->_settings->generation.chance_new_generations < gendistr(randan)))
 				{
 					auto parent = gen->GetRandomSource();
 					if (parent)

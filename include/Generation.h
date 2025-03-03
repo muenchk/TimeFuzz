@@ -260,7 +260,8 @@ private:
 	/// </summary>
 	std::vector<std::shared_ptr<Input>> _sources;
 
-	std::vector<std::shared_ptr<Input>>::iterator _sourcesIter;
+	//std::vector<std::shared_ptr<Input>>::iterator _sourcesIter;
+	int32_t _sourcesIter = 0;
 
 	std::atomic_flag _sourcesFlag = ATOMIC_FLAG_INIT;
 
