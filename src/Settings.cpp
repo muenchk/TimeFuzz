@@ -390,9 +390,9 @@ void Settings::Save(std::wstring _path)
 		"\\\\ When executing Delta Debugging in Score Optimization mode, the first, last, or no element\n"
 		"\\\\ of a passage with no score progress are skipped.\n"
 		"\\\\ [0 - None, 1 - Skip First, 2 - Skip Last\n");
-	ini.SetLongValue("DeltaDebugging", dd.batchprocessing_NAME, (long)dd.batchprocessing, 
+	ini.SetLongValue("DeltaDebugging", dd.batchprocessing_NAME, (long)dd.batchprocessing,
 		"\\\\ Processes tests in batches of [value] and stops when a satisfying input has been processed,\n"
-		"\\\\ skipping all others in the same iteration.")
+		"\\\\ skipping all others in the same iteration.");
 
 
 	// generation

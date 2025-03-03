@@ -75,6 +75,22 @@ int32_t UIDeltaDebugging::GetLevel()
 	return _ddcontroller->GetLevel();
 }
 
+
+int32_t UIDeltaDebugging::GetSkippedTests()
+{
+	return _ddcontroller->GetSkippedTests();
+}
+
+int32_t UIDeltaDebugging::GetPrefixTests()
+{
+	return _ddcontroller->GetPrefixTests();
+}
+
+int32_t UIDeltaDebugging::GetInvalidTests()
+{
+	return _ddcontroller->GetInvalidTests();
+}
+
 bool UIDeltaDebugging::Finished()
 {
 	return _ddcontroller->Finished();

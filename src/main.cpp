@@ -473,6 +473,9 @@ std::string Snapshot(bool full)
 			snap << fmt::format("Mode:  {}", dd.GetMode().c_str()) << "\n";
 			snap << fmt::format("Level: {}", dd.GetLevel()) << "\t\t";
 			snap << fmt::format("Total Tests: {}", dd.GetTotalTests()) << "\n";
+			snap << fmt::format("Skipped Tests: {}", dd.GetSkippedTests()) << "\n";
+			snap << fmt::format("Prefix Tests: {}", dd.GetPrefixTests()) << "\n";
+			snap << fmt::format("Invalid Tests: {}", dd.GetInvalidTests()) << "\n";
 			snap << fmt::format("Tests done: {}", dd.GetTests()) << "\t\t";
 			snap << fmt::format("Tests Remaining: {}", dd.GetTestsRemaining()) << "\n";
 			snap << "\n";
@@ -1896,6 +1899,11 @@ int32_t main(int32_t argc, char** argv)
 						ImGui::Text("Level: %d", dd.GetLevel());
 						ImGui::SameLine(300);
 						ImGui::Text("Total Tests: %d", dd.GetTotalTests());
+						ImGui::Text("Skipped Tests: %d", dd.GetSkippedTests());
+						ImGui::SameLine(300);
+						ImGui::Text("Prefix Tests: %d", dd.GetPrefixTests());
+						ImGui::SameLine(600);
+						ImGui::Text("Invalid Tests: %d", dd.GetInvalidTests());
 						ImGui::Text("Tests done: %d", dd.GetTests());
 						ImGui::SameLine(300);
 						ImGui::Text("Tests Remaining: %d", dd.GetTestsRemaining());

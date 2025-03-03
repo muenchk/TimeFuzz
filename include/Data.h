@@ -135,6 +135,10 @@ private:
 	/// </summary>
 	std::chrono::nanoseconds _runtime = std::chrono::nanoseconds(0);
 	/// <summary>
+	/// whether session has ended
+	/// </summary>
+	bool _endedSession = false;
+	/// <summary>
 	/// load resolver, used to resolve forms after loading has been completed
 	/// </summary>
 	LoadResolver* _lresolve;
@@ -231,10 +235,24 @@ public:
 	/// </summary>
 	void StartClock();
 	/// <summary>
+	/// stops runtime clock
+	/// </summary>
+	void EndClock()
+	{
+		_endedSession = true;
+		_runtime += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - _sessionBegin);
+	}
+	/// <summary>
 	/// Returns the overall session runtime
 	/// </summary>
 	/// <returns></returns>
-	std::chrono::nanoseconds GetRuntime() { return _runtime + std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - _sessionBegin); }
+	std::chrono::nanoseconds GetRuntime()
+	{
+		if (!_endedSession)
+			return _runtime + std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - _sessionBegin);
+		else
+			return _runtime;
+	}
 
 	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 	void RecycleObject(std::shared_ptr<T> form)

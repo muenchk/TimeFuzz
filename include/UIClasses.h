@@ -126,6 +126,9 @@ namespace UI
 		int32_t GetTests();
 		int32_t GetTotalTests();
 		int32_t GetLevel();
+		int32_t GetSkippedTests();
+		int32_t GetPrefixTests();
+		int32_t GetInvalidTests();
 		bool Finished();
 		void GetResults(std::vector<UIDDResult>& results, size_t& size);
 		void GetOriginalInput(UIInput& input);
