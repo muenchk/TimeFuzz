@@ -1018,27 +1018,6 @@ namespace Functions
 				}
 				break;
 			case Settings::GenerationSourcesType::FilterPrimaryScoreRelative:
-				{
-					/* if (_sessiondata->_settings->generation.allowBacktrackFailedInputs)
-						targets = _sessiondata->GetTopK((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));
-					else
-						targets = _sessiondata->GetTopK_Unfinished((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));*/
-
-					auto top = _sessiondata->GetTopK(1);
-
-					if (top.size() > 0)
-						max = top[0]->GetPrimaryScore();
-
-					FilterFunctions::FilterSet<InputGainGreaterPrimary>(_sessiondata, generation, targets, max, frac, true, true, _sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration);
-					
-					if ((int32_t)targets.size() < _sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration) {
-						auto vec = _sessiondata->FindKSources(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration - (int32_t)targets.size(), std::set<std::shared_ptr<Input>>{ targets.begin(), targets.end() }, _sessiondata->_settings->generation.allowBacktrackFailedInputs, 1, 2 /*cannot backtrack on length 1*/);
-						for (auto input : vec) {
-							targets.insert(input);
-						}
-					}
-				}
-				break;
 			case Settings::GenerationSourcesType::FilterPrimaryScore:
 				{
 					auto top = _sessiondata->GetTopK(1);
@@ -1057,28 +1036,6 @@ namespace Functions
 			}
 			break;
 			case Settings::GenerationSourcesType::FilterSecondaryScoreRelative:
-				{
-					/* if (_sessiondata->_settings->generation.allowBacktrackFailedInputs)
-						targets = _sessiondata->GetTopK_Secondary((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));
-					else
-						targets = _sessiondata->GetTopK_Secondary_Unfinished((int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration));*/
-
-
-					auto top = _sessiondata->GetTopK_Secondary(1);
-
-					if (top.size() > 0)
-						max = top[0]->GetSecondaryScore();
-
-					FilterFunctions::FilterSet<InputGainGreaterSecondary>(_sessiondata, generation, targets, max, frac, true, false, _sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration);
-
-					if ((int32_t)targets.size() < _sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration) {
-						auto vec = _sessiondata->FindKSources(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration - (int32_t)targets.size(), std::set<std::shared_ptr<Input>>{ targets.begin(), targets.end() }, _sessiondata->_settings->generation.allowBacktrackFailedInputs, 1, 2 /*cannot backtrack on length 1*/);
-						for (auto input : vec) {
-							targets.insert(input);
-						}
-					}
-				}
-				break;
 			case Settings::GenerationSourcesType::FilterSecondaryScore:
 				{
 					auto top = _sessiondata->GetTopK_Secondary(1);
