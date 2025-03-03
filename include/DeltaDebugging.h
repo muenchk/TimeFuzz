@@ -115,6 +115,10 @@ namespace DeltaDebugging
 		/// delta debugging tests bypass regular tests
 		/// </summary>
 		bool bypassTests = false;
+		/// <summary>
+		/// max number of tests to be run
+		/// </summary>
+		int32_t budget = 0;
 
 		DDMode mode = DDMode::Standard;
 	};

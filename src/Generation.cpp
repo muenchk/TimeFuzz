@@ -280,7 +280,7 @@ std::shared_ptr<Input> Generation::GetRandomSource()
 			//logmessage("ID: {}", Utility::GetHex((*itr)->GetFormID()));
 			//return *itr;
 		if (idx != -1) {
-			logmessage("ID: {}", Utility::GetHex(_sources[idx]->GetFormID()));
+			//logmessage("ID: {}", Utility::GetHex(_sources[idx]->GetFormID()));
 			return _sources[idx];
 		}
 		else

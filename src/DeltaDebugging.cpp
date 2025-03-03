@@ -310,6 +310,10 @@ namespace DeltaDebugging
 			// check for stage completion
 			if (_activetests == 0) {
 				if (_batchlock.try_lock()) {
+					// check whether we have exceeded our budget
+					if (_params->budget != 0 && _params->budget <= _totaltests)
+						_stopbatch = true;
+
 					if (_stopbatch) {
 						// stop batch, delete all waiting tests and call evaluate
 						_skippedTests += _remainingtests;
@@ -963,8 +967,12 @@ namespace DeltaDebugging
 							_input = rinputs[dist(randan)];
 							// adjust level
 							_level = std::max(_level - 1, 2);
-							// run next generation
-							StandardGenerateNextLevel();
+							// run next generation if budget hasn't been exceeded
+							if (_params->budget != 0 && _params->budget <= _totaltests) {
+								_finished = true;
+								Finish();
+							} else
+								StandardGenerateNextLevel();
 						}
 						break;
 					case DDGoal::MaximizeBothScores:
@@ -986,8 +994,12 @@ namespace DeltaDebugging
 							_input = inp;
 							// adjust level
 							_level = std::max(_level - 1, 2);
-							// run next generation
-							StandardGenerateNextLevel();
+							// run next generation if budget hasn't been exceeded
+							if (_params->budget != 0 && _params->budget <= _totaltests) {
+								_finished = true;
+								Finish();
+							} else
+								StandardGenerateNextLevel();
 						}
 						break;
 					case DDGoal::MaximizeSecondaryScore:
@@ -1008,8 +1020,12 @@ namespace DeltaDebugging
 							_input = inp;
 							// adjust level
 							_level = std::max(_level - 1, 2);
-							// run next generation
-							StandardGenerateNextLevel();
+							// run next generation if budget hasn't been exceeded
+							if (_params->budget != 0 && _params->budget <= _totaltests) {
+								_finished = true;
+								Finish();
+							} else
+								StandardGenerateNextLevel();
 						}
 						break;
 					}
@@ -1071,7 +1087,12 @@ namespace DeltaDebugging
 					// no inputs were found that reproduce the original result
 					// so we increase the level and try new sets of inputs
 					_level = std::min(_level * 2, (int32_t)_input->Length());
-					StandardGenerateNextLevel();
+					// run next generation if budget hasn't been exceeded
+					if (_params->budget != 0 && _params->budget <= _totaltests) {
+						_finished = true;
+						Finish();
+					} else
+						StandardGenerateNextLevel();
 				} else {
 					// set new base _input
 					_input = passing[0];
@@ -1079,8 +1100,12 @@ namespace DeltaDebugging
 						_bestScore = { _input->GetPrimaryScore(), 0.0f };
 					// adjust level
 					_level = std::max(_level - 1, 2);
-					// run next generation
-					StandardGenerateNextLevel();
+					// run next generation if budget hasn't been exceeded
+					if (_params->budget != 0 && _params->budget <= _totaltests) {
+						_finished = true;
+						Finish();
+					} else
+						StandardGenerateNextLevel();
 				}
 			}
 			break;
@@ -1139,7 +1164,12 @@ namespace DeltaDebugging
 					// no inputs were found that reproduce the original result
 					// so we increase the level and try new sets of inputs
 					_level = std::min(_level * 2, (int32_t)_input->Length());
-					StandardGenerateNextLevel();
+					// run next generation if budget hasn't been exceeded
+					if (_params->budget != 0 && _params->budget <= _totaltests) {
+						_finished = true;
+						Finish();
+					} else
+						StandardGenerateNextLevel();
 				} else {
 					// set new base _input
 					_input = passing[0];
@@ -1147,8 +1177,12 @@ namespace DeltaDebugging
 						_bestScore = { 0.0f, _input->GetSecondaryScore() };
 					// adjust level
 					_level = std::max(_level - 1, 2);
-					// run next generation
-					StandardGenerateNextLevel();
+					// run next generation if budget hasn't been exceeded
+					if (_params->budget != 0 && _params->budget <= _totaltests) {
+						_finished = true;
+						Finish();
+					} else
+						StandardGenerateNextLevel();
 				}
 			}
 			break;
@@ -1208,7 +1242,12 @@ namespace DeltaDebugging
 					// no inputs were found that reproduce the original result
 					// so we increase the level and try new sets of inputs
 					_level = std::min(_level * 2, (int32_t)_input->Length());
-					StandardGenerateNextLevel();
+					// run next generation if budget hasn't been exceeded
+					if (_params->budget != 0 && _params->budget <= _totaltests) {
+						_finished = true;
+						Finish();
+					} else
+						StandardGenerateNextLevel();
 				} else {
 					// set new base _input
 					_input = passing[0];
@@ -1216,8 +1255,12 @@ namespace DeltaDebugging
 						_bestScore = { _input->GetPrimaryScore(), 0.0f };
 					// adjust level
 					_level = std::max(_level - 1, 2);
-					// run next generation
-					StandardGenerateNextLevel();
+					// run next generation if budget hasn't been exceeded
+					if (_params->budget != 0 && _params->budget <= _totaltests) {
+						_finished = true;
+						Finish();
+					} else
+						StandardGenerateNextLevel();
 				}
 			}
 			break;
@@ -1571,7 +1614,12 @@ namespace DeltaDebugging
 			// no inputs were found that reproduce the original result
 			// so we increase the level and try new sets of inputs
 			_level = std::min(_level * 2, (int32_t)RangeIterator<size_t>(&_inputRanges, _sessiondata->_settings->dd.skipoptions).GetLength());
-			ScoreProgressGenerateNextLevel();
+			// run next generation if budget hasn't been exceeded
+			if (_params->budget != 0 && _params->budget <= _totaltests) {
+				_finished = true;
+				Finish();
+			} else
+				ScoreProgressGenerateNextLevel();
 		} else {
 			// set new base _input
 			_input = passing[0];
@@ -1581,8 +1629,12 @@ namespace DeltaDebugging
 			// adjust level
 			//_level = std::max(_level - 1, 2);
 			_level = 2;
-			// run next generation
-			ScoreProgressGenerateNextLevel();
+			// run next generation if budget hasn't been exceeded
+			if (_params->budget != 0 && _params->budget <= _totaltests) {
+				_finished = true;
+				Finish();
+			} else
+				ScoreProgressGenerateNextLevel();
 		}
 	}
 

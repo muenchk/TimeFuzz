@@ -426,8 +426,17 @@ public:
 		RangeSkipOptions skipoptions = RangeSkipOptions::SkipFirst;
 		const char* skipoptions_NAME = "ScoreProgressSkipOptions";
 
+		/// <summary>
+		/// size of batches that are processed at a time
+		/// </summary>
 		int32_t batchprocessing = 0;
 		const char* batchprocessing_NAME = "BatchProcessing";
+
+		/// <summary>
+		/// max number of tests that may be run by any instance of DD that is executed at the end of each iteration
+		/// </summary>
+		int32_t budgetGenEnd = 0;
+		const char* budgetGenEnd_NAME = "Budget";
 	};
 
 	DeltaDebugging dd;

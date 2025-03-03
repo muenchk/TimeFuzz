@@ -41,7 +41,7 @@ struct InputGainGreaterPrimary
 		//double left = std::log((lhs->Length() / lhs->GetPrimaryScore()) + 1);
 		//double right = std::log((rhs->Length() / rhs->GetPrimaryScore()) + 1);
 		//logwarn("Compare Values.\tOL: {},\tOR: {},\tNL: {},\tNR: {}", oldleft, oldright, left, right);
-		return oldleft > oldright;
+		return oldleft < oldright;
 	}
 };
 
@@ -59,7 +59,7 @@ struct InputGainGreaterSecondary
 	{
 		double left = (lhs->Length() / lhs->GetSecondaryScore());
 		double right = (rhs->Length() / rhs->GetSecondaryScore());
-		return left > right;
+		return left < right;
 	}
 };
 
@@ -254,7 +254,7 @@ public:
 	/// </summary>
 	/// <param name="sessiondata"></param>
 	/// <param name="input"></param>
-	static std::shared_ptr<DeltaDebugging::DeltaController> BeginDeltaDebugging(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback = {}, bool bypassTests = false, DeltaDebugging::DDGoal goal = DeltaDebugging::DDGoal::None, DeltaDebugging::DDGoal secondarygoal = DeltaDebugging::DDGoal::None);
+	static std::shared_ptr<DeltaDebugging::DeltaController> BeginDeltaDebugging(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback = {}, bool bypassTests = false, DeltaDebugging::DDGoal goal = DeltaDebugging::DDGoal::None, DeltaDebugging::DDGoal secondarygoal = DeltaDebugging::DDGoal::None, int32_t budget = 0);
 
 
 private:

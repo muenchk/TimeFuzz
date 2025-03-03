@@ -159,6 +159,8 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "DeltaDebugging:          ", dd.skipoptions_NAME, (long)dd.skipoptions);
 	dd.batchprocessing = ini.GetLongValue("DeltaDebugging", dd.batchprocessing_NAME, dd.batchprocessing);
 	loginfo("{}{} {}", "DeltaDebugging:          ", dd.batchprocessing_NAME, (long)dd.batchprocessing);
+	dd.budgetGenEnd = ini.GetLongValue("DeltaDebugging", dd.budgetGenEnd_NAME, dd.budgetGenEnd);
+	loginfo("{}{} {}", "DeltaDebugging:          ", dd.budgetGenEnd_NAME, (long)dd.budgetGenEnd);
 
 	// generation
 	generation.generationsize = (int32_t)ini.GetLongValue("Generation", generation.generationsize_NAME, generation.generationsize);
@@ -393,6 +395,8 @@ void Settings::Save(std::wstring _path)
 	ini.SetLongValue("DeltaDebugging", dd.batchprocessing_NAME, (long)dd.batchprocessing,
 		"\\\\ Processes tests in batches of [value] and stops when a satisfying input has been processed,\n"
 		"\\\\ skipping all others in the same iteration.");
+	ini.SetLongValue("DeltaDebugging", dd.budgetGenEnd_NAME, (long)dd.budgetGenEnd,
+		"\\\\ Max number of tests that may be run by any instance of DD that is executed at the end of a generation.\n");
 
 
 	// generation
@@ -542,6 +546,7 @@ size_t Settings::GetStaticSize(int32_t version)
 	                 + 4      // DeltaDebugging::skipoptions
 	                 + 1      // DeltaDebugging::runReproduceResultsAfterScoreApproxOnPositive
 	                 + 4      // DeltaDebugging::batchprocessing
+	                 + 4      // DeltaDebugging::budgetGenEnd
 	                 + 1      // Controller::activateSettings
 	                 + 4      // Controller::numLightThreads
 	                 + 4      // Controller::numMediumThreads
@@ -669,6 +674,7 @@ bool Settings::WriteData(std::ostream* buffer, size_t& offset)
 	Buffer::Write((int32_t)dd.skipoptions, buffer, offset);
 	Buffer::Write(dd.runReproduceResultsAfterScoreApproxOnPositive, buffer, offset);
 	Buffer::Write(dd.batchprocessing, buffer, offset);
+	Buffer::Write(dd.budgetGenEnd, buffer, offset);
 	// controller
 	Buffer::Write(controller.activateSettings, buffer, offset);
 	Buffer::Write(controller.numLightThreads, buffer, offset);
@@ -783,6 +789,7 @@ bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, Loa
 			dd.skipoptions = (RangeSkipOptions)Buffer::ReadInt32(buffer, offset);
 			dd.runReproduceResultsAfterScoreApproxOnPositive = Buffer::ReadBool(buffer, offset);
 			dd.batchprocessing = Buffer::ReadInt32(buffer, offset);
+			dd.budgetGenEnd = Buffer::ReadInt32(buffer, offset);
 			// controller
 			controller.activateSettings = Buffer::ReadBool(buffer, offset);
 			controller.numLightThreads = Buffer::ReadInt32(buffer, offset);

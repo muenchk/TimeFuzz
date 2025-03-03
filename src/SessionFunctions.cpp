@@ -657,7 +657,7 @@ void SessionFunctions::GenerateTests(std::shared_ptr<SessionData>& sessiondata)
 	sessiondata->_controller->AddTask(callback);
 }
 
-std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDebugging(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback, bool bypassTests, DeltaDebugging::DDGoal goal, DeltaDebugging::DDGoal secondarygoal)
+std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDebugging(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback, bool bypassTests, DeltaDebugging::DDGoal goal, DeltaDebugging::DDGoal secondarygoal, int32_t budget)
 {
 	if (goal == DeltaDebugging::DDGoal::None)
 		goal = DeltaDebugging::DDGoal::MaximizePrimaryScore;
@@ -704,6 +704,7 @@ std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDeb
 	params->mode = mode;
 	params->bypassTests = bypassTests;
 	params->minimalSubsetSize = (int32_t)sessiondata->_settings->dd.executeAboveLength + 1;
+	params->budget = budget;
 	auto control = sessiondata->data->CreateForm<DeltaDebugging::DeltaController>();
 	if (control->Start(params, sessiondata, input, callback))
 	{
@@ -1106,7 +1107,7 @@ namespace Functions
 				auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
 				callback->_generation = _sessiondata->GetCurrentGeneration();
 				callback->_sessiondata = _sessiondata;
-				auto ddcontroller = SessionFunctions::BeginDeltaDebugging(_sessiondata, ptr, callback, false);
+				auto ddcontroller = SessionFunctions::BeginDeltaDebugging(_sessiondata, ptr, callback, false, DeltaDebugging::DDGoal::None, DeltaDebugging::DDGoal::None, _sessiondata->_settings->dd.budgetGenEnd);
 				if (ddcontroller) {
 					_sessiondata->GetCurrentGeneration()->AddDDController(ddcontroller);
 					count++;
