@@ -595,7 +595,11 @@ size_t Test::GetDynamicSize()
 	            + GetStaticSize(classversion);
 	sz += Buffer::CalcStringLength(_lastwritten);
 	sz += Buffer::ListBasic::GetListLength(_reactiontime);
-	sz += Buffer::CalcStringLength(_output);
+	if (_storeoutput) {
+		sz += Buffer::CalcStringLength(_output);
+	} else {
+		sz += Buffer::CalcStringLength(std::string(""));
+	}
 	//sz += Buffer::CalcStringLength(_cmdArgs);
 	if (_callback)
 		sz += _callback->GetLength();

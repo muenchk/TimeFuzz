@@ -660,7 +660,7 @@ void SessionFunctions::GenerateTests(std::shared_ptr<SessionData>& sessiondata)
 std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDebugging(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback, bool bypassTests, DeltaDebugging::DDGoal goal, DeltaDebugging::DDGoal secondarygoal)
 {
 	if (goal == DeltaDebugging::DDGoal::None)
-		goal = DeltaDebugging::DDGoal::MaximizeBothScores;
+		goal = DeltaDebugging::DDGoal::MaximizePrimaryScore;
 	//if (secondarygoal == DeltaDebugging::DDGoal::None)
 	//	secondarygoal = DeltaDebugging::DDGoal::MaximizeBothScores;
 	DeltaDebugging::DDMode mode = sessiondata->_settings->dd.mode;

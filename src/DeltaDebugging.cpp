@@ -276,19 +276,68 @@ namespace DeltaDebugging
 	void DeltaController::CallbackTest(std::shared_ptr<Input> input)
 	{
 		// update test status
-		_tests++;
-		_remainingtests--;
-		_totaltests++;
 		{
 			std::unique_lock<std::mutex> guard(_completedTestsLock);
 			_completedTests.insert(input);
+
+			_tests++;
+			_remainingtests--;
+			_totaltests++;
+			_activetests--;
 		}
-		// check for stage completion
+		// check if all tests have been run, then go to evaluation directly
 		if (_remainingtests == 0) {
 			// get out of light callback so we aren't blocking vital tasks
 			auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
 			callback->_DDcontroller = _self;
 			_sessiondata->_controller->AddTask(callback);
+			return;
+		}
+		// if there are still tests to be run, do evaluation and stuff
+		if (_sessiondata->_settings->dd.batchprocessing != 0 /*enabled*/) {
+			// evaluate the testcase here and now
+			bool res = false;
+			switch (_params->mode) {
+			case DDMode::Standard:
+				res = StandardEvaluateInput(input);
+				break;
+			case DDMode::ScoreProgress:
+				res = ScoreProgressEvaluateInput(input);
+				break;
+			}
+			if (res)
+				_stopbatch = true;
+			// check for stage completion
+			if (_activetests == 0) {
+				if (_batchlock.try_lock()) {
+					if (_stopbatch) {
+						// stop batch, delete all waiting tests and call evaluate
+						_skippedTests += _remainingtests;
+						_remainingtests = 0;
+						for (auto ptr : _waitingTests) {
+							_sessiondata->data->DeleteForm(ptr->derive);
+							_sessiondata->data->DeleteForm(ptr);
+						}
+						_waitingTests.clear();
+
+						// get out of light callback so we aren't blocking vital tasks
+						auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
+						callback->_DDcontroller = _self;
+						_sessiondata->_controller->AddTask(callback);
+					} else {
+						// start new batch
+						_stopbatch = false;
+						while (_activetests < _sessiondata->_settings->dd.batchprocessing && _waitingTests.empty() == false) {
+							auto inp = _waitingTests.front();
+							_waitingTests.pop_front();
+							if (DoTest(inp) == false)
+								_remainingtests--;
+						}
+					}
+					_batchlock.unlock();
+					return;
+				}
+			}
 		}
 	}
 
@@ -470,6 +519,7 @@ namespace DeltaDebugging
 					if (inp->derive)
 						_sessiondata->data->DeleteForm(inp->derive);
 					_sessiondata->data->DeleteForm(inp);
+					_prefixTests++;
 					return false;
 				}
 			}
@@ -500,6 +550,7 @@ namespace DeltaDebugging
 					if (inp->derive)
 						_sessiondata->data->DeleteForm(inp->derive);
 					_sessiondata->data->DeleteForm(inp);
+					_prefixTests++;
 					return false;
 				}
 			}
@@ -517,6 +568,7 @@ namespace DeltaDebugging
 			logwarn("The split cannot be derived from the grammar.");
 			_sessiondata->data->DeleteForm(inp->derive);
 			_sessiondata->data->DeleteForm(inp);
+			_invalidTests++;
 			return false;
 		}
 
@@ -563,22 +615,36 @@ namespace DeltaDebugging
 		int32_t fails = 0;
 		for (int32_t i = 0; i < (int32_t)inputs.size(); i++) {
 			if (inputs[i]) {
-				auto call = dynamic_pointer_cast<Functions::DDTestCallback>(Functions::DDTestCallback::Create());
-				call->_DDcontroller = _self;
-				call->_input = inputs[i];
-				call->_sessiondata = _sessiondata;
-				// add the tests bypassing regular tests so we can get this done with as fast as possible
-				if (_sessiondata->_exechandler->AddTest(inputs[i], call, _params->bypassTests) == false) {
-					fails++;
-					_sessiondata->IncAddTestFails();
-					_sessiondata->data->DeleteForm(inputs[i]);
-					call->Dispose();
+				if (_activetests < _sessiondata->_settings->dd.batchprocessing || _sessiondata->_settings->dd.batchprocessing == 0 /*disabled*/) {
+					if (DoTest(inputs[i]) == false)
+						fails++;
 				} else
-					_activeInputs.insert(inputs[i]);
+					_waitingTests.push_back(inputs[i]);
+
 			} else
 				fails++;
 		}
 		_remainingtests -= fails;
+	}
+
+	bool DeltaController::DoTest(std::shared_ptr<Input>& input)
+	{
+		auto call = dynamic_pointer_cast<Functions::DDTestCallback>(Functions::DDTestCallback::Create());
+		call->_DDcontroller = _self;
+		call->_input = input;
+		call->_sessiondata = _sessiondata;
+		// add the tests bypassing regular tests so we can get this done with as fast as possible
+		if (_sessiondata->_exechandler->AddTest(input, call, _params->bypassTests) == false) {
+			_sessiondata->IncAddTestFails();
+			_sessiondata->data->DeleteForm(input->derive);
+			_sessiondata->data->DeleteForm(input);
+			call->Dispose();
+			return false;
+		} else {
+			_activeInputs.insert(input);
+			_activetests++;
+		}
+		return true;
 	}
 
 	std::vector<std::shared_ptr<Input>> DeltaController::GenerateComplements(std::vector<DeltaInformation>& splitinfo)
@@ -716,6 +782,8 @@ namespace DeltaDebugging
 		std::vector<DeltaInformation> splitinfo;
 		auto splits = GenerateSplits(_level, splitinfo);
 		auto complements = GenerateComplements(splitinfo);
+
+		_stopbatch = false;
 		
 		double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
 		// set internals
@@ -733,6 +801,87 @@ namespace DeltaDebugging
 			_sessiondata->_controller->AddTask(callback);
 		}
 		profile(TimeProfiling, "Time taken to generate next dd level.");
+	}
+
+	bool DeltaController::StandardEvaluateInput(std::shared_ptr<Input> input)
+	{
+		switch (_params->GetGoal()) {
+		case DDGoal::None:
+			return false;
+			break;
+		case DDGoal::ReproduceResult:
+			{
+				auto oracle = this->_origInput->GetOracleResult();
+				if (oracle != input->GetOracleResult()) {
+					return false;  // doesn't reproduce, return
+				}
+				// we have found an input that reproduces the result and thus we return true, as all requirements are fulfilled
+				return true;
+			}
+			break;
+		case DDGoal::MaximizePrimaryScore:
+			{
+				MaximizePrimaryScore* mpparams = (MaximizePrimaryScore*)_params;
+
+				struct PrimaryLess
+				{
+					bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
+					{
+						return lhs->GetPrimaryScore() == rhs->GetPrimaryScore() ? lhs->GetSecondaryScore() > rhs->GetSecondaryScore() : lhs->GetPrimaryScore() > rhs->GetPrimaryScore();
+					}
+				};
+
+				double l = lossPrimary(input);
+				if (l < mpparams->acceptableLoss) {
+					// we have found an input that reproduces the result and thus we return true, as all requirements are fulfilled
+					return true;
+				}
+				return false;
+			}
+			break;
+		case DDGoal::MaximizeSecondaryScore:
+			{
+				MaximizeSecondaryScore* mpparams = (MaximizeSecondaryScore*)_params;
+
+				struct SecondaryLess
+				{
+					bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
+					{
+						return lhs->GetSecondaryScore() == rhs->GetSecondaryScore() ? lhs->GetPrimaryScore() > rhs->GetSecondaryScore() : lhs->GetSecondaryScore() > rhs->GetSecondaryScore();
+					}
+				};
+
+				double l = lossSecondary(input);
+				if (l < mpparams->acceptableLossSecondary) {
+					// we have found an input that reproduces the result and thus we return true, as all requirements are fulfilled
+					return true;
+				}
+				return false;
+			}
+			break;
+		case DDGoal::MaximizeBothScores:
+			{
+				MaximizeBothScores* mbparams = (MaximizeBothScores*)_params;
+
+				struct PrimaryLess
+				{
+					bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
+					{
+						return lhs->GetPrimaryScore() == rhs->GetPrimaryScore() ? lhs->GetSecondaryScore() > rhs->GetSecondaryScore() : lhs->GetPrimaryScore() > rhs->GetPrimaryScore();
+					}
+				};
+
+				double priml = lossPrimary(input);
+				double seconl = lossSecondary(input);
+				if (priml < mbparams->acceptableLossPrimary && seconl < mbparams->acceptableLossSecondary) {
+					// we have found an input that reproduces the result and thus we return true, as all requirements are fulfilled
+					return true;
+				}
+				return false;
+			}
+			break;
+		}
+		return false;
 	}
 
 	void DeltaController::StandardEvaluateLevel()
@@ -758,15 +907,6 @@ namespace DeltaDebugging
 			}
 			_activeInputs.clear();
 		};
-
-		auto lossPrimary = [this](std::shared_ptr<Input> input) {
-			return 1 - (input->GetPrimaryScore() / _bestScore.first);
-		};
-
-		auto lossSecondary = [this](std::shared_ptr<Input> input) {
-			return 1 - (input->GetSecondaryScore() / _bestScore.second);
-		};
-
 
 		std::unique_lock<std::shared_mutex> guard(_lock);
 		switch (_params->GetGoal()) {
@@ -1128,6 +1268,8 @@ namespace DeltaDebugging
 				Finish();
 		}
 
+		_stopbatch = false;
+
 		auto complements = ScoreProgressGenerateComplements(_level);
 		// set internals
 		_tests = 0;
@@ -1145,6 +1287,55 @@ namespace DeltaDebugging
 			_sessiondata->_controller->AddTask(callback);
 		}
 		profile(TimeProfiling, "Time taken to generate next dd level.");
+	}
+
+	bool DeltaController::ScoreProgressEvaluateInput(std::shared_ptr<Input> input)
+	{
+		switch (_params->GetGoal()) {
+		case DDGoal::MaximizeSecondaryScore:
+			{
+				MaximizeSecondaryScore* msparams = (MaximizeSecondaryScore*)_params;
+				double l = lossSecondary(input);
+				if (l < msparams->acceptableLossSecondary) {
+					return true;
+				}
+				return false;
+			}
+			break;
+		case DDGoal::MaximizePrimaryScore:
+			{
+				MaximizePrimaryScore* mpparams = (MaximizePrimaryScore*)_params;
+				double l = lossPrimary(input);
+				if (l < mpparams->acceptableLoss) {
+					return true;
+				}
+				return false;
+			}
+			break;
+		case DDGoal::MaximizeBothScores:
+			{
+				MaximizeBothScores* mbparams = (MaximizeBothScores*)_params;
+				double priml = lossPrimary(input);
+				double seconl = lossSecondary(input);
+				if (priml < mbparams->acceptableLossPrimary && seconl < mbparams->acceptableLossSecondary) {
+					return true;
+				}
+				return false;
+			}
+			break;
+		case DDGoal::None:
+		case DDGoal::ReproduceResult:
+			{
+				ReproduceResult* rpparams = (ReproduceResult*)_params;
+				auto oracle = _origInput->GetOracleResult();
+				if (oracle == (input)->GetOracleResult()) {
+					return true;
+				}
+				return false;
+			}
+			break;
+		}
+		return false;
 	}
 
 	void DeltaController::ScoreProgressEvaluateLevel()
@@ -1169,14 +1360,6 @@ namespace DeltaDebugging
 				}
 			}
 			_activeInputs.clear();
-		};
-
-		auto lossPrimary = [this](std::shared_ptr<Input> input) {
-			return 1 - (input->GetPrimaryScore() / _bestScore.first);
-		};
-
-		auto lossSecondary = [this](std::shared_ptr<Input> input) {
-			return 1 - (input->GetSecondaryScore() / _bestScore.second);
 		};
 
 		std::unique_lock<std::shared_mutex> guard(_lock);
@@ -1469,18 +1652,23 @@ namespace DeltaDebugging
 		                        + 8    // _input
 		                        + 4    // level
 		                        + 1;   // has callback
-		static size_t size0x2 = 4      // version
-		                        + 4    // tasks
-		                        + 4    // remainingtasks
-		                        + 4    // tests
-		                        + 4    // remainingtests
-		                        + 4    // totaltests
-		                        + 1    // finished
-		                        + 8    // origInput
-		                        + 8    // _input
-		                        + 4    // level
-		                        + 8    // number of callbacks
-		                        + 16;  // best score
+		static size_t size0x2 = 4     // version
+		                        + 4   // tasks
+		                        + 4   // remainingtasks
+		                        + 4   // tests
+		                        + 4   // remainingtests
+		                        + 4   // totaltests
+		                        + 1   // finished
+		                        + 8   // origInput
+		                        + 8   // _input
+		                        + 4   // level
+		                        + 8   // number of callbacks
+		                        + 16  // best score
+		                        + 4   // _skippedTests
+		                        + 4   // _prefixTests
+		                        + 4   // _invalidTests
+		                        + 4   // _activetests
+		                        + 1;  // _stopbatch
 
 		switch (version)
 		{
@@ -1500,7 +1688,8 @@ namespace DeltaDebugging
 		            + 8 /*size of results*/ + (8 + 8 + 8 + 4) * _results.size()  // formids, lossPrimary, lossSecondary, and level in results
 		            + 8 /*size of activeInputs*/ + 8 * _activeInputs.size()      // formids in activeInputs
 		            + 8 /*size of completedTests*/ + 8 * _completedTests.size()  //formids in completedTests
-		            + 4 /*goal type*/ + 8;                                       /*class size*/
+		            + 4 /*goal type*/ + 8                                        /*class size*/
+		            + 8 /*size of waitingTests*/ + 8 * _waitingTests.size();     // formids in waitingTests
 
 		switch (_params->GetGoal()) {
 		case DDGoal::MaximizePrimaryScore:
@@ -1632,6 +1821,15 @@ namespace DeltaDebugging
 		}
 		Buffer::Write(_bestScore.first, buffer, offset);
 		Buffer::Write(_bestScore.second, buffer, offset);
+		Buffer::Write(_skippedTests, buffer, offset);
+		Buffer::Write(_prefixTests, buffer, offset);
+		Buffer::Write(_invalidTests, buffer, offset);
+		Buffer::Write(_activetests, buffer, offset);
+		Buffer::Write(_stopbatch, buffer, offset);
+		// _waitingTests
+		Buffer::WriteSize(_waitingTests.size(), buffer, offset);
+		for (auto ptr : _waitingTests)
+			Buffer::Write(ptr->GetFormID(), buffer, offset);
 		return true;
 	}
 
@@ -1892,6 +2090,24 @@ namespace DeltaDebugging
 				double prim = Buffer::ReadDouble(buffer, offset);
 				_bestScore = { prim,
 					Buffer::ReadDouble(buffer, offset) };
+
+				_skippedTests = Buffer::ReadInt32(buffer, offset);
+				_prefixTests = Buffer::ReadInt32(buffer, offset);
+				_invalidTests = Buffer::ReadInt32(buffer, offset);
+				_activetests = Buffer::ReadInt32(buffer, offset);
+				_stopbatch = Buffer::ReadBool(buffer, offset);
+				// waitingTests
+				size_t waitlen = Buffer::ReadSize(buffer, offset);
+				std::vector<FormID> waitInp;
+				for (size_t i = 0; i < waitlen; i++)
+					waitInp.push_back(Buffer::ReadUInt64(buffer, offset));
+				resolver->AddTask([this, resolver, waitInp]() {
+					for (size_t i = 0; i < waitInp.size(); i++) {
+						auto ptr = resolver->ResolveFormID<Input>(waitInp[i]);
+						if (ptr)
+							_completedTests.insert(ptr);
+					}
+				});
 				return true;
 			}
 			break;

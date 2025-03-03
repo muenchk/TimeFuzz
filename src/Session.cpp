@@ -256,6 +256,7 @@ void Session::StopSession(bool savesession, bool stopHandler)
 	logmessage("Stopping session.");
 	if (savesession)
 		data->Save({});
+	data->EndClock();
 
 	// set abort -> session controller should automatically stop
 	_abort = true;
@@ -834,9 +835,11 @@ void Session::UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k)
 		vec = _sessiondata->GetTopK_Length((int32_t)k);
 		break;
 	case Settings::GenerationSourcesType::FilterPrimaryScore:
+	case Settings::GenerationSourcesType::FilterPrimaryScoreRelative:
 		vec = _sessiondata->GetTopK((int32_t)k);
 		break;
 	case Settings::GenerationSourcesType::FilterSecondaryScore:
+	case Settings::GenerationSourcesType::FilterSecondaryScoreRelative:
 		vec = _sessiondata->GetTopK_Secondary((int32_t)k);
 		break;
 	}

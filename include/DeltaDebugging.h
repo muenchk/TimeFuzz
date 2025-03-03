@@ -199,6 +199,9 @@ namespace DeltaDebugging
 		int32_t GetTestsRemaining() { return _remainingtests; }
 		int32_t GetTestsTotal() { return _totaltests; }
 		int32_t GetLevel() { return _level; }
+		int32_t GetSkippedTests() { return _skippedTests; }
+		int32_t GetPrefixTests() { return _prefixTests; }
+		int32_t GetInvalidTests() { return _invalidTests; }
 		bool Finished() { return _finished; }
 		std::unordered_map<std::shared_ptr<Input>, std::tuple<double, double, int32_t>>* GetResults() { return &_results; }
 		std::shared_ptr<Input> GetInput() { return _input; }
@@ -275,6 +278,12 @@ namespace DeltaDebugging
 		void AddTests(std::vector<std::shared_ptr<Input>>& inputs);
 
 		/// <summary>
+		/// Starts a test
+		/// </summary>
+		/// <param name="input"></param>
+		bool DoTest(std::shared_ptr<Input>& input);
+
+		/// <summary>
 		/// Generates [number] subset from [::_input]
 		/// </summary>
 		/// <param name="number"></param>
@@ -295,6 +304,12 @@ namespace DeltaDebugging
 		/// evaluates a completed level for standard mode
 		/// </summary>
 		void StandardEvaluateLevel();
+		/// <summary>
+		/// evaluates a single input and returns whether it satisfies the DDs requirements
+		/// </summary>
+		/// <param name="input"></param>
+		/// <returns></returns>
+		bool StandardEvaluateInput(std::shared_ptr<Input> input);
 
 		/// <summary>
 		/// Generates subsets from [::_input] with maximum removed length being size
@@ -308,6 +323,13 @@ namespace DeltaDebugging
 		void ScoreProgressGenerateNextLevel();
 
 		void ScoreProgressEvaluateLevel();
+
+		/// <summary>
+		/// evaluates a single input and returns whether it satisfies the DDs requirements
+		/// </summary>
+		/// <param name="input"></param>
+		/// <returns></returns>
+		bool ScoreProgressEvaluateInput(std::shared_ptr<Input> input);
 
 		/// <summary>
 		/// generic cleanup operations
@@ -327,13 +349,26 @@ namespace DeltaDebugging
 		/// </summary>
 		std::atomic<int32_t> _tests = 0;
 		/// <summary>
-		/// number of tests skipped
+		/// number of tests that need to be completed
 		/// </summary>
 		std::atomic<int32_t> _remainingtests = 0;
 		/// <summary>
 		/// total number of tests executed
 		/// </summary>
 		std::atomic<int32_t> _totaltests = 0;
+
+		/// <summary>
+		/// number of tests skipped due to batch processing
+		/// </summary>
+		int32_t _skippedTests = 0;
+		/// <summary>
+		/// number of tests skipped due to prefix
+		/// </summary>
+		int32_t _prefixTests = 0;
+		/// <summary>
+		/// number of generated inputs that are not valid under the grammar
+		/// </summary>
+		int32_t _invalidTests = 0;
 
 		/// <summary>
 		/// whether we are completely done with delta debugging
@@ -366,6 +401,22 @@ namespace DeltaDebugging
 
 		std::pair<double, double> _bestScore = { 0.0f, 0.0f };
 
+
+		/// <summary>
+		/// tests waiting to be executed
+		/// </summary>
+		std::list<std::shared_ptr<Input>> _waitingTests;
+		/// <summary>
+		/// number of currently active tests
+		/// </summary>
+		int32_t _activetests = 0;
+		/// <summary>
+		/// if true, after the current has been completed the iteration is stopped
+		/// </summary>
+		bool _stopbatch = false;
+
+		std::mutex _batchlock;
+
 		/// <summary>
 		/// start parameters of the instance
 		/// </summary>
@@ -375,6 +426,20 @@ namespace DeltaDebugging
 		/// Level of the dd-algorithm. This is a progress variable used differently by the different algorithms
 		/// </summary>
 		int32_t _level = 2;
+
+		#pragma region HelperFunctions
+
+		double lossPrimary(std::shared_ptr<Input> input)
+		{
+			return 1 - (input->GetPrimaryScore() / _bestScore.first);
+		}
+
+		double lossSecondary(std::shared_ptr<Input> input)
+		{
+			return 1 - (input->GetSecondaryScore() / _bestScore.second);
+		}
+
+		#pragma endregion
 	};
 }
 
