@@ -75,8 +75,8 @@ namespace Functions
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<ExecInitTestsCallback>()); }
 		static std::shared_ptr<BaseFunction> CreateFull(std::shared_ptr<SessionData> sessiondata);
-		void Dispose();
-		size_t GetLength();
+		void Dispose() override;
+		size_t GetLength() override;
 	};
 }
 

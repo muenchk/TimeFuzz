@@ -613,7 +613,7 @@ bool Test::WriteData(std::ostream* buffer, size_t& offset)
 	if (auto ptr = _input.lock(); ptr) {
 		Buffer::Write(ptr->GetFormID(), buffer, offset);
 	} else {
-		Buffer::Write((int32_t)0, buffer, offset);
+		Buffer::Write((FormID)0, buffer, offset);
 	}
 	Buffer::Write(_lastwritten, buffer, offset);
 	Buffer::Write(_lasttime, buffer, offset);
@@ -629,6 +629,10 @@ bool Test::WriteData(std::ostream* buffer, size_t& offset)
 	if (_callback)
 		_callback->WriteData(buffer, offset);
 	Buffer::Write(_skipOracle, buffer, offset);
+	if (offset - 12 > GetDynamicSize()) {
+		logcritical("Overflow in Test::WriteData");
+		auto sz = GetDynamicSize();
+	}
 	return true;
 }
 

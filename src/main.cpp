@@ -704,7 +704,7 @@ int32_t main(int32_t argc, char** argv)
 				CmdArgs::_saveStatus = true;
 				i++;
 			} else {
-				std::cerr << "missing name of save to load";
+				std::cerr << "missing number of seconds to save status";
 				exit(ExitCodes::ArgumentError);
 			}
 		} else if (option.find("--load") != std::string::npos) {

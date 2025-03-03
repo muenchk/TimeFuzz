@@ -506,6 +506,16 @@ void SessionData::Release_InputGenerationWritersLock()
 	_InputGenerationLock.unlock();
 }
 
+bool SessionData::BlockInputGeneration()
+{
+	return _blockInputGeneration.exchange(true);
+}
+
+bool SessionData::CanGenerate()
+{
+	return !_blockInputGeneration.load();
+}
+
 #pragma region FORM
 
 size_t SessionData::GetStaticSize(int32_t version)

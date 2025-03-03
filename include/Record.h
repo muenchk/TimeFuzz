@@ -2,6 +2,7 @@
 
 #include "BufferOperations.h"
 #include "Utility.h"
+#include "Logging.h"
 
 #include <iostream>
 
@@ -35,6 +36,10 @@ struct Records
 		Buffer::WriteSize(sz, buffer, offset);
 		Buffer::Write(T::GetTypeStatic(), buffer, offset);
 		value->WriteData(buffer, offset);
+		if (offset > length) {
+			logcritical("Buffer overflow in record");
+			auto size = value->GetDynamicSize();
+		}
 	}
 
 	/// <summary>

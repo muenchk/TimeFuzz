@@ -208,6 +208,8 @@ class SessionData : public Form
 	/// </summary>
 	std::shared_mutex _InputGenerationLock;
 
+	std::atomic<bool> _blockInputGeneration = false;
+
 	friend class SessionFunctions;
 	friend class SessionStatistics;
 
@@ -491,6 +493,16 @@ public:
 	/// releases a writers lock for input generation
 	/// </summary>
 	void Release_InputGenerationWritersLock();
+
+	/// <summary>
+	/// blocks generation of new inputs
+	/// </summary>
+	bool BlockInputGeneration();
+	/// <summary>
+	/// returns whether new inputs can be generated
+	/// </summary>
+	/// <returns></returns>
+	bool CanGenerate();
 
 	#pragma region Form
 

@@ -67,13 +67,21 @@ public:
 		/// </summary>
 		FilterPrimaryScore = 0,
 		/// <summary>
+		/// Sources for the next generation are taken from the inputs with the best primary score
+		/// </summary>
+		FilterPrimaryScoreRelative = 1 << 0,
+		/// <summary>
 		/// Sources for the next generation are taken from the inputs with the best secondary score
 		/// </summary>
-		FilterSecondaryScore = 1 << 0,
+		FilterSecondaryScore = 1 << 1,
+		/// <summary>
+		/// Sources for the next generation are taken from the inputs with the best secondary score
+		/// </summary>
+		FilterSecondaryScoreRelative = 1 << 2,
 		/// <summary>
 		/// Sources for the next generation are taken from the longest inputs
 		/// </summary>
-		FilterLength = 1 << 1,
+		FilterLength = 1 << 3,
 	};
 
 	/// <summary>
@@ -388,6 +396,12 @@ public:
 		const char* allowScoreOptimization_NAME = "AllowScoreOptimization";
 
 		/// <summary>
+		/// Runs standard DD after Score Optimization DD on positiv generated inputs
+		/// </summary>
+		bool runReproduceResultsAfterScoreApproxOnPositive = false;
+		const char* runReproduceResultsAfterScoreApproxOnPositive_NAME = "RunStandardDDAfterScoreApproxOnPositive";
+
+		/// <summary>
 		/// loss threshold under which inputs are considered acceptable 
 		/// </summary>
 		double optimizationLossThreshold = 0.05f;
@@ -411,6 +425,9 @@ public:
 
 		RangeSkipOptions skipoptions = RangeSkipOptions::SkipFirst;
 		const char* skipoptions_NAME = "ScoreProgressSkipOptions";
+
+		int32_t batchprocessing = 0;
+		const char* batchprocessing_NAME = "BatchProcessing";
 	};
 
 	DeltaDebugging dd;

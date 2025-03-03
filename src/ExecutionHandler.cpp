@@ -540,9 +540,11 @@ void ExecutionHandler::TestStarter(std::shared_ptr<stop_token> stoken)
 		if (_freeze)
 		{
 			_frozenStarter = true;
-			_freezecond.wait_for(guard, std::chrono::milliseconds(100), [this] { return _stopHandler || !_freeze; });
-			if (_freeze)
-				continue;
+			if (!(_freeze_waitfortestcompletion == true && _waitingTestsExec.size() > 0 || _waitingTests.size() > 0)) {
+				_freezecond.wait_for(guard, std::chrono::milliseconds(100), [this] { return _stopHandler || !_freeze; });
+				if (_freeze)
+					continue;
+			}
 		}
 		else
 		{
@@ -848,8 +850,8 @@ void ExecutionHandler::Freeze(bool waitfortestcompletion)
 {
 	loginfo("Freezing execution...");
 	_freeze_waitfortestcompletion = waitfortestcompletion;
-	if (_sessiondata->GetGenerationEnding())
-		_freeze_waitfortestcompletion = true;
+	//if (_sessiondata->GetGenerationEnding())
+	//	_freeze_waitfortestcompletion = true;
 	_freeze = true;
 	while ((_frozen == false || _freeze_waitfortestcompletion == true && WaitingTasks() > 0) && _active == true)
 		;

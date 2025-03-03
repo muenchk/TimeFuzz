@@ -261,6 +261,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					Records::CreateRecord<Test>(dynamic_pointer_cast<Test>(form), &save, _actionrecord_offset, _actionrecord_len);
 					if (_actionrecord_offset > _actionrecord_len) {
 						logcritical("Buffer overflow in record: Test");
+						auto sz = dynamic_pointer_cast<Test>(form)->GetDynamicSize();
 					}
 					stats._Test++;
 					//logdebug("Write Record:      Test");

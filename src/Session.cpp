@@ -586,7 +586,7 @@ void Session::SessionControl()
 
 		if (_sessiondata->_controller->GetWaitingJobs() == 0 && !_sessiondata->_controller->IsFrozen() && (_sessiondata->_exechandler->GetWaitingTests() == 0 && _sessiondata->_exechandler->GetInitializedTests() == 0 && _sessiondata->_exechandler->GetRunningTests() == 0 && _sessiondata->_exechandler->IsFrozen() == false))
 		{
-			logwarn("Work you lazy bastards.");
+			//logwarn("Work you lazy bastards.");
 			// check wether the generation should end
 			if (_sessiondata->CheckGenerationEnd() == false)
 			{

@@ -41,7 +41,15 @@ struct InputGainGreaterPrimary
 		//double left = std::log((lhs->Length() / lhs->GetPrimaryScore()) + 1);
 		//double right = std::log((rhs->Length() / rhs->GetPrimaryScore()) + 1);
 		//logwarn("Compare Values.\tOL: {},\tOR: {},\tNL: {},\tNR: {}", oldleft, oldright, left, right);
-		return oldleft < oldright;
+		return oldleft > oldright;
+	}
+};
+
+struct InputGreaterPrimary
+{
+	bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
+	{
+		return lhs->GetPrimaryScore() > rhs->GetPrimaryScore();
 	}
 };
 
@@ -51,7 +59,15 @@ struct InputGainGreaterSecondary
 	{
 		double left = (lhs->Length() / lhs->GetSecondaryScore());
 		double right = (rhs->Length() / rhs->GetSecondaryScore());
-		return left < right;
+		return left > right;
+	}
+};
+
+struct InputGreaterSecondary
+{
+	bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
+	{
+		return lhs->GetSecondaryScore() > rhs->GetSecondaryScore();
 	}
 };
 
@@ -78,12 +94,12 @@ namespace Functions
 
 		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
 
-		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
-		bool WriteData(std::ostream* buffer, size_t& offset);
+		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool WriteData(std::ostream* buffer, size_t& offset) override;
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<MasterGenerationCallback>()); }
-		void Dispose();
-		size_t GetLength();
+		void Dispose() override;
+		size_t GetLength() override;
 	};
 
 	/// <summary>
@@ -102,12 +118,12 @@ namespace Functions
 
 		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
 
-		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
-		bool WriteData(std::ostream* buffer, size_t& offset);
+		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool WriteData(std::ostream* buffer, size_t& offset) override;
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<GenerationEndCallback>()); }
-		void Dispose();
-		size_t GetLength();
+		void Dispose() override;
+		size_t GetLength() override;
 	};
 
 	/// <summary>
@@ -128,12 +144,33 @@ namespace Functions
 
 		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
 
-		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
-		bool WriteData(std::ostream* buffer, size_t& offset);
+		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool WriteData(std::ostream* buffer, size_t& offset) override;
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<GenerationFinishedCallback>()); }
-		void Dispose();
-		size_t GetLength();
+		void Dispose() override;
+		size_t GetLength() override;
+	};
+
+	class FinishSessionCallback : public BaseFunction
+	{
+	public:
+		std::shared_ptr<SessionData> _sessiondata;
+
+		void Run() override;
+		static uint64_t GetTypeStatic() { return 'FSCB'; }
+		uint64_t GetType() override { return 'FSCB'; }
+
+		FunctionType GetFunctionType() override { return FunctionType::Light; }
+
+		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
+
+		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool WriteData(std::ostream* buffer, size_t& offset) override;
+
+		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<GenerationFinishedCallback>()); }
+		void Dispose() override;
+		size_t GetLength() override;
 	};
 }
 
@@ -218,6 +255,7 @@ public:
 	/// <param name="sessiondata"></param>
 	/// <param name="input"></param>
 	static std::shared_ptr<DeltaDebugging::DeltaController> BeginDeltaDebugging(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback = {}, bool bypassTests = false, DeltaDebugging::DDGoal goal = DeltaDebugging::DDGoal::None, DeltaDebugging::DDGoal secondarygoal = DeltaDebugging::DDGoal::None);
+
 
 private:
 	/// <summary>

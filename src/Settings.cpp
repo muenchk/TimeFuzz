@@ -147,6 +147,8 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "DeltaDebugging:          ", dd.mode_NAME, (long)dd.mode);
 	dd.allowScoreOptimization = ini.GetBoolValue("DeltaDebugging", dd.allowScoreOptimization_NAME, dd.allowScoreOptimization);
 	loginfo("{}{} {}", "DeltaDebugging:          ", dd.allowScoreOptimization_NAME, dd.allowScoreOptimization);
+	dd.runReproduceResultsAfterScoreApproxOnPositive = ini.GetBoolValue("DeltaDebugging", dd.runReproduceResultsAfterScoreApproxOnPositive_NAME, dd.runReproduceResultsAfterScoreApproxOnPositive);
+	loginfo("{}{} {}", "DeltaDebugging:          ", dd.runReproduceResultsAfterScoreApproxOnPositive_NAME, dd.runReproduceResultsAfterScoreApproxOnPositive);
 	dd.optimizationLossThreshold = ini.GetDoubleValue("DeltaDebugging", dd.optimizationLossThreshold_NAME, dd.optimizationLossThreshold);
 	loginfo("{}{} {}", "DeltaDebugging:          ", dd.optimizationLossThreshold_NAME, dd.optimizationLossThreshold);
 	dd.approximativeTestExecution = ini.GetBoolValue("DeltaDebugging", dd.approximativeTestExecution_NAME, dd.approximativeTestExecution);
@@ -155,6 +157,8 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "DeltaDebugging:          ", dd.approximativeExecutionThreshold_NAME, dd.approximativeExecutionThreshold);
 	dd.skipoptions = (RangeSkipOptions)ini.GetLongValue("DeltaDebugging", dd.skipoptions_NAME, (long)0);
 	loginfo("{}{} {}", "DeltaDebugging:          ", dd.skipoptions_NAME, (long)dd.skipoptions);
+	dd.batchprocessing = ini.GetLongValue("DeltaDebugging", dd.batchprocessing_NAME, dd.batchprocessing);
+	loginfo("{}{} {}", "DeltaDebugging:          ", dd.batchprocessing_NAME, (long)dd.batchprocessing);
 
 	// generation
 	generation.generationsize = (int32_t)ini.GetLongValue("Generation", generation.generationsize_NAME, generation.generationsize);
@@ -369,7 +373,10 @@ void Settings::Save(std::wstring _path)
 		"\\\\ Algorithm to use for delta debugging.\n"
 		"\\\\ 0 = Standard - DDmin developed by Andreas Zeller executing subsets and their complements\n"
 		"\\\\ [currently not selectable, activate AllowScoreOptimization instead] 1 = ScoreProgress - DDmin based custom algorithm that removes entries with that show no score progress");
-	ini.SetBoolValue("DeltaDebugging", dd.allowScoreOptimization_NAME, (long)dd.allowScoreOptimization, "\\\\ Allows the application of Delta debugging to reduce generated inputs while optimizing their score instead of reproducing their result.");
+	ini.SetBoolValue("DeltaDebugging", dd.allowScoreOptimization_NAME, dd.allowScoreOptimization, "\\\\ Allows the application of Delta debugging to reduce generated inputs while optimizing their score instead of reproducing their result.");
+
+	ini.SetBoolValue("DeltaDebugging", dd.runReproduceResultsAfterScoreApproxOnPositive_NAME, dd.runReproduceResultsAfterScoreApproxOnPositive, "\\\\ Runs standard DD after Score Optimization DD on positiv generated inputs.");
+
 	ini.SetDoubleValue("DeltaDebugging", dd.optimizationLossThreshold_NAME, dd.optimizationLossThreshold, "\\\\ The maximum loss when optimizing score to be considered a success.");
 	ini.SetBoolValue("DeltaDebugging", dd.approximativeTestExecution_NAME, dd.approximativeTestExecution,
 		"\\\\ [For Primary Score Optimization only]\n"
@@ -383,6 +390,9 @@ void Settings::Save(std::wstring _path)
 		"\\\\ When executing Delta Debugging in Score Optimization mode, the first, last, or no element\n"
 		"\\\\ of a passage with no score progress are skipped.\n"
 		"\\\\ [0 - None, 1 - Skip First, 2 - Skip Last\n");
+	ini.SetLongValue("DeltaDebugging", dd.batchprocessing_NAME, (long)dd.batchprocessing, 
+		"\\\\ Processes tests in batches of [value] and stops when a satisfying input has been processed,\n"
+		"\\\\ skipping all others in the same iteration.")
 
 
 	// generation
@@ -410,8 +420,10 @@ void Settings::Save(std::wstring _path)
 		"\\\\ that are carries over from one generation into the next as sources.");
 	ini.SetLongValue("Generation", generation.sourcesType_NAME, (int32_t)generation.sourcesType,
 		"\\\\ 0 - Sources for the next generation are taken from the inputs with the best primary score.\n"
-		"\\\\ 1 - Sources for the next generation are taken from the inputs with the best secondary score.\n"
-		"\\\\ 2 - Sources for the next generation are taken from the longest inputs.\n");
+		"\\\\ 1 - Sources for the next generation are taken from the inputs with the best primary score relative to the input length.\n"
+		"\\\\ 2 - Sources for the next generation are taken from the inputs with the best secondary score.\n"
+		"\\\\ 4 - Sources for the next generation are taken from the inputs with the best secondary score relative to the input length.\n"
+		"\\\\ 8 - Sources for the next generation are taken from the longest inputs.\n");
 	ini.SetLongValue("Generation", generation.generationLengthMin_NAME, generation.generationLengthMin, "\\\\ Minimum input length generated in each generation.");
 	ini.SetLongValue("Generation", generation.generationLengthMax_NAME, generation.generationLengthMax, "\\\\ Maximum input length generated in each generation.");
 	ini.SetLongValue("Generation", generation.maxNumberOfFailsPerSource_NAME, (long)generation.maxNumberOfFailsPerSource, "\\\\ The maximum number of derived inputs that can fail for an input to be elligible to be a source.");
@@ -528,6 +540,8 @@ size_t Settings::GetStaticSize(int32_t version)
 	                 + 4      // Methods::IterativeConstruction_Backtrack_Backtrack_max
 	                 + 8      // General::testEnginePeriod
 	                 + 4      // DeltaDebugging::skipoptions
+	                 + 1      // DeltaDebugging::runReproduceResultsAfterScoreApproxOnPositive
+	                 + 4      // DeltaDebugging::batchprocessing
 	                 + 1      // Controller::activateSettings
 	                 + 4      // Controller::numLightThreads
 	                 + 4      // Controller::numMediumThreads
@@ -653,6 +667,8 @@ bool Settings::WriteData(std::ostream* buffer, size_t& offset)
 #endif
 	// delta debugging
 	Buffer::Write((int32_t)dd.skipoptions, buffer, offset);
+	Buffer::Write(dd.runReproduceResultsAfterScoreApproxOnPositive, buffer, offset);
+	Buffer::Write(dd.batchprocessing, buffer, offset);
 	// controller
 	Buffer::Write(controller.activateSettings, buffer, offset);
 	Buffer::Write(controller.numLightThreads, buffer, offset);
@@ -765,6 +781,8 @@ bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, Loa
 #endif
 			// delta debugging
 			dd.skipoptions = (RangeSkipOptions)Buffer::ReadInt32(buffer, offset);
+			dd.runReproduceResultsAfterScoreApproxOnPositive = Buffer::ReadBool(buffer, offset);
+			dd.batchprocessing = Buffer::ReadInt32(buffer, offset);
 			// controller
 			controller.activateSettings = Buffer::ReadBool(buffer, offset);
 			controller.numLightThreads = Buffer::ReadInt32(buffer, offset);

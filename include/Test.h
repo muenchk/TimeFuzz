@@ -309,18 +309,18 @@ namespace Functions
 
 		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
 
-		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
-		bool WriteData(std::ostream* buffer, size_t& offset);
+		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool WriteData(std::ostream* buffer, size_t& offset) override;
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<TestCallback>()); }
-		void Dispose();
-		size_t GetLength();
+		void Dispose() override;
+		size_t GetLength() override;
 	};
 
 	class ReplayTestCallback : public TestCallback
 	{
 	public:
-		UI::UIInputInformation* _feedback;
+		UI::UIInputInformation* _feedback = nullptr;
 
 		void Run() override;
 

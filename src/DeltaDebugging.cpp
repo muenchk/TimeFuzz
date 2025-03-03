@@ -2,6 +2,7 @@
 #include "Data.h"
 #include "SessionData.h"
 #include "SessionFunctions.h"
+#include "Generation.h"
 
 #include <algorithm>
 #include <random>
@@ -1404,6 +1405,27 @@ namespace DeltaDebugging
 
 	void DeltaController::Finish()
 	{
+		if (_params->mode != DDMode::Standard && _sessiondata->_settings->dd.runReproduceResultsAfterScoreApproxOnPositive) {
+			// start normal delat debugging for test purposes
+			DeltaDebugging::DDParameters* params = nullptr;
+			DeltaDebugging::ReproduceResult* par = new DeltaDebugging::ReproduceResult;
+			par->secondarygoal = DDGoal::ReproduceResult;
+			params = par;
+			params->mode = DDMode::Standard;
+			params->bypassTests = true;
+			params->minimalSubsetSize = (int32_t)_sessiondata->_settings->dd.executeAboveLength + 1;
+			auto control = _sessiondata->data->CreateForm<DeltaDebugging::DeltaController>();
+			if (control->Start(params, _sessiondata, _input, nullptr)) {
+				std::unique_lock<std::mutex> guard(_callbackLock);
+				for (auto ptr : _callback) {
+					if (ptr)
+						control->AddCallback(ptr);
+				}
+				_callback.clear();
+				_sessiondata->GetCurrentGeneration()->AddDDController(control);
+			}
+		}
+
 		for (auto [ptr, pair] : _results) {
 			ptr->UnsetFlag(Form::FormFlags::DoNotFree);
 			if (ptr->derive)
