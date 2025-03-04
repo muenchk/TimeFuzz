@@ -315,6 +315,8 @@ void TaskController::InternalLoop_SingleThread(int32_t number)
 			_condition.wait_for(guard, std::chrono::milliseconds(100), [this] { return _freeze == false && (!_tasks_light.empty() || !_tasks_medium.empty() || !_tasks.empty() || _terminate && _wait == false || _terminate && _tasks_light.empty() && _tasks_medium.empty() && _tasks.empty()); });
 			if (_terminate && _wait == false || _terminate && _tasks_light.empty() && _tasks_medium.empty() && _tasks.empty())
 				return;
+			if (_freeze)
+				continue;
 			_status[number] = ThreadStatus::Running;
 			if (!_tasks_light.empty()) {
 				del = _tasks_light.front();

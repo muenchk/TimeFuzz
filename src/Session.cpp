@@ -277,8 +277,8 @@ void Session::StopSession(bool savesession, bool stopHandler)
 			// so try freezing them and delete any active tasks and tests
 			// this will effectively end the session and any ongoing stuff, without affecting the 
 			// availability of the handlers
-			if (_sessiondata->_controller)
-				_sessiondata->_controller->Freeze();
+			//if (_sessiondata->_controller)
+			//	_sessiondata->_controller->Freeze();
 			if (_sessiondata->_exechandler) {
 				_sessiondata->_exechandler->Freeze(false);
 				_sessiondata->_exechandler->ClearTests();

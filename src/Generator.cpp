@@ -208,10 +208,18 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 	std::vector<std::unique_ptr<FlagHolder<Input>>> parentflags;
 	std::vector<std::unique_ptr<FlagHolder<DerivationTree>>> parenttreeflags;
 	std::vector<std::shared_ptr<Form>> locklist;
+	std::vector<std::shared_ptr<Form>> flaglist;
 	auto unlock = [&locklist]() {
-		for (auto form : locklist)
+		for (auto form : locklist) {
 			form->Unlock();
+		}
 		locklist.clear();
+	};
+	auto freeflags = [&flaglist]() {
+		for (auto form : flaglist) {
+			form->UnsetFlag(Form::FormFlags::DoNotFree);
+		}
+		flaglist.clear();
 	};
 	std::shared_ptr<Grammar> gram = _grammar;
 	if (grammar)
@@ -280,6 +288,7 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 				if (!par) {
 					profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
 					unlock();
+					freeflags();
 					return false;
 				} else {
 					parentflags.push_back(std::make_unique<FlagHolder<Input>>(par, Form::FormFlags::DoNotFree));
@@ -298,12 +307,21 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 							logwarn("Cannot generate input as some parent input cannot be regenerated, Parent: {}", Input::PrintForm(par));
 							profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
 							unlock();
+							freeflags();
 							return false;
 						}
 					}
 				}
 				// if that's not the case, we can generate the input itself, but that'll take place in another loop.
 				// end this one and push the input onto the backward stack
+				par->SetFlag(Form::FormFlags::DoNotFree);
+				flaglist.push_back(par);
+				par->derive->SetFlag(Form::FormFlags::DoNotFree);
+				flaglist.push_back(par->derive);
+				inp->SetFlag(Form::FormFlags::DoNotFree);
+				flaglist.push_back(inp);
+				inp->derive->SetFlag(Form::FormFlags::DoNotFree);
+				flaglist.push_back(inp->derive);
 				backward.push({ inp, par });
 			} else {
 				bool ret = GenerateInputGrammar(inp, gram, sessiondata);
@@ -313,6 +331,7 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 					logwarn("Cannot generate input: {}", Input::PrintForm(inp));
 					profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
 					unlock();
+					freeflags();
 					return false;
 				} else {
 					// we did the generation successfully, and there aren't any further generations to be done
@@ -328,6 +347,7 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 			if (!par) {
 				profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
 				unlock();
+				freeflags();
 				return false;
 			} else {
 				parentflags.push_back(std::make_unique<FlagHolder<Input>>(par, Form::FormFlags::DoNotFree));
@@ -345,16 +365,27 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 						logwarn("Cannot generate input as some parent input cannot be regenerated, Parent: {}", Input::PrintForm(par));
 						profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
 						unlock();
+						freeflags();
 						return false;
 					}
 				}
 			}
 			// if that's not the case, we can generate the input itself, but that'll take place in another loop.
 			// end this one and push the input onto the backward stack
+			par->SetFlag(Form::FormFlags::DoNotFree);
+			flaglist.push_back(par);
+			par->derive->SetFlag(Form::FormFlags::DoNotFree);
+			flaglist.push_back(par->derive);
+			inp->SetFlag(Form::FormFlags::DoNotFree);
+			flaglist.push_back(inp);
+			inp->derive->SetFlag(Form::FormFlags::DoNotFree);
+			flaglist.push_back(inp->derive);
 			backward.push({ inp, par });
 		}
 		unlock();
 	}
+
+	bool ret = false;
 
 	while (backward.size() > 0) {
 		actions++;
@@ -364,12 +395,12 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 		inp->derive->Lock();
 		locklist.push_back(inp);
 		locklist.push_back(inp->derive);
-		if (par) {
+		/* if (par) {
 			par->Lock();
 			par->derive->Lock();
 			locklist.push_back(par);
 			locklist.push_back(par->derive);
-		}
+		}*/
 		if (!inp->HasFlag(Input::Flags::GeneratedDeltaDebugging)) {
 			// we only need to generate a new tree if there isn't a valid one
 			// this can happen with temporary _input forms, that reuse existing
@@ -383,12 +414,14 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 							gram->Extend(par, inp->derive, true, inp->derive->_targetlen, inp->derive->_seed);
 							if (inp->derive->_valid == false) {
 								unlock();
+								freeflags();
 								return false;
 							}
 						} else {
 							gram->Extend(par, inp->derive, false, inp->derive->_targetlen, inp->derive->_seed);
 							if (inp->derive->_valid == false) {
 								unlock();
+								freeflags();
 								return false;
 							}
 						}
@@ -401,12 +434,14 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 							gram->Extend(par, inp->derive, true, sequencelen, (unsigned int)(std::chrono::system_clock::now().time_since_epoch().count()));
 							if (inp->derive->_valid == false) {
 								unlock();
+								freeflags();
 								return false;
 							}
 						} else {
 							gram->Extend(par, inp->derive, false, sequencelen, (unsigned int)(std::chrono::system_clock::now().time_since_epoch().count()));
 							if (inp->derive->_valid == false) {
 								unlock();
+								freeflags();
 								return false;
 							}
 						}
@@ -417,10 +452,13 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 					}
 				}
 				// build sequence
-				bool ret = BuildSequence(inp);
+				ret = BuildSequence(inp);
 				profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
-				unlock();
-				return ret;
+				if (ret == false) {
+					unlock();
+					freeflags();
+					return false;
+				}
 			} else {
 				// case already fully handled above
 			}
@@ -437,20 +475,25 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 					logwarn("The input {} cannot be derived from the grammar.", Utility::GetHex(inp->GetFormID()));
 					profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
 					unlock();
+					freeflags();
 					return false;
 				}
 			}
 
-			bool ret = BuildSequence(inp);
+			ret = BuildSequence(inp);
 			profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
-			unlock();
-			return ret;
+			if (ret == false) {
+				unlock();
+				freeflags();
+				return false;
+			}
 		}
-		unlock();
+		//unlock();
 	}
 	profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
 	unlock();
-	return false;
+	freeflags();
+	return ret;
 }
 /*
 bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar> grammar, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> parent)
