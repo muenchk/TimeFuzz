@@ -639,7 +639,7 @@ int32_t main(int32_t argc, char** argv)
 		"    --separatelogfiles         - Writes logfiles to \"/logs\" and uses timestamps in the logname\n"
 		"    --create-conf <PATH>       - Writes a default configuration file to the current folder\n"
 		"    --update-grammar           - Loads a new grammar and sets it as the default grammar for generation\n"
-		"    --No-ExclusionTree         - Skips the loading of data from the exclusion tree\n"
+		"    --no-exclusiontree         - Skips the loading of data from the exclusion tree\n"
 		"    --debug                    - Enable debug logging\n"
 		"    --clear-tasks              - clears all tasks and active tests from the session\n"
 		"    --save-status <time / sec> - saves the current status every x seconds\n";
@@ -676,6 +676,9 @@ int32_t main(int32_t argc, char** argv)
 		} else if (option.find("--clear-tasks") != std::string::npos) {
 			std::cout << "Parameter: --clear-tasks\n";
 			CmdArgs::_clearTasks = true;
+		} else if (option.find("--no-exclusiontree") != std::string::npos) {
+			std::cout << "Parameter: --no-exclusiontree\n";
+			CmdArgs::_doNotLoadExclusionTree = true;
 		} else if (option.find("--reloadconfig") != std::string::npos) {
 			std::cout << "Parameter: --reloadconfig\n";
 			CmdArgs::_reloadConfig = true;

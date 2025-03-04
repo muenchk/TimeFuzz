@@ -754,8 +754,10 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 								case FormType::ExclTree:
 									{
 										//logdebug("Read Record:      ExclusionTree");
+										if (loadArgs.skipExlusionTree)
+											CreateForm<Settings>()->runtime.enableExclusionTree = false;
 										auto excl = CreateForm<ExclusionTree>();
-										bool res = excl->ReadData(&save, _actionrecord_offset, rlen, _lresolve, loadArgs.skipExlusionTree);
+										bool res = excl->ReadData(&save, _actionrecord_offset, rlen, _lresolve);
 										if (_actionrecord_offset > rlen)
 											res = false;
 										if (res) {

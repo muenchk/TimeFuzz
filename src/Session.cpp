@@ -116,6 +116,7 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, LoadSessionArgs&
 		asyncargs->settingsPath = loadargs.settingsPath;
 		asyncargs->loadNewGrammar = loadargs.loadNewGrammar;
 		asyncargs->clearTasks = loadargs.clearTasks;
+		asyncargs->skipExclusionTree = loadargs.skipExclusionTree;
 	}
 	std::thread th(LoadSession_Async, dat, name, -1, asyncargs);
 	th.detach();
@@ -148,6 +149,7 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, 
 		asyncargs->settingsPath = loadargs.settingsPath;
 		asyncargs->loadNewGrammar = loadargs.loadNewGrammar;
 		asyncargs->clearTasks = loadargs.clearTasks;
+		asyncargs->skipExclusionTree = loadargs.skipExclusionTree;
 	}
 	std::thread th(LoadSession_Async, dat, name, number, asyncargs);
 	th.detach();
@@ -1071,7 +1073,8 @@ void Session::UI_GetDatabaseObjectStatus()
 {
 	int64_t freedObjects = 0, fullObjects = 0;
 	Data::SaveStats stats, nums;
-	std::function<Data::VisitAction(std::shared_ptr<Form>)> report = [&freedObjects, &fullObjects, &stats, &nums](std::shared_ptr<Form> form) {
+	uint64_t unfreed = 0;
+	std::function<Data::VisitAction(std::shared_ptr<Form>)> report = [&freedObjects, &fullObjects, &stats, &nums, &unfreed](std::shared_ptr<Form> form) {
 		if (form->Freed())
 			freedObjects++;
 		else
@@ -1080,6 +1083,11 @@ void Session::UI_GetDatabaseObjectStatus()
 		case FormType::Input:
 			stats._Input += form->MemorySize();
 			nums._Input ++;
+			//if (form->HasFlag(Form::FormFlags::DoNotFree)) {
+			//	auto inp = dynamic_pointer_cast<Input>(form);
+			//	if (inp->GetSequenceLength() > 0)
+			//		unfreed++;
+			//}
 			break;
 		case FormType::Grammar:
 			stats._Grammar += form->MemorySize();
@@ -1088,6 +1096,11 @@ void Session::UI_GetDatabaseObjectStatus()
 		case FormType::DevTree:
 			stats._DevTree += form->MemorySize();
 			nums._DevTree++;
+			//if (form->HasFlag(Form::FormFlags::DoNotFree)) {
+			//	auto dev = dynamic_pointer_cast<DerivationTree>(form);
+			//	if (dev->_nodes.size() > 0)
+			//		unfreed++;
+			//}
 			break;
 		case FormType::ExclTree:
 			stats._ExclTree += form->MemorySize();

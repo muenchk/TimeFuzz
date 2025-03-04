@@ -118,6 +118,13 @@ public:
 		return FormType::Settings;
 	}
 
+	struct Runtime
+	{
+		bool enableExclusionTree = true;
+	};
+
+	Runtime runtime;
+
 	struct Oracle
 	{
 		/// <summary>

@@ -98,7 +98,6 @@ public:
 	size_t GetDynamicSize() override;
 	bool WriteData(std::ostream* buffer, size_t& offset) override;
 	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
-	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver, bool skipData);
 	int32_t GetType() override
 	{
 		return FormType::ExclTree;

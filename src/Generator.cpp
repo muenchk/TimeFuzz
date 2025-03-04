@@ -453,8 +453,8 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 				}
 				// build sequence
 				ret = BuildSequence(inp);
-				profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
 				if (ret == false) {
+					profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
 					unlock();
 					freeflags();
 					return false;
@@ -481,8 +481,8 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 			}
 
 			ret = BuildSequence(inp);
-			profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
 			if (ret == false) {
+				profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
 				unlock();
 				freeflags();
 				return false;

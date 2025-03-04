@@ -43,7 +43,7 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input, OracleResult result)
 		return;
 	if (input->begin() == input->end())
 		return;
-	if (_sessiondata->_settings->optimization.disableExclusionTree)
+	if (_sessiondata->_settings->optimization.disableExclusionTree || !_sessiondata->_settings->runtime.enableExclusionTree)
 		return;
 
 	exclwlock;
@@ -105,6 +105,8 @@ bool ExclusionTree::HasPrefix(std::shared_ptr<Input> input, FormID& prefixID)
 {
 	if (input.get() == nullptr)
 		return false;
+	if (_sessiondata->_settings->optimization.disableExclusionTree || !_sessiondata->_settings->runtime.enableExclusionTree)
+		return false;
 
 	//std::shared_lock<std::shared_mutex> guard(_lock);
 	exclrlock
@@ -146,6 +148,9 @@ std::tuple<bool, FormID, bool, FormID> ExclusionTree::HasPrefixAndShortestExtens
 {
 	if (input.get() == nullptr)
 		return { false, 0, false, 0 };
+	if (_sessiondata->_settings->optimization.disableExclusionTree || !_sessiondata->_settings->runtime.enableExclusionTree) {
+		return { false, 0, false, 0 };
+	}
 
 	//std::shared_lock<std::shared_mutex> guard(_lock);
 	exclrlock
@@ -407,85 +412,76 @@ bool ExclusionTree::WriteData(std::ostream* buffer, size_t &offset)
 
 bool ExclusionTree::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
-	return ReadData(buffer, offset, length, resolver, false);
-}
+	// get settings
+	auto settings = resolver->_data->CreateForm<Settings>();
 
-bool ExclusionTree::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver, bool skipData)
-{
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
 	case 0x1:
 		{
 			Form::ReadData(buffer, offset, length, resolver);
-			if (skipData)
-			{
-				// reset form to factory settings
-				root = nullptr;
-				nextid = 1;
-				depth = 0;
-				leafcount = 0;
-				hashmap.clear();
-				resolver->AddTask([this, resolver]() {
-					_sessiondata = resolver->_data->CreateForm<SessionData>();
-				});
-
-			} else {
-				// load data
-				nextid = Buffer::ReadUInt64(buffer, offset);
-				size_t rch = Buffer::ReadSize(buffer, offset);
-				// root
-				root->_id = 0;
-				std::vector<uint64_t> rchid;
-				for (int32_t i = 0; i < (int32_t)rch; i++)
+			// load data
+			nextid = Buffer::ReadUInt64(buffer, offset);
+			size_t rch = Buffer::ReadSize(buffer, offset);
+			// root
+			root->_id = 0;
+			std::vector<uint64_t> rchid;
+			for (int32_t i = 0; i < (int32_t)rch; i++)
+				if (settings->runtime.enableExclusionTree) {
 					rchid.push_back(Buffer::ReadUInt64(buffer, offset));
-				root->_isLeaf = Buffer::ReadBool(buffer, offset);
-				// hashmap
-				hashmap.clear();
-				size_t smap = Buffer::ReadSize(buffer, offset);
-				for (int64_t i = 0; i < (int64_t)smap; i++) {
-					if (offset > length)
-						return false;
-					TreeNode* node = new TreeNode();
-					node->_id = Buffer::ReadUInt64(buffer, offset);
-					node->_stringID = Buffer::ReadUInt64(buffer, offset);
-					node->_visitcount = Buffer::ReadUInt64(buffer, offset);
-					uint64_t sch = Buffer::ReadSize(buffer, offset);
-					for (int32_t c = 0; c < (int32_t)sch; c++)
-						node->_children.push_back((TreeNode*)Buffer::ReadUInt64(buffer, offset));
-						//node->_childrenids.push_back(Buffer::ReadUInt64(buffer, offset));
-					node->_isLeaf = Buffer::ReadBool(buffer, offset);
-					node->_result = (OracleResult)Buffer::ReadInt32(buffer, offset);
-					node->_InputID = Buffer::ReadUInt64(buffer, offset);
+				} else {
+					Buffer::ReadUInt64(buffer, offset);
+				}
+			root->_isLeaf = Buffer::ReadBool(buffer, offset);
+			// hashmap
+			hashmap.clear();
+			size_t smap = Buffer::ReadSize(buffer, offset);
+			for (int64_t i = 0; i < (int64_t)smap; i++) {
+				if (offset > length)
+					return false;
+				TreeNode* node = new TreeNode();
+				node->_id = Buffer::ReadUInt64(buffer, offset);
+				node->_stringID = Buffer::ReadUInt64(buffer, offset);
+				node->_visitcount = Buffer::ReadUInt64(buffer, offset);
+				uint64_t sch = Buffer::ReadSize(buffer, offset);
+				for (int32_t c = 0; c < (int32_t)sch; c++)
+					node->_children.push_back((TreeNode*)Buffer::ReadUInt64(buffer, offset));
+				//node->_childrenids.push_back(Buffer::ReadUInt64(buffer, offset));
+				node->_isLeaf = Buffer::ReadBool(buffer, offset);
+				node->_result = (OracleResult)Buffer::ReadInt32(buffer, offset);
+				node->_InputID = Buffer::ReadUInt64(buffer, offset);
+				if (settings->runtime.enableExclusionTree) {
 					hashmap.insert({ node->_id, node });
-				}
-				// rest
-				depth = Buffer::ReadInt64(buffer, offset);
-				leafcount = Buffer::ReadUInt64(buffer, offset);
-				// hashmap complete init all the links
-				for (auto& [id, node] : hashmap) {
-					//for (int32_t i = 0; i < node->_childrenids.size(); i++) {
-					for (int32_t i = 0; i < node->_children.size(); i++) {
-						//TreeNode* nnode = hashmap.at(node->_childrenids[i]);
-						TreeNode* nnode = hashmap.at((uint64_t)node->_children[i]);
-						if (nnode) {
-							node->_children[i] = nnode;
-							//node->_children.push_back(nnode);
-						} else
-							logcritical("cannot resolve nodeid {}", (uint64_t)node->_children[i]);
-					}
-					//node->_childrenids.clear();
-				}
-				for (int32_t i = 0; i < rchid.size(); i++) {
-					TreeNode* node = hashmap.at(rchid[i]);
-					if (node) {
-						root->_children.push_back(node);
-					} else
-						logcritical("cannot resolve nodeid {}", rchid[i]);
-				}
-				resolver->AddTask([this, resolver]() {
-					_sessiondata = resolver->_data->CreateForm<SessionData>();
-				});
+				} else
+					delete node;
 			}
+			// rest
+			depth = Buffer::ReadInt64(buffer, offset);
+			leafcount = Buffer::ReadUInt64(buffer, offset);
+			// hashmap complete init all the links
+			for (auto& [id, node] : hashmap) {
+				//for (int32_t i = 0; i < node->_childrenids.size(); i++) {
+				for (int32_t i = 0; i < node->_children.size(); i++) {
+					//TreeNode* nnode = hashmap.at(node->_childrenids[i]);
+					TreeNode* nnode = hashmap.at((uint64_t)node->_children[i]);
+					if (nnode) {
+						node->_children[i] = nnode;
+						//node->_children.push_back(nnode);
+					} else
+						logcritical("cannot resolve nodeid {}", (uint64_t)node->_children[i]);
+				}
+				//node->_childrenids.clear();
+			}
+			for (int32_t i = 0; i < rchid.size(); i++) {
+				TreeNode* node = hashmap.at(rchid[i]);
+				if (node) {
+					root->_children.push_back(node);
+				} else
+					logcritical("cannot resolve nodeid {}", rchid[i]);
+			}
+			resolver->AddTask([this, resolver]() {
+				_sessiondata = resolver->_data->CreateForm<SessionData>();
+			});
 			return true;
 		}
 		break;
