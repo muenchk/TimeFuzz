@@ -1825,6 +1825,7 @@ namespace DeltaDebugging
 			//Buffer::Write((unsigned char*)_params, buffer, offset, sizeof(MaximizePrimaryScore));
 			Buffer::Write(_params->minimalSubsetSize, buffer, offset);
 			Buffer::Write(_params->bypassTests, buffer, offset);
+			Buffer::Write(_params->budget, buffer, offset);
 			Buffer::Write((int32_t)_params->mode, buffer, offset);
 			Buffer::Write((int32_t)((MaximizePrimaryScore*)_params)->acceptableLoss, buffer, offset);
 			break;
@@ -1833,6 +1834,7 @@ namespace DeltaDebugging
 			//Buffer::Write((unsigned char*)_params, buffer, offset, sizeof(ReproduceResult));
 			Buffer::Write(_params->minimalSubsetSize, buffer, offset);
 			Buffer::Write(_params->bypassTests, buffer, offset);
+			Buffer::Write(_params->budget, buffer, offset);
 			Buffer::Write((int32_t)_params->mode, buffer, offset);
 			Buffer::Write((int32_t)((ReproduceResult*)_params)->secondarygoal, buffer, offset);
 			break;
@@ -1841,6 +1843,7 @@ namespace DeltaDebugging
 			//Buffer::Write((unsigned char*)_params, buffer, offset, sizeof(MaximizeSecondaryScore));
 			Buffer::Write(_params->minimalSubsetSize, buffer, offset);
 			Buffer::Write(_params->bypassTests, buffer, offset);
+			Buffer::Write(_params->budget, buffer, offset);
 			Buffer::Write((int32_t)_params->mode, buffer, offset);
 			Buffer::Write((int32_t)((MaximizeSecondaryScore*)_params)->acceptableLossSecondary, buffer, offset);
 			break;
@@ -1849,12 +1852,17 @@ namespace DeltaDebugging
 			//Buffer::Write((unsigned char*)_params, buffer, offset, sizeof(MaximizeSecondaryScore));
 			Buffer::Write(_params->minimalSubsetSize, buffer, offset);
 			Buffer::Write(_params->bypassTests, buffer, offset);
+			Buffer::Write(_params->budget, buffer, offset);
 			Buffer::Write((int32_t)_params->mode, buffer, offset);
 			Buffer::Write((int32_t)((MaximizeBothScores*)_params)->acceptableLossPrimary, buffer, offset);
 			Buffer::Write((int32_t)((MaximizeBothScores*)_params)->acceptableLossSecondary, buffer, offset);
 			break;
 		case DDGoal::None:
 			Buffer::WriteSize(sizeof(DDParameters), buffer, offset);
+			Buffer::Write(_params->minimalSubsetSize, buffer, offset);
+			Buffer::Write(_params->bypassTests, buffer, offset);
+			Buffer::Write(_params->budget, buffer, offset);
+			Buffer::Write((int32_t)_params->mode, buffer, offset);
 			//Buffer::Write((unsigned char*)_params, buffer, offset, sizeof(DDParameters));
 			break;
 		}
@@ -1975,12 +1983,14 @@ namespace DeltaDebugging
 					_params = new DDParameters;
 					_params->minimalSubsetSize = Buffer::ReadInt32(buffer, offset);
 					_params->bypassTests = Buffer::ReadBool(buffer, offset);
+					_params->budget = Buffer::ReadInt32(buffer, offset);
 					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
 					break;
 				case DDGoal::ReproduceResult:
 					_params = new ReproduceResult;
 					_params->minimalSubsetSize = Buffer::ReadInt32(buffer, offset);
 					_params->bypassTests = Buffer::ReadBool(buffer, offset);
+					_params->budget = Buffer::ReadInt32(buffer, offset);
 					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
 					((ReproduceResult*)_params)->secondarygoal = (DDGoal)Buffer::ReadInt32(buffer, offset);
 					break;
@@ -1988,6 +1998,7 @@ namespace DeltaDebugging
 					_params = new MaximizePrimaryScore;
 					_params->minimalSubsetSize = Buffer::ReadInt32(buffer, offset);
 					_params->bypassTests = Buffer::ReadBool(buffer, offset);
+					_params->budget = Buffer::ReadInt32(buffer, offset);
 					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
 					((MaximizePrimaryScore*)_params)->acceptableLoss = Buffer::ReadFloat(buffer, offset);
 					break;
@@ -1995,6 +2006,7 @@ namespace DeltaDebugging
 					_params = new MaximizeSecondaryScore;
 					_params->minimalSubsetSize = Buffer::ReadInt32(buffer, offset);
 					_params->bypassTests = Buffer::ReadBool(buffer, offset);
+					_params->budget = Buffer::ReadInt32(buffer, offset);
 					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
 					static_cast<void>(Buffer::ReadFloat(buffer, offset));
 					((MaximizeSecondaryScore*)_params)->acceptableLossSecondary = Buffer::ReadFloat(buffer, offset);
@@ -2004,6 +2016,7 @@ namespace DeltaDebugging
 					_params = new MaximizeBothScores;
 					_params->minimalSubsetSize = Buffer::ReadInt32(buffer, offset);
 					_params->bypassTests = Buffer::ReadBool(buffer, offset);
+					_params->budget = Buffer::ReadInt32(buffer, offset);
 					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
 					((MaximizeBothScores*)_params)->acceptableLossPrimary = Buffer::ReadFloat(buffer, offset);
 				}
@@ -2104,6 +2117,7 @@ namespace DeltaDebugging
 					_params = new ReproduceResult;
 					_params->minimalSubsetSize = Buffer::ReadInt32(buffer, offset);
 					_params->bypassTests = Buffer::ReadBool(buffer, offset);
+					_params->budget = Buffer::ReadInt32(buffer, offset);
 					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
 					((ReproduceResult*)_params)->secondarygoal = (DDGoal)Buffer::ReadInt32(buffer, offset);
 					break;
@@ -2111,6 +2125,7 @@ namespace DeltaDebugging
 					_params = new MaximizePrimaryScore;
 					_params->minimalSubsetSize = Buffer::ReadInt32(buffer, offset);
 					_params->bypassTests = Buffer::ReadBool(buffer, offset);
+					_params->budget = Buffer::ReadInt32(buffer, offset);
 					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
 					((MaximizePrimaryScore*)_params)->acceptableLoss = Buffer::ReadFloat(buffer, offset);
 					break;
@@ -2118,6 +2133,7 @@ namespace DeltaDebugging
 					_params = new MaximizeSecondaryScore;
 					_params->minimalSubsetSize = Buffer::ReadInt32(buffer, offset);
 					_params->bypassTests = Buffer::ReadBool(buffer, offset);
+					_params->budget = Buffer::ReadInt32(buffer, offset);
 					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
 					((MaximizeSecondaryScore*)_params)->acceptableLossSecondary = Buffer::ReadFloat(buffer, offset);
 					break;
@@ -2125,6 +2141,7 @@ namespace DeltaDebugging
 					_params = new MaximizeBothScores;
 					_params->minimalSubsetSize = Buffer::ReadInt32(buffer, offset);
 					_params->bypassTests = Buffer::ReadBool(buffer, offset);
+					_params->budget = Buffer::ReadInt32(buffer, offset);
 					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
 					((MaximizeBothScores*)_params)->acceptableLossPrimary = Buffer::ReadFloat(buffer, offset);
 					((MaximizeBothScores*)_params)->acceptableLossSecondary = Buffer::ReadFloat(buffer, offset);

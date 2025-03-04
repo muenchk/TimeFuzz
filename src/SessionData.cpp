@@ -97,6 +97,20 @@ void SessionData::AddInput(std::shared_ptr<Input>& input, EnumType list, double 
 	default:
 		break;
 	}
+
+	// see cppreference for this section (source)
+	while (_lastrunFlag.test_and_set(std::memory_order_acquire))
+#if defined(__cpp_lib_atomic_wait) && __cpp_lib_atomic_wait >= 201907L
+		_lastrunFlag.wait(true, std::memory_order_relaxed)
+#endif
+			;
+	_lastrun.push_back(input);
+
+	// exit flag
+	_lastrunFlag.clear(std::memory_order_release);
+#if defined(__cpp_lib_atomic_wait) && __cpp_lib_atomic_wait >= 201907L
+	_lastrunFlag.notify_one();
+#endif
 }
 
 std::shared_ptr<Generation> SessionData::GetGen()
@@ -317,6 +331,32 @@ void SessionData::VisitPositiveInputs(std::function<bool(std::shared_ptr<Input>)
 			break;
 		itr++;
 	}
+}
+
+void SessionData::VisitLastRun(std::function<bool(std::shared_ptr<Input>)> visitor)
+{
+	// see cppreference for this section (source)
+	while (_lastrunFlag.test_and_set(std::memory_order_acquire))
+#if defined(__cpp_lib_atomic_wait) && __cpp_lib_atomic_wait >= 201907L
+		_lastrunFlag.wait(true, std::memory_order_relaxed)
+#endif
+			;
+
+	auto itr = _lastrun.begin();
+	while (itr != _lastrun.end())
+	{
+		if (auto ptr = (*itr).lock(); ptr) {
+			if (visitor(ptr) == false)
+				break;
+		}
+		itr++;
+	}
+
+	// exit flag
+	_lastrunFlag.clear(std::memory_order_release);
+#if defined(__cpp_lib_atomic_wait) && __cpp_lib_atomic_wait >= 201907L
+	_lastrunFlag.notify_one();
+#endif
 }
 
 

@@ -194,6 +194,7 @@ public:
 
 	void UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k);
 	void UI_GetPositiveInputs(std::vector<UI::UIInput>& vector, size_t k);
+	void UI_GetLastRunInputs(std::vector<UI::UIInput>& vector, size_t k);
 
 	/// <summary>
 	/// Begins delta debugging the given input

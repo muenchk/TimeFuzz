@@ -995,10 +995,13 @@ int32_t main(int32_t argc, char** argv)
 		bool showGeneration = true;
 		bool showInput = false;
 		bool showPositiveInputs = true;
+		bool showLastGenerated = true;
 
 		bool interrupted = false;
 
 		bool destroying = false;
+
+		std::chrono::steady_clock::time_point last;
 
 		while (!glfwWindowShouldClose(window) && !stop) {
 			// Poll and handle events (inputs, window resize, etc.)
@@ -1008,10 +1011,13 @@ int32_t main(int32_t argc, char** argv)
 			// Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
 			glfwPollEvents();
 			if (glfwGetWindowAttrib(window, GLFW_ICONIFIED) != 0) {
-				std::this_thread::sleep_for(std::chrono::milliseconds(10));
+				//std::this_thread::sleep_for(std::chrono::milliseconds(10));
 				continue;
 			}
-			std::this_thread::sleep_for(std::chrono::milliseconds(20));
+			auto diff = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - last);
+			if (diff.count() < 16667)
+				std::this_thread::sleep_for(std::chrono::microseconds((16667 - diff.count())/2));
+			last = std::chrono::steady_clock::now();
 
 			// Start the Dear ImGui frame
 			ImGui_ImplOpenGL3_NewFrame();
@@ -1049,6 +1055,7 @@ int32_t main(int32_t argc, char** argv)
 					ImGui::Checkbox("Show Thread Status", &showThreadStatus);
 					ImGui::Checkbox("Show Generation window", &showGeneration);
 					ImGui::Checkbox("Show Input Information", &showInput);
+					ImGui::Checkbox("Show Input Information", &showLastGenerated);
 					ImGui::Text("Latency: %.3f ms, FPS: %.1f", 1000.0f / io.Framerate, io.Framerate);
 				}
 				ImGui::End();
@@ -1559,6 +1566,92 @@ int32_t main(int32_t argc, char** argv)
 					//...
 					//PopStyleCompact
 					if (ImGui::BeginTable("postable", 9, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * rownum), 0.0f)) {
+						ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputID);
+						ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputLength);
+						ImGui::TableSetupColumn("Primary Score", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputPrimaryScore);
+						ImGui::TableSetupColumn("Secondary Score", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputSecondaryScore);
+						ImGui::TableSetupColumn("Result", ImGuiTableColumnFlags_WidthFixed, 120.0f, UI::UIInput::ColumnID::InputResult);
+						ImGui::TableSetupColumn("Flags", ImGuiTableColumnFlags_WidthFixed, 80.0f, UI::UIInput::ColumnID::InputFlags);
+						ImGui::TableSetupColumn("Generation", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputGenerationNum);
+						ImGui::TableSetupColumn("Derived Inputs", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputDerivedNum);
+						ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputAction);
+						ImGui::TableSetupScrollFreeze(0, 1);
+						ImGui::TableHeadersRow();
+
+						// DO SOME SORTING
+
+						// use clipper for large vertical lists
+						ImGuiListClipper clipper;
+						clipper.Begin((int32_t)elements.size());
+						while (clipper.Step()) {
+							for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
+								auto item = &elements[i];
+								ImGui::PushID((uint32_t)item->id);
+								ImGui::TableNextRow();
+								ImGui::TableNextColumn();
+								ImGui::Text("%8llx", item->id);
+								ImGui::TableNextColumn();
+								ImGui::Text("%10llu", item->length);
+								ImGui::TableNextColumn();
+								ImGui::Text("%10.2f", item->primaryScore);
+								ImGui::TableNextColumn();
+								ImGui::Text("%10.2f", item->secondaryScore);
+								ImGui::TableNextColumn();
+								if (item->result == UI::Result::Failing)
+									ImGui::Text("Failing");
+								else if (item->result == UI::Result::Passing)
+									ImGui::Text("Passing");
+								else if (item->result == UI::Result::Running)
+									ImGui::Text("Running");
+								else
+									ImGui::Text("Unfinished");
+								ImGui::TableNextColumn();
+								ImGui::TextUnformatted(Utility::GetHexFill(item->flags).c_str());
+								ImGui::TableNextColumn();
+								ImGui::Text("%6d", item->generationNumber);
+								ImGui::TableNextColumn();
+								ImGui::Text("%6lld", item->derivedInputs);
+								ImGui::TableNextColumn();
+								if (ImGui::SmallButton("Replay")) {
+									std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1, std::placeholders::_2), item->id, &inputinfo);
+									th.detach();
+								}
+								ImGui::SameLine();
+								if (ImGui::SmallButton("Info")) {
+									showInput = true;
+									std::thread th([id = item->id]() { session->UI_GetInputInformation(inputinfo, id); });
+									th.detach();
+								}
+								ImGui::SameLine();
+								if (ImGui::SmallButton("DeltaDebug")) {
+									std::thread th(std::bind(&Session::UI_StartDeltaDebugging, session, std::placeholders::_1), item->id);
+									th.detach();
+								}
+								ImGui::PopID();
+							}
+						}
+						ImGui::EndTable();
+					}
+				}
+				ImGui::End();
+			}
+
+			if (showLastGenerated && !destroying) {
+				static bool wopen = true;
+				ImGui::Begin("Last Generated", &wopen);
+				if (wopen) {
+					static std::vector<UI::UIInput> elements;
+
+					// GET ITEMS FROM SESSION
+					session->UI_GetLastRunInputs(elements, 0);
+
+					// construct table
+					static ImGuiTableFlags flags =
+						ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable | ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_ScrollY;
+					//PushStyleCompact
+					//...
+					//PopStyleCompact
+					if (ImGui::BeginTable("postable", 9, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 11), 0.0f)) {
 						ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputID);
 						ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputLength);
 						ImGui::TableSetupColumn("Primary Score", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputPrimaryScore);

@@ -142,6 +142,13 @@ class SessionData : public Form
 	std::shared_mutex _undefinedInputLock;
 
 	/// <summary>
+	/// list of last run inputs
+	/// </summary>
+	boost::circular_buffer<std::weak_ptr<Input>> _lastrun = boost::circular_buffer<std::weak_ptr<Input>>(10);
+
+	std::atomic_flag _lastrunFlag = ATOMIC_FLAG_INIT;
+
+	/// <summary>
 	/// multiset with a stable size holding the top 100 unfinished inputs sorted after primary score
 	/// </summary>
 	std::stable_multiset<std::shared_ptr<InputNode>, InputNodeLess> _topK_primary_Unfinished{ 100 };
@@ -475,6 +482,12 @@ public:
 	/// </summary>
 	/// <param name="visitor">return value indicates whether the next input should be visited next</param>
 	void VisitPositiveInputs(std::function<bool(std::shared_ptr<Input>)> visitor);
+
+	/// <summary>
+	/// Visits last run inputs
+	/// </summary>
+	/// <param name="visitor">return value indicates whether the next input should be visited next</param>
+	void VisitLastRun(std::function<bool(std::shared_ptr<Input>)> visitor);
 
 	/// <summary>
 	/// aqcuires a readers lock for input generation
