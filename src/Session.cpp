@@ -279,8 +279,8 @@ void Session::StopSession(bool savesession, bool stopHandler)
 			// so try freezing them and delete any active tasks and tests
 			// this will effectively end the session and any ongoing stuff, without affecting the 
 			// availability of the handlers
-			//if (_sessiondata->_controller)
-			//	_sessiondata->_controller->Freeze();
+			if (_sessiondata->_controller)
+				_sessiondata->_controller->Freeze();
 			if (_sessiondata->_exechandler) {
 				_sessiondata->_exechandler->Freeze(false);
 				_sessiondata->_exechandler->ClearTests();
@@ -405,7 +405,7 @@ void Session::StartLoadedSession(bool& error, bool reloadsettings, std::wstring 
 	_sessioncontroller = std::thread(&Session::SessionControl, this);
 }
 
-void Session::StartSession(bool& error, bool globalTaskController, bool globalExecutionHandler, std::wstring settingsPath, std::function<void()> callback)
+void Session::StartSession(bool& error, bool disableexclusiontree, bool globalTaskController, bool globalExecutionHandler, std::wstring settingsPath, std::function<void()> callback)
 {
 	_loaded = true;
 	logmessage("Starting new session");
@@ -428,6 +428,9 @@ void Session::StartSession(bool& error, bool globalTaskController, bool globalEx
 	// set save path
 	data->SetSavePath(_sessiondata->_settings->saves.savepath);
 	data->SetSaveName(_sessiondata->_settings->saves.savename);
+	// disable exclusion tree if set
+	if (disableexclusiontree)
+		_sessiondata->_settings->runtime.enableExclusionTree = false;
 	// start session
 	StartSessionIntern(error);
 }

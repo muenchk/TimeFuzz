@@ -134,7 +134,7 @@ public:
 	/// <param name="error"></param>
 	/// <param name="globalTaskController"></param>
 	/// <param name="globalExecutionHandler"></param>
-	void StartSession(bool& error, bool globalTaskController = false, bool globalExecutionHandler = false, std::wstring settingsPath = L"", std::function<void()> callback = nullptr);
+	void StartSession(bool& error, bool disableexclusiontree, bool globalTaskController = false, bool globalExecutionHandler = false, std::wstring settingsPath = L"", std::function<void()> callback = nullptr);
 
 	void StartLoadedSession(bool& error, bool reloadsettings = false, std::wstring settingsPath = L"", std::function<void()> callback = nullptr);
 

@@ -274,7 +274,7 @@ namespace DeltaDebugging
 		/// <param name="approxthreshold"></param>
 		/// <returns></returns>
 		std::shared_ptr<Input> GetComplement(int32_t begin, int32_t end, double approxthreshold);
-		bool CheckInput(std::shared_ptr<Input> inp, double approxthreshold);
+		bool CheckInput(std::shared_ptr<Input> parent, std::shared_ptr<Input> inp, double approxthreshold);
 		/// <summary>
 		/// Add tests to the sessions executionhanler
 		/// </summary>
@@ -503,4 +503,61 @@ public:
 	{
 		return _maxRange;
 	}
+};
+
+
+
+template <class T>
+class RangeCalculator
+{
+	std::vector<std::pair<T, T>>* _ranges;
+	/// <summary>
+	/// Absolute position relative to length
+	/// </summary>
+	size_t _position = 0;
+	/// <summary>
+	/// current range
+	/// </summary>
+	size_t _posX = 0;
+	/// <summary>
+	/// current position in range
+	/// </summary>
+	size_t _posY = 0;
+	/// <summary>
+	/// total length
+	/// </summary>
+	T _length = 0;
+
+	T _orig_length = 0;
+
+public:
+	RangeCalculator(std::vector<std::pair<T, T>>* ranges, T orig_length);
+
+	/// <summary>
+	/// returns the length of all non-unique items in the range
+	/// </summary>
+	/// <returns></returns>
+	size_t GetLength();
+
+	std::vector<std::pair<T, T>> GetNewRangesWithout(T begin, T count);
+
+private:
+	/// <summary>
+	/// returns whether the given position is in a range
+	/// </summary>
+	/// <returns></returns>
+	bool IsInRange(T pos);
+
+	/// <summary>
+	/// returns the coordinates in the current input of the given position in the original input
+	/// [only works for positions outside of ranges]
+	/// </summary>
+	/// <returns></returns>
+	T Coord(T pos);
+
+	/// <summary>
+	/// returns the index of the range that pos can be added to
+	/// </summary>
+	/// <returns></returns>
+	int32_t GetMatchingRangeIdx(T pos, T count, bool& found, bool& addend);
 };

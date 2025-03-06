@@ -598,9 +598,9 @@ void TaskController::Freeze()
 		for (int32_t i = 0; i < (int32_t)_status.size(); i++)
 			frozen &= _status[i] == ThreadStatus::Waiting;
 	}
-	_lock.lock();
-	_lockLight.lock();
-	_lockMedium.lock();
+	//_lock.lock();
+	//_lockLight.lock();
+	//_lockMedium.lock();
 	loginfo("Frozen execution.");
 }
 
@@ -613,9 +613,9 @@ void TaskController::Thaw()
 {
 	loginfo("Thawing execution...");
 	_freeze = false;
-	_lock.unlock();
-	_lockLight.unlock();
-	_lockMedium.unlock();
+	//_lock.unlock();
+	//_lockLight.unlock();
+	//_lockMedium.unlock();
 	_condition.notify_all();
 	_condition_light.notify_all();
 	_condition_medium.notify_all();

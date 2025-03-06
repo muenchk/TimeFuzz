@@ -390,9 +390,7 @@ namespace DeltaDebugging
 			auto inp = _sessiondata->data->CreateForm<Input>();
 			inp->SetFlag(Form::FormFlags::DoNotFree);
 			if (i == number - 1)
-				inp->SetParentSplitInformation(_input->GetFormID(), {{
-					splitbegin, (int32_t)_input->Length() - splitbegin }
-		}, false);
+				inp->SetParentSplitInformation(_input->GetFormID(), { { splitbegin, (int32_t)_input->Length() - splitbegin } }, false);
 			else
 				inp->SetParentSplitInformation(_input->GetFormID(), { { splitbegin, splitsize } }, false);
 
@@ -481,7 +479,7 @@ namespace DeltaDebugging
 			inp->SetGenerated();
 			inp->SetGenerationTime(_sessiondata->data->GetRuntime());
 			inp->SetGenerationID(_sessiondata->GetCurrentGenerationID());*/
-			if (CheckInput(inp, approxthreshold))
+			if (CheckInput(_input, inp, approxthreshold))
 				splits.push_back(inp);
 
 		}
@@ -489,7 +487,7 @@ namespace DeltaDebugging
 		return  splits;
 	}
 
-	bool DeltaController::CheckInput(std::shared_ptr<Input> inp, double approxthreshold)
+	bool DeltaController::CheckInput(std::shared_ptr<Input> parentinp, std::shared_ptr<Input> inp, double approxthreshold)
 	{
 		// check against exclusion tree
 		if (_sessiondata->_settings->dd.approximativeTestExecution && _params->GetGoal() == DDGoal::MaximizePrimaryScore) {
@@ -566,7 +564,7 @@ namespace DeltaDebugging
 		inp->derive->_inputID = inp->GetFormID();
 
 		auto segments = inp->GetParentSplits();
-		_sessiondata->_grammar->Extract(_input->derive, inp->derive, segments, _input->Length(), inp->GetParentSplitComplement());
+		_sessiondata->_grammar->Extract(parentinp->derive, inp->derive, segments, parentinp->Length(), inp->GetParentSplitComplement());
 		if (inp->derive->_valid == false) {
 			// the input cannot be derived from the given grammar
 			logwarn("The split cannot be derived from the grammar.");
@@ -592,9 +590,19 @@ namespace DeltaDebugging
 		if ((int32_t)_input->Length() - dcmpl.length < _sessiondata->_settings->dd.executeAboveLength)
 			return {};
 
+
+		std::vector<std::pair<int64_t, int64_t>> psplitinfo;
+		// if the input is not the orig input get its parent split information
+		// if it is the orig input we want to reset the counting
+		if (_input->GetFormID() != _origInput->GetFormID())
+			psplitinfo = _input->GetParentSplits();
+		RangeCalculator<int64_t> calc(&psplitinfo, _origInput->Length());
+		auto ranges = calc.GetNewRangesWithout((int64_t)begin, (int64_t)end);
+
 		auto inp = _sessiondata->data->CreateForm<Input>();
 		inp->SetFlag(Form::FormFlags::DoNotFree);
-		inp->SetParentSplitInformation(_input->GetFormID(), { { dcmpl.positionbegin, dcmpl.length } }, dcmpl.complement);
+		//inp->SetParentSplitInformation(_input->GetFormID(), { { dcmpl.positionbegin, dcmpl.length } }, dcmpl.complement);
+		inp->SetParentSplitInformation(_origInput->GetFormID(), ranges, dcmpl.complement);
 
 		// extract the new input first so we can check against the exclusion tree
 		size_t count = 0;
@@ -608,7 +616,7 @@ namespace DeltaDebugging
 			itr++;
 		}
 
-		if (CheckInput(inp, approxthreshold))
+		if (CheckInput(_origInput, inp, approxthreshold))
 			return inp;
 		else
 			return {};
@@ -2339,4 +2347,194 @@ std::vector<std::pair<T, T>> RangeIterator<T>::GetRangesAbove(size_t minsize)
 		}
 	}
 	return result;
+}
+
+
+
+template <class T>
+RangeCalculator<T>::RangeCalculator(std::vector<std::pair<T, T>>* ranges, T orig_length)
+{
+	_ranges = ranges;
+	_length = GetLength();
+	_orig_length = orig_length;
+}
+
+template <class T>
+size_t RangeCalculator<T>::GetLength()
+{
+	// don't count the first element, it is suspected to be unique
+	T total = 0;
+	for (size_t i = 0; i < _ranges->size(); i++) {
+		total += _ranges->at(i).second;
+	}
+	return _orig_length - total;
+}
+
+template <class T>
+bool RangeCalculator<T>::IsInRange(T pos)
+{
+	for (size_t i = 0; i < _ranges->size(); i++) {
+		// if pos is before the range we check, its outside any ranges
+		if (pos < _ranges->at(i).first)
+			return false;
+		// if pos is the beginning of a range or before begin+length its in the range
+		if (pos >= _ranges->at(i).first && pos < _ranges->at(i).first + _ranges->at(i).second)
+			return true;
+	}
+	return false;
+}
+
+template <class T>
+T RangeCalculator<T>::Coord(T pos)
+{
+	// counter
+	T c = 0;
+	T coord = 0;
+	if (c == pos)
+		return coord;
+	for (size_t i = 0; i < _ranges->size(); i++) {
+		// while the counter is less or equal the last position in the next range to check
+		while (c < _ranges->at(i).first + _ranges->at(i).second) {
+			// if pos is before the range we check, its outside any ranges
+			if (c < _ranges->at(i).first) {
+				coord++;
+				c++;
+			}
+			// if pos is the beginning of a range or before begin+length its in the range
+			else if (c >= _ranges->at(i).first && c < _ranges->at(i).first + _ranges->at(i).second) {
+				c++;
+			}
+			// pos is after the range -> skip to next range
+			else
+				break;
+			// if we have reached the position, return coordinates
+			if (c == pos)
+				return coord;
+		}
+	}
+	// we have arrived after the last range, so only iterate until we reach the orig_length
+	while (c < _orig_length) {
+		c++;
+		coord++;
+		// if we have reached the position, return coordinates
+		if (c == pos)
+			return coord;
+	}
+	return coord;
+}
+
+template <class T>
+int32_t RangeCalculator<T>::GetMatchingRangeIdx(T pos, T count, bool& found, bool& addend)
+{
+	for (size_t i = 0; i < _ranges->size(); i++) {
+		if (pos + count == _ranges->at(i).first)  // add at beginning
+		{
+			// may add at beginning of range
+			found = true;
+			addend = false;
+			return (int32_t)i;
+		} else if (pos == _ranges->at(i).first + _ranges->at(i).second)  // add at end
+		{
+			// may add at end of range
+			found = true;
+			addend = true;
+			return (int32_t)i;
+		} else if (pos + count < _ranges->at(i).first) {
+			// cannot at at beginning of range, so create new range before the current index
+			found = false;
+			addend = false;
+			return (int32_t)i - 1;
+		}
+	}
+	// we are after the last range, so add as new range
+	found = false;
+	addend = false;
+	return (int32_t)_ranges->size();
+}
+
+template <class T>
+std::vector<std::pair<T, T>> RangeCalculator<T>::GetNewRangesWithout(T begin, T count)
+{
+	// return vector
+	std::vector<std::pair<T, T>> segments;
+	std::vector<std::pair<T, T>> segs;
+
+	// positions to cut
+	std::vector<T> tocut;
+	for (T c = 0; c < _orig_length; c++) {
+		if (IsInRange(c))
+			// we cannot cut the current location
+			void();
+		if (!IsInRange(c)) {
+			T coord = Coord(c);
+			if (coord >= begin && coord < begin + count)
+				tocut.push_back(c);
+			else if (coord >= begin + count)
+				break; // all positions found
+		}
+	}
+
+	for (auto pos : tocut) {
+		bool found = false;
+		for (size_t i = 0; i < segs.size(); i++) {
+			if (segs[i].first + segs[i].second == pos) {
+				segs[i] = { segs[i].first, segs[i].second + 1 };
+				found = true;
+			}
+		}
+		if (!found)
+			segs.push_back({ pos, 1 });
+	}
+
+	for (size_t i = 0; i < _ranges->size(); i++) {
+		segments.push_back(_ranges->at(i));
+	}
+
+	// add new segments to existing
+	for (int32_t i = (int32_t)segs.size() - 1; i >= 0; i--) {
+		bool found = false, addend = false;
+		int32_t idx = GetMatchingRangeIdx(segs[i].first, segs[i].second, found, addend);
+		if (found) {
+			// add to existing range
+			if (addend == false) {
+				segments[idx] = { segs[i].first, segs[i].second + segments[idx].second };
+			} else {
+				segments[idx] = { segments[idx].first, segments[idx].second + segs[i].second };
+			}
+		} else {
+			if (idx == _ranges->size()) {
+				// append at end
+				segments.push_back(segs[i]);
+			} else if (idx == -1) {
+				// insert at beginning
+				segments.insert(segments.begin(), segs[i]);
+			} else {
+				// insert after idx
+				segments.resize(segments.size() + 1);
+				std::pair<T, T> tmp = segments[idx + 1];
+				std::pair<T, T> tmp2{ 0, 0 };
+				for (int32_t x = idx + 1; x < (int32_t)segments.size() - 1; x++) {
+					tmp2 = tmp;
+					tmp = segments[x + 1];
+					segments[x + 1] = tmp2;
+				}
+				segments[idx + 1] = segs[i];
+			}
+		}
+	}
+	// merge segements
+	for (int i = 0; i < (int32_t)segments.size() - 1; i++)
+	{
+		if (segments[i].first + segments[i].second == segments[i + 1].first)
+		{
+			segments[i] = { segments[i].first, segments[i].second + segments[i + 1].second };
+			// iterate over all remaining segments and move them one closer, pop last
+			for (int x = i + 1; x < (int32_t)segments.size() - 1; x++)
+				segments[x] = segments[x + 1];
+			segments.pop_back();
+			i--; // check the same segment again if there are any other merges to be performed
+		}
+	}
+
+	return segments;
 }

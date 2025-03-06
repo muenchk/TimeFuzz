@@ -6,6 +6,7 @@
 #include "ansi_escapes.h"
 #include <filesystem>
 #include <iostream>
+#include "DeltaDebugging.h"
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 #	include "CrashHandler.h"
@@ -592,7 +593,7 @@ void StartSession()
 		// create sessions and start it
 		session = Session::CreateSession();
 		bool error = false;
-		session->StartSession(error, false, false, CmdArgs::_settingspath);
+		session->StartSession(error, args.skipExclusionTree, false, false, CmdArgs::_settingspath);
 		session->InitStatus(status);
 		if (error == true) {
 			logcritical("Couldn't start the session, exiting...");
@@ -798,6 +799,14 @@ int32_t main(int32_t argc, char** argv)
 				std::cerr << "missing configuration file name";
 				exit(ExitCodes::ArgumentError);
 			}
+		} else if (option.find("--test") != std::string::npos) {
+			std::vector<std::pair<size_t, size_t>> vec;
+			vec.push_back({ 1, 3 });
+			vec.push_back({ 5, 6 });
+			vec.push_back({ 20, 24 });
+			//RangeCalculator<size_t> calc(&vec, (size_t)100);
+			//auto ranges = calc.GetNewRangesWithout((size_t)1, (size_t)25);
+			exit(1);
 		}
 	}
 

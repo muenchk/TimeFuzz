@@ -979,7 +979,20 @@ namespace Functions
 		_sessiondata.reset();
 	}
 
-
+	void WaitForGen(std::shared_ptr<Generation>& generation, std::shared_ptr<SessionData>& sessiondata, std::chrono::milliseconds timeout)
+	{
+		int64_t lastactive = 0, active = generation->GetActiveInputs();
+	StartWait:
+		while (sessiondata->_exechandler->WaitingTasks() > 0 || sessiondata->_controller->GetWaitingLightJobs() > 0);
+		auto time = std::chrono::steady_clock::now();
+		while (generation->GetActiveInputs() > 0 && time + timeout < std::chrono::steady_clock::now())
+		{
+			if (lastactive != generation->GetActiveInputs())
+				time = std::chrono::steady_clock::now();
+			if (sessiondata->_exechandler->WaitingTasks() > 0 || sessiondata->_controller->GetWaitingLightJobs() > 0)
+				goto StartWait;
+		}
+	}
 
 	void GenerationEndCallback::Run()
 	{
@@ -994,7 +1007,8 @@ namespace Functions
 			_sessiondata->_controller->AddTask(callback, true);
 			return;
 		}
-		while (generation->GetActiveInputs() > 0 || _sessiondata->_exechandler->WaitingTasks() > 0 || _sessiondata->_controller->GetWaitingLightJobs() > 0);
+		
+		WaitForGen(generation, _sessiondata, std::chrono::milliseconds(10000));
 
 		// if there is are delta debugging instances active, get them and assign generation finished callbacks to it,so we make sure they are finished before we start the next generation
 		std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> controllers;
@@ -1187,8 +1201,8 @@ namespace Functions
 			}
 		} else {
 			auto generation = _sessiondata->GetCurrentGeneration();
-			while (generation->GetActiveInputs() > 0 || _sessiondata->_exechandler->WaitingTasks() > 0 || _sessiondata->_controller->GetWaitingLightJobs() > 0);
-			
+
+			WaitForGen(generation, _sessiondata, std::chrono::milliseconds(10000));
 
 			// get writers lock for input generation
 			_sessiondata->Acquire_InputGenerationWritersLock();
