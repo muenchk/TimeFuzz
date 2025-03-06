@@ -255,15 +255,21 @@ public:
 	}
 
 	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
-	void RecycleObject(std::shared_ptr<T> form)
+	[[deprecated]] void RecycleObject(std::shared_ptr<T> form)
 	{
 		if (form) {
 			auto stor = _objectRecycler.at(form->GetType());
 			stor->StoreObj(form);
 		}
 	}
+	/// <summary>
+	/// [[deprecated]] returns a recycled object
+	/// </summary>
+	/// <typeparam name="T"></typeparam>
+	/// <typeparam name=""></typeparam>
+	/// <returns>valid shared_ptr</returns>
 	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
-	std::shared_ptr<T> GetRecycledObject()
+	[[deprecated]] std::shared_ptr<T> GetRecycledObject()
 	{
 		auto stor = _objectRecycler.at(T::GetTypeStatic());
 		return dynamic_pointer_cast<T>(stor->GetObj());
@@ -273,7 +279,6 @@ public:
 	/// Creates a new dynamic form and registers it
 	/// </summary>
 	/// <typeparam name="T">Type of the form to create</typeparam>
-	/// <returns></returns>
 	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 	std::shared_ptr<T> CreateForm()
 	{
@@ -300,7 +305,7 @@ public:
 	/// </summary>
 	/// <typeparam name="T">Type of the form to register</typeparam>
 	/// <param name="form">The form to register</param>
-	/// <returns></returns>
+	/// <returns>whether the form was registered successfully, false otherwise</returns>
 	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 	bool RegisterForm(std::shared_ptr<T> form)
 	{
@@ -341,7 +346,7 @@ public:
 	/// </summary>
 	/// <typeparam name="T">Type of the form to find</typeparam>
 	/// <param name="formid">The id of the form to find</param>
-	/// <returns></returns>
+	/// <returns>valid shared_ptr if formid has been found, invalid shared_ptr otherwise</returns>
 	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 	std::shared_ptr<T> LookupFormID(FormID formid)
 	{
@@ -352,6 +357,11 @@ public:
 		return {};
 	}
 
+	/// <summary>
+	/// Returns a vector with all database entries that match the given type
+	/// </summary>
+	/// <typeparam name="T">type to find</typeparam>
+	/// <returns>vector with entries of type T</returns>
 	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 	std::vector<std::shared_ptr<T>> GetFormArray()
 	{
@@ -367,33 +377,33 @@ public:
 	/// <summary>
 	/// returns the size of the internal hashmap
 	/// </summary>
-	/// <returns></returns>
+	/// <returns>size of the internal hashmap</returns>
 	size_t GetHashmapSize();
 
 	/// <summary>
 	/// Applies the [visitor] function to all forms in the hashmap
 	/// </summary>
-	/// <param name="visitor"></param>
+	/// <param name="visitor">predicate that is applied to all database entries</param>
 	void Visit(std::function<VisitAction(std::shared_ptr<Form>)> visitor);
 
 	/// <summary>
 	/// Returns a copy of the hashmap with weak pointers instead of the shared pointers
 	/// </summary>
-	/// <returns></returns>
+	/// <returns>hashmap with weak copies of database entries</returns>
 	std::unordered_map<FormID, std::weak_ptr<Form>> GetWeakHashmapCopy();
 
 	/// <summary>
 	/// Returns the ID associated with the given string
 	/// </summary>
-	/// <param name="str"></param>
-	/// <returns></returns>
+	/// <param name="str">string to find / generate id for</param>
+	/// <returns>id of the string</returns>
 	FormID GetIDFromString(std::string str);
 
 	/// <summary>
 	/// Returns the string associated with the given ID, and a boolean that indicates whether the value exists
 	/// </summary>
-	/// <param name="id"></param>
-	/// <returns></returns>
+	/// <param name="id">ID of the string to find</param>
+	/// <returns>returns whether a string was found and if so, the string</returns>
 	std::pair<std::string, bool> GetStringFromID(FormID id);
 
 	/// <summary>
@@ -404,32 +414,32 @@ public:
 	/// <summary>
 	/// saves the current state of the program to a savefile and calls a callback afterwards
 	/// </summary>
-	/// <param name="callback"></param>
+	/// <param name="callback">callback to execute after save</param>
 	void Save(std::shared_ptr<Functions::BaseFunction> callback);
 
 	/// <summary>
 	/// sets the unique name of the saves
 	/// </summary>
-	/// <param name=""></param>
+	/// <param name="">name of the save</param>
 	void SetSaveName(std::string name);
 
 	/// <summary>
 	/// Sets the path for savefiles
 	/// </summary>
-	/// <param name="path"></param>
+	/// <param name="path">path to save files</param>
 	void SetSavePath(std::filesystem::path path);
 
 	/// <summary>
 	/// Loads the last savefile with the uniquename [name]
 	/// </summary>
-	/// <param name="name"></param>
+	/// <param name="name">name of the save to load</param>
 	void Load(std::string name, LoadSaveArgs& loadArgs);
 
 	/// <summary>
 	/// Loads the [number]-th savefile with the uniquename [name]
 	/// </summary>
-	/// <param name="name"></param>
-	/// <param name="number"></param>
+	/// <param name="name">name of the save to load</param>
+	/// <param name="number">the number of the save to load</param>
 	void Load(std::string name, int32_t number, LoadSaveArgs& loadArgs);
 };
 
@@ -445,17 +455,53 @@ public:
 		virtual void Dispose() = 0;
 	};
 
+	/// <summary>
+	/// returns a singleton instance
+	/// </summary>
+	/// <returns>singleton</returns>
 	static LoadResolver* GetSingleton();
+	/// <summary>
+	/// sets the database pointer
+	/// </summary>
+	/// <param name="dat"></param>
 	void SetData(Data* dat);
+	/// <summary>
+	/// ptr to database
+	/// </summary>
 	Data* _data = nullptr;
+	/// <summary>
+	/// ptr to oracle
+	/// </summary>
 	std::shared_ptr<Oracle> _oracle;
 
+	/// <summary>
+	/// adds task to queue
+	/// </summary>
+	/// <param name="a_task">task to add to queue</param>
 	void AddTask(TaskFn a_task);
+	/// <summary>
+	/// adds task to queue
+	/// </summary>
+	/// <param name="a_task">task to add to queue</param>
 	void AddTask(TaskDelegate* a_task);
 
+	/// <summary>
+	/// adds a task to the late queue
+	/// </summary>
+	/// <param name="a_task">task to add to late queue</param>
 	void AddLateTask(TaskFn a_task);
+	/// <summary>
+	/// adds a task to the late queue
+	/// </summary>
+	/// <param name="a_task">task to add to late queue</param>
 	void AddLateTask(TaskDelegate* a_task);
 
+	/// <summary>
+	/// returns a form matching the given type and form id
+	/// </summary>
+	/// <typeparam name="T">Type to search database for</typeparam>
+	/// <param name="formid">form id to search for</param>
+	/// <returns>valid shared_ptr if form was found, invalid shared_ptr otherwise</returns>
 	template <class T>
 	std::shared_ptr<T> ResolveFormID(FormID formid)
 	{
@@ -467,16 +513,37 @@ public:
 		return {};
 	}
 
+	/// <summary>
+	/// Executes all tasks waiting in the queue
+	/// </summary>
+	/// <param name="progress">variable incremented and overwritten for each resolved task</param>
 	void Resolve(uint64_t& progress);
+	/// <summary>
+	/// Executes all tasks waiting in the late queue
+	/// </summary>
+	/// <param name="progress">variable incremented and overwritten for each resolved task</param>
 	void ResolveLate(uint64_t& progress);
 
+	/// <summary>
+	/// returns the total number of tasks waiting in queue
+	/// </summary>
+	/// <returns>number of waiting tasks</returns>
 	size_t TaskCount() { return _tasks.size() + _latetasks.size(); }
 
 private:
+	/// <summary>
+	/// task queue for regular tasks
+	/// </summary>
 	std::queue<TaskDelegate*> _tasks;
+	/// <summary>
+	/// task queue for late tasks
+	/// </summary>
 	std::queue<TaskDelegate*> _latetasks;
+	/// <summary>
+	/// mutex for access to task queues
+	/// </summary>
 	std::mutex _lock;
-
+	
 	class Task : public TaskDelegate
 	{
 	public:

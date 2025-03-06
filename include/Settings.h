@@ -54,7 +54,7 @@ class Settings : public Form
 {
 private:
 	bool initialized = false;
-	const int32_t classversion = 0x2;
+	const int32_t classversion = 0x3;
 	/// <summary>
 	/// skip reading from savefile
 	/// </summary>
@@ -334,6 +334,12 @@ public:
 
 		bool disableExclusionTree = false;
 		const char* disableExclusionTree_NAME = "DisableExclusionTree";
+
+		/// <summary>
+		/// only inserts inputs into the exclusiontree with length less than value
+		/// </summary>
+		int32_t exclusionTreeLengthLimit = 1000;
+		const char* exclusionTreeLengthLimit_NAME = "ExclusionTreeLengthLimit";
 	};
 
 	Optimization optimization;

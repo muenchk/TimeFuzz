@@ -65,7 +65,7 @@ public:
 			if (rootNums[idx] > boundaries[idx])
 			{
 				targets.erase(chosen[idx].back());
-				chosen.pop_back();
+				chosen[idx].pop_back();
 			}
 			idx--;
 			if (idx == -1)

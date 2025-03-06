@@ -261,7 +261,11 @@ bool Test::IsRunning()
 	}
 }
 
-bool Test::WriteInput(std::string str)
+#if defined(unix) || defined(__unix__) || defined(__unix)
+bool Test::WriteInput(std::string str, bool waitwrite)
+#else
+bool Test::WriteInput(std::string str, bool /*waitwrite*/)
+#endif
 {
 	if (!_valid) {
 		logcritical("called WriteInput after invalidation");
@@ -277,11 +281,20 @@ bool Test::WriteInput(std::string str)
 	fds.events = POLLOUT;
 	events = poll(&fds, 1, 0);
 	if ((fds.revents & POLLOUT) == POLLOUT) {
-		if (size_t written = write(red_input[1], str.c_str(), len); written != len) {
-			logcritical("Write to child is missing bytes: Supposed {}, written {}", len, written);
-			return false;
-		} 
-		return true;
+		if (waitwrite) {
+			size_t totalwritten = 0;
+			while (totalwritten != len) {
+				size_t written = write(red_input[1], str.c_str(), len);
+				totalwritten += written;
+			}
+			return true;
+		} else {
+			if (size_t written = write(red_input[1], str.c_str(), len); written != len) {
+				logcritical("Write to child is missing bytes: Supposed {}, written {}", len, written);
+				return false;
+			}
+			return true;
+		}
 	} else
 		return false;
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
@@ -293,7 +306,7 @@ bool Test::WriteInput(std::string str)
 	return bSuccess;
 }
 
-bool Test::WriteNext()
+bool Test::WriteNext(bool& error)
 {
 	if (!_valid) {
 		logcritical("called WriteNext after invalidation");
@@ -301,11 +314,13 @@ bool Test::WriteNext()
 	}
 	if (_itr == _itrend)
 		return false;
-	WriteInput(*_itr);
-	_lasttime = std::chrono::steady_clock::now();
-	_lastwritten = *_itr;
-	_itr++;
-	_executed++;
+	if (WriteInput(*_itr, false)) {
+		_lasttime = std::chrono::steady_clock::now();
+		_lastwritten = *_itr;
+		_itr++;
+		_executed++;
+	} else
+		error = true;
 	return true;
 }
 
@@ -317,7 +332,7 @@ bool Test::WriteAll()
 	}
 	auto itra = _itr;
 	while (itra != _itrend) {
-		WriteInput(*itra);
+		WriteInput(*itra, true);
 		_lastwritten += *itra;
 		_executed++;
 		itra++;

@@ -45,6 +45,8 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input, OracleResult result)
 		return;
 	if (_sessiondata->_settings->optimization.disableExclusionTree || !_sessiondata->_settings->runtime.enableExclusionTree)
 		return;
+	if (input->GetSequenceLength() > _sessiondata->_settings->optimization.exclusionTreeLengthLimit)
+		return;
 
 	exclwlock;
 	TreeNode* node = root;

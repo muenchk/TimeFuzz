@@ -482,13 +482,15 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 	test->_starttime = std::chrono::steady_clock::now();
 	test->_timeouttime = test->_starttime + std::chrono::nanoseconds(_settings->tests.testtimeout);
 	if (_oracle->GetOracletype() != Oracle::PUTType::CMD && _oracle->GetOracletype() != Oracle::PUTType::Script) {
-		if (_enableFragments)
-			test->WriteNext();
+		if (_enableFragments) {
+			bool error = false;
+			test->WriteNext(error);
+		}
 		else
 			test->WriteAll();
 	} else if (_oracle->GetOracletype() == Oracle::PUTType::Script) {
 		// if it is a script we can dump a special string onto the stdin of the put
-		test->WriteInput(test->_scriptArgs);
+		test->WriteInput(test->_scriptArgs, true);
 	}
 	_currentTests++;
 	test->_exitreason = Test::ExitReason::Running;
@@ -743,7 +745,10 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 			if (_enableFragments && ptr->CheckInput()) {
 				_tstatus = ExecHandlerStatus::WriteFragment;
 				// fragment has been completed
-				if (ptr->WriteNext() == false && _settings->tests.use_fragmenttimeout && std::chrono::duration_cast<std::chrono::microseconds>(time - ptr->_lasttime).count() > _settings->tests.fragmenttimeout) {
+				bool error = false; 
+				// iff writenext and error flag are false the last fragment has been completed
+				// otherwise it just couldn't be written
+				if (ptr->WriteNext(error) == false && error == false && _settings->tests.use_fragmenttimeout && std::chrono::duration_cast<std::chrono::microseconds>(time - ptr->_lasttime).count() > _settings->tests.fragmenttimeout) {
 					ptr->_exitreason = Test::ExitReason::Natural | Test::ExitReason::LastInput;
 					SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::Natural);
 					SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::LastInput);

@@ -126,6 +126,8 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "Optimization:       ", optimization.constructinputsiteratively_NAME, optimization.constructinputsiteratively);
 	optimization.disableExclusionTree = ini.GetBoolValue("Optimization", optimization.disableExclusionTree_NAME, optimization.disableExclusionTree);
 	loginfo("{}{} {}", "Optimization:       ", optimization.disableExclusionTree_NAME, optimization.disableExclusionTree);
+	optimization.exclusionTreeLengthLimit = ini.GetLongValue("Optimization", optimization.exclusionTreeLengthLimit_NAME, optimization.exclusionTreeLengthLimit);
+	loginfo("{}{} {}", "Optimization:       ", optimization.exclusionTreeLengthLimit_NAME, optimization.exclusionTreeLengthLimit);
 
 	// methods
 	methods.IterativeConstruction_Extension_Backtrack_min = (int32_t)ini.GetLongValue("Methods", methods.IterativeConstruction_Extension_Backtrack_min_NAME, methods.IterativeConstruction_Extension_Backtrack_min);
@@ -357,6 +359,8 @@ void Settings::Save(std::wstring _path)
 		"\\\\ [This should not be used with a PUT that produces undefined oracle results.]");
 	ini.SetBoolValue("Optimization", optimization.disableExclusionTree_NAME, optimization.disableExclusionTree,
 		"\\\\ Disables the ExclusionTree.");
+	ini.SetLongValue("Optimization", optimization.exclusionTreeLengthLimit_NAME, optimization.exclusionTreeLengthLimit,
+		"\\\\ Only inserts inputs into the exlcusion tree with a max length of this value.");
 
 	// methods
 	ini.SetLongValue("Methods", methods.IterativeConstruction_Extension_Backtrack_min_NAME, methods.IterativeConstruction_Extension_Backtrack_min,
@@ -554,13 +558,16 @@ size_t Settings::GetStaticSize(int32_t version)
 	                 + 4      // Controller::numAllThreads
 	                 + 1      // Fixes::disableExecHandlerSleep
 	                 + 1;     // Fixes::repeatTimeoutedTest
-	            
+	size_t size0x3 = size0x2  // prior stuff
+	                 + 4;     // Optimization::exclusionTreeLengthLimit
 
 	switch (version) {
 	case 0x1:
 		return size0x1;
 	case 0x2:
 		return size0x2;
+	case 0x3:
+		return size0x3;
 	default:
 		return 0;
 	}
@@ -684,6 +691,10 @@ bool Settings::WriteData(std::ostream* buffer, size_t& offset)
 	// fixes
 	Buffer::Write(fixes.disableExecHandlerSleep, buffer, offset);
 	Buffer::Write(fixes.repeatTimeoutedTests, buffer, offset);
+
+	// VERSION 0x3
+	// optimization
+	Buffer::Write(optimization.exclusionTreeLengthLimit, buffer, offset);
 	return true;
 }
 
@@ -693,6 +704,7 @@ bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, Loa
 	switch (version) {
 	case 0x1:
 	case 0x2:
+	case 0x3:
 		{
 			Form::ReadData(buffer, offset, length, resolver);
 			// oracle
@@ -759,7 +771,7 @@ bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, Loa
 			tests.storePUToutputSuccessful = Buffer::ReadBool(buffer, offset);
 			tests.maxUsedMemory = Buffer::ReadInt64(buffer, offset);
 		}
-		if (version == 0x2)
+		if (version >= 0x2)
 		{
 			// oracle
 			oracle.oraclepath_Unix = std::filesystem::path(Buffer::ReadString(buffer, offset));
@@ -799,6 +811,11 @@ bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, Loa
 			// fixes
 			fixes.disableExecHandlerSleep = Buffer::ReadBool(buffer, offset);
 			fixes.repeatTimeoutedTests = Buffer::ReadBool(buffer, offset);
+		}
+		if (version >= 0x3)
+		{
+			// optimization
+			optimization.exclusionTreeLengthLimit = Buffer::ReadInt32(buffer, offset);
 		}
 		return true;
 	default:

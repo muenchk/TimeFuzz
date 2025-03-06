@@ -1200,6 +1200,7 @@ namespace Functions
 				}
 			}
 		} else {
+			StartProfiling;
 			auto generation = _sessiondata->GetCurrentGeneration();
 
 			WaitForGen(generation, _sessiondata, std::chrono::milliseconds(10000));
@@ -1342,6 +1343,8 @@ namespace Functions
 
 			// release writers lock for input generation
 			_sessiondata->Release_InputGenerationWritersLock();
+
+			profile(TimeProfiling, "Time taken for sources selection.");
 		}
 	}
 

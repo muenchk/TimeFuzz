@@ -193,11 +193,11 @@ public:
 	/// Writes input to the stdint of the PUT
 	/// </summary>
 	/// <param name=""></param>
-	bool WriteInput(std::string);
+	bool WriteInput(std::string, bool waitwrite);
 	/// <summary>
 	/// Writes next input to PUT
 	/// </summary>
-	bool WriteNext();
+	bool WriteNext(bool& error);
 	/// <summary>
 	/// Writes all input to PUT
 	/// </summary>
