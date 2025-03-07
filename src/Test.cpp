@@ -284,7 +284,7 @@ bool Test::WriteInput(std::string str, bool /*waitwrite*/)
 		if (waitwrite) {
 			size_t totalwritten = 0;
 			while (totalwritten != len) {
-				size_t written = write(red_input[1], str.c_str(), len);
+				size_t written = write(red_input[1], str.c_str() + totalwritten, len);
 				totalwritten += written;
 			}
 			return true;

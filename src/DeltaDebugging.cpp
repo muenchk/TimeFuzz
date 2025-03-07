@@ -2470,7 +2470,7 @@ std::vector<std::pair<T, T>> RangeCalculator<T>::GetNewRangesWithout(T begin, T 
 			if (coord >= begin && coord < begin + count)
 				tocut.push_back(c);
 			else if (coord >= begin + count)
-				break; // all positions found
+				break;  // all positions found
 		}
 	}
 
@@ -2523,16 +2523,14 @@ std::vector<std::pair<T, T>> RangeCalculator<T>::GetNewRangesWithout(T begin, T 
 		}
 	}
 	// merge segements
-	for (int i = 0; i < (int32_t)segments.size() - 1; i++)
-	{
-		if (segments[i].first + segments[i].second == segments[i + 1].first)
-		{
+	for (int i = 0; i < (int32_t)segments.size() - 1; i++) {
+		if (segments[i].first + segments[i].second == segments[i + 1].first) {
 			segments[i] = { segments[i].first, segments[i].second + segments[i + 1].second };
 			// iterate over all remaining segments and move them one closer, pop last
 			for (int x = i + 1; x < (int32_t)segments.size() - 1; x++)
 				segments[x] = segments[x + 1];
 			segments.pop_back();
-			i--; // check the same segment again if there are any other merges to be performed
+			i--;  // check the same segment again if there are any other merges to be performed
 		}
 	}
 
