@@ -10,6 +10,7 @@
 #include "LuaEngine.h"
 #include "SessionFunctions.h"
 #include "Generation.h"
+#include "IPCommManager.h"
 #include <functional>
 //#include <io.h>
 
@@ -485,12 +486,23 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 		if (_enableFragments) {
 			bool error = false;
 			test->WriteNext(error);
+		} else {
+			//test->WriteAll();
+			if (auto ptr = test->_input.lock(); ptr) {
+				std::string all = "";
+				auto itr = ptr->begin();
+				while (itr != ptr->end())
+				{
+					all += *itr;
+					itr++;
+				}
+				IPCommManager::GetSingleton()->Write(test, all.c_str(), 0, all.size());
+			}
 		}
-		else
-			test->WriteAll();
 	} else if (_oracle->GetOracletype() == Oracle::PUTType::Script) {
 		// if it is a script we can dump a special string onto the stdin of the put
-		test->WriteInput(test->_scriptArgs, true);
+		//test->WriteInput(test->_scriptArgs, true);
+		IPCommManager::GetSingleton()->Write(test, test->_scriptArgs.c_str(), 0, test->_scriptArgs.size());
 	}
 	_currentTests++;
 	test->_exitreason = Test::ExitReason::Running;
@@ -656,6 +668,8 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 				_stoppingTests.clear();
 			}
 		}
+
+		IPCommManager::GetSingleton()->PerformWrites();
 
 		lasttime = time;
 		time = std::chrono::steady_clock::now();  // record the enter time

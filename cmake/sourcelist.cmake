@@ -12,6 +12,7 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/Generator.cpp"
 	"${SOURCE_DIR}/Generation.cpp"
 	"${SOURCE_DIR}/Input.cpp"
+	"${SOURCE_DIR}/IPCommManager.cpp"
 	"${SOURCE_DIR}/Logging.cpp" 
 	"${SOURCE_DIR}/LuaEngine.cpp" 
 	"${SOURCE_DIR}/LZMAStreambuf.cpp" 

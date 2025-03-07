@@ -195,6 +195,14 @@ public:
 	/// <param name=""></param>
 	bool WriteInput(std::string, bool waitwrite);
 	/// <summary>
+	/// Writes data to the stdint of the PUT
+	/// </summary>
+	/// <param name="data">the data to write</param>
+	/// <param name="offset">the offset to start at</param>
+	/// <param name="length">the number of bytes to write</param>
+	/// <returns></returns>
+	size_t Write(const char* data, size_t offset, size_t length);
+	/// <summary>
 	/// Writes next input to PUT
 	/// </summary>
 	bool WriteNext(bool& error);

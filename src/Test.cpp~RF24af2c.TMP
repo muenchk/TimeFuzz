@@ -306,7 +306,7 @@ bool Test::WriteInput(std::string str, bool /*waitwrite*/)
 	return bSuccess;
 }
 
-size_t Test::Write(const char* data, size_t offset, size_t length)
+bool Test::Write(const char* data, size_t offset, size_t length)
 {
 	if (!_valid) {
 		logcritical("called Write after invalidation");
@@ -314,6 +314,7 @@ size_t Test::Write(const char* data, size_t offset, size_t length)
 	}
 	int bSuccess = 0;
 #if defined(unix) || defined(__unix__) || defined(__unix)
+	size_t len = strlen(str.c_str());
 	//if (IsRunning()) {
 	struct pollfd fds;
 	int32_t events = 0;
@@ -321,19 +322,20 @@ size_t Test::Write(const char* data, size_t offset, size_t length)
 	fds.events = POLLOUT;
 	events = poll(&fds, 1, 0);
 	if ((fds.revents & POLLOUT) == POLLOUT) {
-		size_t written = write(red_input[1], data + offset, lenth)
-		return written;
+		if (size_t written = write(red_input[1], str.c_str(), len); written != len) {
+			logcritical("Write to child is missing bytes: Supposed {}, written {}", len, written);
+			return false;
+		}
+		return true;
 	} else
-		return 0;
+		return false;
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	DWORD dwWritten;
 	bSuccess = FALSE;
-	bSuccess = WriteFile(red_input[1], data + offset, (DWORD)length, &dwWritten, NULL);
+	const char* cstr = str.c_str();
+	bSuccess = WriteFile(red_input[1], cstr, (DWORD)strlen(cstr), &dwWritten, NULL);
 #endif
-	if (bSuccess)
-		return dwWritten;
-	else
-		return 0;
+	return bSuccess;
 }
 
 bool Test::WriteNext(bool& error)
