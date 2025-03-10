@@ -321,7 +321,7 @@ size_t Test::Write(const char* data, size_t offset, size_t length)
 	fds.events = POLLOUT;
 	events = poll(&fds, 1, 0);
 	if ((fds.revents & POLLOUT) == POLLOUT) {
-		size_t written = write(red_input[1], data + offset, lenth)
+		size_t written = write(red_input[1], data + offset, length);
 		return written;
 	} else
 		return 0;
@@ -329,11 +329,11 @@ size_t Test::Write(const char* data, size_t offset, size_t length)
 	DWORD dwWritten;
 	bSuccess = FALSE;
 	bSuccess = WriteFile(red_input[1], data + offset, (DWORD)length, &dwWritten, NULL);
-#endif
 	if (bSuccess)
 		return dwWritten;
 	else
 		return 0;
+#endif
 }
 
 bool Test::WriteNext(bool& error)

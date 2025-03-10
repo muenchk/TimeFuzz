@@ -149,6 +149,8 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "DeltaDebugging:          ", dd.mode_NAME, (long)dd.mode);
 	dd.allowScoreOptimization = ini.GetBoolValue("DeltaDebugging", dd.allowScoreOptimization_NAME, dd.allowScoreOptimization);
 	loginfo("{}{} {}", "DeltaDebugging:          ", dd.allowScoreOptimization_NAME, dd.allowScoreOptimization);
+	dd.ScoreProgressSkipDeltaDebuggedParts = ini.GetBoolValue("DeltaDebugging", dd.ScoreProgressSkipDeltaDebuggedParts_NAME, dd.ScoreProgressSkipDeltaDebuggedParts);
+	loginfo("{}{} {}", "DeltaDebugging:          ", dd.ScoreProgressSkipDeltaDebuggedParts_NAME, dd.ScoreProgressSkipDeltaDebuggedParts);
 	dd.runReproduceResultsAfterScoreApproxOnPositive = ini.GetBoolValue("DeltaDebugging", dd.runReproduceResultsAfterScoreApproxOnPositive_NAME, dd.runReproduceResultsAfterScoreApproxOnPositive);
 	loginfo("{}{} {}", "DeltaDebugging:          ", dd.runReproduceResultsAfterScoreApproxOnPositive_NAME, dd.runReproduceResultsAfterScoreApproxOnPositive);
 	dd.optimizationLossThreshold = ini.GetDoubleValue("DeltaDebugging", dd.optimizationLossThreshold_NAME, dd.optimizationLossThreshold);
@@ -380,6 +382,10 @@ void Settings::Save(std::wstring _path)
 		"\\\\ 0 = Standard - DDmin developed by Andreas Zeller executing subsets and their complements\n"
 		"\\\\ [currently not selectable, activate AllowScoreOptimization instead] 1 = ScoreProgress - DDmin based custom algorithm that removes entries with that show no score progress");
 	ini.SetBoolValue("DeltaDebugging", dd.allowScoreOptimization_NAME, dd.allowScoreOptimization, "\\\\ Allows the application of Delta debugging to reduce generated inputs while optimizing their score instead of reproducing their result.");
+	ini.SetBoolValue("DeltaDebugging", dd.ScoreProgressSkipDeltaDebuggedParts_NAME, dd.ScoreProgressSkipDeltaDebuggedParts, 
+		"\\\\ [Score Progress exclusive]\n"
+		"\\\\ When delta debugging a generated input whose ancestor has already been delta debugged,\n"
+		"\\\\ the parts that have already been handled for the ancestor are ignored for the current input.");
 
 	ini.SetBoolValue("DeltaDebugging", dd.runReproduceResultsAfterScoreApproxOnPositive_NAME, dd.runReproduceResultsAfterScoreApproxOnPositive, "\\\\ Runs standard DD after Score Optimization DD on positiv generated inputs.");
 
@@ -560,6 +566,8 @@ size_t Settings::GetStaticSize(int32_t version)
 	                 + 1;     // Fixes::repeatTimeoutedTest
 	size_t size0x3 = size0x2  // prior stuff
 	                 + 4;     // Optimization::exclusionTreeLengthLimit
+	size_t size0x4 = size0x3  // prior stuff
+	                 + 1;     // DeltaDebugging::ScoreProgressSkipDeltaDebuggedParts
 
 	switch (version) {
 	case 0x1:
@@ -568,6 +576,8 @@ size_t Settings::GetStaticSize(int32_t version)
 		return size0x2;
 	case 0x3:
 		return size0x3;
+	case 0x4:
+		return size0x4;
 	default:
 		return 0;
 	}
@@ -695,6 +705,10 @@ bool Settings::WriteData(std::ostream* buffer, size_t& offset)
 	// VERSION 0x3
 	// optimization
 	Buffer::Write(optimization.exclusionTreeLengthLimit, buffer, offset);
+
+	// VERSION 0x4
+	// delta debugging
+	Buffer::Write(dd.ScoreProgressSkipDeltaDebuggedParts, buffer, offset);
 	return true;
 }
 
@@ -705,6 +719,7 @@ bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, Loa
 	case 0x1:
 	case 0x2:
 	case 0x3:
+	case 0x4:
 		{
 			Form::ReadData(buffer, offset, length, resolver);
 			// oracle
@@ -816,6 +831,11 @@ bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, Loa
 		{
 			// optimization
 			optimization.exclusionTreeLengthLimit = Buffer::ReadInt32(buffer, offset);
+		}
+		if (version >= 0x4)
+		{
+			// delta debugging 
+			dd.ScoreProgressSkipDeltaDebuggedParts = Buffer::ReadBool(buffer, offset);
 		}
 		return true;
 	default:

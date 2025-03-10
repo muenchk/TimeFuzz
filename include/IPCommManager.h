@@ -14,11 +14,11 @@ private:
 	struct WriteData
 	{
 		std::weak_ptr<Test> _test;
-		char* _data;
-		size_t _offset;
-		size_t _length;
+		char* _data = nullptr;
+		size_t _offset = 0;
+		size_t _length = 0;
 
-		WriteData* next;
+		WriteData* next = nullptr;
 
 		WriteData(std::shared_ptr<Test> test, const char* data, size_t offset, size_t length);
 		~WriteData();

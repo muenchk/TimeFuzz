@@ -54,7 +54,7 @@ class Settings : public Form
 {
 private:
 	bool initialized = false;
-	const int32_t classversion = 0x3;
+	const int32_t classversion = 0x4;
 	/// <summary>
 	/// skip reading from savefile
 	/// </summary>
@@ -438,6 +438,9 @@ public:
 
 		RangeSkipOptions skipoptions = RangeSkipOptions::SkipFirst;
 		const char* skipoptions_NAME = "ScoreProgressSkipOptions";
+
+		bool ScoreProgressSkipDeltaDebuggedParts = true;
+		const char* ScoreProgressSkipDeltaDebuggedParts_NAME = "ScoreProgressSkipDeltaDebuggedParts";
 
 		/// <summary>
 		/// size of batches that are processed at a time

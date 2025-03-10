@@ -7,12 +7,13 @@ IPCommManager::WriteData::WriteData(std::shared_ptr<Test> test, const char* data
 	_data = new char[length];
 	memcpy(_data, data + offset, length);
 	_offset = 0;
-	_length = 0;
+	_length = length;
+	next = nullptr;
 }
 
 IPCommManager::WriteData::~WriteData()
 {
-	delete _data;
+	delete[] _data;
 }
 
 IPCommManager* IPCommManager::GetSingleton()
@@ -73,6 +74,7 @@ void IPCommManager::PerformWrites()
 		// write pointer is valid and test pointer too
 		// now write some stuff
 
+		bool skipitrinc = false;
 		if (auto test = itr->second->_test.lock(); test)
 		{
 			auto write = itr->second;
@@ -93,7 +95,9 @@ void IPCommManager::PerformWrites()
 					}
 					else {
 						itr = _writeQueue.erase(itr);
+						skipitrinc = true;
 						delete write;
+						write = nullptr;
 						continue;
 					}
 				}
@@ -104,7 +108,7 @@ void IPCommManager::PerformWrites()
 				}
 			}
 		}
-
-		itr++;
+		if (!skipitrinc)
+			itr++;
 	}
 }

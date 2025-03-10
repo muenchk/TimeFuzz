@@ -256,7 +256,7 @@ namespace DeltaDebugging
 		void Clear();
 
 	private:
-		const int32_t classversion = 0x2;
+		const int32_t classversion = 0x3;
 		static inline bool _registeredFactories = false;
 
 		struct DeltaInformation
@@ -390,6 +390,8 @@ namespace DeltaDebugging
 
 		std::vector<std::pair<size_t, size_t>> _inputRanges;
 
+		size_t _skipRanges = 0;
+
 		std::shared_ptr<SessionData> _sessiondata;
 
 		std::shared_ptr<DeltaController> _self;
@@ -472,9 +474,13 @@ class RangeIterator
 	/// longest range
 	/// </summary>
 	T _maxRange = 0;
+	/// <summary>
+	/// number of ranges to skip
+	/// </summary>
+	size_t _skipRanges = 0;
 
 public:
-	RangeIterator(std::vector<std::pair<T, T>>* ranges, RangeSkipOptions skipfirst);
+	RangeIterator(std::vector<std::pair<T, T>>* ranges, RangeSkipOptions skipfirst, size_t skipRanges);
 	
 	/// <summary>
 	/// returns the length of all non-unique items in the range

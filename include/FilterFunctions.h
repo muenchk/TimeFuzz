@@ -60,16 +60,17 @@ public:
 		}
 
 		auto decBudget = [&idx, &boundaries, &chosen, &rootNums, &targets]() {
-			boundaries[idx]--;
-			// if now a root has exceeded the new budget, remove one of their inputs from the targets
-			if (rootNums[idx] > boundaries[idx])
-			{
-				targets.erase(chosen[idx].back());
-				chosen[idx].pop_back();
+			if (boundaries.size() > 0) {
+				boundaries[idx]--;
+				// if now a root has exceeded the new budget, remove one of their inputs from the targets
+				if (rootNums[idx] > boundaries[idx]) {
+					targets.erase(chosen[idx].back());
+					chosen[idx].pop_back();
+				}
+				idx--;
+				if (idx == -1)
+					idx = (int32_t)boundaries.size() - 1;
 			}
-			idx--;
-			if (idx == -1)
-				idx = (int32_t)boundaries.size() - 1;
 		};
 
 		auto getRoot = [&controllers, &_sessiondata](std::shared_ptr<Input> input) {

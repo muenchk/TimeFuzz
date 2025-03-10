@@ -328,6 +328,8 @@ size_t Input::Length()
 	{
 		if (_trimmedlength > 0)
 			return _trimmedlength;
+		if (_enablePrimaryScoreIndividual)
+			return _primaryScoreIndividual.size();
 		if (derive)
 		{
 			if (derive->_valid)
