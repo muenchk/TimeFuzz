@@ -1064,7 +1064,7 @@ int32_t main(int32_t argc, char** argv)
 					ImGui::Checkbox("Show Thread Status", &showThreadStatus);
 					ImGui::Checkbox("Show Generation window", &showGeneration);
 					ImGui::Checkbox("Show Input Information", &showInput);
-					ImGui::Checkbox("Show Input Information", &showLastGenerated);
+					ImGui::Checkbox("Show last generated", &showLastGenerated);
 					ImGui::Text("Latency: %.3f ms, FPS: %.1f", 1000.0f / io.Framerate, io.Framerate);
 				}
 				ImGui::End();

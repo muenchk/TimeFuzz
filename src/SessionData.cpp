@@ -365,8 +365,7 @@ std::shared_ptr<Generation> SessionData::GetCurrentGeneration()
 	if (_settings->generation.generationalMode)
 		return GetGen();
 	else {
-		static Generation gen;
-		static std::shared_ptr<Generation> genptr = std::shared_ptr<Generation>(std::addressof(gen));
+		static std::shared_ptr<Generation> genptr = std::make_shared<Generation>();
 		return genptr;
 	}
 }
@@ -379,14 +378,11 @@ std::shared_ptr<Generation> SessionData::GetGeneration(FormID generationID)
 		if (itr != _generations.end()) {
 			return itr->second;
 		}else {
-			static Generation gen;
-			static std::shared_ptr<Generation> genptr = std::shared_ptr<Generation>(std::addressof(gen));
+			static std::shared_ptr<Generation> genptr = std::make_shared<Generation>();
 			return genptr;
 		}
-	}
-	else {
-		static Generation gen;
-		static std::shared_ptr<Generation> genptr = std::shared_ptr<Generation>(std::addressof(gen));
+	} else {
+		static std::shared_ptr<Generation> genptr = std::make_shared<Generation>();
 		return genptr;
 	}
 }
@@ -402,8 +398,7 @@ std::shared_ptr<Generation> SessionData::GetGenerationByNumber(int32_t generatio
 				return itr->second;
 		}
 	}
-	static Generation gen;
-	static std::shared_ptr<Generation> genptr = std::shared_ptr<Generation>(std::addressof(gen));
+	static std::shared_ptr<Generation> genptr = std::make_shared<Generation>();
 	return genptr;
 }
 

@@ -72,7 +72,7 @@ void Session::LoadSession_Async(Data* dat, std::string name, int32_t number, Loa
 		}
 	}
 	// relaod settings
-	if (args->reloadSettings)
+	if (args && args->reloadSettings)
 	{
 		auto sett = dat->CreateForm<Settings>();
 		sett->Load(args->settingsPath);

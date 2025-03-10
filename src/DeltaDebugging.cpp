@@ -646,6 +646,8 @@ namespace DeltaDebugging
 			itr++;
 		}
 
+		if (inp->GetSequenceLength() > _input->GetSequenceLength())
+			logcritical("ooooopss");
 		if (CheckInput(_origInput, inp, approxthreshold))
 			return inp;
 		else
@@ -1660,6 +1662,8 @@ namespace DeltaDebugging
 				ScoreProgressGenerateNextLevel();
 		} else {
 			// set new base _input
+			if (passing[0]->GetSequenceLength() > _input->GetSequenceLength())
+				logcritical("ooooopss");
 			_input = passing[0];
 			if (_bestScore.first <= _input->GetPrimaryScore())
 				_bestScore = { _input->GetPrimaryScore(), _input->GetSecondaryScore() };

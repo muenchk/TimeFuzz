@@ -1138,8 +1138,10 @@ std::shared_ptr<TaskController> Data::CreateForm()
 	if (ptr)
 		return ptr;
 	else {
-		if (_globalTasks)
-			ptr = std::shared_ptr<TaskController>(TaskController::GetSingleton());
+		if (_globalTasks) {
+			static std::shared_ptr<TaskController> controller = std::make_shared<TaskController>();
+			ptr = controller;
+		}
 		else
 			ptr = std::make_shared<TaskController>();
 		FormID formid = StaticFormIDs::TaskController;
@@ -1261,8 +1263,10 @@ std::shared_ptr<ExecutionHandler> Data::CreateForm()
 	if (ptr)
 		return ptr;
 	else {
-		if (_globalExec)
-			ptr = std::shared_ptr<ExecutionHandler>(ExecutionHandler::GetSingleton());
+		if (_globalExec) {
+			static std::shared_ptr<ExecutionHandler> exechandler = std::make_shared<ExecutionHandler>();
+			ptr = exechandler;
+		}
 		else
 			ptr = std::make_shared<ExecutionHandler>();
 		FormID formid = StaticFormIDs::ExecutionHandler;
