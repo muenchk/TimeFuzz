@@ -208,7 +208,8 @@ namespace DeltaDebugging
 		input->SetFlag(Form::FormFlags::DoNotFree);
 		input->derive->SetFlag(Form::FormFlags::DoNotFree);
 		input->SetFlag(Input::Flags::DeltaDebugged);
-		if (input->GetGenerated() == false) {
+		if (input->GetGenerated() == false||input->GetSequenceLength() == 0) {
+			input->SetGenerated(false);
 			// we are trying to add an _input that hasn't been generated or regenerated
 			// try the generate it and if it succeeds add the test
 			SessionFunctions::GenerateInput(input, _sessiondata);

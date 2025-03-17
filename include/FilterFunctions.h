@@ -16,6 +16,8 @@ public:
 	template <class T>
 	static void FilterSet(std::shared_ptr<SessionData> _sessiondata, std::shared_ptr<Generation> generation, std::set<std::shared_ptr<Input>, FormIDLess<Input>>& targets, double max, double frac, bool checkdeltaflag, bool primary, int targetval)
 	{
+		std::set<std::shared_ptr<Input>, T> tmptargets;
+
 		std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> controllers;
 		generation->GetDDControllers(controllers);
 		auto itrus = controllers.begin();
@@ -59,12 +61,12 @@ public:
 				break;
 		}
 
-		auto decBudget = [&idx, &boundaries, &chosen, &rootNums, &targets]() {
+		auto decBudget = [&idx, &boundaries, &chosen, &rootNums, &tmptargets]() {
 			if (boundaries.size() > 0) {
 				boundaries[idx]--;
 				// if now a root has exceeded the new budget, remove one of their inputs from the targets
 				if (rootNums[idx] > boundaries[idx]) {
-					targets.erase(chosen[idx].back());
+					tmptargets.erase(chosen[idx].back());
 					chosen[idx].pop_back();
 				}
 				idx--;
@@ -94,11 +96,48 @@ public:
 			return -1;
 		};
 
+		if (controllers.size() > 0) {
+			// for delta debugging just choose the best results from the controllers, do the rest if and
+			// only if theres no more results left to choose
+			int32_t index = 0;
+			std::vector<std::set<std::shared_ptr<Input>, T>> ressets;
+			ressets.resize(controllers.size());
+			for (size_t i = 0; i < controllers.size(); i++) {
+				for (auto [form, _] : *(controllers[i]->GetResults()))
+					ressets[i].insert(form);
+			}
+			fixed.clear();
+			bool found = true;
+			while ((int32_t)tmptargets.size() < targetval && found)
+			{
+				if (fixed.contains(index))
+					index++;
+				else if (index < (int32_t)controllers.size()) {
+					if (ressets[index].size() == 0)
+						fixed.insert(index);
+					else if (rootNums[index] < boundaries[index]) {
+						tmptargets.insert(*ressets[index].begin());
+						chosen[index].push_back(*ressets[index].begin());
+						loginfo("Found New Source: {}", Input::PrintForm(*ressets[index].begin()));
+						ressets[index].erase(ressets[index].begin());
+						rootNums[index]++;
+					} else if (rootNums[index] == boundaries[index])
+						fixed.insert(index);
+				}
+				if (index >= (int32_t)controllers.size())
+					index = 0;
+				if (fixed.size() == controllers.size())
+				{
+					found = false;
+				}
+			}
+		}
+
 		std::set<std::shared_ptr<Input>, T> inputs;
 		// if the max is 0 just run loop a single time since 0 is the minimal value for primaryScore
 		if (max == 0.0f)
 			frac = 1.0f;
-		while ((int32_t)targets.size() < targetval && frac <= 1.0) {
+		while ((int32_t)tmptargets.size() < targetval*2 && frac <= 1.0) {
 			loginfo("Iteration with fractal: {}, and maxScore: {}", frac, max);
 			inputs.clear();
 			// we don't filter for secondary score at this point
@@ -107,8 +146,8 @@ public:
 			else
 				generation->GetAllInputs<T>(inputs, true, -1.f, (max - (max * frac)), _sessiondata->_settings->generation.allowBacktrackFailedInputs, 1, 2 /*cannot backtrack on length 1*/);
 			auto itr = inputs.begin();
-			while (itr != inputs.end() && (int32_t)targets.size() < targetval) {
-				if (targets.contains(*itr) == false && (_sessiondata->_settings->generation.maxNumberOfFailsPerSource == 0 || _sessiondata->_settings->generation.maxNumberOfFailsPerSource > (*itr)->GetDerivedFails()) && (_sessiondata->_settings->generation.maxNumberOfGenerationsPerSource == 0 || _sessiondata->_settings->generation.maxNumberOfGenerationsPerSource > (*itr)->GetDerivedInputs())) {
+			while (itr != inputs.end() && (int32_t)tmptargets.size() < targetval*2) {
+				if (tmptargets.contains(*itr) == false && (_sessiondata->_settings->generation.maxNumberOfFailsPerSource == 0 || _sessiondata->_settings->generation.maxNumberOfFailsPerSource > (*itr)->GetDerivedFails()) && (_sessiondata->_settings->generation.maxNumberOfGenerationsPerSource == 0 || _sessiondata->_settings->generation.maxNumberOfGenerationsPerSource > (*itr)->GetDerivedInputs())) {
 					// check that the length of the source is longer than min backtrack, such that it can be extended in the first place
 					if (((*itr)->GetOracleResult() == OracleResult::Unfinished &&
 								(*itr)->Length() > _sessiondata->_settings->methods.IterativeConstruction_Extension_Backtrack_min ||
@@ -118,13 +157,13 @@ public:
 						// check if the input has a dd source and whether the max alloted number has been reached
 						auto index = getRoot(*itr);
 						if (index == -1) {
-							targets.insert(*itr);
-							decBudget();
+							tmptargets.insert(*itr);
+							//decBudget();
 							loginfo("Found New Source: {}", Input::PrintForm(*itr));
 						} else {
 							if (rootNums[index] < boundaries[index])
 							{
-								targets.insert(*itr);
+								tmptargets.insert(*itr);
 								chosen[index].push_back(*itr);
 								rootNums[index]++;
 								loginfo("Found New Source: {}", Input::PrintForm(*itr));
@@ -135,6 +174,12 @@ public:
 				itr++;
 			}
 			frac += _sessiondata->_settings->dd.optimizationLossThreshold;
+		}
+
+		for (int32_t i = 0; i < tmptargets.size() && i < targetval; i++)
+		{
+			targets.insert(*(tmptargets.begin()));
+			tmptargets.erase(tmptargets.begin());
 		}
 	}
 };
