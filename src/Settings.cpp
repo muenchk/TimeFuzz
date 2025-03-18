@@ -223,6 +223,10 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "EndConditions:    ", conditions.use_overalltests_NAME, conditions.use_overalltests);
 	conditions.overalltests = (uint64_t)ini.GetLongValue("EndConditions", conditions.overalltests_NAME, (long)conditions.overalltests);
 	loginfo("{}{} {}", "EndConditions:    ", conditions.overalltests_NAME, conditions.overalltests);
+	conditions.use_generations = ini.GetBoolValue("EndConditions", conditions.use_generations_NAME, conditions.use_generations);
+	loginfo("{}{} {}", "EndConditions:    ", conditions.use_generations_NAME, conditions.use_generations);
+	conditions.generations = (uint64_t)ini.GetLongValue("EndConditions", conditions.generations_NAME, (long)conditions.generations);
+	loginfo("{}{} {}", "EndConditions:    ", conditions.generations_NAME, conditions.generations);
 
 	// tests
 	tests.executeFragments = ini.GetBoolValue("Tests", tests.executeFragments_NAME, tests.executeFragments);
@@ -452,6 +456,8 @@ void Settings::Save(std::wstring _path)
 	ini.SetLongValue("EndConditions", conditions.timeout_NAME, (long)conditions.timeout, "\\\\ The time after which to stop execution. [seconds]");
 	ini.SetBoolValue("EndConditions", conditions.use_overalltests_NAME, conditions.use_overalltests, "\\\\ Stop execution after a certain number of tests have been executed.");
 	ini.SetLongValue("EndConditions", conditions.overalltests_NAME, (long)conditions.overalltests, "\\\\ The number of overall tests to run");
+	ini.SetBoolValue("EndConditions", conditions.use_generations_NAME, conditions.use_generations, "\\\\ Stop execution after a certain number of generations have been executed.");
+	ini.SetLongValue("EndConditions", conditions.generations_NAME, (long)conditions.generations, "\\\\ The number of generations to run");
 
 	// tests
 	ini.SetBoolValue("Tests", tests.executeFragments_NAME, tests.executeFragments, "\\\\ Execute tests as fragments.");
@@ -567,7 +573,9 @@ size_t Settings::GetStaticSize(int32_t version)
 	size_t size0x3 = size0x2  // prior stuff
 	                 + 4;     // Optimization::exclusionTreeLengthLimit
 	size_t size0x4 = size0x3  // prior stuff
-	                 + 1;     // DeltaDebugging::ScoreProgressSkipDeltaDebuggedParts
+	                 + 1      // DeltaDebugging::ScoreProgressSkipDeltaDebuggedParts
+	                 + 1      // EndConditions::use_generations
+	                 + 8;     // EndConditions::generations   
 
 	switch (version) {
 	case 0x1:
@@ -709,6 +717,9 @@ bool Settings::WriteData(std::ostream* buffer, size_t& offset)
 	// VERSION 0x4
 	// delta debugging
 	Buffer::Write(dd.ScoreProgressSkipDeltaDebuggedParts, buffer, offset);
+	// endconditions
+	Buffer::Write(conditions.use_generations, buffer, offset);
+	Buffer::Write(conditions.generations, buffer, offset);
 	return true;
 }
 
@@ -836,6 +847,9 @@ bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, Loa
 		{
 			// delta debugging 
 			dd.ScoreProgressSkipDeltaDebuggedParts = Buffer::ReadBool(buffer, offset);
+			// endconditions
+			conditions.use_generations = Buffer::ReadBool(buffer, offset);
+			conditions.generations = Buffer::ReadUInt64(buffer, offset);
 		}
 		return true;
 	default:

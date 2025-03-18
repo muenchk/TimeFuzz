@@ -572,7 +572,7 @@ public:
 		/// <summary>
 		/// whether to stop the execution after a set amount of failing inputs have been found
 		/// </summary>
-		bool use_foundnegatives = true;
+		bool use_foundnegatives = false;
 		const char* use_foundnegatives_NAME = "UseFoundNegatives";
 		/// <summary>
 		/// the number of failing inputs to generate
@@ -582,7 +582,7 @@ public:
 		/// <summary>
 		/// whether to stop the execution after a set amount of failing inputs have been found
 		/// </summary>
-		bool use_foundpositives = true;
+		bool use_foundpositives = false;
 		const char* use_foundpositives_NAME = "UseFoundPositives";
 		/// <summary>
 		/// the number of failing inputs to generate
@@ -592,7 +592,7 @@ public:
 		/// <summary>
 		/// whether to stop the execution after a certain time has passed
 		/// </summary>
-		bool use_timeout = true;
+		bool use_timeout = false;
 		const char* use_timeout_NAME = "UseTimeout";
 		/// <summary>
 		/// the time after which to stop the execution
@@ -602,13 +602,24 @@ public:
 		/// <summary>
 		/// whether the program ends when a sepcific number of tests have been executed
 		/// </summary>
-		bool use_overalltests = true;
+		bool use_overalltests = false;
 		const char* use_overalltests_NAME = "UseOverallTests";
 		/// <summary>
 		/// the number of overal tests that have been executed
 		/// </summary>
 		uint64_t overalltests = 10000;
 		const char* overalltests_NAME = "OverallTests";
+
+		/// <summary>
+		/// whether to stop the execution after a set amount of generations have been done
+		/// </summary>
+		bool use_generations = false;
+		const char* use_generations_NAME = "UseGenerations";
+		/// <summary>
+		/// the number of generations after which to stop generating
+		/// </summary>
+		uint64_t generations = 100;
+		const char* generations_NAME = "Generations";
 	};
 
 	EndConditions conditions;

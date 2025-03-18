@@ -173,7 +173,7 @@ void SessionFunctions::SaveCheck(std::shared_ptr<SessionData>& sessiondata, bool
 			callback->_generation = sessiondata->GetCurrentGeneration();
 			callback->_afterSave = true;
 			if (sessiondata->_settings->saves.saveAfterEachGeneration) {
-				std::thread(SaveSession_Async, sessiondata, callback).detach();
+				std::thread(SaveSession_Async, sessiondata, callback, generationEnd).detach();
 			} else
 				sessiondata->_controller->AddTask(callback);
 			return;
@@ -197,10 +197,10 @@ void SessionFunctions::SaveCheck(std::shared_ptr<SessionData>& sessiondata, bool
 		return;
 
 	// perform the save
-	std::thread(SaveSession_Async, sessiondata, std::shared_ptr<Functions::BaseFunction>{}).detach();
+	std::thread(SaveSession_Async, sessiondata, std::shared_ptr<Functions::BaseFunction>{}, generationEnd).detach();
 }
 
-void SessionFunctions::SaveSession_Async(std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Functions::BaseFunction> callback)
+void SessionFunctions::SaveSession_Async(std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Functions::BaseFunction> callback, bool generationEnded)
 {
 	loginfo("Master Save Session");
 	// async function that simply initiates the save
@@ -209,6 +209,10 @@ void SessionFunctions::SaveSession_Async(std::shared_ptr<SessionData> sessiondat
 	// if we would allow it, the saving function that stops the taskcontroller temporarily
 	// would deadlock itself
 	sessiondata->data->Save(callback);
+	checkendconditionsskipsaving = true;
+
+	// check whether we should end right now, if so skip saving and just exit
+	EndCheck(sessiondata, generationEnded);
 }
 
 bool SessionFunctions::EndCheck(std::shared_ptr<SessionData>& sessiondata, bool generationEnded)
@@ -222,8 +226,11 @@ bool SessionFunctions::EndCheck(std::shared_ptr<SessionData>& sessiondata, bool 
 			end = true;
 		else if (sessiondata->_settings->conditions.use_foundpositives && SessionStatistics::PositiveTestsGenerated(sessiondata) >= sessiondata->_settings->conditions.foundpositives)
 			end = true;
-		
+
 		else if (sessiondata->_settings->conditions.use_overalltests && SessionStatistics::TestsExecuted(sessiondata) >= sessiondata->_settings->conditions.overalltests)
+			end = true;
+
+		else if (sessiondata->_settings->conditions.use_generations && sessiondata->GetCurrentGeneration()->GetGenerationNumber() == sessiondata->_settings->conditions.generations)
 			end = true;
 
 		if (end == true && sessiondata->GetCurrentGeneration()->IsDeltaDebuggingActive() == true)
@@ -265,8 +272,10 @@ bool SessionFunctions::EndCheck(std::shared_ptr<SessionData>& sessiondata, bool 
 	sessiondata->_failureRate = failureRate;
 
 	// if we don't end the session, do nothing
-	if (end == false)
+	if (end == false) {
+		checkendconditionsskipsaving = false;
 		return false;
+	}
 
 	if (generationEnded) {
 		// if we are performing a generation end check, just do it and skip the rest
@@ -291,7 +300,9 @@ void SessionFunctions::EndSession_Async(std::shared_ptr<SessionData> sessiondata
 	// async function that ends the session itself
 
 	// force save
-	session->data->Save({});
+	if (checkendconditionsskipsaving == false)
+		session->data->Save({});
+	checkendconditionsskipsaving = false;
 
 	// end the session
 

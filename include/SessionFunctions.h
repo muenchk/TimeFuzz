@@ -266,7 +266,9 @@ private:
 	/// <summary>
 	/// Async Function that will save the session, since we are likely operating from inside the taskcontroller
 	/// </summary>
-	static void SaveSession_Async(std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Functions::BaseFunction> callback);
+	static void SaveSession_Async(std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Functions::BaseFunction> callback, bool generationEnded);
+
+	static inline bool checkendconditionsskipsaving = false;
 };
 
 class SessionStatistics
