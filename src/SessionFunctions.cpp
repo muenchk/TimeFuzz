@@ -799,6 +799,8 @@ namespace Functions
 		if (_sessiondata->CanGenerate() == false)
 			return;
 
+		while (true);
+
 		while (true) {
 
 			// get readers lock for input generation
