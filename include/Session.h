@@ -217,7 +217,7 @@ public:
 	/// returns the threadstatus of the taskcontroller
 	/// </summary>
 	/// <param name="status"></param>
-	void UI_GetThreadStatus(std::vector<TaskController::ThreadStatus>& status);
+	void UI_GetThreadStatus(std::vector<TaskController::ThreadStatus>& status, std::vector<const char*>& names, std::vector<std::string>& time);
 	/// <summary>
 	/// Returns the formids of all generations in this session
 	/// </summary>

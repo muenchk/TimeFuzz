@@ -1004,11 +1004,11 @@ void Session::UI_FindAllDeltaDebugging(std::vector<UI::UIDeltaDebugging>& ddvect
 	}
 }
 
-void Session::UI_GetThreadStatus(std::vector<TaskController::ThreadStatus>& status)
+void Session::UI_GetThreadStatus(std::vector<TaskController::ThreadStatus>& status, std::vector<const char*>& names, std::vector<std::string>& time)
 {
 	if (!_loaded)
 		return;
-	_sessiondata->_controller->GetThreadStatus(status);
+	_sessiondata->_controller->GetThreadStatus(status, names, time);
 }
 
 void Session::UI_GetGenerations(std::vector<std::pair<FormID, int32_t>>& generations, size_t& size)

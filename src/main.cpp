@@ -233,17 +233,6 @@ std::string Snapshot(bool full)
 	// thread status
 	snap << "### THREAD STATUS\n";
 	{
-		auto toString = [](TaskController::ThreadStatus stat) {
-			switch (stat) {
-			case TaskController::ThreadStatus::Initializing:
-				return "Intializing";
-			case TaskController::ThreadStatus::Running:
-				return "Running";
-			case TaskController::ThreadStatus::Waiting:
-				return "Waiting";
-			}
-			return "None";
-		};
 		auto toStringExec = [](ExecHandlerStatus stat) {
 			switch (stat) {
 			case ExecHandlerStatus::None:
@@ -273,11 +262,26 @@ std::string Snapshot(bool full)
 		};
 
 		static std::vector<TaskController::ThreadStatus> stati;
+		static std::vector<const char*> statiName;
+		static std::vector<std::string> statiTime;
 		static ExecHandlerStatus execstatus;
-		session->UI_GetThreadStatus(stati);
+		session->UI_GetThreadStatus(stati, statiName, statiTime);
 		snap << ("TaskController") << "\n";
 		for (size_t i = 0; i < stati.size(); i++) {
-			snap << fmt::format("Status: {}", toString(stati[i])) << "\n";
+			switch (stati[i]) {
+			case TaskController::ThreadStatus::Initializing:
+				snap << fmt::format("Status: Initializing") << "\n";
+				break;
+			case TaskController::ThreadStatus::Running:
+				snap << fmt::format("Status: Running | {} | {}", statiName[i], statiTime[i]) << "\n";
+				break;
+			case TaskController::ThreadStatus::Waiting:
+				snap << fmt::format("Status: Waiting") << "\n";
+				break;
+			default:
+				snap << fmt::format("Status: None") << "\n";
+				break;
+			}
 		}
 		snap << ("ExecutionHandler") << "\n";
 		execstatus = session->UI_GetExecHandlerStatus();
@@ -1363,18 +1367,6 @@ int32_t main(int32_t argc, char** argv)
 				static bool wopen = true;
 				ImGui::Begin("Thread Status", &wopen);
 				if (wopen) {
-					auto toString = [](TaskController::ThreadStatus stat) {
-						switch (stat) {
-						case TaskController::ThreadStatus::Initializing:
-							return "Intializing";
-						case TaskController::ThreadStatus::Running:
-							return "Running";
-						case TaskController::ThreadStatus::Waiting:
-							return "Waiting";
-						}
-						return "None";
-					};
-
 					auto toStringExec = [](ExecHandlerStatus stat) {
 						switch (stat) {
 						case ExecHandlerStatus::None:
@@ -1403,11 +1395,26 @@ int32_t main(int32_t argc, char** argv)
 						return "None";
 					};
 					static std::vector<TaskController::ThreadStatus> stati;
+					static std::vector<const char*> statiName;
+					static std::vector<std::string> statiTime;
 					static ExecHandlerStatus execstatus;
-					session->UI_GetThreadStatus(stati);
+					session->UI_GetThreadStatus(stati, statiName, statiTime);
 					ImGui::SeparatorText("TaskController");
 					for (size_t i = 0; i < stati.size(); i++) {
-						ImGui::Text("Status: %s", toString(stati[i]));
+						switch (stati[i]) {
+						case TaskController::ThreadStatus::Initializing:
+							ImGui::Text("Status: Initializing");
+							break;
+						case TaskController::ThreadStatus::Running:
+							ImGui::Text("Status: Running | %s | %s", statiName[i], statiTime[i].c_str());
+							break;
+						case TaskController::ThreadStatus::Waiting:
+							ImGui::Text("Status: Waiting");
+							break;
+						default:
+							ImGui::Text("Status: None");
+							break;
+						}
 					}
 					ImGui::SeparatorText("ExecutionHandler");
 					execstatus = session->UI_GetExecHandlerStatus();

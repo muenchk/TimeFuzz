@@ -59,6 +59,11 @@ namespace Functions
 		{
 			return BaseFunction::GetLength();
 		}
+
+		virtual const char* GetName() override
+		{
+			return "TaskControllerTestCallback";
+		}
 	};
 }
 

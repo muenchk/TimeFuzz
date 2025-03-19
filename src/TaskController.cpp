@@ -51,6 +51,8 @@ void TaskController::Start(std::shared_ptr<SessionData> session, int32_t numthre
 		_numAllThreads = 1;
 		_controlEnableFine = false;
 		_status.push_back(ThreadStatus::Initializing);
+		_statusTime.push_back(std::chrono::steady_clock::now());
+		_statusTask.push_back("None");
 		_threads.emplace_back(std::thread(&TaskController::InternalLoop_SingleThread, this, 0));
 	} else {
 		_controlEnableFine = true;
@@ -63,6 +65,8 @@ void TaskController::Start(std::shared_ptr<SessionData> session, int32_t numthre
 		_numAllThreads = 0;
 		for (int32_t i = 0; i < numthreads; i++) {
 			_status.push_back(ThreadStatus::Initializing);
+			_statusTime.push_back(std::chrono::steady_clock::now());
+			_statusTask.push_back("None");
 			if (i == 0)
 				_threads.emplace_back(std::thread(&TaskController::InternalLoop_LightExclusive, this, i));
 			else
@@ -103,6 +107,8 @@ void TaskController::Start(std::shared_ptr<SessionData> session, int32_t numLigh
 		_controlEnableFine = false;
 		for (int32_t c = 0; c < _numAllThreads; c++, i++) {
 			_status.push_back(ThreadStatus::Initializing);
+			_statusTime.push_back(std::chrono::steady_clock::now());
+			_statusTask.push_back("None");
 			_threads.emplace_back(std::thread(&TaskController::InternalLoop_SingleThread, this, i));
 		}
 	} else {
@@ -111,18 +117,24 @@ void TaskController::Start(std::shared_ptr<SessionData> session, int32_t numLigh
 			_controlEnableLight = true;
 		for (int32_t c = 0; c < _numLightThreads; c++, i++) {
 			_status.push_back(ThreadStatus::Initializing);
+			_statusTime.push_back(std::chrono::steady_clock::now());
+			_statusTask.push_back("None");
 			_threads.emplace_back(std::thread(&TaskController::InternalLoop_LightExclusive, this, i));
 		}
 		if (_numMediumThreads > 0)
 			_controlEnableMedium = true;
 		for (int32_t c = 0; c < _numMediumThreads; c++, i++) {
 			_status.push_back(ThreadStatus::Initializing);
+			_statusTime.push_back(std::chrono::steady_clock::now());
+			_statusTask.push_back("None");
 			_threads.emplace_back(std::thread(&TaskController::InternalLoop_Medium, this, i));
 		}
 		if (_numHeavyThreads > 0)
 			_controlEnableHeavy = true;
 		for (int32_t c = 0; c < _numHeavyThreads; c++, i++) {
 			_status.push_back(ThreadStatus::Initializing);
+			_statusTime.push_back(std::chrono::steady_clock::now());
+			_statusTask.push_back("None");
 			_threads.emplace_back(std::thread(&TaskController::InternalLoop_Heavy, this, i));
 		}
 	}
@@ -218,11 +230,13 @@ void TaskController::InternalLoop_LightExclusive(int32_t number)
 			_condition_light.wait(guard, [this] { return _freeze == false && (!_tasks_light.empty() || _terminate && _wait == false || _terminate && _tasks_light.empty()); });
 			if (_terminate && _wait == false || _terminate && _tasks_light.empty())
 				return;
-			_status[number] = ThreadStatus::Running;
 			del = _tasks_light.front();
 			_tasks_light.pop_front();
 		}
 		if (del) {
+			_status[number] = ThreadStatus::Running;
+			_statusTime[number] = std::chrono::steady_clock::now();
+			_statusTask[number] = del->GetName();
 			del->Run();
 			del->Dispose();
 			_completedjobs++;
@@ -249,13 +263,15 @@ void TaskController::InternalLoop_Medium(int32_t number)
 			_condition_medium.wait(guard, [this] { return _freeze == false && (!_tasks_medium.empty() || _terminate && _wait == false || _terminate && _tasks_medium.empty()); });
 			if (_terminate && _wait == false || _terminate && _tasks_medium.empty())
 				return;
-			_status[number] = ThreadStatus::Running;
 			if (!_tasks_medium.empty()) {
 				del = _tasks_medium.front();
 				_tasks_medium.pop_front();
 			}
 		}
 		if (del) {
+			_status[number] = ThreadStatus::Running;
+			_statusTime[number] = std::chrono::steady_clock::now();
+			_statusTask[number] = del->GetName();
 			del->Run();
 			del->Dispose();
 			_completedjobs++;
@@ -282,13 +298,15 @@ void TaskController::InternalLoop_Heavy(int32_t number)
 			_condition.wait(guard, [this] { return _freeze == false && (!_tasks.empty() || _terminate && _wait == false || _terminate && _tasks.empty()); });
 			if (_terminate && _wait == false || _terminate && _tasks.empty())
 				return;
-			_status[number] = ThreadStatus::Running;
 			if (!_tasks.empty()) {
 				del = _tasks.front();
 				_tasks.pop_front();
 			}
 		}
 		if (del) {
+			_status[number] = ThreadStatus::Running;
+			_statusTime[number] = std::chrono::steady_clock::now();
+			_statusTask[number] = del->GetName();
 			del->Run();
 			del->Dispose();
 			_completedjobs++;
@@ -317,7 +335,6 @@ void TaskController::InternalLoop_SingleThread(int32_t number)
 				return;
 			if (_freeze)
 				continue;
-			_status[number] = ThreadStatus::Running;
 			if (!_tasks_light.empty()) {
 				del = _tasks_light.front();
 				_tasks_light.pop_front();
@@ -330,6 +347,9 @@ void TaskController::InternalLoop_SingleThread(int32_t number)
 			}
 		}
 		if (del) {
+			_status[number] = ThreadStatus::Running;
+			_statusTime[number] = std::chrono::steady_clock::now();
+			_statusTask[number] = del->GetName();
 			del->Run();
 			del->Dispose();
 			_completedjobs++;
@@ -653,10 +673,17 @@ void TaskController::ClearTasks()
 	}
 }
 
-void TaskController::GetThreadStatus(std::vector<ThreadStatus>& status)
+void TaskController::GetThreadStatus(std::vector<ThreadStatus>& status, std::vector<const char*>& names, std::vector<std::string>& time)
 {
-	if (status.size() < _status.size())
+	if (status.size() < _status.size()) {
 		status.resize(_status.size());
-	for (int32_t i = 0; i < (int32_t)_status.size(); i++)
+		names.resize(_status.size());
+		time.resize(_status.size());
+	}
+	auto now = std::chrono::steady_clock::now();
+	for (int32_t i = 0; i < (int32_t)_status.size(); i++) {
 		status[i] = _status[i];
+		names[i] = _statusTask[i];
+		time[i] = Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(now - _statusTime[i]).count());
+	}
 }

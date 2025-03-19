@@ -117,6 +117,14 @@ private:
 	/// </summary>
 	std::vector<ThreadStatus> _status;
 	/// <summary>
+	/// current thread working begin
+	/// </summary>
+	std::vector<std::chrono::steady_clock::time_point> _statusTime;
+	/// <summary>
+	/// current task handled by threads
+	/// </summary>
+	std::vector<const char*> _statusTask;
+	/// <summary>
 	/// number of threads used by this instance
 	/// </summary>
 	int32_t _numthreads = 0;
@@ -224,7 +232,7 @@ public:
 			}
 			std::unique_lock<std::mutex> execLock(_executedTasksLock);
 			int32_t type = (int32_t)a_task->GetType();
-			std::string name = std::string(typeid(T).name()) + " | " + std::string((char*)&type, 4);
+			std::string name = std::string(a_task->GetName()/*typeid(T).name()) + " | " + std::string((char*)&type* 4*/);
 			auto itr = _executedTasks.find(name);
 			if (itr != _executedTasks.end())
 				_executedTasks.insert_or_assign(name, itr->second + 1);
@@ -343,7 +351,7 @@ public:
 	int32_t GetWaitingLightJobs();
 	int32_t GetWaitingMediumJobs();
 
-	void GetThreadStatus(std::vector<ThreadStatus>& status);
+	void GetThreadStatus(std::vector<ThreadStatus>& status, std::vector<const char*>& names, std::vector<std::string>& time);
 
 	#pragma region InheritedForm
 

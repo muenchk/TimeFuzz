@@ -73,6 +73,11 @@ namespace Functions
 		{
 			return BaseFunction::GetLength() + 8;
 		}
+
+		virtual const char* GetName() override
+		{
+			return "Callback";
+		}
 	};
 
 	class TaskControllerTestCallback : public BaseFunction
@@ -120,6 +125,11 @@ namespace Functions
 		size_t GetLength() override
 		{
 			return BaseFunction::GetLength() + 4;
+		}
+
+		virtual const char* GetName() override
+		{
+			return "TaskControllerTestCallback";
 		}
 	};
 }

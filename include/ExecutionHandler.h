@@ -77,6 +77,11 @@ namespace Functions
 		static std::shared_ptr<BaseFunction> CreateFull(std::shared_ptr<SessionData> sessiondata);
 		void Dispose() override;
 		size_t GetLength() override;
+
+		virtual const char* GetName() override
+		{
+			return "ExecInitTestsCallback";
+		}
 	};
 }
 

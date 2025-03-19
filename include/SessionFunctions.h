@@ -100,6 +100,11 @@ namespace Functions
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<MasterGenerationCallback>()); }
 		void Dispose() override;
 		size_t GetLength() override;
+
+		virtual const char* GetName() override
+		{
+			return "MasterGenerationCallback";
+		}
 	};
 
 	/// <summary>
@@ -124,6 +129,11 @@ namespace Functions
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<GenerationEndCallback>()); }
 		void Dispose() override;
 		size_t GetLength() override;
+
+		virtual const char* GetName() override
+		{
+			return "GenerationEndCallback";
+		}
 	};
 
 	/// <summary>
@@ -150,6 +160,11 @@ namespace Functions
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<GenerationFinishedCallback>()); }
 		void Dispose() override;
 		size_t GetLength() override;
+
+		virtual const char* GetName() override
+		{
+			return "GenerationFinishedCallback";
+		}
 	};
 
 	class FinishSessionCallback : public BaseFunction
@@ -171,6 +186,11 @@ namespace Functions
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<GenerationFinishedCallback>()); }
 		void Dispose() override;
 		size_t GetLength() override;
+
+		virtual const char* GetName() override
+		{
+			return "FinishSessionCallback";
+		}
 	};
 }
 

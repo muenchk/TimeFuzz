@@ -39,6 +39,11 @@ namespace Functions
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDTestCallback>()); }
 		void Dispose() override;
 		size_t GetLength() override;
+
+		virtual const char* GetName() override
+		{
+			return "DDTestCallback";
+		}
 	};
 
 	class DDEvaluateExplicitCallback : public BaseFunction
@@ -60,6 +65,11 @@ namespace Functions
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDEvaluateExplicitCallback>()); }
 		void Dispose() override;
 		size_t GetLength() override;
+
+		virtual const char* GetName() override
+		{
+			return "DDEvaluateExplicitCallback";
+		}
 	};
 }
 

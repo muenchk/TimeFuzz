@@ -71,6 +71,8 @@ namespace Functions
 		}
 
 		static std::shared_ptr<BaseFunction> Create(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+
+		virtual const char* GetName() = 0;
 	};
 
 	void RegisterFactory(uint64_t classid, std::function<std::shared_ptr<BaseFunction>()> factory);
