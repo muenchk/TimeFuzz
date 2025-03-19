@@ -63,6 +63,8 @@ std::shared_ptr<Session> session = nullptr;
 
 SessionStatus status;
 
+std::string statuspath;
+
 std::string Snapshot(bool full)
 {
 	std::stringstream snap;
@@ -534,12 +536,12 @@ void SaveStatus()
 	if (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - time).count() >= (long long)CmdArgs::_saveStatusSeconds) {
 		time = std::chrono::system_clock::now();
 		std::string snap = Snapshot(true);
-		if (!std::filesystem::exists(std::filesystem::path(CmdArgs::workdir / "status")))
-			std::filesystem::create_directories(std::filesystem::path(CmdArgs::workdir / "status"));
+		if (!std::filesystem::exists(std::filesystem::path(CmdArgs::workdir / statuspath)))
+			std::filesystem::create_directories(std::filesystem::path(CmdArgs::workdir / statuspath));
 		auto days = std::chrono::floor<std::chrono::days>(time);
 		std::chrono::year_month_day ymd { days};
 		std::chrono::hh_mm_ss td{std::chrono::floor<std::chrono::seconds>(time - days) };
-		auto path = CmdArgs::workdir / "status" /
+		auto path = CmdArgs::workdir / statuspath /
 		            (status.sessionname + "_" + std::to_string(static_cast<int>(ymd.year())) + "_" + std::to_string(static_cast<unsigned>(ymd.month())) + "_" + std::to_string(static_cast<unsigned>(ymd.day())) + "_" + std::to_string(td.hours().count()) + "_" + std::to_string(td.minutes().count()) + "_" + std::to_string(td.seconds().count()) + ".txt");
 		std::ofstream out(path);
 		if (out.is_open()) {
@@ -625,25 +627,25 @@ int32_t main(int32_t argc, char** argv)
 	// -----Evaluate the command line parameters-----
 
 	std::string cmdargs =
-		"    --help, -h                 - prints help dialogue\n"
-		"    --conf <FILE>              - specifies path to the settings file\n"
-		"    --load <NAME>              - load prior safepoint and resume\n"
-		"    --load-num <NAME> <NUM>    - load specific prior safepoint and resume\n"
-		"    --reloadconfig             - reloads the configuration from config file instead of save\n"
-		"    --print <NAME>             - print statistics from prior safepoint\n"
-		"    --print-num <NAME> <NUM>   - print statistics from specific prior safepoint\n"
-		"    --dry                      - just run PUT once, and display output statistics\n"
-		"    --dry-i <INPUT>            - just run PUT once with the given input\n"
-		"    --responsive               - Enables resposive console mode accepting inputs from use\n"
-		"    --ui				        - Starts the program in GUI mode\n"
-		"    --logtoconsole             - Writes all logging output to the console\n"
-		"    --separatelogfiles         - Writes logfiles to \"/logs\" and uses timestamps in the logname\n"
-		"    --create-conf <PATH>       - Writes a default configuration file to the current folder\n"
-		"    --update-grammar           - Loads a new grammar and sets it as the default grammar for generation\n"
-		"    --no-exclusiontree         - Skips the loading of data from the exclusion tree\n"
-		"    --debug                    - Enable debug logging\n"
-		"    --clear-tasks              - clears all tasks and active tests from the session\n"
-		"    --save-status <time / sec> - saves the current status every x seconds\n";
+		"    --help, -h                           - prints help dialogue\n"
+		"    --conf <FILE>                        - specifies path to the settings file\n"
+		"    --load <NAME>                        - load prior safepoint and resume\n"
+		"    --load-num <NAME> <NUM>              - load specific prior safepoint and resume\n"
+		"    --reloadconfig                       - reloads the configuration from config file instead of save\n"
+		"    --print <NAME>                       - print statistics from prior safepoint\n"
+		"    --print-num <NAME> <NUM>             - print statistics from specific prior safepoint\n"
+		"    --dry                                - just run PUT once, and display output statistics\n"
+		"    --dry-i <INPUT>                      - just run PUT once with the given input\n"
+		"    --responsive                         - Enables resposive console mode accepting inputs from use\n"
+		"    --ui			    	              - Starts the program in GUI mode\n"
+		"    --logtoconsole                       - Writes all logging output to the console\n"
+		"    --separatelogfiles <FOLDER>          - Writes logfiles to \"/logs\" and uses timestamps in the logname\n"
+		"    --create-conf <PATH>                 - Writes a default configuration file to the current folder\n"
+		"    --update-grammar                     - Loads a new grammar and sets it as the default grammar for generation\n"
+		"    --no-exclusiontree                   - Skips the loading of data from the exclusion tree\n"
+		"    --debug                              - Enable debug logging\n"
+		"    --clear-tasks                        - clears all tasks and active tests from the session\n"
+		"    --save-status <time/sec> <FOLDER>    - saves the current status every x seconds\n";
 
 	std::string logpath = "";
 	bool logtimestamps = false;
@@ -693,25 +695,32 @@ int32_t main(int32_t argc, char** argv)
 			Logging::StdOutWarn = true;
 			Logging::StdOutDebug = true;
 		} else if (option.find("--separatelogfiles") != std::string::npos) {
-			std::cout << "Parameter: --separatelogfiles\n";
-			logtimestamps = true;
-			logpath = "logs";
+			if (i + 1 < argc) {
+				std::cout << "Parameter: --separatelogfiles\n";
+				logtimestamps = true;
+				logpath = argv[i + 1];
+				i++;
+			} else {
+				std::cerr << "missing logpath";
+				exit(ExitCodes::ArgumentError);
+			}
 		} else if (option.find("--consoleui") != std::string::npos) {
 			std::cout << "Parameter: --consoleui\n";
 			CmdArgs::_consoleUI = true;
 		} else if (option.find("--save-status") != std::string::npos) {
-			if (i + 1 < argc) {
-				std::cout << "Parameter: --save-status\n";
+			if (i + 2 < argc) {
 				try {
 					CmdArgs::_saveStatusSeconds = std::stoi(std::string(argv[i + 1]));
 				} catch (std::exception&) {
 					std::cerr << "missing number of seconds to save status";
 					exit(ExitCodes::ArgumentError);
 				}
+				statuspath = argv[i + 2];
+				std::cout << "Parameter: --save-status\t" + std::to_string(CmdArgs::_saveStatusSeconds) + "\t" + statuspath + "\n";
 				CmdArgs::_saveStatus = true;
-				i++;
+				i+=2;
 			} else {
-				std::cerr << "missing number of seconds to save status";
+				std::cerr << "missing number of seconds to save status and/or folder";
 				exit(ExitCodes::ArgumentError);
 			}
 		} else if (option.find("--load") != std::string::npos) {
@@ -834,6 +843,9 @@ int32_t main(int32_t argc, char** argv)
 	std::filesystem::current_path(CmdArgs::workdir);
 
 	std::filesystem::create_directories(CmdArgs::workdir / logpath);
+
+	if (CmdArgs::_saveStatus)
+		std::filesystem::create_directories(CmdArgs::workdir / statuspath);
 
 	// init logging engine
 	Logging::InitializeLog(CmdArgs::workdir / logpath, false, logtimestamps);
@@ -2400,6 +2412,9 @@ Responsive:
 				last = std::chrono::steady_clock::now();
 				std::cout << Snapshot(false);
 			}
+
+			if (CmdArgs::_saveStatus)
+				SaveStatus();
 		}
 		std::cout << Snapshot(true);
 		session->Wait();

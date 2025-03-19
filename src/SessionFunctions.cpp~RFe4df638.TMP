@@ -20,7 +20,6 @@
 std::shared_ptr<Input> SessionFunctions::GenerateInput(std::shared_ptr<SessionData>& sessiondata)
 {
 	loginfo("[GenerateInput] create form");
-	logdebug("generating input");
 	// generate a new _input
 	std::shared_ptr<Input> input = sessiondata->data->CreateForm<Input>();
 	input->SetFlag(Form::FormFlags::DoNotFree);
@@ -51,7 +50,6 @@ std::shared_ptr<Input> SessionFunctions::GenerateInput(std::shared_ptr<SessionDa
 std::shared_ptr<Input> SessionFunctions::ExtendInput(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> parent)
 {
 	loginfo("[GenerateInput] create form");
-	logdebug("extending input {}", Utility::GetHex(parent->GetFormID()));
 	// generate a new _input
 	std::shared_ptr<Input> input = sessiondata->data->CreateForm<Input>();
 	input->SetFlag(Form::FormFlags::DoNotFree);
@@ -95,7 +93,6 @@ void SessionFunctions::ExtendInput(std::shared_ptr<Input>& input, std::shared_pt
 	if (input->GetGenerated() || !sessiondata->_generator)
 		return;
 	if (input) {
-		logdebug("re-extending input {}", Utility::GetHex(input->GetFormID()));
 		// generate a new _input
 		if (!input->derive) {
 			input->derive = sessiondata->data->CreateForm<DerivationTree>();
@@ -132,7 +129,6 @@ void SessionFunctions::GenerateInput(std::shared_ptr<Input>& input, std::shared_
 	if (input->GetGenerated() || !sessiondata->_generator)
 		return;
 	if (input) {
-		logdebug("extending input {}", Utility::GetHex(input->GetFormID()));
 		// generate a new _input
 		if (!input->derive) {
 			input->derive = sessiondata->data->CreateForm<DerivationTree>();
@@ -1012,19 +1008,14 @@ namespace Functions
 		loginfo("wait for generation to end");
 		int64_t lastactive = 0, active = generation->GetActiveInputs();
 	StartWait:
-		while (sessiondata->_exechandler->WaitingTasks() > 0 || sessiondata->_controller->GetWaitingLightJobs() > 0) {
-				loginfo("WaitingTests: {}, LightTasks: {}", sessiondata->_exechandler->WaitingTasks(), sessiondata->_controller->GetWaitingLightJobs());
-			std::this_thread::sleep_for(std::chrono::milliseconds(10));
-		}
+		while (sessiondata->_exechandler->WaitingTasks() > 0 || sessiondata->_controller->GetWaitingLightJobs() > 0);
 		auto time = std::chrono::steady_clock::now();
 		while (generation->GetActiveInputs() > 0 && time + timeout < std::chrono::steady_clock::now())
 		{
 			if (lastactive != generation->GetActiveInputs())
 				time = std::chrono::steady_clock::now();
-			loginfo("Active Tasks: {}", generation->GetActiveInputs());
 			if (sessiondata->_exechandler->WaitingTasks() > 0 || sessiondata->_controller->GetWaitingLightJobs() > 0)
 				goto StartWait;
-			std::this_thread::sleep_for(std::chrono::milliseconds(10));
 		}
 	}
 
@@ -1041,17 +1032,15 @@ namespace Functions
 			_sessiondata->_controller->AddTask(callback, true);
 			return;
 		}
-		loginfo("wait for gen to end");
+		
 		WaitForGen(generation, _sessiondata, std::chrono::milliseconds(10000));
 
-		loginfo("begin delta debugging selection");
 		// if there is are delta debugging instances active, get them and assign generation finished callbacks to it,so we make sure they are finished before we start the next generation
 		std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> controllers;
 		_sessiondata->GetCurrentGeneration()->GetDDControllers(controllers);
 
 
 		if (_sessiondata->_settings->dd.deltadebugging && _sessiondata->_settings->dd.allowScoreOptimization) {
-			loginfo("score optimization enabled, select inputs for delta debugging");
 			// this callback calculates the top k inputs that will be kept for future generation of new inputs
 			// it will start k delta controllers for the top k inputs
 			// the callback for the delta controllers are instance of GenerationFinishedCallback
@@ -1105,8 +1094,6 @@ namespace Functions
 				break;
 			}
 
-			loginfo("Found {} targets to delta debug", targets.size());
-
 			// indicates whether we were able to start delta debugging
 			bool begun = false;
 			int32_t count = 0;
@@ -1139,7 +1126,6 @@ namespace Functions
 			}
 
 			if (begun == false) {
-				loginfo("no delta debugging was started, end generation");
 				// we haven't been able to start delta debugging, so add Generation Finished callback ourselves
 
 				auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
@@ -1150,7 +1136,6 @@ namespace Functions
 		}
 		else
 		{
-			loginfo("no delta debugging started, wait for existing delta debugging to end");
 			bool begun = false;
 			// check if there was an active delta debugging beforehand
 			for (auto ptr : controllers) {
@@ -1163,7 +1148,6 @@ namespace Functions
 				}
 			}
 			if (begun == false) {
-				loginfo("no existing dleta debugging to wait for, end generation");
 				// there is no delta debugging active in the current generation, so add Generation Finished callback ourselves
 				auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
 				callback->_sessiondata = _sessiondata;
@@ -1241,8 +1225,6 @@ namespace Functions
 				}
 			}
 		} else {
-			loginfo("Begin transition to new generation");
-
 			StartProfiling;
 			auto generation = _sessiondata->GetCurrentGeneration();
 
