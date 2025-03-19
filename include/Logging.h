@@ -103,7 +103,7 @@ public:
 	static void InitializeLog(std::filesystem::path _path, bool append = false, bool timestamp = false);
 };
 
-#ifndef NDEBUG
+/*#ifndef NDEBUG
 #	define StartProfilingDebug \
 	auto $$profiletimebegin$$ = std::chrono::steady_clock::now();
 #	define TimeProfilingDebug \
@@ -114,7 +114,19 @@ public:
 #	define StartProfilingDebug ;
 #	define TimeProfilingDebug ;
 #	define profileDebug(...) ;
-#endif
+#endif*/
+#define StartProfilingDebug \
+	auto $$profiletimebegin$$ = std::chrono::steady_clock::now();
+#define TimeProfilingDebug \
+	$$profiletimebegin$$
+#define profileDebug(...) \
+	if (Logging::EnableDebug) {                               \
+		static_cast<void>(prof(__func__, true, __VA_ARGS__)); \
+	}
+#define profileWDebug(...)                                     \
+	if (Logging::EnableDebug) {                               \
+		static_cast<void>(prof(__func__, false, __VA_ARGS__)); \
+	}
 
 #define StartProfiling \
 	auto $$profiletimebegin$$ = std::chrono::steady_clock::now();
@@ -135,7 +147,9 @@ public:
 	if (Logging::EnableDebug) { static_cast<void>(debug(__func__, __VA_ARGS__)); }
 
 #define profile(...)                          \
-	 static_cast<void>(prof(__func__, __VA_ARGS__));  // we check for enabled in the function itself, so we can save the exectimes itself
+	 static_cast<void>(prof(__func__, true, __VA_ARGS__));  // we check for enabled in the function itself, so we can save the exectimes itself
+#define profileW(...) \
+	static_cast<void>(prof(__func__, false, __VA_ARGS__));  // we check for enabled in the function itself, so we can save the exectimes itself
 
 #define logmessage(...) \
 	static_cast<void>(logmes(__func__, __VA_ARGS__)); \
@@ -225,10 +239,10 @@ public:
 		}
 		lock.release();
 	}
-	static void log(std::string message, std::string func, std::string file, std::chrono::nanoseconds ns, std::chrono::steady_clock::time_point time, std::string usermes)
+	static void log(std::string message, std::string func, std::string file, std::chrono::nanoseconds ns, std::chrono::steady_clock::time_point time, std::string usermes, bool writetolog)
 	{
 		lock.acquire();
-		if (Logging::EnableProfile && _writelog)
+		if (writetolog)
 			write(message);
 		auto itr = exectimes.find(file + "::" + func);
 		if (itr != exectimes.end())
@@ -282,6 +296,7 @@ struct [[maybe_unused]] prof
 
 	explicit prof(
 		std::string func,
+		bool writetolog,
 		std::chrono::time_point<std::chrono::steady_clock> begin,
 		fmt::format_string<Args...> a_fmt,
 		Args&&... a_args,
@@ -291,14 +306,14 @@ struct [[maybe_unused]] prof
 		std::string file = std::filesystem::path(a_loc.file_name()).filename().string();
 		std::chrono::nanoseconds ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now - begin);
 		std::string usermes = fmt::format(a_fmt, std::forward<Args>(a_args)...);
-		std::string mes = fmt::format("{:<25} {} {} {:<30} [ExecTime:{:>11}]\t{}", file + "(" + std::to_string(static_cast<int>(a_loc.line())) + "):", "[prof]", Logging::TimePassed(), "[" + func + "]", Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(ns).count()), usermes+ "\n");
+		std::string mes = fmt::format("{:<30} {} {} {:<40} [ExecTime:{:>11}]\t{}", file + "(" + std::to_string(static_cast<int>(a_loc.line())) + "):", "[prof]", Logging::TimePassed(), "[" + func + "]", Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(ns).count()), usermes+ "\n");
 
-		Profile::log(mes, func, file, ns, now, usermes);
+		Profile::log(mes, func, file, ns, now, usermes, writetolog);
 	}
 };
 
 template <class... Args>
-prof(std::string, std::chrono::time_point<std::chrono::steady_clock>, fmt::format_string<Args...>, Args&&...) -> prof<Args...>;
+prof(std::string, bool, std::chrono::time_point<std::chrono::steady_clock>, fmt::format_string<Args...>, Args&&...) -> prof<Args...>;
 
 
 class Log

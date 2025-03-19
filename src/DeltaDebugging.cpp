@@ -520,6 +520,7 @@ namespace DeltaDebugging
 
 	bool DeltaController::CheckInput(std::shared_ptr<Input> parentinp, std::shared_ptr<Input> inp, double approxthreshold)
 	{
+		StartProfiling;
 		// check against exclusion tree
 		if (_sessiondata->_settings->dd.approximativeTestExecution && _params->GetGoal() == DDGoal::MaximizePrimaryScore) {
 			auto [hasPrefix, prefixID, hasextension, extensionID] = _sessiondata->_excltree->HasPrefixAndShortestExtension(inp);
@@ -530,6 +531,7 @@ namespace DeltaDebugging
 				} else {
 					_sessiondata->IncExcludedApproximation();
 					_sessiondata->data->DeleteForm(inp);
+					profile(TimeProfiling, "Time taken to check input");
 					return false;
 				}
 			} else {
@@ -553,6 +555,7 @@ namespace DeltaDebugging
 						_sessiondata->data->DeleteForm(inp->derive);
 					_sessiondata->data->DeleteForm(inp);
 					_prefixTests++;
+					profile(TimeProfiling, "Time taken to check input");
 					return false;
 				}
 			}
@@ -584,6 +587,7 @@ namespace DeltaDebugging
 						_sessiondata->data->DeleteForm(inp->derive);
 					_sessiondata->data->DeleteForm(inp);
 					_prefixTests++;
+					profile(TimeProfiling, "Time taken to check input");
 					return false;
 				}
 			}
@@ -602,17 +606,20 @@ namespace DeltaDebugging
 			_sessiondata->data->DeleteForm(inp->derive);
 			_sessiondata->data->DeleteForm(inp);
 			_invalidTests++;
+			profile(TimeProfiling, "Time taken to check input");
 			return false;
 		}
 
 		inp->SetGenerated();
 		inp->SetGenerationTime(_sessiondata->data->GetRuntime());
 		inp->SetGenerationID(_sessiondata->GetCurrentGenerationID());
+		profile(TimeProfiling, "Time taken to check input");
 		return true;
 	}
 
 	std::shared_ptr<Input> DeltaController::GetComplement(int32_t begin, int32_t end, double approxthreshold)
 	{
+		StartProfiling;
 		DeltaInformation dcmpl;
 		dcmpl.positionbegin = (int32_t)begin;
 		dcmpl.length = (int32_t)end;
@@ -649,6 +656,7 @@ namespace DeltaDebugging
 
 		if (inp->GetSequenceLength() > _input->GetSequenceLength())
 			logcritical("ooooopss");
+		profile(TimeProfiling, "Time taken for complement generation");
 		if (CheckInput(_origInput, inp, approxthreshold))
 			return inp;
 		else

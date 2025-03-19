@@ -715,10 +715,10 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 			_tstatus = ExecHandlerStatus::Waiting;
 			_waitforjob.wait_for(guard, std::chrono::milliseconds(200), [this] { return !_runningTests.empty() || !_waitingTests.empty() || !_waitingTestsExec.empty() || _stopHandler; });
 			if (_stopHandler && _finishtests == false) {
-				profile(TimeProfiling, "Round");
+				profileW(TimeProfiling, "Round");
 				break;
 			} else {
-				profile(TimeProfiling, "Round");
+				profileW(TimeProfiling, "Round");
 				continue;
 			}
 		}
@@ -831,7 +831,7 @@ TestRunning:;
 		}
 		// go to sleep until the next period.
 		logdebug("sleeping for {} ns", sleep.count());
-		profile(TimeProfiling, "Round");
+		profileW(TimeProfiling, "Round");
 		if (sleep > 0ns && sleep < _waittime) {
 			_tstatus = ExecHandlerStatus::Sleeping;
 			std::this_thread::sleep_for(sleep);
