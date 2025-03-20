@@ -150,6 +150,93 @@ namespace Functions
 	{
 		_DDcontroller.reset();
 	}
+
+	void DDGenerateComplementCallback::Run()
+	{
+		_DDcontroller->GenerateComplements_Async_Callback(_begin, _length, _approxthreshold);
+	}
+	bool DDGenerateComplementCallback::ReadData(std::istream* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	{
+		uint64_t controllerid = Buffer::ReadUInt64(buffer, offset);
+		resolver->AddTask([this, controllerid, resolver]() {
+			this->_DDcontroller = resolver->ResolveFormID<DeltaDebugging::DeltaController>(controllerid);
+		});
+		_begin = Buffer::ReadInt32(buffer, offset);
+		_length = Buffer::ReadInt32(buffer, offset);
+		_approxthreshold = Buffer::ReadDouble(buffer, offset);
+		return true;
+	}
+	bool DDGenerateComplementCallback::WriteData(std::ostream* buffer, size_t& offset)
+	{
+		BaseFunction::WriteData(buffer, offset);
+		Buffer::Write(_DDcontroller->GetFormID(), buffer, offset);
+		Buffer::Write(_begin, buffer, offset);
+		Buffer::Write(_length, buffer, offset);
+		Buffer::Write(_approxthreshold, buffer, offset);
+		return true;
+	}
+
+	std::shared_ptr<BaseFunction> DDGenerateComplementCallback::DeepCopy()
+	{
+		auto ptr = std::make_shared<DDGenerateComplementCallback>();
+		ptr->_DDcontroller = _DDcontroller;
+		ptr->_begin = _begin;
+		ptr->_length = _length;
+		ptr->_approxthreshold = _approxthreshold;
+		return dynamic_pointer_cast<Functions::BaseFunction>(ptr);
+
+	}
+	void DDGenerateComplementCallback::Dispose()
+	{
+		_DDcontroller.reset();
+	}
+	size_t DDGenerateComplementCallback::GetLength()
+	{
+		return BaseFunction::GetLength() + /*8 DD, 4 begin, 4 length, 8 approx*/ 24;
+	}
+
+	void DDGenerateCheckSplit::Run()
+	{
+		_DDcontroller->GenerateSplits_Async_Callback(_input, _approxthreshold);
+	}
+
+	std::shared_ptr<BaseFunction> DDGenerateCheckSplit::DeepCopy()
+	{
+		auto ptr = std::make_shared<DDGenerateCheckSplit>();
+		ptr->_DDcontroller = _DDcontroller;
+		ptr->_input = _input;
+		ptr->_approxthreshold = _approxthreshold;
+		return dynamic_pointer_cast<BaseFunction>(ptr);
+	}
+
+	bool DDGenerateCheckSplit::ReadData(std::istream* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	{
+		FormID controllerID = Buffer::ReadUInt64(buffer, offset);
+		FormID inputID = Buffer::ReadUInt64(buffer, offset);
+		resolver->AddTask([this, controllerID, inputID, resolver]() {
+			_DDcontroller = resolver->ResolveFormID<DeltaDebugging::DeltaController>(controllerID);
+			_input = resolver->ResolveFormID<Input>(inputID);
+		});
+		_approxthreshold = Buffer::ReadDouble(buffer, offset);
+		return true;
+	}
+	bool DDGenerateCheckSplit::WriteData(std::ostream* buffer, size_t& offset)
+	{
+		BaseFunction::WriteData(buffer, offset);
+		Buffer::Write(_DDcontroller->GetFormID(), buffer, offset);
+		Buffer::Write(_input->GetFormID(), buffer, offset);
+		Buffer::Write(_approxthreshold, buffer, offset);
+		return true;
+	}
+	void DDGenerateCheckSplit::Dispose()
+	{
+		_DDcontroller.reset();
+		_input.reset();
+	}
+	size_t DDGenerateCheckSplit::GetLength()
+	{
+		return BaseFunction::GetLength() + /*8 DD, 8 input, 8 approx*/ 24;
+	}
 }
 
 namespace DeltaDebugging
@@ -441,81 +528,96 @@ namespace DeltaDebugging
 				}
 			}
 
-			/*// check against exclusion tree
-			if (_sessiondata->_settings->dd.approximativeTestExecution && _params->GetGoal() == DDGoal::MaximizePrimaryScore) {
-				auto [hasPrefix, prefixID, hasextension, extensionID] = _sessiondata->_excltree->HasPrefixAndShortestExtension(inp);
-				if (hasextension) {
-					auto parent = _sessiondata->data->LookupFormID<Input>(extensionID);
-					if (parent && parent->GetPrimaryScore() > approxthreshold) {
-						// do the other stuff
-					} else {
-						_sessiondata->IncExcludedApproximation();
-						_sessiondata->data->DeleteForm(inp);
-						continue;
-					}
-				} else {
-					if (hasPrefix == false) {
-						// do the other stuff
-					} else {
-						_sessiondata->IncGeneratedWithPrefix();
-						_tests++;
-						if (prefixID != 0) {
-							auto ptr = _sessiondata->data->LookupFormID<Input>(prefixID);
-							if (ptr) {
-								_activeInputs.insert(ptr);
-								ptr->SetFlag(Form::FormFlags::DoNotFree);
-								if (ptr->derive)
-									ptr->derive->SetFlag(Form::FormFlags::DoNotFree);
-							}
-						}
-						_sessiondata->data->DeleteForm(inp);
-						continue;
-					}
-				}
-			} else {
-				FormID prefixID = 0;
-				bool hasPrefix = _sessiondata->_excltree->HasPrefix(inp, prefixID);
-				if (hasPrefix == false) {
-					// do the other stuff
-				} else {
-					_sessiondata->IncGeneratedWithPrefix();
-					_tests++;
-					if (prefixID != 0) {
-						auto ptr = _sessiondata->data->LookupFormID<Input>(prefixID);
-						if (ptr) {
-							_activeInputs.insert(ptr);
-							ptr->SetFlag(Form::FormFlags::DoNotFree);
-							if (ptr->derive)
-								ptr->derive->SetFlag(Form::FormFlags::DoNotFree);
-						}
-					}
-					_sessiondata->data->DeleteForm(inp);
-					continue;
-				}
-			}			
-
-			// try to find derivation tree for our input
-			inp->derive = _sessiondata->data->CreateForm<DerivationTree>();
-			inp->derive->SetFlag(Form::FormFlags::DoNotFree);
-			inp->derive->_inputID = inp->GetFormID();
-			_sessiondata->_grammar->Extract(_input->derive, inp->derive, inp->GetParentSplitBegin(), inp->GetParentSplitLength(), _input->Length(), inp->GetParentSplitComplement());
-			if (inp->derive->_valid == false) {
-				// the input cannot be derived from the given grammar
-				logwarn("The split cannot be derived from the grammar.");
-				_sessiondata->data->DeleteForm(inp->derive);
-				_sessiondata->data->DeleteForm(inp);
-				continue;
-			}
-
-			inp->SetGenerated();
-			inp->SetGenerationTime(_sessiondata->data->GetRuntime());
-			inp->SetGenerationID(_sessiondata->GetCurrentGenerationID());*/
 			if (CheckInput(_input, inp, approxthreshold))
 				splits.push_back(inp);
 
 		}
 		profile(TimeProfiling, "Time taken for split generation.");
 		return  splits;
+	}
+
+	
+	void DeltaController::GenerateSplits_Async(int32_t number)
+	{
+		StartProfiling;
+		double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
+		std::vector<std::shared_ptr<Input>> splits;
+		// calculate the ideal size we would get from the current level
+		int32_t tmp = (int32_t)(std::trunc(_input->Length() / number));
+		if (tmp < 1)
+			tmp = 1;
+
+		// this value is rounded so the actual length our inputs get is different from
+		// the naive caluclation we need to recalculate [number] and can then calculate
+		// the actual splitsize
+		number = (int32_t)(_input->Length() / tmp);
+		int32_t splitsize = (int32_t)(_input->Length() / number);
+		int32_t splitbegin = 0;
+		auto itr = _input->begin();
+
+		genCompData.active = true;
+		genCompData.tasks = number;
+
+		int tasks = 0;
+		for (int32_t i = 0; i < number; i++) {
+			DeltaInformation df;
+			df.positionbegin = splitbegin;
+			if (i == number - 1)
+				df.length = (int32_t)_input->Length() - splitbegin;
+			else
+				df.length = splitsize;
+			df.complement = false;
+			genCompData.dinfo.push_back(df);
+			// skip inputs that are beneath the min exec length
+			if (df.length < _sessiondata->_settings->dd.executeAboveLength)
+				continue;
+
+			auto inp = _sessiondata->data->CreateForm<Input>();
+			inp->SetFlag(Form::FormFlags::DoNotFree);
+			if (i == number - 1)
+				inp->SetParentSplitInformation(_input->GetFormID(), { { splitbegin, (int32_t)_input->Length() - splitbegin } }, false);
+			else
+				inp->SetParentSplitInformation(_input->GetFormID(), { { splitbegin, splitsize } }, false);
+
+			if (i == number - 1) {
+				// add rest of _input to split
+				while (itr != _input->end()) {
+					inp->AddEntry(*itr);
+					itr++;
+					splitbegin++;
+				}
+			} else {
+				// add a specific number of strings to _input
+				for (int32_t x = 0; x < splitsize; x++) {
+					inp->AddEntry(*itr);
+					itr++;
+					splitbegin++;
+				}
+			}
+
+			auto callback = dynamic_pointer_cast<Functions::DDGenerateCheckSplit>(Functions::DDGenerateCheckSplit::Create());
+			callback->_DDcontroller = _self;
+			callback->_input = inp;
+			callback->_approxthreshold = approxthreshold;
+			_sessiondata->_controller->AddTask(callback);
+			tasks++;
+		}
+		if (tasks == 0)
+			StandardGenerateNextLevel_Inter();
+	}
+
+	void DeltaController::GenerateSplits_Async_Callback(std::shared_ptr<Input>& input, double approxthreshold)
+	{
+		if (CheckInput(_input, input, approxthreshold))
+		{
+			genCompData.splits.push_back(input);
+		}
+		genCompData.tasks--;
+		if (genCompData.tasks.load() == 0 && genCompData.active)
+		{
+			genCompData.active = false;
+			StandardGenerateNextLevel_Inter();
+		}
 	}
 
 	bool DeltaController::CheckInput(std::shared_ptr<Input> parentinp, std::shared_ptr<Input> inp, double approxthreshold)
@@ -707,106 +809,54 @@ namespace DeltaDebugging
 		std::vector<std::shared_ptr<Input>> complements;
 		for (int32_t i = 0; i < (int32_t)splitinfo.size(); i++) {
 			auto inp = GetComplement((int32_t)splitinfo[i].positionbegin, (int32_t)splitinfo[i].length, approxthreshold);
-			/*DeltaInformation dcmpl;
-			dcmpl.positionbegin = (int32_t)splitinfo[i].positionbegin;
-			dcmpl.length = (int32_t)splitinfo[i].length;
-			dcmpl.complement = true;
-
-			if ((int32_t)_input->Length() - dcmpl.length < _sessiondata->_settings->dd.executeAboveLength)
-				continue;
-
-			auto inp = _sessiondata->data->CreateForm<Input>();
-			inp->SetFlag(Form::FormFlags::DoNotFree);
-			inp->SetParentSplitInformation(_input->GetFormID(), dcmpl.positionbegin, dcmpl.length, dcmpl.complement);
-
-			// extract the new input first so we can check against the exclusion tree
-			size_t count = 0;
-			auto itr = _input->begin();
-			while (itr != _input->end())
-			{
-				// if the current position is less then the beginning of the split itself, or if it is after the split
-				// sequence is over
-				if (count < dcmpl.positionbegin || count >= (size_t)(dcmpl.positionbegin + dcmpl.length))
-					inp->AddEntry(*itr);
-				count++;
-				itr++;
-			}
-
-			// check against exclusion tree
-			if (_sessiondata->_settings->dd.approximativeTestExecution && _params->GetGoal() == DDGoal::MaximizePrimaryScore) {
-				auto [hasPrefix, prefixID, hasextension, extensionID] = _sessiondata->_excltree->HasPrefixAndShortestExtension(inp);
-				if (hasextension) {
-					auto parent = _sessiondata->data->LookupFormID<Input>(extensionID);
-					if (parent && parent->GetPrimaryScore() > approxthreshold) {
-						// do the other stuff
-					} else {
-						_sessiondata->IncExcludedApproximation();
-						_sessiondata->data->DeleteForm(inp);
-						continue;
-					}
-				} else {
-					if (hasPrefix == false) {
-						// do the other stuff
-					} else {
-						_sessiondata->IncGeneratedWithPrefix();
-						_tests++;
-						if (prefixID != 0) {
-							auto ptr = _sessiondata->data->LookupFormID<Input>(prefixID);
-							if (ptr) {
-								_activeInputs.insert(ptr);
-								ptr->SetFlag(Form::FormFlags::DoNotFree);
-								if (ptr->derive)
-									ptr->derive->SetFlag(Form::FormFlags::DoNotFree);
-							}
-						}
-						_sessiondata->data->DeleteForm(inp);
-						continue;
-					}
-				}
-			} else {
-				FormID prefixID = 0;
-				bool hasPrefix = _sessiondata->_excltree->HasPrefix(inp, prefixID);
-				if (hasPrefix == false) {
-					// do the other stuff
-				} else {
-					_sessiondata->IncGeneratedWithPrefix();
-					_tests++;
-					if (prefixID != 0) {
-						auto ptr = _sessiondata->data->LookupFormID<Input>(prefixID);
-						if (ptr) {
-							_activeInputs.insert(ptr);
-							ptr->SetFlag(Form::FormFlags::DoNotFree);
-							if (ptr->derive)
-								ptr->derive->SetFlag(Form::FormFlags::DoNotFree);
-						}
-					}
-					_sessiondata->data->DeleteForm(inp);
-					continue;
-				}
-			}			
-
-			// try to find derivation tree for our input
-			inp->derive = _sessiondata->data->CreateForm<DerivationTree>();
-			inp->derive->SetFlag(Form::FormFlags::DoNotFree);
-			inp->derive->_inputID = inp->GetFormID();
-
-			_sessiondata->_grammar->Extract(_input->derive, inp->derive, inp->GetParentSplitBegin(), inp->GetParentSplitLength(), _input->Length(), inp->GetParentSplitComplement());
-			if (inp->derive->_valid == false) {
-				// the input cannot be derived from the given grammar
-				logwarn("The split cannot be derived from the grammar.");
-				_sessiondata->data->DeleteForm(inp->derive);
-				_sessiondata->data->DeleteForm(inp);
-				continue;
-			}
-
-			inp->SetGenerated();
-			inp->SetGenerationTime(_sessiondata->data->GetRuntime());
-			inp->SetGenerationID(_sessiondata->GetCurrentGenerationID());*/
 			if (inp)
 				complements.push_back(inp);
 		}
 		profile(TimeProfiling, "Time taken for complement generation.");
 		return complements;
+	}
+
+	void DeltaController::GenerateComplements_Async(std::vector<DeltaInformation>& splitinfo)
+	{
+		StartProfiling;
+		genCompData.active = true;
+		genCompData.tasks = splitinfo.size();
+		double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
+		std::vector<std::shared_ptr<Input>> complements;
+		if (splitinfo.size() > 0) {
+			for (int32_t i = 0; i < (int32_t)splitinfo.size(); i++) {
+				auto callback = dynamic_pointer_cast<Functions::DDGenerateComplementCallback>(Functions::DDGenerateComplementCallback::Create());
+				callback->_DDcontroller = _self;
+				callback->_begin = (int32_t)splitinfo[i].positionbegin;
+				callback->_length = (int32_t)splitinfo[i].length;
+				callback->_approxthreshold = approxthreshold;
+				_sessiondata->_controller->AddTask(callback);
+			}
+		}
+		else {
+			StandardGenerateNextLevel_End();
+		}
+		profile(TimeProfiling, "Time taken for complement generation initialization.");
+	}
+
+	void DeltaController::GenerateComplements_Async_Callback(int32_t begin, int32_t length, double approx)
+	{
+		auto inp = GetComplement(begin, length, approx);
+		if (inp) {
+			genCompData.complements.push_back(inp);
+		}
+		genCompData.tasks--;
+		if (genCompData.tasks.load() == 0 && genCompData.active) {
+			genCompData.active = false;
+			switch (_params->mode) {
+			case DDMode::Standard:
+				StandardGenerateNextLevel_End();
+				break;
+			case DDMode::ScoreProgress:
+				ScoreProgressGenerateNextLevel_End();
+				break;
+			}
+		}
 	}
 
 	void DeltaController::StandardGenerateFirstLevel()
@@ -815,7 +865,7 @@ namespace DeltaDebugging
 		_level = 2;
 
 		if (_input->Length() >= 2) {
-			StandardGenerateNextLevel();
+			StandardGenerateNextLevel_Async();
 		}
 	}
 
@@ -854,6 +904,51 @@ namespace DeltaDebugging
 			_sessiondata->_controller->AddTask(callback);
 		}
 		profile(TimeProfiling, "Time taken to generate next dd level.");
+	}
+
+	void DeltaController::StandardGenerateNextLevel_Async()
+	{
+		__NextGenTime = std::chrono::steady_clock::now();
+		// insurance
+		if (_input->GetGenerated() == false) {
+			// we are trying to add an _input that hasn't been generated or regenerated
+			// try the generate it and if it succeeds add the test
+			SessionFunctions::GenerateInput(_input, _sessiondata);
+			if (_input->GetGenerated() == false)
+				Finish();
+		}
+
+		std::vector<DeltaInformation> splitinfo;
+		GenerateSplits_Async(_level);
+	}
+
+	void DeltaController::StandardGenerateNextLevel_Inter()
+	{
+		GenerateComplements_Async(genCompData.dinfo);
+	}
+
+	void DeltaController::StandardGenerateNextLevel_End()
+	{
+		StartProfiling;
+
+		_stopbatch = false;
+
+		// set internals
+		_tests = 0;
+		_remainingtests = (int32_t)genCompData.splits.size() + (int32_t)genCompData.complements.size();
+		// temp
+		AddTests(genCompData.splits);
+		AddTests(genCompData.complements);
+		genCompData.Reset();
+		// check if all the input results are already known
+		if (_remainingtests == 0) {
+			// start new callback to avoid blocking for too long, and to avoid reentry into the lock as
+			// the Evaluation Methods are blocking
+			auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
+			callback->_DDcontroller = _self;
+			_sessiondata->_controller->AddTask(callback);
+		}
+		profile(__NextGenTime, "Time taken to generate next dd level.");
 	}
 
 	bool DeltaController::StandardEvaluateInput(std::shared_ptr<Input> input)
@@ -1001,7 +1096,7 @@ namespace DeltaDebugging
 					// no inputs were found that reproduce the original result
 					// so we increase the level and try new sets of inputs
 					_level = std::min(_level * 2, (int32_t)_input->Length());
-					StandardGenerateNextLevel();
+					StandardGenerateNextLevel_Async();
 				} else {
 					// this is the very ordinary variant where we choose a test as our new starting _input
 					// based on its ability to reproduce the original oracle result
@@ -1021,7 +1116,7 @@ namespace DeltaDebugging
 								_finished = true;
 								Finish();
 							} else
-								StandardGenerateNextLevel();
+								StandardGenerateNextLevel_Async();
 						}
 						break;
 					case DDGoal::MaximizeBothScores:
@@ -1048,7 +1143,7 @@ namespace DeltaDebugging
 								_finished = true;
 								Finish();
 							} else
-								StandardGenerateNextLevel();
+								StandardGenerateNextLevel_Async();
 						}
 						break;
 					case DDGoal::MaximizeSecondaryScore:
@@ -1074,7 +1169,7 @@ namespace DeltaDebugging
 								_finished = true;
 								Finish();
 							} else
-								StandardGenerateNextLevel();
+								StandardGenerateNextLevel_Async();
 						}
 						break;
 					}
@@ -1141,7 +1236,7 @@ namespace DeltaDebugging
 						_finished = true;
 						Finish();
 					} else
-						StandardGenerateNextLevel();
+						StandardGenerateNextLevel_Async();
 				} else {
 					// set new base _input
 					_input = passing[0];
@@ -1154,7 +1249,7 @@ namespace DeltaDebugging
 						_finished = true;
 						Finish();
 					} else
-						StandardGenerateNextLevel();
+						StandardGenerateNextLevel_Async();
 				}
 			}
 			break;
@@ -1218,7 +1313,7 @@ namespace DeltaDebugging
 						_finished = true;
 						Finish();
 					} else
-						StandardGenerateNextLevel();
+						StandardGenerateNextLevel_Async();
 				} else {
 					// set new base _input
 					_input = passing[0];
@@ -1231,7 +1326,7 @@ namespace DeltaDebugging
 						_finished = true;
 						Finish();
 					} else
-						StandardGenerateNextLevel();
+						StandardGenerateNextLevel_Async();
 				}
 			}
 			break;
@@ -1296,7 +1391,7 @@ namespace DeltaDebugging
 						_finished = true;
 						Finish();
 					} else
-						StandardGenerateNextLevel();
+						StandardGenerateNextLevel_Async();
 				} else {
 					// set new base _input
 					_input = passing[0];
@@ -1309,7 +1404,7 @@ namespace DeltaDebugging
 						_finished = true;
 						Finish();
 					} else
-						StandardGenerateNextLevel();
+						StandardGenerateNextLevel_Async();
 				}
 			}
 			break;
@@ -1338,13 +1433,41 @@ namespace DeltaDebugging
 		profile(TimeProfiling, "Time taken for complement generation");
 		return complements;
 	}
+	void DeltaController::ScoreProgressGenerateComplements_Async(int32_t level)
+	{
+		double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
+		std::vector<std::shared_ptr<Input>> complements;
+		RangeIterator<size_t> rangeIterator(&_inputRanges, _sessiondata->_settings->dd.skipoptions, _skipRanges);
+		size_t size = rangeIterator.GetLength() / level;
+
+		auto ranges = rangeIterator.GetRangesAbove(size);
+		genCompData.active = true;
+		genCompData.tasks = ranges.size();
+		if (ranges.size() > 0) {
+			for (size_t i = 0; i < ranges.size(); i++) {
+				auto [begin, length] = ranges[i];
+
+				auto callback = dynamic_pointer_cast<Functions::DDGenerateComplementCallback>(Functions::DDGenerateComplementCallback::Create());
+				callback->_DDcontroller = _self;
+				callback->_begin = (int32_t)begin;
+				callback->_length = (int32_t)length;
+				callback->_approxthreshold = approxthreshold;
+				_sessiondata->_controller->AddTask(callback);
+			}
+		}
+		else
+		{
+			ScoreProgressGenerateNextLevel_End();
+		}
+
+	}
 
 	void DeltaController::ScoreProgressGenerateFirstLevel()
 	{
 		// level is the max size of ranges that can be removed from an input
 		_level = 2;
 
-		ScoreProgressGenerateNextLevel();
+		ScoreProgressGenerateNextLevel_Async();
 	}
 
 	void DeltaController::ScoreProgressGenerateNextLevel()
@@ -1379,6 +1502,44 @@ namespace DeltaDebugging
 			_sessiondata->_controller->AddTask(callback);
 		}
 		profile(TimeProfiling, "Time taken to generate next dd level.");
+	}
+
+	void DeltaController::ScoreProgressGenerateNextLevel_Async()
+	{
+		__NextGenTime = std::chrono::steady_clock::now();
+
+		// insurance
+		if (_input->GetGenerated() == false) {
+			// we are trying to add an _input that hasn't been generated or regenerated
+			// try the generate it and if it succeeds add the test
+			SessionFunctions::GenerateInput(_input, _sessiondata);
+			if (_input->GetGenerated() == false)
+				Finish();
+		}
+
+		_stopbatch = false;
+		ScoreProgressGenerateComplements_Async(_level);
+	}
+
+	void DeltaController::ScoreProgressGenerateNextLevel_End()
+	{
+		// set internals
+		_tests = 0;
+		_remainingtests = (int32_t)genCompData.complements.size();
+
+		AddTests(genCompData.complements);
+
+		genCompData.Reset();
+
+		// check if all the input results are already known
+		if (_remainingtests == 0) {
+			// start new callback to avoid blocking for too long, and to avoid reentry into the lock as
+			// the Evaluation Methods are blocking
+			auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
+			callback->_DDcontroller = _self;
+			_sessiondata->_controller->AddTask(callback);
+		}
+		profile(__NextGenTime, "Time taken to generate next level.");
 	}
 
 	bool DeltaController::ScoreProgressEvaluateInput(std::shared_ptr<Input> input)
@@ -1668,7 +1829,7 @@ namespace DeltaDebugging
 				_finished = true;
 				Finish();
 			} else
-				ScoreProgressGenerateNextLevel();
+				ScoreProgressGenerateNextLevel_Async();
 		} else {
 			// set new base _input
 			if (passing[0]->GetSequenceLength() > _input->GetSequenceLength())
@@ -1685,7 +1846,7 @@ namespace DeltaDebugging
 				_finished = true;
 				Finish();
 			} else
-				ScoreProgressGenerateNextLevel();
+				ScoreProgressGenerateNextLevel_Async();
 		}
 	}
 
@@ -1773,7 +1934,10 @@ namespace DeltaDebugging
 		                        + 4   // _activetests
 		                        + 1;  // _stopbatch
 		static size_t size0x3 = size0x2  // prior size
-		                        + 8;  // _skipRanges
+		                        + 8      // _skipRanges
+		                        + 1      // GenerateComplementsData::active
+		                        + 8;     // GenerateComplementsData::tasks
+
 
 		switch (version)
 		{
@@ -1790,13 +1954,16 @@ namespace DeltaDebugging
 
 	size_t DeltaController::GetDynamicSize()
 	{
-		size_t sz = Form::GetDynamicSize()                                       // form stuff
-		            + GetStaticSize(classversion)                                // static elements
-		            + 8 /*size of results*/ + (8 + 8 + 8 + 4) * _results.size()  // formids, lossPrimary, lossSecondary, and level in results
-		            + 8 /*size of activeInputs*/ + 8 * _activeInputs.size()      // formids in activeInputs
-		            + 8 /*size of completedTests*/ + 8 * _completedTests.size()  //formids in completedTests
-		            + 4 /*goal type*/ + 8                                        /*class size*/
-		            + 8 /*size of waitingTests*/ + 8 * _waitingTests.size();     // formids in waitingTests
+		size_t sz = Form::GetDynamicSize()                                                                     // form stuff
+		            + GetStaticSize(classversion)                                                              // static elements
+		            + 8 /*size of results*/ + (8 + 8 + 8 + 4) * _results.size()                                // formids, lossPrimary, lossSecondary, and level in results
+		            + 8 /*size of activeInputs*/ + 8 * _activeInputs.size()                                    // formids in activeInputs
+		            + 8 /*size of completedTests*/ + 8 * _completedTests.size()                                //formids in completedTests
+		            + 4 /*goal type*/ + 8                                                                      /*class size*/
+		            + 8 /*size of waitingTests*/ + 8 * _waitingTests.size()                                    // formids in waitingTests
+		            + 8 /*size of GenerateComplementsData::splits*/ + 8 * genCompData.splits.size()            // formids in GenerateComplementsData::splits
+		            + 8 /*size of GenerateComplementsData::complements*/ + 8 * genCompData.complements.size()  // formids in GenerateComplementsData::complements
+		            + 8 /*size of GenerateComplementsData::dinfo*/ + (4 + 4 + 1) * genCompData.dinfo.size();   // split info in GenerateComplementsData::dinfo
 
 		switch (_params->GetGoal()) {
 		case DDGoal::MaximizePrimaryScore:
@@ -1948,6 +2115,31 @@ namespace DeltaDebugging
 
 		// VERSION 0x3
 		Buffer::WriteSize(_skipRanges, buffer, offset);
+		Buffer::Write(genCompData.active, buffer, offset);
+		Buffer::WriteSize(genCompData.tasks.load(), buffer, offset);
+		Buffer::WriteSize(genCompData.splits.size(), buffer, offset);
+		for (size_t i = 0; i < genCompData.splits.size(); i++)
+		{
+			if (genCompData.splits[i])
+				Buffer::Write(genCompData.splits[i]->GetFormID(), buffer, offset);
+			else
+				Buffer::Write((uint64_t)0, buffer, offset);
+		}
+		Buffer::WriteSize(genCompData.complements.size(), buffer, offset);
+		for (size_t i = 0; i < genCompData.complements.size(); i++)
+		{
+			if (genCompData.complements[i])
+				Buffer::Write(genCompData.complements[i]->GetFormID(), buffer, offset);
+			else
+				Buffer::Write((uint64_t)0, buffer, offset);
+		}
+		Buffer::WriteSize(genCompData.dinfo.size(), buffer, offset);
+		for (size_t i = 0; i < genCompData.dinfo.size(); i++)
+		{
+			Buffer::Write(genCompData.dinfo[i].complement, buffer, offset);
+			Buffer::Write(genCompData.dinfo[i].positionbegin, buffer, offset);
+			Buffer::Write(genCompData.dinfo[i].length, buffer, offset);
+		}
 		return true;
 	}
 
@@ -2170,6 +2362,7 @@ namespace DeltaDebugging
 					_params = new DDParameters;
 					_params->minimalSubsetSize = Buffer::ReadInt32(buffer, offset);
 					_params->bypassTests = Buffer::ReadBool(buffer, offset);
+					_params->budget = Buffer::ReadInt32(buffer, offset);
 					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
 					break;
 				case DDGoal::ReproduceResult:
@@ -2262,6 +2455,33 @@ namespace DeltaDebugging
 				{
 					// VERSION 0x3
 					_skipRanges = Buffer::ReadSize(buffer, offset);
+					genCompData.active = Buffer::ReadBool(buffer, offset);
+					genCompData.tasks = Buffer::ReadSize(buffer, offset);
+					size_t splitsize = Buffer::ReadSize(buffer, offset);
+					std::vector<FormID> splitids;
+					for (size_t i = 0; i < splitsize; i++)
+						splitids.push_back(Buffer::ReadUInt64(buffer, offset));
+					size_t complementsize = Buffer::ReadSize(buffer, offset);
+					std::vector<FormID> complementids;
+					for (size_t i = 0; i < complementsize; i++)
+						complementids.push_back(Buffer::ReadUInt64(buffer, offset));
+					resolver->AddTask([this, splitids, complementids, resolver]() {
+						for (size_t i = 0; i < splitids.size(); i++)
+						{
+							genCompData.splits.push_back(resolver->ResolveFormID<Input>(splitids[i]));
+						}
+						for (size_t i = 0; i < complementids.size(); i++)
+							genCompData.complements.push_back(resolver->ResolveFormID<Input>(complementids[i]));
+					});
+					size_t dinfosize = Buffer::ReadSize(buffer, offset);
+					for (size_t i = 0; i < dinfosize; i++)
+					{
+						DeltaInformation dinfo;
+						dinfo.complement = Buffer::ReadBool(buffer, offset);
+						dinfo.positionbegin = Buffer::ReadInt32(buffer, offset);
+						dinfo.length = Buffer::ReadInt32(buffer, offset);
+						genCompData.dinfo.push_back(dinfo);
+					}
 				}
 				return true;
 			}

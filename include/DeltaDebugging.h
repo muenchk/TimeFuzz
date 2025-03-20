@@ -71,6 +71,63 @@ namespace Functions
 			return "DDEvaluateExplicitCallback";
 		}
 	};
+
+	class DDGenerateComplementCallback : public BaseFunction
+	{
+	public:
+		std::shared_ptr<DeltaDebugging::DeltaController> _DDcontroller;
+		int32_t _begin = 0;
+		int32_t _length = 0;
+		double _approxthreshold = 0.f;
+
+		void Run() override;
+		static uint64_t GetTypeStatic() { return 'DGCC'; }
+		uint64_t GetType() override { return 'DGCC'; }
+
+		FunctionType GetFunctionType() override { return FunctionType::Medium; }
+
+		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
+
+		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool WriteData(std::ostream* buffer, size_t& offset) override;
+
+		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDGenerateComplementCallback>()); }
+		void Dispose() override;
+		size_t GetLength() override;
+
+		virtual const char* GetName() override
+		{
+			return "DDGenerateComplementCallback";
+		}
+	};
+
+	class DDGenerateCheckSplit : public BaseFunction
+	{
+	public:
+		std::shared_ptr<DeltaDebugging::DeltaController> _DDcontroller;
+		std::shared_ptr<Input> _input;
+		double _approxthreshold = 0.f;
+
+		void Run() override;
+		static uint64_t GetTypeStatic() { return 'DGCS'; }
+		uint64_t GetType() override { return 'DGCS'; }
+
+		FunctionType GetFunctionType() override { return FunctionType::Medium; }
+
+		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
+
+		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool WriteData(std::ostream* buffer, size_t& offset) override;
+
+		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDGenerateCheckSplit>()); }
+		void Dispose() override;
+		size_t GetLength() override;
+
+		virtual const char* GetName() override
+		{
+			return "DDGenerateCheckSplit";
+		}
+	};
 }
 
 namespace DeltaDebugging
@@ -297,6 +354,24 @@ namespace DeltaDebugging
 		/// <param name="input"></param>
 		bool DoTest(std::shared_ptr<Input>& input);
 
+		struct GenerateComplementsData
+		{
+			bool active = false;
+			std::atomic<size_t> tasks = 0;
+			std::vector<std::shared_ptr<Input>> splits;
+			std::vector<std::shared_ptr<Input>> complements;
+			std::vector<DeltaInformation> dinfo;
+
+			void Reset()
+			{
+				active = false;
+				tasks = 0;
+				complements.clear();
+				dinfo.clear();
+				splits.clear();
+			}
+		};
+
 		/// <summary>
 		/// Generates [number] subset from [::_input]
 		/// </summary>
@@ -306,6 +381,18 @@ namespace DeltaDebugging
 		std::vector<std::shared_ptr<Input>> GenerateComplements(std::vector<DeltaInformation>& splitinfo);
 
 
+		// both methods
+		void GenerateSplits_Async(int32_t number);
+		void GenerateComplements_Async(std::vector<DeltaInformation>& splitinfo);
+
+		GenerateComplementsData genCompData;
+
+	public:
+		void GenerateSplits_Async_Callback(std::shared_ptr<Input>& input, double approxthreshold);
+		void GenerateComplements_Async_Callback(int32_t begin, int32_t length, double approx);
+
+	private:
+
 		/// <summary>
 		/// generates the first level of tests for standard mode
 		/// </summary>
@@ -314,6 +401,9 @@ namespace DeltaDebugging
 		/// generates the next level of tests for standard mode
 		/// </summary>
 		void StandardGenerateNextLevel();
+		void StandardGenerateNextLevel_Async();
+		void StandardGenerateNextLevel_Inter();
+		void StandardGenerateNextLevel_End();
 		/// <summary>
 		/// evaluates a completed level for standard mode
 		/// </summary>
@@ -331,10 +421,14 @@ namespace DeltaDebugging
 		/// <param name="splitinfo"></param>
 		/// <returns></returns>
 		std::vector<std::shared_ptr<Input>> ScoreProgressGenerateComplements(int32_t size);
+		void ScoreProgressGenerateComplements_Async(int32_t size);
 
 		void ScoreProgressGenerateFirstLevel();
 
 		void ScoreProgressGenerateNextLevel();
+		void ScoreProgressGenerateNextLevel_Async();
+
+		void ScoreProgressGenerateNextLevel_End();
 
 		void ScoreProgressEvaluateLevel();
 
@@ -454,6 +548,12 @@ namespace DeltaDebugging
 		{
 			return 1 - (input->GetSecondaryScore() / _bestScore.second);
 		}
+
+		#pragma endregion
+		
+		#pragma region runtime
+
+		std::chrono::steady_clock::time_point __NextGenTime;
 
 		#pragma endregion
 	};
