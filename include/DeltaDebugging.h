@@ -214,6 +214,7 @@ namespace DeltaDebugging
 		/// </summary>
 		/// <param name="callback"></param>
 		bool AddCallback(std::shared_ptr<Functions::BaseFunction> callback);
+		bool HasCallback(uint64_t type);
 
 		uint64_t GetBatchIdent()
 		{

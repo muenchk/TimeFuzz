@@ -2110,6 +2110,20 @@ namespace DeltaDebugging
 			return false;
 	}
 
+	bool DeltaController::HasCallback(uint64_t type)
+	{
+		std::unique_lock<std::mutex> guard(_callbackLock);
+		if (_finished == false){
+			for (auto call : _callback)
+			{
+				if (call->GetType() == type)
+					return true;
+			}
+		} else
+			return false;
+		return false;
+	}
+
 	size_t DeltaController::GetStaticSize(int32_t version)
 	{
 		static size_t size0x1 = 4      // version

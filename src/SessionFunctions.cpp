@@ -1236,7 +1236,7 @@ namespace Functions
 				std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> controllers;
 				_sessiondata->GetCurrentGeneration()->GetDDControllers(controllers);
 				for (auto ptr : controllers) {
-					if (ptr->Finished() == false) {
+					if (ptr->Finished() == false && ptr->HasCallback(Functions::GenerationFinishedCallback::GetTypeStatic()) == false) {
 						auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
 						callback->_sessiondata = _sessiondata;
 						callback->_generation = _sessiondata->GetCurrentGeneration();
