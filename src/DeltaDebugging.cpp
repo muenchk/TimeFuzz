@@ -40,7 +40,7 @@ namespace Functions
 			}
 		}
 
-		_DDcontroller->CallbackTest(_input);
+		_DDcontroller->CallbackTest(_input, _batchident, _batchtasks);
 		_input->test->UnsetFlag(Form::FormFlags::DoNotFree);
 
 		// ----- SESSION STUFF -----
@@ -64,6 +64,7 @@ namespace Functions
 		ptr->_sessiondata = _sessiondata;
 		ptr->_DDcontroller = _DDcontroller;
 		ptr->_input = _input;
+		ptr->_batchtasks = _batchtasks;
 		return dynamic_pointer_cast<BaseFunction>(ptr);
 	}
 
@@ -84,6 +85,13 @@ namespace Functions
 		resolver->AddTask([this, inputid, resolver]() {
 			this->_input = resolver->ResolveFormID<Input>(inputid);
 		});
+		_batchident = Buffer::ReadUInt64(buffer, offset);
+		resolver->AddLateTask([this]() {
+			if (this->_DDcontroller && this->_DDcontroller->GetBatchIdent() == this->_batchident)
+				this->_batchtasks = this->_DDcontroller->GetBatchTasks();
+			else
+				this->_batchtasks = std::make_shared<DeltaDebugging::Tasks>();
+		});
 		return true;
 	}
 
@@ -93,12 +101,13 @@ namespace Functions
 		Buffer::Write(_sessiondata->GetFormID(), buffer, offset);  // +8
 		Buffer::Write(_DDcontroller->GetFormID(), buffer, offset);  // +8
 		Buffer::Write(_input->GetFormID(), buffer, offset);  // +8
+		Buffer::Write(_batchident, buffer, offset);         // +8
 		return true;
 	}
 
 	size_t DDTestCallback::GetLength()
 	{
-		return BaseFunction::GetLength() + 24;
+		return BaseFunction::GetLength() + 32;
 	}
 
 	void DDTestCallback::Dispose()
@@ -153,7 +162,7 @@ namespace Functions
 
 	void DDGenerateComplementCallback::Run()
 	{
-		_DDcontroller->GenerateComplements_Async_Callback(_begin, _length, _approxthreshold);
+		_DDcontroller->GenerateComplements_Async_Callback(_begin, _length, _approxthreshold, _batchident, _input, _batchtasks);
 	}
 	bool DDGenerateComplementCallback::ReadData(std::istream* buffer, size_t& offset, size_t, LoadResolver* resolver)
 	{
@@ -164,6 +173,17 @@ namespace Functions
 		_begin = Buffer::ReadInt32(buffer, offset);
 		_length = Buffer::ReadInt32(buffer, offset);
 		_approxthreshold = Buffer::ReadDouble(buffer, offset);
+		_batchident = Buffer::ReadUInt64(buffer, offset);
+		uint64_t inputid = Buffer::ReadUInt64(buffer, offset);
+		resolver->AddTask([this, inputid, resolver]() {
+			this->_input = resolver->ResolveFormID<Input>(inputid);
+		});
+		resolver->AddLateTask([this]() {
+			if (this->_DDcontroller && this->_DDcontroller->GetBatchIdent() == this->_batchident)
+				this->_batchtasks = this->_DDcontroller->GetBatchTasks();
+			else
+				this->_batchtasks = std::make_shared<DeltaDebugging::Tasks>();
+		});
 		return true;
 	}
 	bool DDGenerateComplementCallback::WriteData(std::ostream* buffer, size_t& offset)
@@ -173,6 +193,8 @@ namespace Functions
 		Buffer::Write(_begin, buffer, offset);
 		Buffer::Write(_length, buffer, offset);
 		Buffer::Write(_approxthreshold, buffer, offset);
+		Buffer::Write(_batchident, buffer, offset);
+		Buffer::Write(_input->GetFormID(), buffer, offset);
 		return true;
 	}
 
@@ -183,6 +205,9 @@ namespace Functions
 		ptr->_begin = _begin;
 		ptr->_length = _length;
 		ptr->_approxthreshold = _approxthreshold;
+		ptr->_batchident = _batchident;
+		ptr->_input = _input;
+		ptr->_batchtasks = _batchtasks;
 		return dynamic_pointer_cast<Functions::BaseFunction>(ptr);
 
 	}
@@ -192,12 +217,12 @@ namespace Functions
 	}
 	size_t DDGenerateComplementCallback::GetLength()
 	{
-		return BaseFunction::GetLength() + /*8 DD, 4 begin, 4 length, 8 approx*/ 24;
+		return BaseFunction::GetLength() + /*8 DD, 4 begin, 4 length, 8 approx, 8 batch,8 input*/ 40;
 	}
 
 	void DDGenerateCheckSplit::Run()
 	{
-		_DDcontroller->GenerateSplits_Async_Callback(_input, _approxthreshold);
+		_DDcontroller->GenerateSplits_Async_Callback(_input, _approxthreshold, _batchident, _batchtasks);
 	}
 
 	std::shared_ptr<BaseFunction> DDGenerateCheckSplit::DeepCopy()
@@ -206,6 +231,8 @@ namespace Functions
 		ptr->_DDcontroller = _DDcontroller;
 		ptr->_input = _input;
 		ptr->_approxthreshold = _approxthreshold;
+		ptr->_batchident = _batchident;
+		ptr->_batchtasks = _batchtasks;
 		return dynamic_pointer_cast<BaseFunction>(ptr);
 	}
 
@@ -218,6 +245,13 @@ namespace Functions
 			_input = resolver->ResolveFormID<Input>(inputID);
 		});
 		_approxthreshold = Buffer::ReadDouble(buffer, offset);
+		_batchident = Buffer::ReadUInt64(buffer, offset);
+		resolver->AddLateTask([this]() {
+			if (this->_DDcontroller && this->_DDcontroller->GetBatchIdent() == this->_batchident)
+				this->_batchtasks = this->_DDcontroller->GetBatchTasks();
+			else
+				this->_batchtasks = std::make_shared<DeltaDebugging::Tasks>();
+		});
 		return true;
 	}
 	bool DDGenerateCheckSplit::WriteData(std::ostream* buffer, size_t& offset)
@@ -226,6 +260,7 @@ namespace Functions
 		Buffer::Write(_DDcontroller->GetFormID(), buffer, offset);
 		Buffer::Write(_input->GetFormID(), buffer, offset);
 		Buffer::Write(_approxthreshold, buffer, offset);
+		Buffer::Write(_batchident, buffer, offset);
 		return true;
 	}
 	void DDGenerateCheckSplit::Dispose()
@@ -235,7 +270,7 @@ namespace Functions
 	}
 	size_t DDGenerateCheckSplit::GetLength()
 	{
-		return BaseFunction::GetLength() + /*8 DD, 8 input, 8 approx*/ 24;
+		return BaseFunction::GetLength() + /*8 DD, 8 input, 8 approx, 8 batch*/ 32;
 	}
 }
 
@@ -391,75 +426,99 @@ namespace DeltaDebugging
 		return true;
 	}
 
-	void DeltaController::CallbackTest(std::shared_ptr<Input> input)
+	void DeltaController::CallbackTest(std::shared_ptr<Input> input, uint64_t batchident, std::shared_ptr<DeltaDebugging::Tasks> tasks)
 	{
 		// update test status
 		{
 			std::unique_lock<std::mutex> guard(_completedTestsLock);
-			_completedTests.insert(input);
+			if (batchident == genCompData.batchident) {
+				_completedTests.insert(input);
 
-			_tests++;
-			_remainingtests--;
-			_totaltests++;
-			_activetests--;
-		}
-		// check if all tests have been run, then go to evaluation directly
-		if (_remainingtests == 0) {
-			// get out of light callback so we aren't blocking vital tasks
-			auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
-			callback->_DDcontroller = _self;
-			_sessiondata->_controller->AddTask(callback);
-			return;
-		}
-		// if there are still tests to be run, do evaluation and stuff
-		if (_sessiondata->_settings->dd.batchprocessing != 0 /*enabled*/) {
-			// evaluate the testcase here and now
-			bool res = false;
-			switch (_params->mode) {
-			case DDMode::Standard:
-				res = StandardEvaluateInput(input);
-				break;
-			case DDMode::ScoreProgress:
-				res = ScoreProgressEvaluateInput(input);
-				break;
+				_tests++;
+				_remainingtests--;
+				_activetests--;
+				_totaltests++;
+			} else {
+				_totaltests++;
+				tasks->tasks--;
+				loginfo("{}, wrong batch, tasks --: {}", input->GetFormID(), tasks->tasks.load());
+				logmessage("Skipped: Current batch: {}, Actual Batch: {}", genCompData.batchident, batchident);
+				// old batch aldtready superseeded
+				return;
 			}
-			if (res)
-				_stopbatch = true;
-			// check for stage completion
-			if (_activetests == 0) {
-				if (_batchlock.try_lock()) {
-					// check whether we have exceeded our budget
-					if (_params->budget != 0 && _params->budget <= _totaltests)
-						_stopbatch = true;
-
-					if (_stopbatch) {
-						// stop batch, delete all waiting tests and call evaluate
-						_skippedTests += _remainingtests;
-						_remainingtests = 0;
-						for (auto ptr : _waitingTests) {
-							_sessiondata->data->DeleteForm(ptr->derive);
-							_sessiondata->data->DeleteForm(ptr);
-						}
-						_waitingTests.clear();
-
-						// get out of light callback so we aren't blocking vital tasks
-						auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
-						callback->_DDcontroller = _self;
-						_sessiondata->_controller->AddTask(callback);
-					} else {
-						// start new batch
-						_stopbatch = false;
-						while (_activetests < _sessiondata->_settings->dd.batchprocessing && _waitingTests.empty() == false) {
-							auto inp = _waitingTests.front();
-							_waitingTests.pop_front();
-							if (DoTest(inp) == false)
-								_remainingtests--;
-						}
-					}
-					_batchlock.unlock();
-					return;
+		}
+		// if the level is active try get a new task and start evaluating whether the level is completed
+		if (genCompData.active) {
+			// try starting new task
+			std::shared_ptr<Functions::BaseFunction> job;
+			{
+				std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
+				if (genCompData.testqueue.size() > 0) {
+					job = genCompData.testqueue.front();
+					genCompData.testqueue.pop_front();
+					if (job)
+						genCompData.tasks->tasks++;
 				}
 			}
+			// task has finished
+			tasks->tasks--;
+			loginfo("{}, tasks --: {}", input->GetFormID(), tasks->tasks.load());
+			if (job) {
+				// if job has been found
+				_sessiondata->_controller->AddTask(job);
+			}
+			// if there is no more task to start check whether the active inputs are 0 and then end the level
+			if (genCompData.tasks->tasks.load() == 0 /*&& _activetests == 0 */) {
+				genCompData.active = false;
+				// the current stage has finished
+				// get out of light callback so we aren't blocking vital tasks
+				auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
+				callback->_DDcontroller = _self;
+				_sessiondata->_controller->AddTask(callback);
+				return;
+			}
+
+			// evaluate whether th level should be ended prematurely
+			if (_sessiondata->_settings->dd.batchprocessing != 0 /*enabled*/) {
+				// evaluate the testcase here and now
+				bool res = false;
+				switch (_params->mode) {
+				case DDMode::Standard:
+					res = StandardEvaluateInput(input);
+					break;
+				case DDMode::ScoreProgress:
+					res = ScoreProgressEvaluateInput(input);
+					break;
+				}
+				if (res)
+					_stopbatch = true;
+				std::unique_lock<std::mutex> guard(_batchlock);
+				// check whether we have exceeded our budget
+				if (_params->budget != 0 && _params->budget <= _totaltests)
+					_stopbatch = true;
+
+				if (_stopbatch) {
+					genCompData.active = false;
+					{
+						std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
+						// stop batch, delete all waiting tests and call evaluate
+						_skippedTests += (int32_t)genCompData.testqueue.size();
+						_remainingtests = 0;
+						for (auto ptr : genCompData.testqueue) {
+							ptr->Dispose();
+						}
+						genCompData.testqueue.clear();
+					}
+
+					// get out of light callback so we aren't blocking vital tasks
+					auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
+					callback->_DDcontroller = _self;
+					_sessiondata->_controller->AddTask(callback);
+				}
+			}
+		} else {
+			tasks->tasks--;
+			loginfo("{}, inactive batch, tasks --: {}", input->GetFormID(), tasks->tasks.load());
 		}
 	}
 
@@ -555,10 +614,6 @@ namespace DeltaDebugging
 		int32_t splitbegin = 0;
 		auto itr = _input->begin();
 
-		genCompData.active = true;
-		genCompData.tasks = number;
-
-		int tasks = 0;
 		for (int32_t i = 0; i < number; i++) {
 			DeltaInformation df;
 			df.positionbegin = splitbegin;
@@ -599,24 +654,50 @@ namespace DeltaDebugging
 			callback->_DDcontroller = _self;
 			callback->_input = inp;
 			callback->_approxthreshold = approxthreshold;
-			_sessiondata->_controller->AddTask(callback);
-			tasks++;
+			callback->_batchident = genCompData.batchident;
+			callback->_batchtasks = genCompData.tasks;
+			genCompData.testqueue.push_back(callback);
 		}
-		if (tasks == 0)
-			StandardGenerateNextLevel_Inter();
+		StandardGenerateNextLevel_Inter();
 	}
-
-	void DeltaController::GenerateSplits_Async_Callback(std::shared_ptr<Input>& input, double approxthreshold)
+	void DeltaController::GenerateSplits_Async_Callback(std::shared_ptr<Input>& input, double approxthreshold, uint64_t batchident, std::shared_ptr<DeltaDebugging::Tasks> tasks)
 	{
-		if (CheckInput(_input, input, approxthreshold))
-		{
-			genCompData.splits.push_back(input);
+		if (batchident != genCompData.batchident) {
+			// do nothing if the input we are supposed to handle is from an older batch, just discard
+			_skippedTests++;
+			return;
 		}
-		genCompData.tasks--;
-		if (genCompData.tasks.load() == 0 && genCompData.active)
+		if (CheckInput(_input, input, approxthreshold)) {
+			if (DoTest(input, batchident, tasks))  // if the test is valid and is being executed just return
+				return;
+		}
+		// if the test is not valid or cannot be executed generate a new test for execution
+		std::shared_ptr<Functions::BaseFunction> job;
 		{
-			genCompData.active = false;
-			StandardGenerateNextLevel_Inter();
+			std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
+			if (genCompData.testqueue.size() > 0) {
+				job = genCompData.testqueue.front();
+				genCompData.testqueue.pop_front();
+				if (job)
+					genCompData.tasks->tasks++;
+			}
+		}
+		tasks->tasks--;
+		loginfo("{}, tasks --: {}", input->GetFormID(), tasks->tasks.load());
+		if (job) {
+			// if job has been found
+			_sessiondata->_controller->AddTask(job);
+		} else {
+			std::unique_lock<std::mutex> guard(_completedTestsLock);
+			if (genCompData.tasks->tasks.load() == 0 /*&& _activetests == 0 */) {
+				genCompData.active = false;
+				// the current stage has finished
+				// get out of light callback so we aren't blocking vital tasks
+				auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
+				callback->_DDcontroller = _self;
+				_sessiondata->_controller->AddTask(callback);
+				return;
+			}
 		}
 	}
 
@@ -719,35 +800,36 @@ namespace DeltaDebugging
 		return true;
 	}
 
-	std::shared_ptr<Input> DeltaController::GetComplement(int32_t begin, int32_t end, double approxthreshold)
+	std::shared_ptr<Input> DeltaController::GetComplement(int32_t begin, int32_t end, double approxthreshold, std::shared_ptr<Input>& parent)
 	{
 		StartProfiling;
+
 		DeltaInformation dcmpl;
 		dcmpl.positionbegin = (int32_t)begin;
 		dcmpl.length = (int32_t)end;
 		dcmpl.complement = true;
 
-		if ((int32_t)_input->Length() - dcmpl.length < _sessiondata->_settings->dd.executeAboveLength)
+		if ((int32_t)parent->Length() - dcmpl.length < _sessiondata->_settings->dd.executeAboveLength)
 			return {};
 
 
 		std::vector<std::pair<int64_t, int64_t>> psplitinfo;
 		// if the input is not the orig input get its parent split information
 		// if it is the orig input we want to reset the counting
-		if (_input->GetFormID() != _origInput->GetFormID())
-			psplitinfo = _input->GetParentSplits();
+		if (parent->GetFormID() != _origInput->GetFormID())
+			psplitinfo = parent->GetParentSplits();
 		RangeCalculator<int64_t> calc(&psplitinfo, _origInput->Length());
 		auto ranges = calc.GetNewRangesWithout((int64_t)begin, (int64_t)end);
 
 		auto inp = _sessiondata->data->CreateForm<Input>();
 		inp->SetFlag(Form::FormFlags::DoNotFree);
-		//inp->SetParentSplitInformation(_input->GetFormID(), { { dcmpl.positionbegin, dcmpl.length } }, dcmpl.complement);
+		//inp->SetParentSplitInformation(parent->GetFormID(), { { dcmpl.positionbegin, dcmpl.length } }, dcmpl.complement);
 		inp->SetParentSplitInformation(_origInput->GetFormID(), ranges, dcmpl.complement);
 
 		// extract the new input first so we can check against the exclusion tree
 		size_t count = 0;
-		auto itr = _input->begin();
-		while (itr != _input->end()) {
+		auto itr = parent->begin();
+		while (itr != parent->end()) {
 			// if the current position is less then the beginning of the split itself, or if it is after the split
 			// sequence is over
 			if (count < dcmpl.positionbegin || count >= (size_t)(dcmpl.positionbegin + dcmpl.length))
@@ -756,7 +838,7 @@ namespace DeltaDebugging
 			itr++;
 		}
 
-		if (inp->GetSequenceLength() > _input->GetSequenceLength())
+		if (inp->GetSequenceLength() > parent->GetSequenceLength())
 			logcritical("ooooopss");
 		profile(TimeProfiling, "Time taken for complement generation");
 		if (CheckInput(_origInput, inp, approxthreshold))
@@ -771,7 +853,7 @@ namespace DeltaDebugging
 		for (int32_t i = 0; i < (int32_t)inputs.size(); i++) {
 			if (inputs[i]) {
 				if (_activetests < _sessiondata->_settings->dd.batchprocessing || _sessiondata->_settings->dd.batchprocessing == 0 /*disabled*/) {
-					if (DoTest(inputs[i]) == false)
+					if (DoTest(inputs[i], genCompData.batchident, genCompData.tasks) == false)
 						fails++;
 				} else
 					_waitingTests.push_back(inputs[i]);
@@ -782,12 +864,14 @@ namespace DeltaDebugging
 		_remainingtests -= fails;
 	}
 
-	bool DeltaController::DoTest(std::shared_ptr<Input>& input)
+	bool DeltaController::DoTest(std::shared_ptr<Input>& input, uint64_t batchident, std::shared_ptr<Tasks> tasks)
 	{
 		auto call = dynamic_pointer_cast<Functions::DDTestCallback>(Functions::DDTestCallback::Create());
 		call->_DDcontroller = _self;
 		call->_input = input;
 		call->_sessiondata = _sessiondata;
+		call->_batchident = batchident;
+		call->_batchtasks = tasks;
 		// add the tests bypassing regular tests so we can get this done with as fast as possible
 		if (_sessiondata->_exechandler->AddTest(input, call, _params->bypassTests) == false) {
 			_sessiondata->IncAddTestFails();
@@ -808,7 +892,7 @@ namespace DeltaDebugging
 		double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
 		std::vector<std::shared_ptr<Input>> complements;
 		for (int32_t i = 0; i < (int32_t)splitinfo.size(); i++) {
-			auto inp = GetComplement((int32_t)splitinfo[i].positionbegin, (int32_t)splitinfo[i].length, approxthreshold);
+			auto inp = GetComplement((int32_t)splitinfo[i].positionbegin, (int32_t)splitinfo[i].length, approxthreshold, _input);
 			if (inp)
 				complements.push_back(inp);
 		}
@@ -819,42 +903,62 @@ namespace DeltaDebugging
 	void DeltaController::GenerateComplements_Async(std::vector<DeltaInformation>& splitinfo)
 	{
 		StartProfiling;
-		genCompData.active = true;
-		genCompData.tasks = splitinfo.size();
 		double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
 		std::vector<std::shared_ptr<Input>> complements;
-		if (splitinfo.size() > 0) {
-			for (int32_t i = 0; i < (int32_t)splitinfo.size(); i++) {
-				auto callback = dynamic_pointer_cast<Functions::DDGenerateComplementCallback>(Functions::DDGenerateComplementCallback::Create());
-				callback->_DDcontroller = _self;
-				callback->_begin = (int32_t)splitinfo[i].positionbegin;
-				callback->_length = (int32_t)splitinfo[i].length;
-				callback->_approxthreshold = approxthreshold;
-				_sessiondata->_controller->AddTask(callback);
-			}
+		for (int32_t i = 0; i < (int32_t)splitinfo.size(); i++) {
+			auto callback = dynamic_pointer_cast<Functions::DDGenerateComplementCallback>(Functions::DDGenerateComplementCallback::Create());
+			callback->_DDcontroller = _self;
+			callback->_begin = (int32_t)splitinfo[i].positionbegin;
+			callback->_length = (int32_t)splitinfo[i].length;
+			callback->_approxthreshold = approxthreshold;
+			callback->_batchident = genCompData.batchident;
+			callback->_input = _input;
+			callback->_batchtasks = genCompData.tasks;
+			genCompData.testqueue.push_back(callback);
 		}
-		else {
-			StandardGenerateNextLevel_End();
-		}
+		StandardGenerateNextLevel_End();
 		profile(TimeProfiling, "Time taken for complement generation initialization.");
 	}
 
-	void DeltaController::GenerateComplements_Async_Callback(int32_t begin, int32_t length, double approx)
+	void DeltaController::GenerateComplements_Async_Callback(int32_t begin, int32_t length, double approx, uint64_t batchident, std::shared_ptr<Input>& parent, std::shared_ptr<DeltaDebugging::Tasks> tasks)
 	{
-		auto inp = GetComplement(begin, length, approx);
-		if (inp) {
-			genCompData.complements.push_back(inp);
+		if (batchident != genCompData.batchident) {
+			// do nothing if the input we are supposed to handle is from an older batch, just discard
+			_skippedTests++;
+			return;
 		}
-		genCompData.tasks--;
-		if (genCompData.tasks.load() == 0 && genCompData.active) {
-			genCompData.active = false;
-			switch (_params->mode) {
-			case DDMode::Standard:
-				StandardGenerateNextLevel_End();
-				break;
-			case DDMode::ScoreProgress:
-				ScoreProgressGenerateNextLevel_End();
-				break;
+		auto inp = GetComplement(begin, length, approx, parent);
+		if (inp) {
+			if (DoTest(inp, batchident, tasks))  // if the test is valid and is being executed just return
+				return;
+		} 
+		// if the test is not valid or cannot be executed generate a new test for execution
+		std::shared_ptr<Functions::BaseFunction> job;
+		{
+			std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
+			if (genCompData.testqueue.size() > 0) {
+				job = genCompData.testqueue.front();
+				genCompData.testqueue.pop_front();
+				if (job)
+					genCompData.tasks->tasks++;
+			}
+		}
+		tasks->tasks--;
+		loginfo("{}, tasks --: {}", parent->GetFormID(), tasks->tasks.load());
+		if (job)
+		{
+			// if job has been found
+			_sessiondata->_controller->AddTask(job);
+		} else {
+			std::unique_lock<std::mutex> guard(_completedTestsLock);
+			if (genCompData.tasks->tasks.load() == 0 /*&& _activetests == 0 */) {
+				genCompData.active = false;
+				// the current stage has finished
+				// get out of light callback so we aren't blocking vital tasks
+				auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
+				callback->_DDcontroller = _self;
+				_sessiondata->_controller->AddTask(callback);
+				return;
 			}
 		}
 	}
@@ -908,6 +1012,10 @@ namespace DeltaDebugging
 
 	void DeltaController::StandardGenerateNextLevel_Async()
 	{
+		genCompData.Reset();
+		genCompData.active = true;
+		genCompData.tasks = std::make_shared<Tasks>();
+		genCompData.tasks->tasks = 0;
 		__NextGenTime = std::chrono::steady_clock::now();
 		// insurance
 		if (_input->GetGenerated() == false) {
@@ -932,22 +1040,51 @@ namespace DeltaDebugging
 		StartProfiling;
 
 		_stopbatch = false;
-
-		// set internals
-		_tests = 0;
-		_remainingtests = (int32_t)genCompData.splits.size() + (int32_t)genCompData.complements.size();
-		// temp
-		AddTests(genCompData.splits);
-		AddTests(genCompData.complements);
-		genCompData.Reset();
+		
 		// check if all the input results are already known
-		if (_remainingtests == 0) {
+		if (genCompData.testqueue.size() == 0) {
 			// start new callback to avoid blocking for too long, and to avoid reentry into the lock as
 			// the Evaluation Methods are blocking
 			auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
 			callback->_DDcontroller = _self;
 			_sessiondata->_controller->AddTask(callback);
+			profile(__NextGenTime, "Time taken to generate next dd level.");
+			return;
 		}
+
+		// if there are inputs to be generated, add them to generation
+		// set internals
+		_tests = 0;
+		
+		// instead of adding the tests to the queue, we are gonna follow a more advanced system
+		// in which we add [batchsize] tests to the generation queue and then actually run
+		// the tests once they have been generated
+		
+		// reset tests active in this batch
+		_activetests = 0;
+		genCompData.tasks->tasks = 0;
+		int32_t active = 0;
+		if (_sessiondata->_settings->dd.batchprocessing > 0) {
+			while (active < _sessiondata->_settings->dd.batchprocessing && genCompData.testqueue.size() > 0) {
+				if (genCompData.testqueue.front()) {
+					genCompData.tasks->tasks++;
+					active++;
+					_sessiondata->_controller->AddTask(genCompData.testqueue.front());
+				}
+				genCompData.testqueue.pop_front();
+			}
+		} else {
+			for (auto ptr : genCompData.testqueue) {
+				if (ptr) {
+					genCompData.tasks->tasks++;
+					_sessiondata->_controller->AddTask(ptr);
+				}
+			}
+			genCompData.testqueue.clear();
+		}
+		//AddTests(genCompData.splits);
+		//AddTests(genCompData.complements);
+
 		profile(__NextGenTime, "Time taken to generate next dd level.");
 	}
 
@@ -1034,6 +1171,8 @@ namespace DeltaDebugging
 
 	void DeltaController::StandardEvaluateLevel()
 	{
+		// increase batch ident here to ensure that no inputs that finish after right now are added to our lists
+		genCompData.batchident++;
 		// lambda that clears the DoNotFree flags on inputs that are no longer needed
 		auto clearFlags = [this]() {
 			for (auto ptr : _completedTests) {
@@ -1424,7 +1563,7 @@ namespace DeltaDebugging
 		{
 			auto [begin, length] = ranges[i];
 
-			auto inp = GetComplement((int32_t)begin, (int32_t)length, approxthreshold);
+			auto inp = GetComplement((int32_t)begin, (int32_t)length, approxthreshold, _input);
 			if (inp)
 				complements.push_back(inp);
 		}
@@ -1441,25 +1580,20 @@ namespace DeltaDebugging
 		size_t size = rangeIterator.GetLength() / level;
 
 		auto ranges = rangeIterator.GetRangesAbove(size);
-		genCompData.active = true;
-		genCompData.tasks = ranges.size();
-		if (ranges.size() > 0) {
-			for (size_t i = 0; i < ranges.size(); i++) {
-				auto [begin, length] = ranges[i];
+		for (size_t i = 0; i < ranges.size(); i++) {
+			auto [begin, length] = ranges[i];
 
-				auto callback = dynamic_pointer_cast<Functions::DDGenerateComplementCallback>(Functions::DDGenerateComplementCallback::Create());
-				callback->_DDcontroller = _self;
-				callback->_begin = (int32_t)begin;
-				callback->_length = (int32_t)length;
-				callback->_approxthreshold = approxthreshold;
-				_sessiondata->_controller->AddTask(callback);
-			}
+			auto callback = dynamic_pointer_cast<Functions::DDGenerateComplementCallback>(Functions::DDGenerateComplementCallback::Create());
+			callback->_DDcontroller = _self;
+			callback->_begin = (int32_t)begin;
+			callback->_length = (int32_t)length;
+			callback->_approxthreshold = approxthreshold;
+			callback->_batchident = genCompData.batchident;
+			callback->_input = _input;
+			callback->_batchtasks = genCompData.tasks;
+			genCompData.testqueue.push_back(callback);
 		}
-		else
-		{
-			ScoreProgressGenerateNextLevel_End();
-		}
-
+		ScoreProgressGenerateNextLevel_End();
 	}
 
 	void DeltaController::ScoreProgressGenerateFirstLevel()
@@ -1506,6 +1640,10 @@ namespace DeltaDebugging
 
 	void DeltaController::ScoreProgressGenerateNextLevel_Async()
 	{
+		genCompData.Reset();
+		genCompData.active = true;
+		genCompData.tasks = std::make_shared<Tasks>();
+		genCompData.tasks->tasks = 0;
 		__NextGenTime = std::chrono::steady_clock::now();
 
 		// insurance
@@ -1523,22 +1661,44 @@ namespace DeltaDebugging
 
 	void DeltaController::ScoreProgressGenerateNextLevel_End()
 	{
-		// set internals
-		_tests = 0;
-		_remainingtests = (int32_t)genCompData.complements.size();
-
-		AddTests(genCompData.complements);
-
-		genCompData.Reset();
-
-		// check if all the input results are already known
-		if (_remainingtests == 0) {
+		// check if there are no inputs to be generated
+		if (genCompData.testqueue.size() == 0) {
 			// start new callback to avoid blocking for too long, and to avoid reentry into the lock as
 			// the Evaluation Methods are blocking
 			auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
 			callback->_DDcontroller = _self;
 			_sessiondata->_controller->AddTask(callback);
+			profile(__NextGenTime, "Time taken to generate next level.");
+			return;
 		}
+		// if there are inputs to be generated, add them to generation
+
+		// set internals
+		
+		// reset tests active in this batch
+		_activetests = 0;
+		genCompData.tasks->tasks = 0;
+		_tests = 0;
+		int32_t active = 0;
+		if (_sessiondata->_settings->dd.batchprocessing > 0) {
+			while (active < _sessiondata->_settings->dd.batchprocessing && genCompData.testqueue.size() > 0) {
+				if (genCompData.testqueue.front()) {
+					genCompData.tasks->tasks++;
+					active++;
+					_sessiondata->_controller->AddTask(genCompData.testqueue.front());
+				}
+				genCompData.testqueue.pop_front();
+			}
+		} else {
+			for (auto ptr : genCompData.testqueue) {
+				if (ptr) {
+					genCompData.tasks->tasks++;
+					_sessiondata->_controller->AddTask(ptr);
+				}
+			}
+			genCompData.testqueue.clear();
+		}
+		//AddTests(genCompData.complements);
 		profile(__NextGenTime, "Time taken to generate next level.");
 	}
 
@@ -1593,6 +1753,8 @@ namespace DeltaDebugging
 
 	void DeltaController::ScoreProgressEvaluateLevel()
 	{
+		// increase batch ident here to ensure that no inputs that finish after right now are added to our lists
+		genCompData.batchident++;
 		// lambda that clears the DoNotFree flags on inputs that are no longer needed
 		auto clearFlags = [this]() {
 			for (auto ptr : _completedTests) {
@@ -1936,7 +2098,9 @@ namespace DeltaDebugging
 		static size_t size0x3 = size0x2  // prior size
 		                        + 8      // _skipRanges
 		                        + 1      // GenerateComplementsData::active
-		                        + 8;     // GenerateComplementsData::tasks
+		                        + 8      // GenerateComplementsData::tasks
+		                        + 8      // GenerateComplementsData::testqueue.size()
+		                        + 8;     // GenerateComplementsData::batchident
 
 
 		switch (version)
@@ -1988,6 +2152,12 @@ namespace DeltaDebugging
 		for (auto ptr : _callback)
 			if (ptr)
 				sz += ptr->GetLength();
+
+		for (auto ptr : genCompData.testqueue)
+		{
+			if (ptr)
+				sz += ptr->GetLength();
+		}
 		return sz;
 	}
 
@@ -2115,8 +2285,11 @@ namespace DeltaDebugging
 
 		// VERSION 0x3
 		Buffer::WriteSize(_skipRanges, buffer, offset);
-		Buffer::Write(genCompData.active, buffer, offset);
-		Buffer::WriteSize(genCompData.tasks.load(), buffer, offset);
+		Buffer::Write(genCompData.active.load(), buffer, offset);
+		if (genCompData.tasks)
+			Buffer::Write(genCompData.tasks->tasks.load(), buffer, offset);
+		else
+			Buffer::Write((int64_t)0, buffer, offset);
 		Buffer::WriteSize(genCompData.splits.size(), buffer, offset);
 		for (size_t i = 0; i < genCompData.splits.size(); i++)
 		{
@@ -2140,6 +2313,11 @@ namespace DeltaDebugging
 			Buffer::Write(genCompData.dinfo[i].positionbegin, buffer, offset);
 			Buffer::Write(genCompData.dinfo[i].length, buffer, offset);
 		}
+		Buffer::WriteSize(genCompData.testqueue.size(), buffer, offset);
+		for (auto ptr : genCompData.testqueue)
+			if (ptr)
+				ptr->WriteData(buffer, offset);
+		Buffer::Write(genCompData.batchident, buffer, offset);
 		return true;
 	}
 
@@ -2456,7 +2634,8 @@ namespace DeltaDebugging
 					// VERSION 0x3
 					_skipRanges = Buffer::ReadSize(buffer, offset);
 					genCompData.active = Buffer::ReadBool(buffer, offset);
-					genCompData.tasks = Buffer::ReadSize(buffer, offset);
+					genCompData.tasks = std::make_shared<Tasks>();
+					genCompData.tasks->tasks = Buffer::ReadInt64(buffer, offset);
 					size_t splitsize = Buffer::ReadSize(buffer, offset);
 					std::vector<FormID> splitids;
 					for (size_t i = 0; i < splitsize; i++)
@@ -2482,6 +2661,11 @@ namespace DeltaDebugging
 						dinfo.length = Buffer::ReadInt32(buffer, offset);
 						genCompData.dinfo.push_back(dinfo);
 					}
+					size_t testqueuesize = Buffer::ReadSize(buffer, offset);
+					for (size_t i = 0; i < testqueuesize; i++) {
+						genCompData.testqueue.push_back(Functions::BaseFunction::Create(buffer, offset, length, resolver));
+					}
+					genCompData.batchident = Buffer::ReadUInt64(buffer, offset);
 				}
 				return true;
 			}
@@ -2503,6 +2687,8 @@ namespace DeltaDebugging
 			_registeredFactories = true;
 			Functions::RegisterFactory(Functions::DDTestCallback::GetTypeStatic(), Functions::DDTestCallback::Create);
 			Functions::RegisterFactory(Functions::DDEvaluateExplicitCallback::GetTypeStatic(), Functions::DDEvaluateExplicitCallback::Create);
+			Functions::RegisterFactory(Functions::DDGenerateComplementCallback::GetTypeStatic(), Functions::DDGenerateComplementCallback::Create);
+			Functions::RegisterFactory(Functions::DDGenerateCheckSplit::GetTypeStatic(), Functions::DDGenerateCheckSplit::Create);
 		}
 	}
 

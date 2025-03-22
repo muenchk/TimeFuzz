@@ -506,16 +506,6 @@ bool SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 	if (input->test->_skipOracle) {
 		return false;
 	}
-	// add this input to the current generation
-	if (input->HasFlag(Input::Flags::GeneratedDeltaDebugging))
-		sessiondata->GetGeneration(input->GetGenerationID())->AddDDInput(input);
-	else {
-		sessiondata->GetGeneration(input->GetGenerationID())->AddGeneratedInput(input);
-
-		// if the inputs generation matches the current generation, initiate the end of the current iteration
-		if (input->GetGenerationID() == sessiondata->GetCurrentGenerationID())
-			sessiondata->CheckGenerationEnd();
-	}
 
 	// calculate oracle result
 	bool stateerror = false;
@@ -533,6 +523,7 @@ bool SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 	if (input->GetOracleResult() == OracleResult::Repeat || sessiondata->_settings->fixes.repeatTimeoutedTests && input->test && input->test->_exitreason == Test::ExitReason::Timeout) {
 		if (input->GetRetries() < 5) {
 			// the oracle decided there was a problem with the test, so go and repeat it
+			loginfo("Repeating test");
 			input->IncRetries();
 			input->test->_exitreason = Test::ExitReason::Repeat;
 			input->Debug_ClearSequence();
@@ -544,8 +535,21 @@ bool SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 			sessiondata->_exechandler->AddTest(input, callback, true, false);
 			AddTestExitReason(sessiondata, Test::ExitReason::Repeat);
 			return true;
-		} else
+		} else {
 			input->_oracleResult = OracleResult::Undefined;
+			loginfo("Not repeating test");
+		}
+	}
+
+	// add this input to the current generation
+	if (input->HasFlag(Input::Flags::GeneratedDeltaDebugging))
+		sessiondata->GetGeneration(input->GetGenerationID())->AddDDInput(input);
+	else {
+		sessiondata->GetGeneration(input->GetGenerationID())->AddGeneratedInput(input);
+
+		// if the inputs generation matches the current generation, initiate the end of the current iteration
+		if (input->GetGenerationID() == sessiondata->GetCurrentGenerationID())
+			sessiondata->CheckGenerationEnd();
 	}
 
 	// check whether _output should be stored

@@ -114,7 +114,7 @@ bool Generation::RemoveDDInput(std::shared_ptr<Input> input)
 	if (input) {
 		std::unique_lock<std::shared_mutex> guard(_lock);
 		// return value is the number of removed elements, i.e. 0 or 1
-		if (_ddInputs.erase(input->GetFormID() == 1)) {
+		if (_ddInputs.erase(input->GetFormID()) == 1) {
 			// reduce number of dd inputs since we removed one
 			_ddSize--;
 			input->SetGenerationID(0);

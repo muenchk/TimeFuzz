@@ -17,118 +17,6 @@ namespace DeltaDebugging
 	class DeltaController;
 }
 
-namespace Functions
-{
-	class DDTestCallback : public BaseFunction{
-	public:
-		std::shared_ptr<SessionData> _sessiondata;
-		std::shared_ptr<DeltaDebugging::DeltaController> _DDcontroller;
-		std::shared_ptr<Input> _input;
-
-		void Run() override;
-		static uint64_t GetTypeStatic() { return 'DDSC'; }
-		uint64_t GetType() override { return 'DDSC'; }
-
-		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
-
-		FunctionType GetFunctionType() override { return FunctionType::Light; }
-
-		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
-		bool WriteData(std::ostream* buffer, size_t& offset) override;
-
-		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDTestCallback>()); }
-		void Dispose() override;
-		size_t GetLength() override;
-
-		virtual const char* GetName() override
-		{
-			return "DDTestCallback";
-		}
-	};
-
-	class DDEvaluateExplicitCallback : public BaseFunction
-	{
-	public:
-		std::shared_ptr<DeltaDebugging::DeltaController> _DDcontroller;
-
-		void Run() override;
-		static uint64_t GetTypeStatic() { return 'DDEC'; }
-		uint64_t GetType() override { return 'DDEC'; }
-
-		FunctionType GetFunctionType() override { return FunctionType::Medium; }
-
-		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
-
-		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
-		bool WriteData(std::ostream* buffer, size_t& offset) override;
-
-		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDEvaluateExplicitCallback>()); }
-		void Dispose() override;
-		size_t GetLength() override;
-
-		virtual const char* GetName() override
-		{
-			return "DDEvaluateExplicitCallback";
-		}
-	};
-
-	class DDGenerateComplementCallback : public BaseFunction
-	{
-	public:
-		std::shared_ptr<DeltaDebugging::DeltaController> _DDcontroller;
-		int32_t _begin = 0;
-		int32_t _length = 0;
-		double _approxthreshold = 0.f;
-
-		void Run() override;
-		static uint64_t GetTypeStatic() { return 'DGCC'; }
-		uint64_t GetType() override { return 'DGCC'; }
-
-		FunctionType GetFunctionType() override { return FunctionType::Medium; }
-
-		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
-
-		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
-		bool WriteData(std::ostream* buffer, size_t& offset) override;
-
-		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDGenerateComplementCallback>()); }
-		void Dispose() override;
-		size_t GetLength() override;
-
-		virtual const char* GetName() override
-		{
-			return "DDGenerateComplementCallback";
-		}
-	};
-
-	class DDGenerateCheckSplit : public BaseFunction
-	{
-	public:
-		std::shared_ptr<DeltaDebugging::DeltaController> _DDcontroller;
-		std::shared_ptr<Input> _input;
-		double _approxthreshold = 0.f;
-
-		void Run() override;
-		static uint64_t GetTypeStatic() { return 'DGCS'; }
-		uint64_t GetType() override { return 'DGCS'; }
-
-		FunctionType GetFunctionType() override { return FunctionType::Medium; }
-
-		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
-
-		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
-		bool WriteData(std::ostream* buffer, size_t& offset) override;
-
-		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDGenerateCheckSplit>()); }
-		void Dispose() override;
-		size_t GetLength() override;
-
-		virtual const char* GetName() override
-		{
-			return "DDGenerateCheckSplit";
-		}
-	};
-}
 
 namespace DeltaDebugging
 {
@@ -236,6 +124,43 @@ namespace DeltaDebugging
 		float acceptableLossSecondary = 0.05f;
 	};
 
+	struct DeltaInformation
+	{
+		int32_t positionbegin = 0;
+		int32_t length = 0;
+		bool complement = false;
+	};
+
+	struct Tasks
+	{
+		std::atomic<int64_t> tasks = 0;
+	};
+
+	struct GenerateComplementsData
+	{
+
+		std::atomic<bool> active = false;
+		std::shared_ptr<Tasks> tasks;
+		std::vector<std::shared_ptr<Input>> splits;
+		std::vector<std::shared_ptr<Input>> complements;
+		std::vector<DeltaInformation> dinfo;
+
+		std::mutex testqueuelock;
+		std::list<std::shared_ptr<Functions::BaseFunction>> testqueue;
+
+		uint64_t batchident = 0;
+
+		void Reset()
+		{
+			active = false;
+			tasks = 0;
+			complements.clear();
+			dinfo.clear();
+			splits.clear();
+			testqueue.clear();
+		}
+	};
+
 	class DeltaController : public Form
 	{
 	public:
@@ -247,7 +172,7 @@ namespace DeltaDebugging
 		/// </summary>
 		bool Start(DDParameters* params, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback);
 
-		void CallbackTest(std::shared_ptr<Input> input);
+		void CallbackTest(std::shared_ptr<Input> input, uint64_t batchident, std::shared_ptr<Tasks> tasks);
 		void CallbackExplicitEvaluate();
 
 		DDGoal GetGoal()
@@ -267,7 +192,12 @@ namespace DeltaDebugging
 		}
 
 		int32_t GetTests() { return _tests; }
-		int32_t GetTestsRemaining() { return _remainingtests; }
+		int32_t GetTestsRemaining() { 
+			if (genCompData.tasks)
+				return (int32_t)genCompData.tasks->tasks.load() + (int32_t)genCompData.testqueue.size();
+			else
+				return (int32_t)genCompData.testqueue.size();
+		}
 		int32_t GetTestsTotal() { return _totaltests; }
 		int32_t GetLevel() { return _level; }
 		int32_t GetSkippedTests() { return _skippedTests; }
@@ -285,6 +215,15 @@ namespace DeltaDebugging
 		/// <param name="callback"></param>
 		bool AddCallback(std::shared_ptr<Functions::BaseFunction> callback);
 
+		uint64_t GetBatchIdent()
+		{
+			return genCompData.batchident;
+		}
+
+		std::shared_ptr<Tasks> GetBatchTasks()
+		{
+			return genCompData.tasks;
+		}
 		
 		/// <summary>
 		/// returns the total size of the fields with static size
@@ -326,13 +265,6 @@ namespace DeltaDebugging
 		const int32_t classversion = 0x3;
 		static inline bool _registeredFactories = false;
 
-		struct DeltaInformation
-		{
-			int32_t positionbegin = 0;
-			int32_t length = 0;
-			bool complement = false;
-		};
-
 		/// <summary>
 		/// generates a single complement
 		/// </summary>
@@ -340,7 +272,7 @@ namespace DeltaDebugging
 		/// <param name="end"></param>
 		/// <param name="approxthreshold"></param>
 		/// <returns></returns>
-		std::shared_ptr<Input> GetComplement(int32_t begin, int32_t end, double approxthreshold);
+		std::shared_ptr<Input> GetComplement(int32_t begin, int32_t end, double approxthreshold, std::shared_ptr<Input>& parent);
 		bool CheckInput(std::shared_ptr<Input> parent, std::shared_ptr<Input> inp, double approxthreshold);
 		/// <summary>
 		/// Add tests to the sessions executionhanler
@@ -352,25 +284,7 @@ namespace DeltaDebugging
 		/// Starts a test
 		/// </summary>
 		/// <param name="input"></param>
-		bool DoTest(std::shared_ptr<Input>& input);
-
-		struct GenerateComplementsData
-		{
-			bool active = false;
-			std::atomic<size_t> tasks = 0;
-			std::vector<std::shared_ptr<Input>> splits;
-			std::vector<std::shared_ptr<Input>> complements;
-			std::vector<DeltaInformation> dinfo;
-
-			void Reset()
-			{
-				active = false;
-				tasks = 0;
-				complements.clear();
-				dinfo.clear();
-				splits.clear();
-			}
-		};
+		bool DoTest(std::shared_ptr<Input>& input, uint64_t batchident, std::shared_ptr<Tasks> tasks);
 
 		/// <summary>
 		/// Generates [number] subset from [::_input]
@@ -388,8 +302,8 @@ namespace DeltaDebugging
 		GenerateComplementsData genCompData;
 
 	public:
-		void GenerateSplits_Async_Callback(std::shared_ptr<Input>& input, double approxthreshold);
-		void GenerateComplements_Async_Callback(int32_t begin, int32_t length, double approx);
+		void GenerateSplits_Async_Callback(std::shared_ptr<Input>& input, double approxthreshold,uint64_t batchident, std::shared_ptr<Tasks> tasks);
+		void GenerateComplements_Async_Callback(int32_t begin, int32_t length, double approx, uint64_t batchident, std::shared_ptr<Input>& parent, std::shared_ptr<Tasks> tasks);
 
 	private:
 
@@ -677,3 +591,125 @@ private:
 	/// <returns></returns>
 	int32_t GetMatchingRangeIdx(T pos, T count, bool& found, bool& addend);
 };
+
+namespace Functions
+{
+	class DDTestCallback : public BaseFunction
+	{
+	public:
+		std::shared_ptr<SessionData> _sessiondata;
+		std::shared_ptr<DeltaDebugging::DeltaController> _DDcontroller;
+		std::shared_ptr<Input> _input;
+		std::shared_ptr<DeltaDebugging::Tasks> _batchtasks;
+
+		uint64_t _batchident = 0;
+
+		void Run() override;
+		static uint64_t GetTypeStatic() { return 'DDSC'; }
+		uint64_t GetType() override { return 'DDSC'; }
+
+		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
+
+		FunctionType GetFunctionType() override { return FunctionType::Light; }
+
+		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool WriteData(std::ostream* buffer, size_t& offset) override;
+
+		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDTestCallback>()); }
+		void Dispose() override;
+		size_t GetLength() override;
+
+		virtual const char* GetName() override
+		{
+			return "DDTestCallback";
+		}
+	};
+
+	class DDEvaluateExplicitCallback : public BaseFunction
+	{
+	public:
+		std::shared_ptr<DeltaDebugging::DeltaController> _DDcontroller;
+
+		void Run() override;
+		static uint64_t GetTypeStatic() { return 'DDEC'; }
+		uint64_t GetType() override { return 'DDEC'; }
+
+		FunctionType GetFunctionType() override { return FunctionType::Medium; }
+
+		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
+
+		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool WriteData(std::ostream* buffer, size_t& offset) override;
+
+		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDEvaluateExplicitCallback>()); }
+		void Dispose() override;
+		size_t GetLength() override;
+
+		virtual const char* GetName() override
+		{
+			return "DDEvaluateExplicitCallback";
+		}
+	};
+
+	class DDGenerateComplementCallback : public BaseFunction
+	{
+	public:
+		std::shared_ptr<DeltaDebugging::DeltaController> _DDcontroller;
+		std::shared_ptr<Input> _input;
+		int32_t _begin = 0;
+		int32_t _length = 0;
+		double _approxthreshold = 0.f;
+		uint64_t _batchident = 0;
+		std::shared_ptr<DeltaDebugging::Tasks> _batchtasks;
+
+		void Run() override;
+		static uint64_t GetTypeStatic() { return 'DGCC'; }
+		uint64_t GetType() override { return 'DGCC'; }
+
+		FunctionType GetFunctionType() override { return FunctionType::Medium; }
+
+		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
+
+		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool WriteData(std::ostream* buffer, size_t& offset) override;
+
+		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDGenerateComplementCallback>()); }
+		void Dispose() override;
+		size_t GetLength() override;
+
+		virtual const char* GetName() override
+		{
+			return "DDGenerateComplementCallback";
+		}
+	};
+
+	class DDGenerateCheckSplit : public BaseFunction
+	{
+	public:
+		std::shared_ptr<DeltaDebugging::DeltaController> _DDcontroller;
+		std::shared_ptr<Input> _input;
+		double _approxthreshold = 0.f;
+		uint64_t _batchident = 0;
+		std::shared_ptr<DeltaDebugging::Tasks> _batchtasks;
+
+		void Run() override;
+		static uint64_t GetTypeStatic() { return 'DGCS'; }
+		uint64_t GetType() override { return 'DGCS'; }
+
+		FunctionType GetFunctionType() override { return FunctionType::Medium; }
+
+		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
+
+		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool WriteData(std::ostream* buffer, size_t& offset) override;
+
+		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDGenerateCheckSplit>()); }
+		void Dispose() override;
+		size_t GetLength() override;
+
+		virtual const char* GetName() override
+		{
+			return "DDGenerateCheckSplit";
+		}
+	};
+}
