@@ -118,6 +118,7 @@ namespace Functions
 			if (_input->test)
 				_input->test->_callback.reset();
 		_input.reset();
+		_batchtasks.reset();
 	}
 
 
@@ -214,6 +215,8 @@ namespace Functions
 	void DDGenerateComplementCallback::Dispose()
 	{
 		_DDcontroller.reset();
+		_input.reset();
+		_batchtasks.reset();
 	}
 	size_t DDGenerateComplementCallback::GetLength()
 	{
@@ -267,6 +270,7 @@ namespace Functions
 	{
 		_DDcontroller.reset();
 		_input.reset();
+		_batchtasks.reset();
 	}
 	size_t DDGenerateCheckSplit::GetLength()
 	{
