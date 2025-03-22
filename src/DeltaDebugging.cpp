@@ -504,7 +504,7 @@ namespace DeltaDebugging
 				if (_stopbatch) {
 					genCompData.active = false;
 					{
-						std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
+						std::unique_lock<std::mutex> guardtestlock(genCompData.testqueuelock);
 						// stop batch, delete all waiting tests and call evaluate
 						_skippedTests += (int32_t)genCompData.testqueue.size();
 						_remainingtests = 0;
@@ -1081,10 +1081,21 @@ namespace DeltaDebugging
 			for (auto ptr : genCompData.testqueue) {
 				if (ptr) {
 					genCompData.tasks->tasks++;
+					active++;
 					_sessiondata->_controller->AddTask(ptr);
 				}
 			}
 			genCompData.testqueue.clear();
+		}
+		if (active == 0) {
+			loginfo("{} no tests", genCompData.batchident);
+			// start new callback to avoid blocking for too long, and to avoid reentry into the lock as
+			// the Evaluation Methods are blocking
+			auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
+			callback->_DDcontroller = _self;
+			_sessiondata->_controller->AddTask(callback);
+			profile(__NextGenTime, "Time taken to generate next level.");
+			return;
 		}
 		//AddTests(genCompData.splits);
 		//AddTests(genCompData.complements);
@@ -1578,12 +1589,14 @@ namespace DeltaDebugging
 	}
 	void DeltaController::ScoreProgressGenerateComplements_Async(int32_t level)
 	{
+		loginfo("{} begin", genCompData.batchident);
 		double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
 		std::vector<std::shared_ptr<Input>> complements;
 		RangeIterator<size_t> rangeIterator(&_inputRanges, _sessiondata->_settings->dd.skipoptions, _skipRanges);
 		size_t size = rangeIterator.GetLength() / level;
 
 		auto ranges = rangeIterator.GetRangesAbove(size);
+		loginfo("{} iterate", genCompData.batchident);
 		for (size_t i = 0; i < ranges.size(); i++) {
 			auto [begin, length] = ranges[i];
 
@@ -1597,6 +1610,7 @@ namespace DeltaDebugging
 			callback->_batchtasks = genCompData.tasks;
 			genCompData.testqueue.push_back(callback);
 		}
+		loginfo("{} end", genCompData.batchident);
 		ScoreProgressGenerateNextLevel_End();
 	}
 
@@ -1644,6 +1658,7 @@ namespace DeltaDebugging
 
 	void DeltaController::ScoreProgressGenerateNextLevel_Async()
 	{
+		loginfo("{}", genCompData.batchident);
 		genCompData.Reset();
 		genCompData.active = true;
 		genCompData.tasks = std::make_shared<Tasks>();
@@ -1665,8 +1680,10 @@ namespace DeltaDebugging
 
 	void DeltaController::ScoreProgressGenerateNextLevel_End()
 	{
+		loginfo("{} enter", genCompData.batchident);
 		// check if there are no inputs to be generated
 		if (genCompData.testqueue.size() == 0) {
+			loginfo("{} no tests", genCompData.batchident);
 			// start new callback to avoid blocking for too long, and to avoid reentry into the lock as
 			// the Evaluation Methods are blocking
 			auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
@@ -1678,7 +1695,8 @@ namespace DeltaDebugging
 		// if there are inputs to be generated, add them to generation
 
 		// set internals
-		
+
+		loginfo("{} start tests", genCompData.batchident);
 		// reset tests active in this batch
 		_activetests = 0;
 		genCompData.tasks->tasks = 0;
@@ -1697,11 +1715,23 @@ namespace DeltaDebugging
 			for (auto ptr : genCompData.testqueue) {
 				if (ptr) {
 					genCompData.tasks->tasks++;
+					active++;
 					_sessiondata->_controller->AddTask(ptr);
 				}
 			}
 			genCompData.testqueue.clear();
 		}
+		if (active == 0) {
+			loginfo("{} no tests", genCompData.batchident);
+			// start new callback to avoid blocking for too long, and to avoid reentry into the lock as
+			// the Evaluation Methods are blocking
+			auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
+			callback->_DDcontroller = _self;
+			_sessiondata->_controller->AddTask(callback);
+			profile(__NextGenTime, "Time taken to generate next level.");
+			return;
+		}
+		loginfo("{} end", genCompData.batchident);
 		//AddTests(genCompData.complements);
 		profile(__NextGenTime, "Time taken to generate next level.");
 	}
@@ -1759,6 +1789,7 @@ namespace DeltaDebugging
 	{
 		// increase batch ident here to ensure that no inputs that finish after right now are added to our lists
 		genCompData.batchident++;
+		loginfo("{} begin", genCompData.batchident);
 		// lambda that clears the DoNotFree flags on inputs that are no longer needed
 		auto clearFlags = [this]() {
 			for (auto ptr : _completedTests) {
@@ -1780,8 +1811,11 @@ namespace DeltaDebugging
 			}
 			_activeInputs.clear();
 		};
+		loginfo("{} try lock", genCompData.batchident);
 
 		std::unique_lock<std::shared_mutex> guard(_lock);
+
+		loginfo("{} has lock", genCompData.batchident);
 
 		struct PrimaryLess
 		{
@@ -1838,6 +1872,7 @@ namespace DeltaDebugging
 			return res;
 		};
 
+		loginfo("{} sort begin", genCompData.batchident);
 		std::vector<std::shared_ptr<Input>> passing;
 		std::vector<std::pair<double, double>> ploss;
 		switch (_params->GetGoal()) {
@@ -1968,11 +2003,14 @@ namespace DeltaDebugging
 		case DDGoal::None:
 			break;
 		}
+		loginfo("{} sort end", genCompData.batchident);
 
 		// we have found all results, so free all inputs that we do not need anymore
 		clearFlags();
+		loginfo("{} cleared flags", genCompData.batchident);
 
 		if (passing.size() == 0) {
+			loginfo("{} no passing", genCompData.batchident);
 			if (_level >= (int32_t)RangeIterator<size_t>(&_inputRanges, _sessiondata->_settings->dd.skipoptions, _skipRanges).GetLength()) {
 				// we have already reached the maximum level
 				// so we are effectively done with delta debugging.
@@ -1987,6 +2025,7 @@ namespace DeltaDebugging
 				std::cout << " ";
 			}
 
+			loginfo("{} prepare next level", genCompData.batchident);
 			// no inputs were found that reproduce the original result
 			// so we increase the level and try new sets of inputs
 			_level = std::min(_level * 2, (int32_t)RangeIterator<size_t>(&_inputRanges, _sessiondata->_settings->dd.skipoptions, _skipRanges).GetLength());
@@ -1997,6 +2036,7 @@ namespace DeltaDebugging
 			} else
 				ScoreProgressGenerateNextLevel_Async();
 		} else {
+			loginfo("{} passing: {}", genCompData.batchident, passing.size());
 			// set new base _input
 			if (passing[0]->GetSequenceLength() > _input->GetSequenceLength())
 				logcritical("ooooopss");
@@ -2007,6 +2047,7 @@ namespace DeltaDebugging
 			// adjust level
 			//_level = std::max(_level - 1, 2);
 			_level = 2;
+			loginfo("{} prepare next level", genCompData.batchident);
 			// run next generation if budget hasn't been exceeded
 			if (_params->budget != 0 && _params->budget <= _totaltests) {
 				_finished = true;

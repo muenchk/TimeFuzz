@@ -130,6 +130,7 @@ namespace UI
 		int32_t GetPrefixTests();
 		int32_t GetInvalidTests();
 		bool Finished();
+		uint64_t GetBatchIdent();
 		void GetResults(std::vector<UIDDResult>& results, size_t& size);
 		void GetOriginalInput(UIInput& input);
 		void GetInput(UIInput& input);

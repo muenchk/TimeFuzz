@@ -91,6 +91,11 @@ int32_t UIDeltaDebugging::GetInvalidTests()
 	return _ddcontroller->GetInvalidTests();
 }
 
+uint64_t UIDeltaDebugging::GetBatchIdent()
+{
+	return _ddcontroller->GetBatchIdent();
+}
+
 bool UIDeltaDebugging::Finished()
 {
 	return _ddcontroller->Finished();

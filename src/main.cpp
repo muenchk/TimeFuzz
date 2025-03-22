@@ -345,7 +345,15 @@ std::string Snapshot(bool full)
 					 << fmt::format("Target Size:                {}", ActiveGeneration.GetTargetSize()) << "\n";
 				snap << fmt::format("DD Size:                    {}", ActiveGeneration.GetDDSize()) << "\n";
 				snap << fmt::format("Active Inputs:              {}", ActiveGeneration.GetActiveInputs()) << "\n";
-				snap << fmt::format("Number of DD controllers:   {}", numddcontrollers) << "\n";
+				int activedd = 0;
+				for (auto& dd : ddcontrollers)
+				{
+					if (!dd.Finished())
+						activedd++;
+				}
+				snap << fmt::format("Number of DD controllers:   {}", numddcontrollers) 
+					<< "\t\t"
+					<< fmt::format("Active:    {}", activedd) <<"\n";
 				snap << "\n";
 				snap << fmt::format("Source Inputs: {}", numsources) << "\n";
 
@@ -485,6 +493,7 @@ std::string Snapshot(bool full)
 			snap << fmt::format("Invalid Tests: {}", dd.GetInvalidTests()) << "\n";
 			snap << fmt::format("Tests done: {}", dd.GetTests()) << "\t\t";
 			snap << fmt::format("Tests Remaining: {}", dd.GetTestsRemaining()) << "\n";
+			snap << fmt::format("Current BatchIdent: {}", dd.GetBatchIdent()) << "\n";
 			snap << "\n";
 
 			
