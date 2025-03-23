@@ -134,6 +134,8 @@ namespace DeltaDebugging
 	struct Tasks
 	{
 		std::atomic<int64_t> tasks = 0;
+		bool sendEndEvent = false;
+		bool processedEndEvent = false;
 	};
 
 	struct GenerateComplementsData

@@ -139,6 +139,8 @@ public:
 	/// <returns></returns>
 	bool IsDeltaDebuggingActive();
 
+	void VisitDeltaDebugging(std::function<bool(std::shared_ptr<DeltaDebugging::DeltaController>)> visitor);
+
 	/// <summary>
 	/// returns whether this generation has sources
 	/// </summary>

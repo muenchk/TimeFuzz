@@ -191,6 +191,15 @@ bool Generation::IsDeltaDebuggingActive()
 	return result;
 }
 
+void Generation::VisitDeltaDebugging(std::function<bool(std::shared_ptr<DeltaDebugging::DeltaController>)> visitor)
+{
+	for (auto [_, form] : _ddControllers)
+	{
+		if (visitor(form))
+			return;
+	}
+}
+
 bool Generation::HasSources()
 {
 	return _sources.size() > 0;

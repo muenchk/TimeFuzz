@@ -601,6 +601,35 @@ void Session::SessionControl()
 				for (int32_t i = 0; i < max; i++)
 					SessionFunctions::GenerateTests(_sessiondata);
 			}
+
+			// check whether dd is running ans has decided to hang itself
+			auto gen = _sessiondata->GetCurrentGeneration();
+			if (gen->IsDeltaDebuggingActive())
+			{
+				auto visitor = [sessiondata = _sessiondata](std::shared_ptr<DeltaDebugging::DeltaController> controller) {
+					if (!controller->Finished())
+					{
+						// if not finished check how many tasks are active
+						auto tasks = controller->GetBatchTasks();
+						if (tasks->tasks == 0 && tasks->sendEndEvent == false)
+						{
+							logwarn("DeltaController has tasks at 0, but did not send end event");
+							auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
+							callback->_DDcontroller = controller;
+							tasks->sendEndEvent = true;
+							sessiondata->_controller->AddTask(callback);
+						} else if (tasks->tasks == 0 && tasks->processedEndEvent  == false){
+							logwarn("DeltaController has tasks at 0, but did not process end event");
+							auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
+							callback->_DDcontroller = controller;
+							tasks->sendEndEvent = true;
+							sessiondata->_controller->AddTask(callback);
+						}
+					}
+					return false;
+				};
+				gen->VisitDeltaDebugging(visitor);
+			}
 		}
 		if (_sessiondata->_exechandler->IsStale(std::chrono::milliseconds(10000)))
 		{

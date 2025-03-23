@@ -478,6 +478,7 @@ namespace DeltaDebugging
 				// get out of light callback so we aren't blocking vital tasks
 				auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
 				callback->_DDcontroller = _self;
+				genCompData.tasks->sendEndEvent = true;
 				_sessiondata->_controller->AddTask(callback);
 				return;
 			}
@@ -517,6 +518,7 @@ namespace DeltaDebugging
 					// get out of light callback so we aren't blocking vital tasks
 					auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
 					callback->_DDcontroller = _self;
+					genCompData.tasks->sendEndEvent = true;
 					_sessiondata->_controller->AddTask(callback);
 				}
 			}
@@ -528,6 +530,12 @@ namespace DeltaDebugging
 
 	void DeltaController::CallbackExplicitEvaluate()
 	{
+		if (genCompData.tasks->processedEndEvent)
+		{
+			logwarn("already processed end event, aborting");
+			return;
+		}
+		genCompData.tasks->processedEndEvent = true;
 		switch (_params->mode) {
 		case DDMode::Standard:
 			StandardEvaluateLevel();
