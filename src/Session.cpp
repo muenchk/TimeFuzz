@@ -585,10 +585,13 @@ void Session::SessionControl()
 		// and with inter-process communication.
 		// To avoid some problems this thread is gonna periodically check whether shit has gone wrong and we need to restart / push stuff
 		_sessionControlWait.wait_for(guard, std::chrono::milliseconds(500));
+		//logmessage("SessionControl bump, {}, {}", _abort, _paused);
 		if (_abort)
 			return;
 		if (_paused)
 			continue;
+
+		UI_GetDatabaseObjectStatus();
 
 		if (_sessiondata->_controller->GetWaitingJobs() == 0 && !_sessiondata->_controller->IsFrozen() && (_sessiondata->_exechandler->GetWaitingTests() == 0 && _sessiondata->_exechandler->GetInitializedTests() == 0 && _sessiondata->_exechandler->GetRunningTests() == 0 && _sessiondata->_exechandler->IsFrozen() == false))
 		{
@@ -604,10 +607,13 @@ void Session::SessionControl()
 
 			// check whether dd is running ans has decided to hang itself
 			auto gen = _sessiondata->GetCurrentGeneration();
-			if (gen->IsDeltaDebuggingActive())
+			loginfo("Check for dd");
+			if (gen && gen->IsDeltaDebuggingActive())
 			{
 				auto visitor = [sessiondata = _sessiondata](std::shared_ptr<DeltaDebugging::DeltaController> controller) {
-					if (!controller->Finished())
+					if (controller && controller->GetBatchTasks())
+						loginfo("visiting {}, tasks: {}, sendend: {}, procend: {}", controller->GetFormID(), controller->GetBatchTasks()->tasks.load(), controller->GetBatchTasks()->sendEndEvent, controller->GetBatchTasks()->processedEndEvent);
+					if (controller && !controller->Finished())
 					{
 						// if not finished check how many tasks are active
 						auto tasks = controller->GetBatchTasks();
@@ -615,7 +621,7 @@ void Session::SessionControl()
 						{
 							logwarn("DeltaController has tasks at 0, but did not send end event");
 							auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
-							callback->_DDcontroller = controller;
+								callback->_DDcontroller = controller;
 							tasks->sendEndEvent = true;
 							sessiondata->_controller->AddTask(callback);
 						} else if (tasks->tasks == 0 && tasks->processedEndEvent  == false){
@@ -637,6 +643,7 @@ void Session::SessionControl()
 			_sessiondata->_exechandler->ReinitHandler();
 		}
 	}
+	loginfo("Exiting sessioncontrol");
 }
 
 void Session::End()

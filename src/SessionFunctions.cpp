@@ -1115,12 +1115,16 @@ namespace Functions
 			bool begun = false;
 			int32_t count = 0;
 			for (auto ptr : targets) {
+				loginfo("1");
 				if (count >= (int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration))
 					break;
+				loginfo("2");
 				auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
 				callback->_generation = _sessiondata->GetCurrentGeneration();
 				callback->_sessiondata = _sessiondata;
+				loginfo("3");
 				auto ddcontroller = SessionFunctions::BeginDeltaDebugging(_sessiondata, ptr, callback, false, DeltaDebugging::DDGoal::None, DeltaDebugging::DDGoal::None, _sessiondata->_settings->dd.budgetGenEnd);
+				loginfo("4");
 				if (ddcontroller) {
 					_sessiondata->GetCurrentGeneration()->AddDDController(ddcontroller);
 					count++;
@@ -1129,10 +1133,10 @@ namespace Functions
 				}
 			}
 			// check if there was an active delta debugging beforehand
-			for (auto ptr : controllers)
-			{
-				if (ptr->Finished() == false)
-				{
+			for (auto ptr : controllers) {
+				loginfo("5");
+				if (ptr->Finished() == false) {
+					loginfo("6");
 					begun = true;
 					auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
 					callback->_sessiondata = _sessiondata;
@@ -1158,7 +1162,9 @@ namespace Functions
 			bool begun = false;
 			// check if there was an active delta debugging beforehand
 			for (auto ptr : controllers) {
+				loginfo("7");
 				if (ptr->Finished() == false) {
+					loginfo("8");
 					auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
 					callback->_sessiondata = _sessiondata;
 					callback->_generation = _sessiondata->GetCurrentGeneration();

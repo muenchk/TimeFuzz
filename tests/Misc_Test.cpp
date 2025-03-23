@@ -9,6 +9,9 @@
 #include "DerivationTree.h"
 #include "Data.h"
 #include "SessionFunctions.h"
+#include "Input.h"
+#include "DerivationTree.h"
+#include "Test.h"
 
 
 /// <summary>

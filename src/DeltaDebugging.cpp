@@ -1598,10 +1598,16 @@ namespace DeltaDebugging
 	void DeltaController::ScoreProgressGenerateComplements_Async(int32_t level)
 	{
 		loginfo("{} begin", genCompData.batchident);
+		loginfo("1");
 		double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
+		loginfo("2, approx: {}", approxthreshold);
 		std::vector<std::shared_ptr<Input>> complements;
+		loginfo("3, inputranges: {}, skip: {}", _inputRanges.size(), _skipRanges);
 		RangeIterator<size_t> rangeIterator(&_inputRanges, _sessiondata->_settings->dd.skipoptions, _skipRanges);
+		loginfo("4, range Length:{}", rangeIterator.GetLength());
+		loginfo("5, range max range:{}", rangeIterator.GetMaxRange());
 		size_t size = rangeIterator.GetLength() / level;
+		loginfo("6, size: {}",size);
 
 		auto ranges = rangeIterator.GetRangesAbove(size);
 		loginfo("{} iterate", genCompData.batchident);
@@ -2824,6 +2830,8 @@ std::vector<T> RangeIterator<T>::GetRange(size_t length)
 template <class T>
 std::vector<std::pair<T, T>> RangeIterator<T>::GetRanges(size_t maxsize)
 {
+	if (maxsize <= 0)
+		maxsize = 1;
 	std::vector<std::pair<T, T>> result;
 	for (size_t i = _skipRanges; i < _ranges->size(); i++) {
 		if (_ranges->at(i).second < maxsize) {
@@ -2855,6 +2863,8 @@ std::vector<std::pair<T, T>> RangeIterator<T>::GetRanges(size_t maxsize)
 template <class T>
 std::vector<std::pair<T, T>> RangeIterator<T>::GetRangesAbove(size_t minsize)
 {
+	if (minsize <= 0)
+		minsize = 1;
 	std::vector<std::pair<T, T>> result;
 	for (size_t i = _skipRanges; i < _ranges->size(); i++) {
 		if (_ranges->at(i).second < minsize){
