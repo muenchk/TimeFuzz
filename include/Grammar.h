@@ -495,7 +495,7 @@ public:
 
 	void Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<DerivationTree> dtree, std::vector<std::pair<int64_t, int64_t>>& segments, int64_t stop, bool complement);
 
-	void Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTree> dtree, bool backtrack, int32_t targetlength, uint32_t seed, int32_t maxsteps = 100000);
+	void Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTree> dtree, bool backtrack, int32_t targetlength, uint32_t seed, int32_t& backtrackingdone, int32_t maxsteps = 100000);
 
 	#pragma endregion
 

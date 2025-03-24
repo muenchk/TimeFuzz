@@ -411,14 +411,18 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 					if (inp->derive && inp->derive->GetRegenerate() == true) {
 						// now extend input
 						if (inp->HasFlag(Input::Flags::GeneratedGrammarParentBacktrack)) {
-							gram->Extend(par, inp->derive, true, inp->derive->_targetlen, inp->derive->_seed);
+							int32_t backtrack = 0;
+							gram->Extend(par, inp->derive, true, inp->derive->_targetlen, inp->derive->_seed, backtrack);
+							inp->SetParentBacktrack(backtrack);
 							if (inp->derive->_valid == false) {
 								unlock();
 								freeflags();
 								return false;
 							}
 						} else {
-							gram->Extend(par, inp->derive, false, inp->derive->_targetlen, inp->derive->_seed);
+							int32_t backtrack = 0;
+							gram->Extend(par, inp->derive, false, inp->derive->_targetlen, inp->derive->_seed, backtrack);
+							inp->SetParentBacktrack(backtrack);
 							if (inp->derive->_valid == false) {
 								unlock();
 								freeflags();
@@ -431,14 +435,18 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 						int32_t sequencelen = dist(randan);
 						// now extend input
 						if (inp->HasFlag(Input::Flags::GeneratedGrammarParentBacktrack)) {
-							gram->Extend(par, inp->derive, true, sequencelen, (unsigned int)(std::chrono::system_clock::now().time_since_epoch().count()));
+							int32_t backtrack = 0;
+							gram->Extend(par, inp->derive, true, sequencelen, (unsigned int)(std::chrono::system_clock::now().time_since_epoch().count()), backtrack);
+							inp->SetParentBacktrack(backtrack);
 							if (inp->derive->_valid == false) {
 								unlock();
 								freeflags();
 								return false;
 							}
 						} else {
-							gram->Extend(par, inp->derive, false, sequencelen, (unsigned int)(std::chrono::system_clock::now().time_since_epoch().count()));
+							int32_t backtrack = 0;
+							gram->Extend(par, inp->derive, false, sequencelen, (unsigned int)(std::chrono::system_clock::now().time_since_epoch().count()), backtrack);
+							inp->SetParentBacktrack(backtrack);
 							if (inp->derive->_valid == false) {
 								unlock();
 								freeflags();

@@ -860,14 +860,14 @@ double Input::GetIndividualSecondaryScore(size_t position)
 }
 
 template <class T>
-std::vector<std::pair<size_t, size_t>> ExtractRanges(std::vector<T> range)
+std::vector<std::pair<size_t, size_t>> ExtractRanges(std::vector<T> range, size_t max)
 {
 	if (range.size() > 0) {
 		std::vector<std::pair<size_t, size_t>> ranges;
 		size_t begin = 0;
 		size_t length = 0;
 		double lastvalue = range[0];
-		for (size_t current = 1; current < range.size(); current++) {
+		for (size_t current = 1; current < range.size() && current < max; current++) {
 			if (range[current] == lastvalue)
 				length++;
 			else {
@@ -886,20 +886,20 @@ std::vector<std::pair<size_t, size_t>> ExtractRanges(std::vector<T> range)
 		return {};
 }
 
-std::vector<std::pair<size_t, size_t>> Input::FindIndividualPrimaryScoreRangesWithoutChanges()
+std::vector<std::pair<size_t, size_t>> Input::FindIndividualPrimaryScoreRangesWithoutChanges(size_t max)
 {
 	if (_enablePrimaryScoreIndividual == false)
 		return {};
 	else
-		return ExtractRanges<double>(_primaryScoreIndividual);
+		return ExtractRanges<double>(_primaryScoreIndividual,max);
 }
 
-std::vector<std::pair<size_t, size_t>> Input::FindIndividualSecondaryScoreRangesWithoutChanges()
+std::vector<std::pair<size_t, size_t>> Input::FindIndividualSecondaryScoreRangesWithoutChanges(size_t max)
 {
 	if (_enableSecondaryScoreIndividual == false)
 		return {};
 	else
-		return ExtractRanges<double>(_secondaryScoreIndividual);
+		return ExtractRanges<double>(_secondaryScoreIndividual, max);
 }
 
 #pragma region LuaFunctions
