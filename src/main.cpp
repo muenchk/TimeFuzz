@@ -384,9 +384,6 @@ std::string Snapshot(bool full)
 		// GET ITEMS FROM SESSION
 		session->UI_GetTopK(elements, MAX_ITEMS);
 
-
-		static int32_t rownum = 0;
-
 		snap << "Inputs:\n";
 		snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs") << "\n";
 
@@ -431,6 +428,30 @@ std::string Snapshot(bool full)
 			snap << fmt::format("{:<20} {:<30} {:<15} {:<15} {:<15} {:<15} {}", item->file, item->func, Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(item->ns).count()), Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(item->average).count()) , Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - item->time).count()), item->executions, item->usermes) << "\n";
 		}
 	}
+	snap << "\n\n";
+
+	// last generated
+	snap << "### LAST GENERATED\n";
+	{
+		static std::vector<UI::UIInput> elements;
+
+		// GET ITEMS FROM SESSION
+		session->UI_GetLastRunInputs(elements, 0);
+
+		snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs") << "\n";
+
+		int32_t max = 5;
+		if (full || elements.size() < max)
+			max = (int32_t)elements.size();
+		for (int32_t i = 0; i < max; i++)
+		{
+			auto item = &elements[i];
+			if (item->id != 0) {
+				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs) << "\n";
+			}
+		}
+	}
+
 	snap << "\n\n";
 
 	// delta debugging

@@ -447,8 +447,8 @@ namespace DeltaDebugging
 			} else {
 				_totaltests++;
 				tasks->tasks--;
-				loginfo("{}, wrong batch, tasks --: {}", input->GetFormID(), tasks->tasks.load());
-				logmessage("Skipped: Current batch: {}, Actual Batch: {}", genCompData.batchident, batchident);
+				//loginfo("{}, wrong batch, tasks --: {}", input->GetFormID(), tasks->tasks.load());
+				//logmessage("Skipped: Current batch: {}, Actual Batch: {}", genCompData.batchident, batchident);
 				// old batch aldtready superseeded
 				return;
 			}
@@ -740,7 +740,10 @@ namespace DeltaDebugging
 					if (prefixID != 0) {
 						auto ptr = _sessiondata->data->LookupFormID<Input>(prefixID);
 						if (ptr) {
-							_activeInputs.insert(ptr);
+							{
+								Utility::SpinLock lock(_activeInputsFlag);
+								_activeInputs.insert(ptr);
+							}
 							ptr->SetFlag(Form::FormFlags::DoNotFree);
 							if (ptr->derive)
 								ptr->derive->SetFlag(Form::FormFlags::DoNotFree);
@@ -772,7 +775,10 @@ namespace DeltaDebugging
 					if (prefixID != 0) {
 						auto ptr = _sessiondata->data->LookupFormID<Input>(prefixID);
 						if (ptr) {
-							_activeInputs.insert(ptr);
+							{
+								Utility::SpinLock lock(_activeInputsFlag);
+								_activeInputs.insert(ptr);
+							}
 							ptr->SetFlag(Form::FormFlags::DoNotFree);
 							if (ptr->derive)
 								ptr->derive->SetFlag(Form::FormFlags::DoNotFree);
@@ -894,6 +900,7 @@ namespace DeltaDebugging
 			call->Dispose();
 			return false;
 		} else {
+			Utility::SpinLock lock(_activeInputsFlag);
 			_activeInputs.insert(input);
 			_activetests++;
 		}
@@ -1142,7 +1149,8 @@ namespace DeltaDebugging
 				};
 
 				double l = lossPrimary(input);
-				if (l < mpparams->acceptableLoss) {
+				if (l < mpparams->acceptableLoss && 
+					lossPrimaryAbsolute(input) < mpparams->acceptableLossAbsolute) {
 					// we have found an input that reproduces the result and thus we return true, as all requirements are fulfilled
 					return true;
 				}
@@ -1162,7 +1170,8 @@ namespace DeltaDebugging
 				};
 
 				double l = lossSecondary(input);
-				if (l < mpparams->acceptableLossSecondary) {
+				if (l < mpparams->acceptableLossSecondary && 
+					lossSecondaryAbsolute(input) < mpparams->acceptableLossSecondaryAbsolute) {
 					// we have found an input that reproduces the result and thus we return true, as all requirements are fulfilled
 					return true;
 				}
@@ -1183,7 +1192,10 @@ namespace DeltaDebugging
 
 				double priml = lossPrimary(input);
 				double seconl = lossSecondary(input);
-				if (priml < mbparams->acceptableLossPrimary && seconl < mbparams->acceptableLossSecondary) {
+				if (priml < mbparams->acceptableLossPrimary && 
+					lossPrimaryAbsolute(input) < mbparams->acceptableLossPrimaryAbsolute && 
+					seconl < mbparams->acceptableLossSecondary && 
+					lossSecondaryAbsolute(input) < mbparams->acceptableLossSecondaryAbsolute) {
 					// we have found an input that reproduces the result and thus we return true, as all requirements are fulfilled
 					return true;
 				}
@@ -1370,7 +1382,7 @@ namespace DeltaDebugging
 				auto itr = rinputs.begin();
 				while (itr != rinputs.end()) {
 					double l = lossPrimary(*itr);
-					if (l < mpparams->acceptableLoss) {
+					if (l < mpparams->acceptableLoss && lossPrimaryAbsolute(*itr) < mpparams->acceptableLossAbsolute) {
 						passing.push_back(*itr);
 						ploss.push_back(l);
 						_results.insert_or_assign(*itr, std::tuple<double, double, int32_t>{ l, 0.0f, _level });
@@ -1447,7 +1459,8 @@ namespace DeltaDebugging
 				auto itr = rinputs.begin();
 				while (itr != rinputs.end()) {
 					double l = lossSecondary(*itr);
-					if (l < mpparams->acceptableLossSecondary) {
+					if (l < mpparams->acceptableLossSecondary &&
+						lossSecondaryAbsolute(*itr) < mpparams->acceptableLossSecondaryAbsolute) {
 						passing.push_back(*itr);
 						ploss.push_back(l);
 						_results.insert_or_assign(*itr, std::tuple<double, double, int32_t>{ 0.0f, l, _level });
@@ -1525,7 +1538,10 @@ namespace DeltaDebugging
 				while (itr != rinputs.end()) {
 					double priml = lossPrimary(*itr);
 					double seconl = lossSecondary(*itr);
-					if (priml < mbparams->acceptableLossPrimary && seconl < mbparams->acceptableLossSecondary) {
+					if (priml < mbparams->acceptableLossPrimary &&
+						lossPrimaryAbsolute(*itr) < mbparams->acceptableLossPrimaryAbsolute &&
+						seconl < mbparams->acceptableLossSecondary && 
+						lossSecondaryAbsolute(*itr) < mbparams->acceptableLossSecondaryAbsolute) {
 						passing.push_back(*itr);
 						ploss.push_back({priml, seconl});
 						_results.insert_or_assign(*itr, std::tuple<double, double, int32_t>{ priml, seconl, _level });
@@ -1759,7 +1775,7 @@ namespace DeltaDebugging
 			{
 				MaximizeSecondaryScore* msparams = (MaximizeSecondaryScore*)_params;
 				double l = lossSecondary(input);
-				if (l < msparams->acceptableLossSecondary) {
+				if (l < msparams->acceptableLossSecondary && lossSecondaryAbsolute(input) < msparams->acceptableLossSecondaryAbsolute) {
 					return true;
 				}
 				return false;
@@ -1769,7 +1785,7 @@ namespace DeltaDebugging
 			{
 				MaximizePrimaryScore* mpparams = (MaximizePrimaryScore*)_params;
 				double l = lossPrimary(input);
-				if (l < mpparams->acceptableLoss) {
+				if (l < mpparams->acceptableLoss && lossPrimaryAbsolute(input) < mpparams->acceptableLossAbsolute) {
 					return true;
 				}
 				return false;
@@ -1780,7 +1796,10 @@ namespace DeltaDebugging
 				MaximizeBothScores* mbparams = (MaximizeBothScores*)_params;
 				double priml = lossPrimary(input);
 				double seconl = lossSecondary(input);
-				if (priml < mbparams->acceptableLossPrimary && seconl < mbparams->acceptableLossSecondary) {
+				if (priml < mbparams->acceptableLossPrimary &&
+					lossPrimaryAbsolute(input) < mbparams->acceptableLossPrimaryAbsolute &&
+					seconl < mbparams->acceptableLossSecondary &&
+					lossSecondaryAbsolute(input) < mbparams->acceptableLossSecondaryAbsolute) {
 					return true;
 				}
 				return false;
@@ -1899,7 +1918,8 @@ namespace DeltaDebugging
 				auto itr = rinputs.begin();
 				while (itr != rinputs.end()) {
 					double l = lossSecondary(*itr);
-					if (l < msparams->acceptableLossSecondary) {
+					if (l < msparams->acceptableLossSecondary &&
+						lossSecondaryAbsolute(*itr) < msparams->acceptableLossSecondaryAbsolute) {
 						passing.push_back(*itr);
 						ploss.push_back({ 0.0f, l });
 						_results.insert_or_assign(*itr, std::tuple<double, double, int32_t>{ l, 0.0f, _level });
@@ -1915,7 +1935,8 @@ namespace DeltaDebugging
 				auto itr = rinputs.begin();
 				while (itr != rinputs.end()) {
 					double l = lossPrimary(*itr);
-					if (l < mpparams->acceptableLoss) {
+					if (l < mpparams->acceptableLoss &&
+						lossPrimaryAbsolute(*itr) < mpparams->acceptableLossAbsolute) {
 						passing.push_back(*itr);
 						ploss.push_back({ l, 0.0f });
 						_results.insert_or_assign(*itr, std::tuple<double, double, int32_t>{ l, 0.0f, _level });
@@ -1932,7 +1953,10 @@ namespace DeltaDebugging
 				while (itr != rinputs.end()) {
 					double priml = lossPrimary(*itr);
 					double seconl = lossSecondary(*itr);
-					if (priml < mbparams->acceptableLossPrimary && seconl < mbparams->acceptableLossSecondary) {
+					if (priml < mbparams->acceptableLossPrimary && 
+						lossPrimaryAbsolute(*itr) <mbparams->acceptableLossPrimaryAbsolute && 
+						seconl < mbparams->acceptableLossSecondary && 
+						lossSecondaryAbsolute(*itr) < mbparams->acceptableLossSecondaryAbsolute) {
 						passing.push_back(*itr);
 						ploss.push_back({ priml, seconl });
 						_results.insert_or_assign(*itr, std::tuple<double, double, int32_t>{ priml, seconl, _level });
@@ -1970,7 +1994,7 @@ namespace DeltaDebugging
 							double l = lossSecondary(*itr);
 							if (oracle == (*itr)->GetOracleResult()) {
 								passing.push_back(*itr);
-								ploss.push_back({ l, 0.0f });
+								ploss.push_back({ 0.0f, l });
 								_results.insert_or_assign(*itr, std::tuple<double, double, int32_t>{ l, 0, _level });
 							}
 							itr++;
@@ -2294,7 +2318,8 @@ namespace DeltaDebugging
 			Buffer::Write(_params->bypassTests, buffer, offset);
 			Buffer::Write(_params->budget, buffer, offset);
 			Buffer::Write((int32_t)_params->mode, buffer, offset);
-			Buffer::Write((int32_t)((MaximizePrimaryScore*)_params)->acceptableLoss, buffer, offset);
+			Buffer::Write(((MaximizePrimaryScore*)_params)->acceptableLoss, buffer, offset);
+			Buffer::Write(((MaximizePrimaryScore*)_params)->acceptableLossAbsolute, buffer, offset);
 			break;
 		case DDGoal::ReproduceResult:
 			Buffer::WriteSize(sizeof(ReproduceResult), buffer, offset);
@@ -2312,7 +2337,8 @@ namespace DeltaDebugging
 			Buffer::Write(_params->bypassTests, buffer, offset);
 			Buffer::Write(_params->budget, buffer, offset);
 			Buffer::Write((int32_t)_params->mode, buffer, offset);
-			Buffer::Write((int32_t)((MaximizeSecondaryScore*)_params)->acceptableLossSecondary, buffer, offset);
+			Buffer::Write((float)((MaximizeSecondaryScore*)_params)->acceptableLossSecondary, buffer, offset);
+			Buffer::Write((float)((MaximizeSecondaryScore*)_params)->acceptableLossSecondaryAbsolute, buffer, offset);
 			break;
 		case DDGoal::MaximizeBothScores:
 			Buffer::WriteSize(sizeof(MaximizeBothScores), buffer, offset);
@@ -2321,8 +2347,10 @@ namespace DeltaDebugging
 			Buffer::Write(_params->bypassTests, buffer, offset);
 			Buffer::Write(_params->budget, buffer, offset);
 			Buffer::Write((int32_t)_params->mode, buffer, offset);
-			Buffer::Write((int32_t)((MaximizeBothScores*)_params)->acceptableLossPrimary, buffer, offset);
-			Buffer::Write((int32_t)((MaximizeBothScores*)_params)->acceptableLossSecondary, buffer, offset);
+			Buffer::Write((float)((MaximizeBothScores*)_params)->acceptableLossPrimary, buffer, offset);
+			Buffer::Write((float)((MaximizeBothScores*)_params)->acceptableLossPrimaryAbsolute, buffer, offset);
+			Buffer::Write((float)((MaximizeBothScores*)_params)->acceptableLossSecondary, buffer, offset);
+			Buffer::Write((float)((MaximizeBothScores*)_params)->acceptableLossSecondaryAbsolute, buffer, offset);
 			break;
 		case DDGoal::None:
 			Buffer::WriteSize(sizeof(DDParameters), buffer, offset);
@@ -2458,7 +2486,10 @@ namespace DeltaDebugging
 					for (size_t i = 0; i < actI.size(); i++) {
 						auto ptr = resolver->ResolveFormID<Input>(actI[i]);
 						if (ptr) {
-							_activeInputs.insert(ptr);
+							{
+								Utility::SpinLock lock(_activeInputsFlag);
+								_activeInputs.insert(ptr);
+							}
 							if (ptr->HasFlag(Form::FormFlags::DoNotFree) == false) 
 								ptr->SetFlag(Form::FormFlags::DoNotFree);
 						}
@@ -2504,6 +2535,7 @@ namespace DeltaDebugging
 					_params->budget = Buffer::ReadInt32(buffer, offset);
 					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
 					((MaximizePrimaryScore*)_params)->acceptableLoss = Buffer::ReadFloat(buffer, offset);
+					((MaximizePrimaryScore*)_params)->acceptableLossAbsolute = Buffer::ReadFloat(buffer, offset);
 					break;
 				case DDGoal::MaximizeSecondaryScore:
 					_params = new MaximizeSecondaryScore;
@@ -2513,6 +2545,7 @@ namespace DeltaDebugging
 					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
 					static_cast<void>(Buffer::ReadFloat(buffer, offset));
 					((MaximizeSecondaryScore*)_params)->acceptableLossSecondary = Buffer::ReadFloat(buffer, offset);
+					((MaximizeSecondaryScore*)_params)->acceptableLossSecondaryAbsolute = Buffer::ReadFloat(buffer, offset);
 					break;
 				case DDGoal::MaximizeBothScores:
 					// shouldn't occur since this wasn't available back then
@@ -2522,6 +2555,9 @@ namespace DeltaDebugging
 					_params->budget = Buffer::ReadInt32(buffer, offset);
 					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
 					((MaximizeBothScores*)_params)->acceptableLossPrimary = Buffer::ReadFloat(buffer, offset);
+					((MaximizeBothScores*)_params)->acceptableLossPrimaryAbsolute = Buffer::ReadFloat(buffer, offset);
+					((MaximizeBothScores*)_params)->acceptableLossSecondary = Buffer::ReadFloat(buffer, offset);
+					((MaximizeBothScores*)_params)->acceptableLossSecondaryAbsolute = Buffer::ReadFloat(buffer, offset);
 				}
 				//memcpy((void*)_params, dat, sz);
 				//delete dat;
@@ -2588,7 +2624,10 @@ namespace DeltaDebugging
 					for (size_t i = 0; i < actI.size(); i++) {
 						auto ptr = resolver->ResolveFormID<Input>(actI[i]);
 						if (ptr) {
-							_activeInputs.insert(ptr);
+							{
+								Utility::SpinLock lock(_activeInputsFlag);
+								_activeInputs.insert(ptr);
+							}
 							if (ptr->HasFlag(Form::FormFlags::DoNotFree) == false)
 								ptr->SetFlag(Form::FormFlags::DoNotFree);
 						}
@@ -2633,6 +2672,7 @@ namespace DeltaDebugging
 					_params->budget = Buffer::ReadInt32(buffer, offset);
 					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
 					((MaximizePrimaryScore*)_params)->acceptableLoss = Buffer::ReadFloat(buffer, offset);
+					((MaximizePrimaryScore*)_params)->acceptableLossAbsolute = Buffer::ReadFloat(buffer, offset);
 					break;
 				case DDGoal::MaximizeSecondaryScore:
 					_params = new MaximizeSecondaryScore;
@@ -2641,6 +2681,7 @@ namespace DeltaDebugging
 					_params->budget = Buffer::ReadInt32(buffer, offset);
 					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
 					((MaximizeSecondaryScore*)_params)->acceptableLossSecondary = Buffer::ReadFloat(buffer, offset);
+					((MaximizeSecondaryScore*)_params)->acceptableLossSecondaryAbsolute = Buffer::ReadFloat(buffer, offset);
 					break;
 				case DDGoal::MaximizeBothScores:
 					_params = new MaximizeBothScores;
@@ -2649,7 +2690,9 @@ namespace DeltaDebugging
 					_params->budget = Buffer::ReadInt32(buffer, offset);
 					_params->mode = (DDMode)Buffer::ReadInt32(buffer, offset);
 					((MaximizeBothScores*)_params)->acceptableLossPrimary = Buffer::ReadFloat(buffer, offset);
+					((MaximizeBothScores*)_params)->acceptableLossPrimaryAbsolute = Buffer::ReadFloat(buffer, offset);
 					((MaximizeBothScores*)_params)->acceptableLossSecondary = Buffer::ReadFloat(buffer, offset);
+					((MaximizeBothScores*)_params)->acceptableLossSecondaryAbsolute = Buffer::ReadFloat(buffer, offset);
 					break;
 				}
 				//memcpy((void*)_params, dat, sz);

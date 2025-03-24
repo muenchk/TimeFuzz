@@ -100,6 +100,7 @@ namespace DeltaDebugging
 		/// Acceptable loss for total primary score for the test to be considered a valid result
 		/// </summary>
 		float acceptableLoss = 0.05f;
+		float acceptableLossAbsolute = 50.f;
 	};
 
 	struct MaximizeSecondaryScore : public DDParameters
@@ -109,6 +110,7 @@ namespace DeltaDebugging
 		/// Acceptable loss for total secondary score for the test to be considered a valid result
 		/// </summary>
 		float acceptableLossSecondary = 0.05f;
+		float acceptableLossSecondaryAbsolute = 50.f;
 	};
 
 	struct MaximizeBothScores : public DDParameters
@@ -118,10 +120,12 @@ namespace DeltaDebugging
 		/// Acceptable loss for total prmary score for the test to be considered a valid result
 		/// </summary>
 		float acceptableLossPrimary = 0.05f;
+		float acceptableLossPrimaryAbsolute = 50.f;
 		/// <summary>
 		/// Acceptable loss for total secondary score for the test to be considered a valid result
 		/// </summary>
 		float acceptableLossSecondary = 0.05f;
+		float acceptableLossSecondaryAbsolute = 50.f;
 	};
 
 	struct DeltaInformation
@@ -418,6 +422,7 @@ namespace DeltaDebugging
 		std::shared_ptr<DeltaController> _self;
 
 		std::set<std::shared_ptr<Input>, FormIDLess<Input>> _activeInputs;
+		std::atomic_flag _activeInputsFlag = ATOMIC_FLAG_INIT;
 
 		std::set<std::shared_ptr<Input>> _completedTests;
 
@@ -461,9 +466,19 @@ namespace DeltaDebugging
 			return 1 - (input->GetPrimaryScore() / _bestScore.first);
 		}
 
+		double lossPrimaryAbsolute(std::shared_ptr<Input> input)
+		{
+			return _bestScore.first - input->GetPrimaryScore();
+		}
+
 		double lossSecondary(std::shared_ptr<Input> input)
 		{
 			return 1 - (input->GetSecondaryScore() / _bestScore.second);
+		}
+
+		double lossSecondaryAbsolute(std::shared_ptr<Input> input)
+		{
+			return _bestScore.second - input->GetSecondaryScore();
 		}
 
 		#pragma endregion

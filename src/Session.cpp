@@ -1151,6 +1151,7 @@ void Session::ResumeSession()
 
 void Session::UI_GetDatabaseObjectStatus()
 {
+	StartProfiling;
 	int64_t freedObjects = 0, fullObjects = 0;
 	Data::SaveStats stats, nums;
 	uint64_t unfreed = 0;
@@ -1250,4 +1251,5 @@ void Session::UI_GetDatabaseObjectStatus()
 	logmessage("Size of Oracle:             {:>10}, {:>15} B, {:2.3f}%%", nums._Oracle, stats._Oracle, (double)stats._Oracle * 100 / (double)stats._Fail);
 	logmessage("Size of SessionData:        {:>10}, {:>15} B, {:2.3f}%%", nums._SessionData, stats._SessionData, (double)stats._SessionData * 100 / (double)stats._Fail);
 	logmessage("Size of DeltaController:    {:>10}, {:>15} B, {:2.3f}%%", nums._DeltaController, stats._DeltaController, (double)stats._DeltaController * 100 / (double)stats._Fail);
+	profile(TimeProfiling, "");
 }

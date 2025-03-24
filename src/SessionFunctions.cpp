@@ -322,12 +322,14 @@ void SessionFunctions::EndSession_Async(std::shared_ptr<SessionData> sessiondata
 	session->StopSession(false, false);
 }
 
-Data::VisitAction HandleForms(std::shared_ptr<Form> form)
+bool HandleForms(std::shared_ptr<Form> form)
 {
 	if (form->GetType() == FormType::DevTree)
-		return Data::VisitAction::None;
-	form->FreeMemory();
-	return Data::VisitAction::None;
+		return false;
+	if (form->Freed())
+		return false;
+	else
+		return true;
 }
 
 void SessionFunctions::ReclaimMemory(std::shared_ptr<SessionData>& sessiondata)
@@ -335,7 +337,19 @@ void SessionFunctions::ReclaimMemory(std::shared_ptr<SessionData>& sessiondata)
 	loginfo("trying to free memory");
 	StartProfiling;
 	sessiondata->_lastMemorySweep = std::chrono::steady_clock::now();
-	sessiondata->data->Visit(HandleForms);
+	std::forward_list<std::shared_ptr<Form>> free;
+	sessiondata->data->Visit([&free](std::shared_ptr<Form> form) {
+		if (HandleForms(form))
+			free.push_front(form);
+		return Data::VisitAction::None;
+		});
+
+	profile(TimeProfiling, "Visiting");
+	ResetProfiling;
+
+	for (auto& form : free)
+		form->FreeMemory();
+	free.clear();
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
 	uint64_t mem = Processes::GetProcessMemory(getpid());
@@ -703,6 +717,7 @@ std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDeb
 		{
 			DeltaDebugging::MaximizePrimaryScore* par = new DeltaDebugging::MaximizePrimaryScore;
 			par->acceptableLoss = (float)sessiondata->_settings->dd.optimizationLossThreshold;
+			par->acceptableLossAbsolute = (float)sessiondata->_settings->dd.optimizationLossAbsolute;
 			params = par;
 		}
 		break;
@@ -710,6 +725,7 @@ std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDeb
 		{
 			DeltaDebugging::MaximizeSecondaryScore* par = new DeltaDebugging::MaximizeSecondaryScore;
 			par->acceptableLossSecondary = (float)sessiondata->_settings->dd.optimizationLossThreshold;
+			par->acceptableLossSecondaryAbsolute = (float)sessiondata->_settings->dd.optimizationLossAbsolute;
 			params = par;
 		}
 		break;
@@ -717,7 +733,9 @@ std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDeb
 		{
 			DeltaDebugging::MaximizeBothScores* par = new DeltaDebugging::MaximizeBothScores;
 			par->acceptableLossPrimary = (float)sessiondata->_settings->dd.optimizationLossThreshold;
+			par->acceptableLossPrimaryAbsolute = (float)sessiondata->_settings->dd.optimizationLossAbsolute;
 			par->acceptableLossSecondary = (float)sessiondata->_settings->dd.optimizationLossThreshold;
+			par->acceptableLossSecondaryAbsolute = (float)sessiondata->_settings->dd.optimizationLossAbsolute;
 			params = par;
 		}
 		break;

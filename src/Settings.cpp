@@ -155,6 +155,8 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "DeltaDebugging:          ", dd.runReproduceResultsAfterScoreApproxOnPositive_NAME, dd.runReproduceResultsAfterScoreApproxOnPositive);
 	dd.optimizationLossThreshold = ini.GetDoubleValue("DeltaDebugging", dd.optimizationLossThreshold_NAME, dd.optimizationLossThreshold);
 	loginfo("{}{} {}", "DeltaDebugging:          ", dd.optimizationLossThreshold_NAME, dd.optimizationLossThreshold);
+	dd.optimizationLossAbsolute = ini.GetDoubleValue("DeltaDebugging", dd.optimizationLossAbsolute_NAME, dd.optimizationLossAbsolute);
+	loginfo("{}{} {}", "DeltaDebugging:          ", dd.optimizationLossAbsolute_NAME, dd.optimizationLossAbsolute);
 	dd.approximativeTestExecution = ini.GetBoolValue("DeltaDebugging", dd.approximativeTestExecution_NAME, dd.approximativeTestExecution);
 	loginfo("{}{} {}", "DeltaDebugging:          ", dd.approximativeTestExecution_NAME, dd.approximativeTestExecution);
 	dd.approximativeExecutionThreshold = ini.GetDoubleValue("DeltaDebugging", dd.approximativeExecutionThreshold_NAME, dd.approximativeExecutionThreshold);
@@ -393,7 +395,8 @@ void Settings::Save(std::wstring _path)
 
 	ini.SetBoolValue("DeltaDebugging", dd.runReproduceResultsAfterScoreApproxOnPositive_NAME, dd.runReproduceResultsAfterScoreApproxOnPositive, "\\\\ Runs standard DD after Score Optimization DD on positiv generated inputs.");
 
-	ini.SetDoubleValue("DeltaDebugging", dd.optimizationLossThreshold_NAME, dd.optimizationLossThreshold, "\\\\ The maximum loss when optimizing score to be considered a success.");
+	ini.SetDoubleValue("DeltaDebugging", dd.optimizationLossThreshold_NAME, dd.optimizationLossThreshold, "\\\\ The maximum relative loss when optimizing score to be considered a success.");
+	ini.SetDoubleValue("DeltaDebugging", dd.optimizationLossAbsolute_NAME, dd.optimizationLossAbsolute, "\\\\ The maximum abolute loss when optimizing score to be considered a success.");
 	ini.SetBoolValue("DeltaDebugging", dd.approximativeTestExecution_NAME, dd.approximativeTestExecution,
 		"\\\\ [For Primary Score Optimization only]\n"
 		"\\\\ Generated inputs primary score is approximated by using the monotonity of the primary score function.\n"
@@ -574,6 +577,7 @@ size_t Settings::GetStaticSize(int32_t version)
 	                 + 4;     // Optimization::exclusionTreeLengthLimit
 	size_t size0x4 = size0x3  // prior stuff
 	                 + 1      // DeltaDebugging::ScoreProgressSkipDeltaDebuggedParts
+	                 + 8      // DeltaDebugging::optimizationLossAbsolute
 	                 + 1      // EndConditions::use_generations
 	                 + 8;     // EndConditions::generations   
 
@@ -717,6 +721,7 @@ bool Settings::WriteData(std::ostream* buffer, size_t& offset)
 	// VERSION 0x4
 	// delta debugging
 	Buffer::Write(dd.ScoreProgressSkipDeltaDebuggedParts, buffer, offset);
+	Buffer::Write(dd.optimizationLossAbsolute, buffer, offset);
 	// endconditions
 	Buffer::Write(conditions.use_generations, buffer, offset);
 	Buffer::Write(conditions.generations, buffer, offset);
@@ -847,6 +852,7 @@ bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, Loa
 		{
 			// delta debugging 
 			dd.ScoreProgressSkipDeltaDebuggedParts = Buffer::ReadBool(buffer, offset);
+			dd.optimizationLossAbsolute = Buffer::ReadDouble(buffer, offset);
 			// endconditions
 			conditions.use_generations = Buffer::ReadBool(buffer, offset);
 			conditions.generations = Buffer::ReadUInt64(buffer, offset);
