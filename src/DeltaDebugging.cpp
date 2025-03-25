@@ -2217,7 +2217,9 @@ namespace DeltaDebugging
 		static size_t size0x3 = size0x2  // prior size
 		                        + 8      // _skipRanges
 		                        + 1      // GenerateComplementsData::active
-		                        + 8      // GenerateComplementsData::tasks
+		                        + 8      // GenerateComplementsData::Tasks::tasks
+		                        + 1      // GenerateComplementsData::Tasks::sendEndEvent
+		                        + 1      // GenerateComplementsData::Tasks::processedEndEvent
 		                        + 8      // GenerateComplementsData::testqueue.size()
 		                        + 8;     // GenerateComplementsData::batchident
 
@@ -2409,10 +2411,15 @@ namespace DeltaDebugging
 		// VERSION 0x3
 		Buffer::WriteSize(_skipRanges, buffer, offset);
 		Buffer::Write(genCompData.active.load(), buffer, offset);
-		if (genCompData.tasks)
+		if (genCompData.tasks) {
 			Buffer::Write(genCompData.tasks->tasks.load(), buffer, offset);
-		else
+			Buffer::Write(genCompData.tasks->sendEndEvent, buffer, offset);
+			Buffer::Write(genCompData.tasks->processedEndEvent, buffer, offset);
+		} else {
 			Buffer::Write((int64_t)0, buffer, offset);
+			Buffer::Write(false, buffer, offset);
+			Buffer::Write(false, buffer, offset);
+		}
 		Buffer::WriteSize(genCompData.splits.size(), buffer, offset);
 		for (size_t i = 0; i < genCompData.splits.size(); i++)
 		{
@@ -2774,6 +2781,8 @@ namespace DeltaDebugging
 					genCompData.active = Buffer::ReadBool(buffer, offset);
 					genCompData.tasks = std::make_shared<Tasks>();
 					genCompData.tasks->tasks = Buffer::ReadInt64(buffer, offset);
+					genCompData.tasks->sendEndEvent = Buffer::ReadBool(buffer, offset);
+					genCompData.tasks->processedEndEvent = Buffer::ReadBool(buffer, offset);
 					size_t splitsize = Buffer::ReadSize(buffer, offset);
 					std::vector<FormID> splitids;
 					for (size_t i = 0; i < splitsize; i++)
