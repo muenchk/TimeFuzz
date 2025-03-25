@@ -1286,7 +1286,10 @@ namespace DeltaDebugging
 							// choose new base _input
 							_input = rinputs[dist(randan)];
 							// adjust level
-							_level = std::max(_level - 1, 2);
+							if (!_input->GetParentSplitComplement())
+								_level = 2;
+							else
+								_level = std::max(_level - 1, 2);
 							// run next generation if budget hasn't been exceeded
 							if (_params->budget != 0 && _params->budget <= _totaltests) {
 								_finished = true;
@@ -1313,7 +1316,10 @@ namespace DeltaDebugging
 							// set new base _input
 							_input = inp;
 							// adjust level
-							_level = std::max(_level - 1, 2);
+							if (!_input->GetParentSplitComplement())
+								_level = 2;
+							else
+								_level = std::max(_level - 1, 2);
 							// run next generation if budget hasn't been exceeded
 							if (_params->budget != 0 && _params->budget <= _totaltests) {
 								_finished = true;
@@ -1339,7 +1345,10 @@ namespace DeltaDebugging
 							// set new base _input
 							_input = inp;
 							// adjust level
-							_level = std::max(_level - 1, 2);
+							if (!_input->GetParentSplitComplement())
+								_level = 2;
+							else
+								_level = std::max(_level - 1, 2);
 							// run next generation if budget hasn't been exceeded
 							if (_params->budget != 0 && _params->budget <= _totaltests) {
 								_finished = true;
@@ -1419,7 +1428,10 @@ namespace DeltaDebugging
 					if (_bestScore.first < _input->GetPrimaryScore())
 						_bestScore = { _input->GetPrimaryScore(), 0.0f };
 					// adjust level
-					_level = std::max(_level - 1, 2);
+					if (!_input->GetParentSplitComplement())
+						_level = 2;
+					else
+						_level = std::max(_level - 1, 2);
 					// run next generation if budget hasn't been exceeded
 					if (_params->budget != 0 && _params->budget <= _totaltests) {
 						_finished = true;
@@ -1497,7 +1509,10 @@ namespace DeltaDebugging
 					if (_bestScore.second < _input->GetSecondaryScore())
 						_bestScore = { 0.0f, _input->GetSecondaryScore() };
 					// adjust level
-					_level = std::max(_level - 1, 2);
+					if (!_input->GetParentSplitComplement())
+						_level = 2;
+					else
+						_level = std::max(_level - 1, 2);
 					// run next generation if budget hasn't been exceeded
 					if (_params->budget != 0 && _params->budget <= _totaltests) {
 						_finished = true;
@@ -1578,7 +1593,10 @@ namespace DeltaDebugging
 					if (_bestScore.first < _input->GetPrimaryScore())
 						_bestScore = { _input->GetPrimaryScore(), 0.0f };
 					// adjust level
-					_level = std::max(_level - 1, 2);
+					if (!_input->GetParentSplitComplement())
+						_level = 2;
+					else
+						_level = std::max(_level - 1, 2);
 					// run next generation if budget hasn't been exceeded
 					if (_params->budget != 0 && _params->budget <= _totaltests) {
 						_finished = true;
@@ -2086,7 +2104,9 @@ namespace DeltaDebugging
 			_inputRanges = _input->FindIndividualPrimaryScoreRangesWithoutChanges();
 			// adjust level
 			//_level = std::max(_level - 1, 2);
-			_level = 2;
+			//_level = 2;
+			// we only deal in complements here
+			_level = std::max(_level - 1, 2);
 			loginfo("{} prepare next level", genCompData.batchident);
 			// run next generation if budget hasn't been exceeded
 			if (_params->budget != 0 && _params->budget <= _totaltests) {

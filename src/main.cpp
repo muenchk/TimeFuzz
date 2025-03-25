@@ -440,7 +440,7 @@ std::string Snapshot(bool full)
 
 		snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs") << "\n";
 
-		int32_t max = 5;
+		int32_t max = 10;
 		if (full || elements.size() < max)
 			max = (int32_t)elements.size();
 		for (int32_t i = 0; i < max; i++)
@@ -2419,10 +2419,11 @@ Responsive:
 			std::this_thread::sleep_for(std::chrono::milliseconds(50));
 		}
 		while (session->Finished() == false) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+			std::this_thread::sleep_for(std::chrono::milliseconds(250));
+			auto out = Snapshot(false);
 			clearScreen();
 			moveTo(1, 1);
-			std::cout << Snapshot(false);
+			std::cout << out;
 
 			if (CmdArgs::_saveStatus)
 				SaveStatus();

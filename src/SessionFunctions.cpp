@@ -13,6 +13,7 @@
 #include <boost/circular_buffer.hpp>
 #include <time.h>
 #include <algorithm>
+#include <forward_list>
 #include <numeric>
 #include <random>
 #include <set>
