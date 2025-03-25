@@ -139,6 +139,10 @@ public:
 	/// <returns></returns>
 	bool IsDeltaDebuggingActive();
 
+	/// <summary>
+	/// Applies [visitor] to all dd controllers in this generation
+	/// </summary>
+	/// <param name="visitor"></param>
 	void VisitDeltaDebugging(std::function<bool(std::shared_ptr<DeltaDebugging::DeltaController>)> visitor);
 
 	/// <summary>
@@ -203,6 +207,10 @@ public:
 	/// Sets the meximum number of failing derivations for sources
 	/// </summary>
 	void SetMaxDerivedFailingInput(uint64_t maxDerivedFailingInputs);
+	/// <summary>
+	/// Sets the maximum number of derivations for sources
+	/// </summary>
+	/// <param name="maxDerivedInputs"></param>
 	void SetMaxDerivedInput(uint64_t maxDerivedInputs);
 
 private:
@@ -229,9 +237,12 @@ private:
 	int64_t _maxSimultaneousGeneration = 0;
 
 	/// <summary>
-	/// specifies meximum number of failing derivations for sources
+	/// specifies maximum number of failing derivations for sources
 	/// </summary>
 	uint64_t _maxDerivedFailingInputs = 0;
+	/// <summary>
+	/// specifies maximum number of derivations for sources
+	/// </summary>
 	uint64_t _maxDerivedInputs = 0;
 
 	/// <summary>
@@ -278,12 +289,10 @@ private:
 	/// </summary>
 	std::uniform_int_distribution<signed> _sourcesDistr;
 
+	/// <summary>
+	/// number of this generation
+	/// </summary>
 	int32_t _generationNumber = 0;
-
-	#pragma region FORM
-private:
-	const int32_t classversion = 0x2;
-	static inline bool _registeredFactories = false;
 
 	/// <summary>
 	/// returns true if the input is acceptable
@@ -295,8 +304,7 @@ private:
 	/// <returns></returns>
 	bool CheckOracleResultAndLength(std::shared_ptr<Input>& input, bool allowFailing, size_t min_length_unfinished, size_t min_length_failing);
 
-public: // templates
-
+public:  // templates
 	template <typename Less>
 	void GetAllInputs(std::set<std::shared_ptr<Input>, Less>& output, bool includeSources, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0)
 	{
@@ -330,11 +338,57 @@ public: // templates
 		}
 		if (includeSources)
 			for (auto input : _sources) {
-				if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing) && 
+				if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing) &&
 					input->GetPrimaryScore() >= minPrimaryScore && input->GetSecondaryScore() >= minSecondaryScore)
 					output.insert(input);
 			}
 	}
+
+	#pragma region Time
+private:
+	/// <summary>
+	/// start time of the generation
+	/// </summary>
+	std::chrono::nanoseconds _gen_begin = std::chrono::nanoseconds(0);
+	/// <summary>
+	/// end time of the generation
+	/// </summary>
+	std::chrono::nanoseconds _gen_end = std::chrono::nanoseconds(0);
+
+public:
+	/// <summary>
+	/// Returns start time of the generation
+	/// </summary>
+	/// <returns></returns>
+	std::chrono::nanoseconds GetStartTime();
+	/// <summary>
+	/// Sets the start time of the generation
+	/// </summary>
+	/// <param name="begin"></param>
+	void SetStartTime(std::chrono::nanoseconds begin);
+	/// <summary>
+	/// returns the end time of the generation
+	/// </summary>
+	/// <returns></returns>
+	std::chrono::nanoseconds GetEndTime();
+	/// <summary>
+	/// Sets the end time of the generation
+	/// </summary>
+	/// <param name="end"></param>
+	void SetEndTime(std::chrono::nanoseconds end);
+	/// <summary>
+	/// returns the total runtime of the generation
+	/// </summary>
+	/// <returns></returns>
+	std::chrono::nanoseconds GetRunTime();
+
+
+	#pragma endregion
+
+	#pragma region FORM
+private:
+	const int32_t classversion = 0x2;
+	static inline bool _registeredFactories = false;
 
 public:
 	/// <summary>

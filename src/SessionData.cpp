@@ -443,9 +443,11 @@ void SessionData::SetNewGeneration(bool force)
 		if (oldgen) {
 			newgen->SetGenerationNumber(oldgen->GetGenerationNumber() + 1);  // increment generation
 			_lastGenerationID = oldgen->GetFormID();
+			oldgen->SetEndTime(data->GetRuntime());
 		}
 		else
 			newgen->SetGenerationNumber(1);  // first generation
+		newgen->SetStartTime(data->GetRuntime());
 		_generationEnding = false;
 		_generationID = newgen->GetFormID();
 	}

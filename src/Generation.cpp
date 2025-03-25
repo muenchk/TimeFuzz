@@ -410,6 +410,33 @@ void Generation::SetMaxDerivedInput(uint64_t maxDerivedInputs)
 	_maxDerivedInputs = maxDerivedInputs;
 }
 
+#pragma region Time
+std::chrono::nanoseconds Generation::GetStartTime()
+{
+	return _gen_begin;
+}
+void Generation::SetStartTime(std::chrono::nanoseconds begin)
+{
+	_gen_begin = begin;
+}
+std::chrono::nanoseconds Generation::GetEndTime()
+{
+	return _gen_end;
+}
+void Generation::SetEndTime(std::chrono::nanoseconds end)
+{
+	_gen_end = end;
+}
+std::chrono::nanoseconds Generation::GetRunTime()
+{
+	if (_gen_end.count() != 0)
+		return _gen_begin - _gen_end;
+	else
+		return std::chrono::nanoseconds(0);
+}
+
+#pragma endregion
+
 #pragma region FORM
 
 size_t Generation::GetStaticSize(int32_t version)
@@ -425,7 +452,9 @@ size_t Generation::GetStaticSize(int32_t version)
 	                        + 4;                    // generationNumber
 	static size_t size0x2 = size0x1  // old size
 	                        + 8      // maxDerivedFailingInputs
-	                        + 8;     // maxDerivedInputs
+	                        + 8      // maxDerivedInputs
+	                        + 8      // _gen_begin
+	                        + 8;     // _gen_end
 	switch (version) {
 	case 0x1:
 		return size0x1;
@@ -480,6 +509,8 @@ bool Generation::WriteData(std::ostream* buffer, size_t& offset)
 			Buffer::Write((FormID)0, buffer, offset);
 	Buffer::Write(_maxDerivedFailingInputs, buffer, offset);
 	Buffer::Write(_maxDerivedInputs, buffer, offset);
+	Buffer::Write(_gen_begin, buffer, offset);
+	Buffer::Write(_gen_end, buffer, offset);
 	return true;
 }
 
@@ -549,6 +580,8 @@ bool Generation::ReadData(std::istream* buffer, size_t& offset, size_t length, L
 		if (version == 0x2) {
 			_maxDerivedFailingInputs = Buffer::ReadUInt64(buffer, offset);
 			_maxDerivedInputs = Buffer::ReadUInt64(buffer, offset);
+			_gen_begin = Buffer::ReadNanoSeconds(buffer, offset);
+			_gen_end = Buffer::ReadNanoSeconds(buffer, offset);
 		}
 		return true;
 	}
@@ -578,6 +611,8 @@ void Generation::Clear()
 	_sourcesIter = (int32_t)_sources.size();
 	_sourcesDistr = std::uniform_int_distribution<signed>(0, 0);
 	_generationNumber = 0;
+	_gen_begin = std::chrono::nanoseconds(0);
+	_gen_end = std::chrono::nanoseconds(0);
 }
 
 void Generation::RegisterFactories()

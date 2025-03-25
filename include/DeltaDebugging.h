@@ -220,13 +220,25 @@ namespace DeltaDebugging
 		/// </summary>
 		/// <param name="callback"></param>
 		bool AddCallback(std::shared_ptr<Functions::BaseFunction> callback);
+		/// <summary>
+		/// returns whether the dd controller has at least one active callback of the given [type]
+		/// </summary>
+		/// <param name="type">type of the callback to check for</param>
+		/// <returns></returns>
 		bool HasCallback(uint64_t type);
 
+		/// <summary>
+		/// Returns the batchident of the currently active batch
+		/// </summary>
+		/// <returns></returns>
 		uint64_t GetBatchIdent()
 		{
 			return genCompData.batchident;
 		}
-
+		/// <summary>
+		/// Returns the task structure of the currently active batch
+		/// </summary>
+		/// <returns></returns>
 		std::shared_ptr<Tasks> GetBatchTasks()
 		{
 			return genCompData.tasks;
@@ -261,6 +273,10 @@ namespace DeltaDebugging
 		static void RegisterFactories();
 		static int32_t GetTypeStatic() { return FormType::DeltaController; }
 		int32_t GetType() override { return FormType::DeltaController; }
+		/// <summary>
+		/// approx amount of memory used by this instance
+		/// </summary>
+		/// <returns></returns>
 		size_t MemorySize() override;
 
 		/// <summary>
@@ -280,6 +296,13 @@ namespace DeltaDebugging
 		/// <param name="approxthreshold"></param>
 		/// <returns></returns>
 		std::shared_ptr<Input> GetComplement(int32_t begin, int32_t end, double approxthreshold, std::shared_ptr<Input>& parent);
+		/// <summary>
+		/// checks an input for its feasability (derivation from grammar)
+		/// </summary>
+		/// <param name="parent"></param>
+		/// <param name="inp"></param>
+		/// <param name="approxthreshold"></param>
+		/// <returns></returns>
 		bool CheckInput(std::shared_ptr<Input> parent, std::shared_ptr<Input> inp, double approxthreshold);
 		/// <summary>
 		/// Add tests to the sessions executionhanler
@@ -299,17 +322,44 @@ namespace DeltaDebugging
 		/// <param name="number"></param>
 		/// <returns></returns>
 		std::vector<std::shared_ptr<Input>> GenerateSplits(int32_t number, std::vector<DeltaInformation>& splitinfo);
+		/// <summary>
+		/// Generates complements from a given set of splits
+		/// </summary>
+		/// <param name="splitinfo"></param>
+		/// <returns></returns>
 		std::vector<std::shared_ptr<Input>> GenerateComplements(std::vector<DeltaInformation>& splitinfo);
 
-
-		// both methods
+		/// <summary>
+		/// generates splits and prepares them for checking
+		/// </summary>
+		/// <param name="number"></param>
 		void GenerateSplits_Async(int32_t number);
+		/// <summary>
+		/// Prepares generation of complements for standard mode
+		/// </summary>
+		/// <param name="splitinfo"></param>
 		void GenerateComplements_Async(std::vector<DeltaInformation>& splitinfo);
 
 		GenerateComplementsData genCompData;
 
 	public:
+		/// <summary>
+		/// Callback called after a split has been generated
+		/// </summary>
+		/// <param name="input">the split generated</param>
+		/// <param name="approxthreshold">the approx threshold</param>
+		/// <param name="batchident">the batchident of the batch the input belongs to</param>
+		/// <param name="tasks">shared_ptr to the tasks structure of the inputs batch</param>
 		void GenerateSplits_Async_Callback(std::shared_ptr<Input>& input, double approxthreshold,uint64_t batchident, std::shared_ptr<Tasks> tasks);
+		/// <summary>
+		/// Callback called to generate a complement 
+		/// </summary>
+		/// <param name="begin">begin of the section to remove</param>
+		/// <param name="length">length of the section to remove</param>
+		/// <param name="approx">approx threshold</param>
+		/// <param name="batchident">batchident of the batch the input belongs to</param>
+		/// <param name="parent">the input to generate the complement from</param>
+		/// <param name="tasks">shared_ptr to the tasks structure of the inputs batch</param>
 		void GenerateComplements_Async_Callback(int32_t begin, int32_t length, double approx, uint64_t batchident, std::shared_ptr<Input>& parent, std::shared_ptr<Tasks> tasks);
 
 	private:
@@ -322,8 +372,17 @@ namespace DeltaDebugging
 		/// generates the next level of tests for standard mode
 		/// </summary>
 		void StandardGenerateNextLevel();
+		/// <summary>
+		/// prepares the async generation of the next level of tests for standard mode
+		/// </summary>
 		void StandardGenerateNextLevel_Async();
+		/// <summary>
+		/// prepares the generation of complements of the next level of tests for standard mode
+		/// </summary>
 		void StandardGenerateNextLevel_Inter();
+		/// <summary>
+		/// finalizes and begins the asynv generation of the next level of tests for standard mode
+		/// </summary>
 		void StandardGenerateNextLevel_End();
 		/// <summary>
 		/// evaluates a completed level for standard mode
@@ -342,15 +401,31 @@ namespace DeltaDebugging
 		/// <param name="splitinfo"></param>
 		/// <returns></returns>
 		std::vector<std::shared_ptr<Input>> ScoreProgressGenerateComplements(int32_t size);
+		/// <summary>
+		/// decides subsets for [::_input] with maximum removed length being [size] and prepares computation
+		/// </summary>
+		/// <param name="size"></param>
 		void ScoreProgressGenerateComplements_Async(int32_t size);
 
+		/// <summary>
+		/// Generates the first level of tests for score progress mode
+		/// </summary>
 		void ScoreProgressGenerateFirstLevel();
-
+		/// <summary>
+		/// Generates the next level of tests for score progress mode
+		/// </summary>
 		void ScoreProgressGenerateNextLevel();
+		/// <summary>
+		/// prepares the async generation of the next level of tests for score progress mode
+		/// </summary>
 		void ScoreProgressGenerateNextLevel_Async();
-
+		/// <summary>
+		/// finalizes and begins the async generation of the next level of tests for score progress mode
+		/// </summary>
 		void ScoreProgressGenerateNextLevel_End();
-
+		/// <summary>
+		/// Evaluates the inputs generated in the current level and initiates the next level
+		/// </summary>
 		void ScoreProgressEvaluateLevel();
 
 		/// <summary>
@@ -409,28 +484,60 @@ namespace DeltaDebugging
 		/// </summary>
 		std::unordered_map<std::shared_ptr<Input>, std::tuple<double, double, int32_t>> _results;
 
+		/// <summary>
+		/// original Input 
+		/// </summary>
 		std::shared_ptr<Input> _origInput;
-
+		/// <summary>
+		/// input being delta debugged in current iteration
+		/// </summary>
 		std::shared_ptr<Input> _input;
-
+		/// <summary>
+		/// ranges in [_input] with no score progress
+		/// </summary>
 		std::vector<std::pair<size_t, size_t>> _inputRanges;
-
+		/// <summary>
+		/// number of ranges to skip in [_inputRanges] that have already been processed by previous dd instances
+		/// </summary>
 		size_t _skipRanges = 0;
 
+		/// <summary>
+		/// ptr to sessiondata of the session
+		/// </summary>
 		std::shared_ptr<SessionData> _sessiondata;
-
+		/// <summary>
+		/// shared_ptr to this controller
+		/// </summary>
 		std::shared_ptr<DeltaController> _self;
-
+		/// <summary>
+		/// set of inputs active in this iteration
+		/// </summary>
 		std::set<std::shared_ptr<Input>, FormIDLess<Input>> _activeInputs;
+		/// <summary>
+		/// atomic flag for spinlock access to _activeInputs
+		/// </summary>
 		std::atomic_flag _activeInputsFlag = ATOMIC_FLAG_INIT;
-
+		/// <summary>
+		/// tests completed in the current iteration
+		/// </summary>
 		std::set<std::shared_ptr<Input>> _completedTests;
-
+		/// <summary>
+		/// mutex to completed Tests
+		/// </summary>
 		std::mutex _completedTestsLock;
 
+		/// <summary>
+		/// lists of callbacks to be executed when the dd process ends
+		/// </summary>
 		std::vector<std::shared_ptr<Functions::BaseFunction>> _callback;
+		/// <summary>
+		/// mutex steering access to _callback
+		/// </summary>
 		std::mutex _callbackLock;
 
+		/// <summary>
+		/// scores of the best input observed so far or _origInput
+		/// </summary>
 		std::pair<double, double> _bestScore = { 0.0f, 0.0f };
 
 
@@ -446,7 +553,9 @@ namespace DeltaDebugging
 		/// if true, after the current has been completed the iteration is stopped
 		/// </summary>
 		bool _stopbatch = false;
-
+		/// <summary>
+		/// mutex to steer access to batch variables
+		/// </summary>
 		std::mutex _batchlock;
 
 		/// <summary>
@@ -459,23 +568,69 @@ namespace DeltaDebugging
 		/// </summary>
 		int32_t _level = 2;
 
+		#pragma region Time
+	private:
+		/// <summary>
+		/// start time of DD
+		/// </summary>
+		std::chrono::nanoseconds _DD_begin = std::chrono::nanoseconds(0);
+		/// <summary>
+		/// end time of DD
+		/// </summary>
+		std::chrono::nanoseconds _DD_end = std::chrono::nanoseconds(0);
+
+	public:
+		/// <summary>
+		/// returns the start time of DD
+		/// </summary>
+		/// <returns></returns>
+		std::chrono::nanoseconds GetStartTime();
+		/// <summary>
+		/// returns the end time of DD
+		/// </summary>
+		/// <returns></returns>
+		std::chrono::nanoseconds GetEndTime();
+		/// <summary>
+		/// returns the total runtime of DD
+		/// </summary>
+		/// <returns></returns>
+		std::chrono::nanoseconds GetRunTime();
+		#pragma endregion
+
 		#pragma region HelperFunctions
 
+		/// <summary>
+		/// returns relative primary loss of [input]
+		/// </summary>
+		/// <param name="input"></param>
+		/// <returns></returns>
 		double lossPrimary(std::shared_ptr<Input> input)
 		{
 			return 1 - (input->GetPrimaryScore() / _bestScore.first);
 		}
-
+		/// <summary>
+		/// returns absolute primary loss of [input]
+		/// </summary>
+		/// <param name="input"></param>
+		/// <returns></returns>
 		double lossPrimaryAbsolute(std::shared_ptr<Input> input)
 		{
 			return _bestScore.first - input->GetPrimaryScore();
 		}
-
+		/// <summary>
+		/// returns relative secondary loss of [input]
+		/// </summary>
+		/// <param name="input"></param>
+		/// <returns></returns>
 		double lossSecondary(std::shared_ptr<Input> input)
 		{
 			return 1 - (input->GetSecondaryScore() / _bestScore.second);
 		}
-
+		/// <summary>
+		/// returns absolute secondary loss of [input]
+		/// </summary>
+		/// <param name="input"></param>
+		/// <returns></returns>
 		double lossSecondaryAbsolute(std::shared_ptr<Input> input)
 		{
 			return _bestScore.second - input->GetSecondaryScore();

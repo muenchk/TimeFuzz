@@ -376,6 +376,9 @@ namespace DeltaDebugging
 		case DDGoal::None:
 			break;
 		}
+		// set starting time point
+		_DD_begin = sessiondata->data->GetRuntime();
+
 		switch (_params->mode) {
 		case DDMode::Standard:
 			{
@@ -2119,6 +2122,9 @@ namespace DeltaDebugging
 
 	void DeltaController::Finish()
 	{
+		// set DD end time
+		_DD_end = _sessiondata->data->GetRuntime();
+
 		if (_params->mode != DDMode::Standard && _sessiondata->_settings->dd.runReproduceResultsAfterScoreApproxOnPositive) {
 			// start normal delat debugging for test purposes
 			DeltaDebugging::DDParameters* params = nullptr;
@@ -2184,6 +2190,25 @@ namespace DeltaDebugging
 		return false;
 	}
 
+	std::chrono::nanoseconds DeltaController::GetStartTime()
+	{
+		return _DD_begin;
+	}
+	std::chrono::nanoseconds DeltaController::GetEndTime()
+	{
+		if (_finished)
+			return _DD_end;
+		else
+			return std::chrono::nanoseconds(0);
+	}
+	std::chrono::nanoseconds DeltaController::GetRunTime()
+	{
+		if (_finished)
+			return _DD_end - _DD_begin;
+		else
+			return std::chrono::nanoseconds(0);
+	}
+
 	size_t DeltaController::GetStaticSize(int32_t version)
 	{
 		static size_t size0x1 = 4      // version
@@ -2221,7 +2246,9 @@ namespace DeltaDebugging
 		                        + 1      // GenerateComplementsData::Tasks::sendEndEvent
 		                        + 1      // GenerateComplementsData::Tasks::processedEndEvent
 		                        + 8      // GenerateComplementsData::testqueue.size()
-		                        + 8;     // GenerateComplementsData::batchident
+		                        + 8      // GenerateComplementsData::batchident
+		                        + 8      // Time::_DD_begin
+		                        + 8;     // Time::_DD_end
 
 
 		switch (version)
@@ -2448,6 +2475,9 @@ namespace DeltaDebugging
 			if (ptr)
 				ptr->WriteData(buffer, offset);
 		Buffer::Write(genCompData.batchident, buffer, offset);
+		// time stuff
+		Buffer::Write(_DD_begin, buffer, offset);
+		Buffer::Write(_DD_end, buffer, offset);
 		return true;
 	}
 
@@ -2813,6 +2843,9 @@ namespace DeltaDebugging
 						genCompData.testqueue.push_back(Functions::BaseFunction::Create(buffer, offset, length, resolver));
 					}
 					genCompData.batchident = Buffer::ReadUInt64(buffer, offset);
+					// time stuff
+					_DD_begin = Buffer::ReadNanoSeconds(buffer, offset);
+					_DD_end = Buffer::ReadNanoSeconds(buffer, offset);
 				}
 				return true;
 			}
