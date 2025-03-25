@@ -515,6 +515,7 @@ std::string Snapshot(bool full)
 			snap << fmt::format("Tests done: {}", dd.GetTests()) << "\t\t";
 			snap << fmt::format("Tests Remaining: {}", dd.GetTestsRemaining()) << "\n";
 			snap << fmt::format("Current BatchIdent: {}", dd.GetBatchIdent()) << "\n";
+			snap << fmt::format("Runtime: {}", Logging::FormatTime(dd.GetRuntime().count() / 1000)) << "\n";
 			snap << "\n";
 
 			
@@ -1523,7 +1524,15 @@ int32_t main(int32_t argc, char** argv)
 						ImGui::Text("Target Size:    %lld", ActiveGeneration.GetTargetSize());
 						ImGui::Text("DD Size:                    %lld", ActiveGeneration.GetDDSize());
 						ImGui::Text("Active Inputs:              %lld", ActiveGeneration.GetActiveInputs());
-						ImGui::Text("Number of DD controllers:   %lld", numddcontrollers);
+						ImGui::Text("Number of DD controllers:   %u", numddcontrollers);
+						ImGui::SameLine(300);
+						int activedd = 0;
+						for (auto& dd : ddcontrollers) {
+							if (!dd.Finished())
+								activedd++;
+						}
+						ImGui::Text("Active:         %d", activedd);
+						ImGui::Text("Runtime:                    %s", Logging::FormatTime(ActiveGeneration.GetRuntime().count() / 1000).c_str());
 						ImGui::NewLine();
 						ImGui::Text("Source Inputs: %lld", numsources);
 						static ImGuiTableFlags flags =
@@ -2061,6 +2070,8 @@ int32_t main(int32_t argc, char** argv)
 						ImGui::Text("Tests done: %d", dd.GetTests());
 						ImGui::SameLine(300);
 						ImGui::Text("Tests Remaining: %d", dd.GetTestsRemaining());
+						ImGui::Text("Current Batchident: %llu", dd.GetBatchIdent());
+						ImGui::Text("Runtime:      %s", Logging::FormatTime(dd.GetRuntime().count() / 1000).c_str());
 						ImGui::NewLine();
 						static ImGuiTableFlags flags =
 							ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable | ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_ScrollY;

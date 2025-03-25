@@ -2206,7 +2206,7 @@ namespace DeltaDebugging
 		if (_finished)
 			return _DD_end - _DD_begin;
 		else
-			return std::chrono::nanoseconds(0);
+			return _sessiondata->data->GetRuntime() - _DD_begin;
 	}
 
 	size_t DeltaController::GetStaticSize(int32_t version)

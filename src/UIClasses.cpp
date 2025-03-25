@@ -190,6 +190,11 @@ void UIDeltaDebugging::SetDeltaController(std::shared_ptr<DeltaController> contr
 	_ddcontroller = controller;
 }
 
+std::chrono::nanoseconds UIDeltaDebugging::GetRuntime()
+{
+	return _ddcontroller->GetRunTime();
+}
+
 FormID UIGeneration::GetFormID()
 {
 	return _generation->GetFormID();
@@ -263,6 +268,11 @@ void UIGeneration::GetDDControllers(std::vector<UIDeltaDebugging>& dd, size_t& s
 	{
 		dd[i].SetDeltaController(_ddcontrollers[i]);
 	}
+}
+
+std::chrono::nanoseconds UIGeneration::GetRuntime()
+{
+	return _generation->GetRunTime();
 }
 
 void UIGeneration::SetGeneration(std::shared_ptr<Generation> generation) 

@@ -136,6 +136,7 @@ namespace UI
 		void GetInput(UIInput& input);
 		void GetActiveInputs(std::vector<UIInput>& inputs, size_t& size);
 		void SetDeltaController(std::shared_ptr<DeltaDebugging::DeltaController> controller);
+		std::chrono::nanoseconds GetRuntime();
 		bool Initialized();
 
 	private:
@@ -155,6 +156,7 @@ namespace UI
 		void GetSources(std::vector<UIInput>& inputs);
 		int64_t GetGenerationNumber();
 		void GetDDControllers(std::vector<UIDeltaDebugging>& dd, size_t& size);
+		std::chrono::nanoseconds GetRuntime();
 
 		void SetGeneration(std::shared_ptr<Generation> generation);
 
