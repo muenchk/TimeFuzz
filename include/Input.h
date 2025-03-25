@@ -61,6 +61,10 @@ private:
 		/// whether the segement information is complement
 		/// </summary>
 		bool complement = false;
+		/// <summary>
+		/// the number of user events backtracked upon creation of this input
+		/// </summary>
+		int32_t backtrack = 0;
 	};
 
 	/// <summary>
@@ -424,6 +428,16 @@ public:
 	/// <returns></returns>
 	bool GetParentSplitComplement();
 
+	void SetParentBacktrack(int32_t backtrack = 0)
+	{
+		_parent.backtrack = backtrack;
+	}
+
+	int32_t GetParentBacktrack()
+	{
+		return _parent.backtrack;
+	}
+
 	/// <summary>
 	/// Returns the ID of the generation this input belongs to
 	/// </summary>
@@ -478,9 +492,9 @@ public:
 
 	double GetIndividualSecondaryScore(size_t position);
 
-	std::vector<std::pair<size_t, size_t>> FindIndividualPrimaryScoreRangesWithoutChanges();
+	std::vector<std::pair<size_t, size_t>> FindIndividualPrimaryScoreRangesWithoutChanges(size_t max = UINT_MAX - 1);
 
-	std::vector<std::pair<size_t, size_t>> FindIndividualSecondaryScoreRangesWithoutChanges();
+	std::vector<std::pair<size_t, size_t>> FindIndividualSecondaryScoreRangesWithoutChanges(size_t max = UINT_MAX - 1);
 
 	static std::string PrintForm(std::shared_ptr<Input> form)
 	{

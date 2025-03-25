@@ -421,6 +421,12 @@ public:
 		const char* optimizationLossThreshold_NAME = "OptmizationLossThreshold";
 
 		/// <summary>
+		/// absolute loss value for which inputs are considered acceptable
+		/// </summary>
+		double optimizationLossAbsolute = 50;
+		const char* optimizationLossAbsolute_NAME = "OptimizationLossAbsolute";
+
+		/// <summary>
 		/// For [PrimaryScore] and [SecondaryScore] focused delta debugging only.
 		/// Generated inputs primary score is approximated by using the monotonity of the primary Score function.
 		/// An input for which an extended version exists, must have less than or equal the primary score of the 

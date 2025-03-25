@@ -345,7 +345,15 @@ std::string Snapshot(bool full)
 					 << fmt::format("Target Size:                {}", ActiveGeneration.GetTargetSize()) << "\n";
 				snap << fmt::format("DD Size:                    {}", ActiveGeneration.GetDDSize()) << "\n";
 				snap << fmt::format("Active Inputs:              {}", ActiveGeneration.GetActiveInputs()) << "\n";
-				snap << fmt::format("Number of DD controllers:   {}", numddcontrollers) << "\n";
+				int activedd = 0;
+				for (auto& dd : ddcontrollers)
+				{
+					if (!dd.Finished())
+						activedd++;
+				}
+				snap << fmt::format("Number of DD controllers:   {}", numddcontrollers) 
+					<< "\t\t"
+					<< fmt::format("Active:    {}", activedd) <<"\n";
 				snap << "\n";
 				snap << fmt::format("Source Inputs: {}", numsources) << "\n";
 
@@ -375,9 +383,6 @@ std::string Snapshot(bool full)
 
 		// GET ITEMS FROM SESSION
 		session->UI_GetTopK(elements, MAX_ITEMS);
-
-
-		static int32_t rownum = 0;
 
 		snap << "Inputs:\n";
 		snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs") << "\n";
@@ -423,6 +428,30 @@ std::string Snapshot(bool full)
 			snap << fmt::format("{:<20} {:<30} {:<15} {:<15} {:<15} {:<15} {}", item->file, item->func, Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(item->ns).count()), Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(item->average).count()) , Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - item->time).count()), item->executions, item->usermes) << "\n";
 		}
 	}
+	snap << "\n\n";
+
+	// last generated
+	snap << "### LAST GENERATED\n";
+	{
+		static std::vector<UI::UIInput> elements;
+
+		// GET ITEMS FROM SESSION
+		session->UI_GetLastRunInputs(elements, 0);
+
+		snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs") << "\n";
+
+		int32_t max = 10;
+		if (full || elements.size() < max)
+			max = (int32_t)elements.size();
+		for (int32_t i = 0; i < max; i++)
+		{
+			auto item = &elements[i];
+			if (item->id != 0) {
+				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs) << "\n";
+			}
+		}
+	}
+
 	snap << "\n\n";
 
 	// delta debugging
@@ -485,6 +514,7 @@ std::string Snapshot(bool full)
 			snap << fmt::format("Invalid Tests: {}", dd.GetInvalidTests()) << "\n";
 			snap << fmt::format("Tests done: {}", dd.GetTests()) << "\t\t";
 			snap << fmt::format("Tests Remaining: {}", dd.GetTestsRemaining()) << "\n";
+			snap << fmt::format("Current BatchIdent: {}", dd.GetBatchIdent()) << "\n";
 			snap << "\n";
 
 			
@@ -2389,10 +2419,11 @@ Responsive:
 			std::this_thread::sleep_for(std::chrono::milliseconds(50));
 		}
 		while (session->Finished() == false) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+			std::this_thread::sleep_for(std::chrono::milliseconds(250));
+			auto out = Snapshot(false);
 			clearScreen();
 			moveTo(1, 1);
-			std::cout << Snapshot(false);
+			std::cout << out;
 
 			if (CmdArgs::_saveStatus)
 				SaveStatus();

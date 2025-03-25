@@ -117,6 +117,8 @@ public:
 #endif*/
 #define StartProfilingDebug \
 	auto $$profiletimebegin$$ = std::chrono::steady_clock::now();
+#define ResetProfilingDebug \
+	$$profiletimebegin$$ = std::chrono::steady_clock::now();
 #define TimeProfilingDebug \
 	$$profiletimebegin$$
 #define profileDebug(...) \
@@ -130,6 +132,8 @@ public:
 
 #define StartProfiling \
 	auto $$profiletimebegin$$ = std::chrono::steady_clock::now();
+#define ResetProfiling \
+	$$profiletimebegin$$ = std::chrono::steady_clock::now();
 
 #define TimeProfiling \
 	$$profiletimebegin$$

@@ -585,10 +585,13 @@ void Session::SessionControl()
 		// and with inter-process communication.
 		// To avoid some problems this thread is gonna periodically check whether shit has gone wrong and we need to restart / push stuff
 		_sessionControlWait.wait_for(guard, std::chrono::milliseconds(500));
+		//logmessage("SessionControl bump, {}, {}", _abort, _paused);
 		if (_abort)
 			return;
 		if (_paused)
 			continue;
+
+		UI_GetDatabaseObjectStatus();
 
 		if (_sessiondata->_controller->GetWaitingJobs() == 0 && !_sessiondata->_controller->IsFrozen() && (_sessiondata->_exechandler->GetWaitingTests() == 0 && _sessiondata->_exechandler->GetInitializedTests() == 0 && _sessiondata->_exechandler->GetRunningTests() == 0 && _sessiondata->_exechandler->IsFrozen() == false))
 		{
@@ -601,6 +604,38 @@ void Session::SessionControl()
 				for (int32_t i = 0; i < max; i++)
 					SessionFunctions::GenerateTests(_sessiondata);
 			}
+
+			// check whether dd is running ans has decided to hang itself
+			auto gen = _sessiondata->GetCurrentGeneration();
+			loginfo("Check for dd");
+			if (gen && gen->IsDeltaDebuggingActive())
+			{
+				auto visitor = [sessiondata = _sessiondata](std::shared_ptr<DeltaDebugging::DeltaController> controller) {
+					if (controller && controller->GetBatchTasks())
+						loginfo("visiting {}, tasks: {}, sendend: {}, procend: {}", controller->GetFormID(), controller->GetBatchTasks()->tasks.load(), controller->GetBatchTasks()->sendEndEvent, controller->GetBatchTasks()->processedEndEvent);
+					if (controller && !controller->Finished())
+					{
+						// if not finished check how many tasks are active
+						auto tasks = controller->GetBatchTasks();
+						if (tasks->tasks == 0 && tasks->sendEndEvent == false)
+						{
+							logwarn("DeltaController has tasks at 0, but did not send end event");
+							auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
+								callback->_DDcontroller = controller;
+							tasks->sendEndEvent = true;
+							sessiondata->_controller->AddTask(callback);
+						} else if (tasks->tasks == 0 && tasks->processedEndEvent  == false){
+							logwarn("DeltaController has tasks at 0, but did not process end event");
+							auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
+							callback->_DDcontroller = controller;
+							tasks->sendEndEvent = true;
+							sessiondata->_controller->AddTask(callback);
+						}
+					}
+					return false;
+				};
+				gen->VisitDeltaDebugging(visitor);
+			}
 		}
 		if (_sessiondata->_exechandler->IsStale(std::chrono::milliseconds(10000)))
 		{
@@ -608,6 +643,7 @@ void Session::SessionControl()
 			_sessiondata->_exechandler->ReinitHandler();
 		}
 	}
+	loginfo("Exiting sessioncontrol");
 }
 
 void Session::End()
@@ -899,6 +935,7 @@ void Session::UI_GetPositiveInputs(std::vector<UI::UIInput>& vector, size_t k)
 			return false;
 	};
 	_sessiondata->VisitPositiveInputs(visitor);
+	delete c;
 }
 
 
@@ -938,6 +975,7 @@ void Session::UI_GetLastRunInputs(std::vector<UI::UIInput>& vector, size_t k)
 			return false;
 	};
 	_sessiondata->VisitLastRun(visitor);
+	delete c;
 }
 
 UI::UIDeltaDebugging Session::UI_StartDeltaDebugging(FormID inputid)
@@ -1113,6 +1151,7 @@ void Session::ResumeSession()
 
 void Session::UI_GetDatabaseObjectStatus()
 {
+	StartProfiling;
 	int64_t freedObjects = 0, fullObjects = 0;
 	Data::SaveStats stats, nums;
 	uint64_t unfreed = 0;
@@ -1212,4 +1251,5 @@ void Session::UI_GetDatabaseObjectStatus()
 	logmessage("Size of Oracle:             {:>10}, {:>15} B, {:2.3f}%%", nums._Oracle, stats._Oracle, (double)stats._Oracle * 100 / (double)stats._Fail);
 	logmessage("Size of SessionData:        {:>10}, {:>15} B, {:2.3f}%%", nums._SessionData, stats._SessionData, (double)stats._SessionData * 100 / (double)stats._Fail);
 	logmessage("Size of DeltaController:    {:>10}, {:>15} B, {:2.3f}%%", nums._DeltaController, stats._DeltaController, (double)stats._DeltaController * 100 / (double)stats._Fail);
+	profile(TimeProfiling, "");
 }

@@ -1401,6 +1401,7 @@ void Data::Visit(std::function<VisitAction(std::shared_ptr<Form>)> visitor)
 {
 	bool writelock = false;
 	_hashmaplock.lock_shared();
+
 	for (auto& [id, form] : _hashmap)
 	{
 		switch (visitor(form))

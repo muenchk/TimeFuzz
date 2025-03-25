@@ -13,6 +13,7 @@
 #include <boost/circular_buffer.hpp>
 #include <time.h>
 #include <algorithm>
+#include <forward_list>
 #include <numeric>
 #include <random>
 #include <set>
@@ -322,12 +323,14 @@ void SessionFunctions::EndSession_Async(std::shared_ptr<SessionData> sessiondata
 	session->StopSession(false, false);
 }
 
-Data::VisitAction HandleForms(std::shared_ptr<Form> form)
+bool HandleForms(std::shared_ptr<Form> form)
 {
 	if (form->GetType() == FormType::DevTree)
-		return Data::VisitAction::None;
-	form->FreeMemory();
-	return Data::VisitAction::None;
+		return false;
+	if (form->Freed())
+		return false;
+	else
+		return true;
 }
 
 void SessionFunctions::ReclaimMemory(std::shared_ptr<SessionData>& sessiondata)
@@ -335,7 +338,19 @@ void SessionFunctions::ReclaimMemory(std::shared_ptr<SessionData>& sessiondata)
 	loginfo("trying to free memory");
 	StartProfiling;
 	sessiondata->_lastMemorySweep = std::chrono::steady_clock::now();
-	sessiondata->data->Visit(HandleForms);
+	std::forward_list<std::shared_ptr<Form>> free;
+	sessiondata->data->Visit([&free](std::shared_ptr<Form> form) {
+		if (HandleForms(form))
+			free.push_front(form);
+		return Data::VisitAction::None;
+		});
+
+	profile(TimeProfiling, "Visiting");
+	ResetProfiling;
+
+	for (auto& form : free)
+		form->FreeMemory();
+	free.clear();
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
 	uint64_t mem = Processes::GetProcessMemory(getpid());
@@ -506,16 +521,6 @@ bool SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 	if (input->test->_skipOracle) {
 		return false;
 	}
-	// add this input to the current generation
-	if (input->HasFlag(Input::Flags::GeneratedDeltaDebugging))
-		sessiondata->GetGeneration(input->GetGenerationID())->AddDDInput(input);
-	else {
-		sessiondata->GetGeneration(input->GetGenerationID())->AddGeneratedInput(input);
-
-		// if the inputs generation matches the current generation, initiate the end of the current iteration
-		if (input->GetGenerationID() == sessiondata->GetCurrentGenerationID())
-			sessiondata->CheckGenerationEnd();
-	}
 
 	// calculate oracle result
 	bool stateerror = false;
@@ -533,6 +538,7 @@ bool SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 	if (input->GetOracleResult() == OracleResult::Repeat || sessiondata->_settings->fixes.repeatTimeoutedTests && input->test && input->test->_exitreason == Test::ExitReason::Timeout) {
 		if (input->GetRetries() < 5) {
 			// the oracle decided there was a problem with the test, so go and repeat it
+			loginfo("Repeating test");
 			input->IncRetries();
 			input->test->_exitreason = Test::ExitReason::Repeat;
 			input->Debug_ClearSequence();
@@ -544,8 +550,21 @@ bool SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 			sessiondata->_exechandler->AddTest(input, callback, true, false);
 			AddTestExitReason(sessiondata, Test::ExitReason::Repeat);
 			return true;
-		} else
+		} else {
 			input->_oracleResult = OracleResult::Undefined;
+			loginfo("Not repeating test");
+		}
+	}
+
+	// add this input to the current generation
+	if (input->HasFlag(Input::Flags::GeneratedDeltaDebugging))
+		sessiondata->GetGeneration(input->GetGenerationID())->AddDDInput(input);
+	else {
+		sessiondata->GetGeneration(input->GetGenerationID())->AddGeneratedInput(input);
+
+		// if the inputs generation matches the current generation, initiate the end of the current iteration
+		if (input->GetGenerationID() == sessiondata->GetCurrentGenerationID())
+			sessiondata->CheckGenerationEnd();
 	}
 
 	// check whether _output should be stored
@@ -699,6 +718,7 @@ std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDeb
 		{
 			DeltaDebugging::MaximizePrimaryScore* par = new DeltaDebugging::MaximizePrimaryScore;
 			par->acceptableLoss = (float)sessiondata->_settings->dd.optimizationLossThreshold;
+			par->acceptableLossAbsolute = (float)sessiondata->_settings->dd.optimizationLossAbsolute;
 			params = par;
 		}
 		break;
@@ -706,6 +726,7 @@ std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDeb
 		{
 			DeltaDebugging::MaximizeSecondaryScore* par = new DeltaDebugging::MaximizeSecondaryScore;
 			par->acceptableLossSecondary = (float)sessiondata->_settings->dd.optimizationLossThreshold;
+			par->acceptableLossSecondaryAbsolute = (float)sessiondata->_settings->dd.optimizationLossAbsolute;
 			params = par;
 		}
 		break;
@@ -713,7 +734,9 @@ std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDeb
 		{
 			DeltaDebugging::MaximizeBothScores* par = new DeltaDebugging::MaximizeBothScores;
 			par->acceptableLossPrimary = (float)sessiondata->_settings->dd.optimizationLossThreshold;
+			par->acceptableLossPrimaryAbsolute = (float)sessiondata->_settings->dd.optimizationLossAbsolute;
 			par->acceptableLossSecondary = (float)sessiondata->_settings->dd.optimizationLossThreshold;
+			par->acceptableLossSecondaryAbsolute = (float)sessiondata->_settings->dd.optimizationLossAbsolute;
 			params = par;
 		}
 		break;
@@ -1111,12 +1134,16 @@ namespace Functions
 			bool begun = false;
 			int32_t count = 0;
 			for (auto ptr : targets) {
+				loginfo("1");
 				if (count >= (int32_t)(_sessiondata->_settings->generation.numberOfInputsToDeltaDebugPerGeneration))
 					break;
+				loginfo("2");
 				auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
 				callback->_generation = _sessiondata->GetCurrentGeneration();
 				callback->_sessiondata = _sessiondata;
+				loginfo("3");
 				auto ddcontroller = SessionFunctions::BeginDeltaDebugging(_sessiondata, ptr, callback, false, DeltaDebugging::DDGoal::None, DeltaDebugging::DDGoal::None, _sessiondata->_settings->dd.budgetGenEnd);
+				loginfo("4");
 				if (ddcontroller) {
 					_sessiondata->GetCurrentGeneration()->AddDDController(ddcontroller);
 					count++;
@@ -1125,10 +1152,10 @@ namespace Functions
 				}
 			}
 			// check if there was an active delta debugging beforehand
-			for (auto ptr : controllers)
-			{
-				if (ptr->Finished() == false)
-				{
+			for (auto ptr : controllers) {
+				loginfo("5");
+				if (ptr->Finished() == false) {
+					loginfo("6");
 					begun = true;
 					auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
 					callback->_sessiondata = _sessiondata;
@@ -1154,7 +1181,9 @@ namespace Functions
 			bool begun = false;
 			// check if there was an active delta debugging beforehand
 			for (auto ptr : controllers) {
+				loginfo("7");
 				if (ptr->Finished() == false) {
+					loginfo("8");
 					auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
 					callback->_sessiondata = _sessiondata;
 					callback->_generation = _sessiondata->GetCurrentGeneration();
@@ -1232,7 +1261,7 @@ namespace Functions
 				std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> controllers;
 				_sessiondata->GetCurrentGeneration()->GetDDControllers(controllers);
 				for (auto ptr : controllers) {
-					if (ptr->Finished() == false) {
+					if (ptr->Finished() == false && ptr->HasCallback(Functions::GenerationFinishedCallback::GetTypeStatic()) == false) {
 						auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
 						callback->_sessiondata = _sessiondata;
 						callback->_generation = _sessiondata->GetCurrentGeneration();

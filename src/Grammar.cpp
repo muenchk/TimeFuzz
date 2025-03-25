@@ -2286,7 +2286,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 	}
 }
 
-void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTree> dtree, bool backtrack, int32_t targetlength, uint32_t seed, int32_t /*maxsteps*/)
+void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTree> dtree, bool backtrack, int32_t targetlength, uint32_t seed, int32_t& backtrackingdone, int32_t /*maxsteps*/)
 {
 	StartProfiling;
 	// we need to whole source input, because it may have been trimmed, in that case we cannot just copy the source
@@ -2403,6 +2403,9 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 			}
 		}
 	}
+
+	// set backtracking done
+	backtrackingdone = (int32_t)(sinput->derive->_sequenceNodes - dtree->_sequenceNodes);
 
 	DerivationTree::NonTerminalNode* root;
 
