@@ -7,6 +7,16 @@
 #include <filesystem>
 #include <iostream>
 #include "DeltaDebugging.h"
+//#include "Processes.h"
+
+namespace Processes
+{
+#if defined(unix) || defined(__unix__) || defined(__unix)
+	extern uint64_t GetProcessMemory(pid_t pid);
+#elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+	extern uint64_t GetProcessMemory(HANDLE pid);
+#endif
+}
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 #	include "CrashHandler.h"
@@ -81,8 +91,15 @@ std::string Snapshot(bool full)
 
 	// general
 	snap << "### GENERAL\n";
-	{
-		snap << fmt::format("Memory Usage:    {}MB", session->UI_GetMemoryUsage())
+	{ 
+#if defined(unix) || defined(__unix__) || defined(__unix)
+		auto memory_mem = Processes::GetProcessMemory(getpid());
+#elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+		auto memory_mem = Processes::GetProcessMemory(GetCurrentProcess());
+#endif
+		memory_mem = memory_mem / 1048576;
+
+		snap << fmt::format("Memory Usage:    {}MB", memory_mem)
 			 << "\n";
 	}
 	snap << "\n\n";
@@ -159,6 +176,7 @@ std::string Snapshot(bool full)
 		snap << fmt::format("Timeout:                 {}", status.exitstats.timeout) << "\n";
 		snap << fmt::format("Fragment Timeout:        {}", status.exitstats.fragmenttimeout) << "\n";
 		snap << fmt::format("Memory:                  {}", status.exitstats.memory) << "\n";
+		snap << fmt::format("Pipe:                    {}", status.exitstats.pipe) << "\n";
 		snap << fmt::format("Init error:              {}", status.exitstats.initerror) << "\n";
 		snap << fmt::format("Repeated Inputs:         {}", status.exitstats.repeat) << "\n";
 
@@ -642,11 +660,22 @@ void StartSession()
 	loginfo("Main: Started Session.");
 }
 
+#include <csignal>
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+#else
+//#	include <signal.h>
+extern "C" void signal_callback_handler(int signum)
+{
+	printf("Caught signal SIGPIPE %d\n", signum);
+}
+#endif
+
 int32_t main(int32_t argc, char** argv)
 {
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	Crash::Install(std::filesystem::current_path().string());
 #endif
+
 
 	char buffer[128];
 
@@ -907,6 +936,38 @@ int32_t main(int32_t argc, char** argv)
 
 	bool stop = false;
 
+	
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+#else
+#	define _XOPEN_SOURCE 700
+	//#	include <features.h>
+	//#	include <signal.h>
+	//#   include <stdio.h>
+	//    #include <stdlib.h>
+	//   #include <unistd.h>
+	//struct signaction action
+	//{
+	//	SIG_IGN
+	//};
+	//sigaction(SIGPIPE, &(action), NULL);
+	loginfo("install signal handler for SIGPIPE");
+	//signal(SIGPIPE, signal_callback_handler);
+	//struct sigaction act;
+	//memset(&act, 0, sizeof(act));
+	//act.sa_handler = SIG_IGN;
+	//act.sa_flags = SA_RESTART;
+	//int r = sigaction(SIGPIPE, &act, NULL);
+	//if (r)
+	//	logcritical("error sigaction");
+	std::signal(SIGPIPE, signal_callback_handler);
+#endif
+
+	#if defined(unix) || defined(__unix__) || defined(__unix)
+	loginfo("install signal handler for SIGPIPE unix");
+	std::signal(SIGPIPE, SIG_IGN);
+	#endif
+
+
 	// set debugging
 	Logging::EnableDebug = CmdArgs::_debug;
 
@@ -1099,8 +1160,14 @@ int32_t main(int32_t argc, char** argv)
 			{
 				static bool wopen = true;
 				ImGui::Begin("Control", &wopen);
-				if (wopen) {
-					ImGui::Text("Memory Usage:    %lluMB", session->UI_GetMemoryUsage());
+				if (wopen) { 
+#	if defined(unix) || defined(__unix__) || defined(__unix)
+					auto memory_mem = Processes::GetProcessMemory(getpid());
+#	elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+					auto memory_mem = Processes::GetProcessMemory(GetCurrentProcess());
+#	endif
+					memory_mem = memory_mem / 1048576;
+					ImGui::Text("Memory Usage:    %lldMB", memory_mem);
 					ImGui::NewLine();
 					ImGui::Checkbox("Status window", &showStatusWindow);
 					ImGui::Checkbox("Avanced status window", &showAdvancedWindow);
@@ -1293,6 +1360,7 @@ int32_t main(int32_t argc, char** argv)
 						ImGui::Text("Timeout:                 %llu", status.exitstats.timeout);
 						ImGui::Text("Fragment Timeout:        %llu", status.exitstats.fragmenttimeout);
 						ImGui::Text("Memory:                  %llu", status.exitstats.memory);
+						ImGui::Text("Pipe:                    %llu", status.exitstats.pipe);
 						ImGui::Text("Init error:              %llu", status.exitstats.initerror);
 						ImGui::Text("Repeated Inputs:         %llu", status.exitstats.repeat);
 
@@ -2426,9 +2494,9 @@ Responsive:
 		Logging::StdOutLogging = false;
 		StartSession();
 		std::chrono::steady_clock::time_point last = std::chrono::steady_clock::now();
-		while (session->Loaded() == false) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(50));
-		}
+		//while (session->Loaded() == false) {
+		//	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+		//}
 		while (session->Finished() == false) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(250));
 			auto out = Snapshot(false);

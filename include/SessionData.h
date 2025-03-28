@@ -36,6 +36,7 @@ struct TestExitStats
 	uint64_t timeout = 0;
 	uint64_t fragmenttimeout = 0;
 	uint64_t memory = 0;
+	uint64_t pipe = 0;
 	uint64_t initerror = 0;
 	uint64_t repeat = 0;
 };

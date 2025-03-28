@@ -591,7 +591,7 @@ void Session::SessionControl()
 		if (_paused)
 			continue;
 
-		UI_GetDatabaseObjectStatus();
+		//UI_GetDatabaseObjectStatus();
 
 		if (_sessiondata->_controller->GetWaitingJobs() == 0 && !_sessiondata->_controller->IsFrozen() && (_sessiondata->_exechandler->GetWaitingTests() == 0 && _sessiondata->_exechandler->GetInitializedTests() == 0 && _sessiondata->_exechandler->GetRunningTests() == 0 && _sessiondata->_exechandler->IsFrozen() == false))
 		{

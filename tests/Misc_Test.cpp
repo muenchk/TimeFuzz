@@ -84,7 +84,8 @@ int main()
 	auto extinput = data->CreateForm<Input>();
 	extinput->derive = exttree;
 	input->SetFlag(Input::Flags::GeneratedGrammarParent);
-	grammar->Extend(inp, exttree, false, 15, 0);
+	int32_t back = 0;
+	grammar->Extend(inp, exttree, false, 15, 0,back);
 
 	generator->Generate(extinput, {}, grammar, sessdata);
 }

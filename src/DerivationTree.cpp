@@ -131,9 +131,10 @@ void DerivationTree::ClearInternal()
 	_valid = false;
 	if (_root == nullptr)
 		return;
-	auto itr = _nodes.begin();
+	delete _root;
+	/*auto itr = _nodes.begin();
 	int count = 0;
-	/* while (itr != _nodes.end()) {
+	while (itr != _nodes.end()) {
 		switch ((*itr)->Type()) {
 		case NodeType::Terminal:
 			{
@@ -157,8 +158,8 @@ void DerivationTree::ClearInternal()
 		count++;
 		itr++;
 	}*/
-	std::stack<Node*> stack;
-	stack.push(_root);
+	/*std::stack<Node*> stack;
+	 stack.push(_root);
 	while (stack.size() > 0)
 	{
 		auto node = stack.top();
@@ -187,7 +188,7 @@ void DerivationTree::ClearInternal()
 			}
 			break;
 		}
-	}
+	}*/
 	_nodes.clear();
 	//_grammarID = 0;
 	//_valid = false;
@@ -224,7 +225,12 @@ void DerivationTree::FreeMemory()
 	if (TryLock()) {
 		if (!HasFlag(FormFlags::DoNotFree))
 		{
-			ClearInternal();
+			//ClearInternal();
+			_valid = false;
+			if (_root == nullptr)
+				return;
+			delete _root;
+			_root = nullptr;
 		}
 		Form::Unlock();
 	}

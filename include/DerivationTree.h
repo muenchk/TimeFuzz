@@ -30,12 +30,22 @@ public:
 	{
 		virtual NodeType Type() = 0;
 		virtual std::pair<Node*, std::vector<Node*>> CopyRecursive() = 0;
+
+		virtual ~Node() {
+
+		}
 	};
 	
 	struct NonTerminalNode : public Node
 	{
 		std::vector<Node*> _children;
 		uint64_t _grammarID;
+
+		~NonTerminalNode()
+		{
+			for (int i = 0; i < _children.size(); i++)
+				delete _children[i];
+		}
 
 		NodeType Type() override { return NodeType::NonTerminal; }
 
@@ -102,6 +112,11 @@ public:
 	struct SequenceNode : public NonTerminalNode
 	{
 		NodeType Type() override { return NodeType::Sequence; }
+
+		~SequenceNode()
+		{
+			NonTerminalNode::~NonTerminalNode();
+		}
 
 		std::pair<Node*, std::vector<Node*>> CopyRecursive() override
 		{

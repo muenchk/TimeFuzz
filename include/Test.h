@@ -65,6 +65,10 @@ public:
 			/// </summary>
 			Memory = 1 << 5,
 			/// <summary>
+			/// Process has been terminated due to a pipe error
+			/// </summary>
+			Pipe = 1 << 6,
+			/// <summary>
 			/// An error occured when starting the test -> discard result
 			/// </summary>
 			InitError = 1 << 10,
@@ -184,6 +188,11 @@ public:
 	bool _skipExclusionCheck = false;
 
 	/// <summary>
+	/// whether there was an error in the pipe
+	/// </summary>
+	bool _pipeError = false;
+
+	/// <summary>
 	/// Returns whether the test is still running
 	/// </summary>
 	/// <returns></returns>
@@ -263,6 +272,8 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	bool IsInitialized() { return _valid && _pipeinit; }
+
+	bool PipeError() { return _pipeError; }
 
 	void DeepCopy(std::shared_ptr<Test> other);
 

@@ -2107,9 +2107,9 @@ namespace DeltaDebugging
 			_inputRanges = _input->FindIndividualPrimaryScoreRangesWithoutChanges();
 			// adjust level
 			//_level = std::max(_level - 1, 2);
-			//_level = 2;
+			_level = 2;
 			// we only deal in complements here
-			_level = std::max(_level - 1, 2);
+			//_level = std::max(_level - 1, 2);
 			loginfo("{} prepare next level", genCompData.batchident);
 			// run next generation if budget hasn't been exceeded
 			if (_params->budget != 0 && _params->budget <= _totaltests) {

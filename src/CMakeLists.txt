@@ -86,11 +86,16 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMA
 	add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:REF>")
 	add_link_options("$<$<NOT:$<CONFIG:Debug>>:/OPT:ICF>")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-	add_compile_options(-std=c++23)
-	add_link_options( -std=c++23)
+	add_compile_options(-std=gnu++23)
+	add_link_options( -std=gnu++23)
 endif()
 
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}" STREQUAL "Clang;MSVC")
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+	
+endif()
 
 if ("${EnableUI}" STREQUAL "ON")
 	add_compile_definitions(EnableUI)

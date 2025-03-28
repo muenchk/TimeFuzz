@@ -85,7 +85,18 @@ void IPCommManager::PerformWrites()
 				// update write information
 				write->_offset += written;
 				write->_length -= written;
-				if (write->_length <= 0)
+				if (written == -1) {
+					itr = _writeQueue.erase(itr);
+					skipitrinc = true;
+					while (write != nullptr)
+					{
+						auto next = write->next;
+						delete write;
+						write = next;
+					}
+					continue;
+				}
+				else if (write->_length <= 0)
 				{
 					auto next = write->next;
 					if (next != nullptr) {

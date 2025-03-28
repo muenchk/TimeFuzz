@@ -18,11 +18,13 @@ void SessionData::Init()
 		_positiveInputs.set_ordering(std::SetOrdering::Length);
 		break;
 	case Settings::GenerationSourcesType::FilterPrimaryScore:
+	case Settings::GenerationSourcesType::FilterPrimaryScoreRelative:
 		_negativeInputs.set_ordering(std::SetOrdering::Primary);
 		_unfinishedInputs.set_ordering(std::SetOrdering::Primary);
 		_positiveInputs.set_ordering(std::SetOrdering::Primary);
 		break;
 	case Settings::GenerationSourcesType::FilterSecondaryScore:
+	case Settings::GenerationSourcesType::FilterSecondaryScoreRelative:
 		_negativeInputs.set_ordering(std::SetOrdering::Secondary);
 		_unfinishedInputs.set_ordering(std::SetOrdering::Secondary);
 		_positiveInputs.set_ordering(std::SetOrdering::Secondary);
@@ -688,6 +690,7 @@ bool SessionData::WriteData(std::ostream* buffer, size_t& offset)
 	Buffer::Write(exitstats.timeout, buffer, offset);
 	Buffer::Write(exitstats.fragmenttimeout, buffer, offset);
 	Buffer::Write(exitstats.memory, buffer, offset);
+	Buffer::Write(exitstats.pipe, buffer, offset);
 	Buffer::Write(exitstats.initerror, buffer, offset);
 	Buffer::Write(_failureRate, buffer, offset);
 	Buffer::Write(_addtestFails, buffer, offset);
@@ -836,11 +839,13 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 					_positiveInputs.set_ordering(std::SetOrdering::Length);
 					break;
 				case Settings::GenerationSourcesType::FilterPrimaryScore:
+				case Settings::GenerationSourcesType::FilterPrimaryScoreRelative:
 					_negativeInputs.set_ordering(std::SetOrdering::Primary);
 					_unfinishedInputs.set_ordering(std::SetOrdering::Primary);
 					_positiveInputs.set_ordering(std::SetOrdering::Primary);
 					break;
 				case Settings::GenerationSourcesType::FilterSecondaryScore:
+				case Settings::GenerationSourcesType::FilterSecondaryScoreRelative:
 					_negativeInputs.set_ordering(std::SetOrdering::Secondary);
 					_unfinishedInputs.set_ordering(std::SetOrdering::Secondary);
 					_positiveInputs.set_ordering(std::SetOrdering::Secondary);
@@ -966,6 +971,7 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 			exitstats.timeout = Buffer::ReadUInt64(buffer, offset);
 			exitstats.fragmenttimeout = Buffer::ReadUInt64(buffer, offset);
 			exitstats.memory = Buffer::ReadUInt64(buffer, offset);
+			exitstats.pipe = Buffer::ReadUInt64(buffer, offset);
 			exitstats.initerror = Buffer::ReadUInt64(buffer, offset);
 			_failureRate = Buffer::ReadDouble(buffer, offset);
 			_addtestFails = Buffer::ReadInt64(buffer, offset);

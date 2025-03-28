@@ -338,14 +338,17 @@ void SessionFunctions::ReclaimMemory(std::shared_ptr<SessionData>& sessiondata)
 	loginfo("trying to free memory");
 	StartProfiling;
 	sessiondata->_lastMemorySweep = std::chrono::steady_clock::now();
-	std::forward_list<std::shared_ptr<Form>> free;
-	sessiondata->data->Visit([&free](std::shared_ptr<Form> form) {
-		if (HandleForms(form))
-			free.push_front(form);
+	std::vector<std::shared_ptr<Form>> free;
+	int32_t size = 0;
+	sessiondata->data->Visit([&free,&size](std::shared_ptr<Form> form) {
+		if (HandleForms(form)) {
+			free.push_back(form);
+			size++;
+		}
 		return Data::VisitAction::None;
 		});
 
-	profile(TimeProfiling, "Visiting");
+	profile(TimeProfiling, "Visiting {}", size);
 	ResetProfiling;
 
 	for (auto& form : free)
@@ -358,7 +361,7 @@ void SessionFunctions::ReclaimMemory(std::shared_ptr<SessionData>& sessiondata)
 	uint64_t mem = Processes::GetProcessMemory(GetCurrentProcess());
 #endif
 	mem = mem / 1048576;
-	profile(TimeProfiling, "Freed {} MB", sessiondata->_memory_mem - mem);
+	profile(TimeProfiling, "Freed {} MB", (int64_t)sessiondata->_memory_mem - (int64_t)mem);
 	sessiondata->_memory_mem = mem;
 }
 
@@ -661,7 +664,8 @@ bool SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 		}
 		break;
 	}
-
+	// free memory to save reclaim time
+	input->FreeMemory();
 	return false;
 }
 
@@ -686,8 +690,12 @@ void SessionFunctions::AddTestExitReason(std::shared_ptr<SessionData>& sessionda
 	case Test::ExitReason::Memory:
 		sessiondata->exitstats.memory++;
 		break;
+	case Test::ExitReason::Pipe:
+		sessiondata->exitstats.pipe++;
+		break;
 	case Test::ExitReason::InitError:
 		sessiondata->exitstats.initerror++;
+		break;
 	case Test::ExitReason::Repeat:
 		sessiondata->exitstats.repeat++;
 		break;

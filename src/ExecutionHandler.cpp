@@ -731,6 +731,13 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 			_tstatus = ExecHandlerStatus::HandlingTests;
 			auto ptr = _handleTests[i];
 			logdebug("Handling test {}", ptr->_identifier);
+			if (ptr->PipeError())
+			{
+				ptr->KillProcess();
+				ptr->_exitreason = Test::ExitReason::Pipe;
+				SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::Pipe);
+				goto TestFinished;
+			}
 			// read _output accumulated in the mean-time
 			// if process has ended there still may be something left over to read anyway
 			ptr->_output += ptr->ReadOutput();

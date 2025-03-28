@@ -285,12 +285,25 @@ bool Test::WriteInput(std::string str, bool /*waitwrite*/)
 			size_t totalwritten = 0;
 			while (totalwritten != len) {
 				size_t written = write(red_input[1], str.c_str() + totalwritten, len);
+				if (written == -1) {
+					if (errno == EPIPE) {
+						_pipeError = true;
+						//InValidate();
+						return false;
+					}
+				}
 				totalwritten += written;
 			}
 			return true;
 		} else {
 			if (size_t written = write(red_input[1], str.c_str(), len); written != len) {
 				logcritical("Write to child is missing bytes: Supposed {}, written {}", len, written);
+				if (written == -1) {
+					if (errno == EPIPE) {
+						_pipeError = true;
+						//InValidate();
+					}
+				}
 				return false;
 			}
 			return true;
@@ -302,6 +315,12 @@ bool Test::WriteInput(std::string str, bool /*waitwrite*/)
 	bSuccess = FALSE;
 	const char* cstr = str.c_str();
 	bSuccess = WriteFile(red_input[1], cstr, (DWORD)strlen(cstr), &dwWritten, NULL);
+	if (bSuccess == false) {
+		if (auto err = GetLastError(); err == ERROR_BROKEN_PIPE || err == ERROR_BAD_PIPE || err == ERROR_PIPE_NOT_CONNECTED) {
+			_pipeError = true;
+			//InValidate();
+		}
+	}
 #endif
 	return bSuccess;
 }
@@ -322,6 +341,14 @@ size_t Test::Write(const char* data, size_t offset, size_t length)
 	events = poll(&fds, 1, 0);
 	if ((fds.revents & POLLOUT) == POLLOUT) {
 		size_t written = write(red_input[1], data + offset, length);
+		if (written == -1)
+		{
+			if (errno == EPIPE)
+			{
+				_pipeError = true;
+				//InValidate();
+			}
+		}
 		return written;
 	} else
 		return 0;
@@ -331,8 +358,14 @@ size_t Test::Write(const char* data, size_t offset, size_t length)
 	bSuccess = WriteFile(red_input[1], data + offset, (DWORD)length, &dwWritten, NULL);
 	if (bSuccess)
 		return dwWritten;
-	else
+	else {
+		if (auto err = GetLastError(); err == ERROR_BROKEN_PIPE || err == ERROR_BAD_PIPE || err == ERROR_PIPE_NOT_CONNECTED)
+		{
+			_pipeError = true;
+			//InValidate();
+		}
 		return 0;
+	}
 #endif
 }
 
@@ -428,19 +461,19 @@ std::string Test::ReadOutput()
 	fds.fd = red_output[0];  // stdin
 	fds.events = POLLIN;
 	events = poll(&fds, 1, 0);
-	logdebug("0: {}", events);
 	while ((fds.revents & POLLIN) == POLLIN) {  // _input to read available
-		logdebug("1");
 		char buf[512];
-		logdebug("2");
-		logdebug("3: {}", red_output[0]);
 		int32_t _read = read(red_output[0], buf, 511);
-		logdebug("4: {}", _read);
 		if (_read <= 0) {
-			logdebug("5");
+			if (_read == -1) {
+				if (errno == EBADF) // broken fd, count as pipe error
+				{
+					_pipeError = true;
+					//InValidate();
+				}
+			}
 			break;
 		} else {
-			logdebug("6");
 			// convert to string
 			std::string str(buf, _read);
 			ret += str;
@@ -454,6 +487,13 @@ std::string Test::ReadOutput()
 	BOOL bSuccess = FALSE;
 	for (;;) {
 		bSuccess = ReadFile(red_output[0], chBuf, 512, &dwRead, NULL);
+		if (!bSuccess) {
+			if (auto err = GetLastError(); err == ERROR_BROKEN_PIPE || err == ERROR_BAD_PIPE || err == ERROR_PIPE_NOT_CONNECTED) {
+				_pipeError = true;
+				//InValidate();
+				break;
+			}
+		}
 		if (!bSuccess || dwRead == 0)
 			break;
 		else {
