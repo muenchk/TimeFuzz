@@ -189,7 +189,7 @@ void DerivationTree::ClearInternal()
 			break;
 		}
 	}*/
-	_nodes.clear();
+	_nodes = 0;
 	//_grammarID = 0;
 	//_valid = false;
 	//_seed = 0;
@@ -222,23 +222,29 @@ void DerivationTree::RegisterFactories()
 
 void DerivationTree::FreeMemory()
 {
+	DerivationTree::Node* tmp = nullptr;
 	if (TryLock()) {
 		if (!HasFlag(FormFlags::DoNotFree))
 		{
 			//ClearInternal();
 			_valid = false;
-			if (_root == nullptr)
+			if (_root == nullptr) {
+				Form::Unlock();
 				return;
-			delete _root;
+			}
+			tmp = _root;
 			_root = nullptr;
+			_nodes = 0;
 		}
 		Form::Unlock();
 	}
+	if (tmp != nullptr)
+		delete tmp;
 }
 
 bool DerivationTree::Freed()
 {
-	if (_nodes.size() == 0)
+	if (_nodes == 0)
 		return true;
 	return false;
 }
@@ -257,7 +263,7 @@ bool DerivationTree::GetRegenerate()
 
 size_t DerivationTree::MemorySize()
 {
-	if (_nodes.size() > 0)
+	if (_nodes > 0)
 		logdebug("haha");
-	return sizeof(DerivationTree) + sizeof(std::pair<int64_t, int64_t>) * _parent.segments.size() + (8 + 8 + sizeof(NonTerminalNode)) * _nodes.size();
+	return sizeof(DerivationTree) + sizeof(std::pair<int64_t, int64_t>) * _parent.segments.size() + (8 + 8 + sizeof(NonTerminalNode)) * _nodes;
 }

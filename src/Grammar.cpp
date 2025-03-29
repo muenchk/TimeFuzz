@@ -1717,14 +1717,14 @@ void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<Der
 				DerivationTree::NonTerminalNode* droot = new DerivationTree::NonTerminalNode();
 				droot->_grammarID = _tree->_root->_id;
 				dtree->_root = droot;
-				dtree->_nodes.insert(droot);
+				dtree->_nodes++;
 				droot->_children.resize(targetnodes.size());
 				for (size_t c = 0; c < targetnodes.size(); c++) {
 					//auto [cnode, cnodes] = targetnodes[c]->CopyRecursive();
 					//droot->_children[c] = targetnodes[c];
 					droot->SetChild(c, targetnodes[c]);
 					for (auto x : targetnodesvec[c])
-						dtree->_nodes.insert(x);
+						dtree->_nodes++;
 				}
 
 				dtree->_valid = true;
@@ -1813,7 +1813,7 @@ void Grammar::ExtractEarley(std::shared_ptr<DerivationTree> stree, std::shared_p
 	DerivationTree::NonTerminalNode* droot = new DerivationTree::NonTerminalNode();
 	droot->_grammarID = proot->getGrammarElement()->_id;
 	dtree->_root = droot;
-	dtree->_nodes.insert(droot);
+	dtree->_nodes++;
 	std::stack<std::pair<Node*, DerivationTree::NonTerminalNode*>> stack;
 	DerivationTree::NonTerminalNode* ntmp = nullptr;
 	stack.push({ proot, droot });
@@ -1836,7 +1836,7 @@ void Grammar::ExtractEarley(std::shared_ptr<DerivationTree> stree, std::shared_p
 				// not available in linux (barf)
 				//dtree->_nodes.insert_range(cnodes);
 				for (auto x : cnodes)
-					dtree->_nodes.insert(x);
+					dtree->_nodes++;
 			}
 			targetnodesIndex++;
 		}
@@ -1853,7 +1853,7 @@ void Grammar::ExtractEarley(std::shared_ptr<DerivationTree> stree, std::shared_p
 				else
 					ntmp = new DerivationTree::NonTerminalNode();
 				ntmp->_grammarID = children[i]->getGrammarElement()->_id;
-				dtree->_nodes.insert(ntmp);
+				dtree->_nodes++;
 				dnode->SetChild(i, ntmp);
 				//dnode->_children[i] = (ntmp);
 				stack.push({ children.at(i), ntmp });
@@ -1899,20 +1899,20 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t targetlength
 	// begin: insert start node 
 	if (_tree->_root->IsSequence()) {
 		nnode = new DerivationTree::NonTerminalNode;
-		dtree->_nodes.insert(nnode);
+		dtree->_nodes++;
 		nnode->_grammarID = _tree->_root->_id;
 		dtree->_root = nnode;
 		seq++;
 		qseqnonterminals.push_back({ nnode, _tree->_root });
 	} else if (_tree->_root->_type == GrammarNode::NodeType::NonTerminal) {
 		nnode = new DerivationTree::NonTerminalNode;
-		dtree->_nodes.insert(nnode);
+		dtree->_nodes++;
 		nnode->_grammarID = _tree->_root->_id;
 		dtree->_root = nnode;
 		qseqnonterminals.push_back({ nnode, _tree->_root });
 	} else {
 		ttnode = new DerivationTree::TerminalNode;
-		dtree->_nodes.insert(ttnode);
+		dtree->_nodes++;
 		ttnode->_grammarID = _tree->_root->_id;
 		dtree->_root = ttnode;
 		ttnode->_content = _tree->_root->_identifier;
@@ -2063,7 +2063,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 					case GrammarNode::NodeType::Sequence:
 						seq++;
 						tnnode = new DerivationTree::SequenceNode;
-						dtree->_nodes.insert(tnnode);
+						dtree->_nodes++;
 						dtree->_sequenceNodes++;
 						tnnode->_grammarID = regex->_node->_id;
 						nnode->AddChild(tnnode);
@@ -2074,7 +2074,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 						break;
 					case GrammarNode::NodeType::NonTerminal:
 						tnnode = new DerivationTree::NonTerminalNode;
-						dtree->_nodes.insert(tnnode);
+						dtree->_nodes++;
 						tnnode->_grammarID = regex->_node->_id;
 						nnode->AddChild(tnnode);
 						if (regex->_node->_flags & GrammarNode::NodeFlags::ProduceSequence)
@@ -2085,7 +2085,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 					case GrammarNode::NodeType::Terminal:
 						// create new terminal node
 						ttnode = new DerivationTree::TerminalNode();
-						dtree->_nodes.insert(ttnode);
+						dtree->_nodes++;
 						ttnode->_grammarID = regex->_node->_id;
 						ttnode->_content = GetSymbols(regex->_node, randan);
 						nnode->AddChild(ttnode);
@@ -2098,7 +2098,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 					case GrammarNode::NodeType::Sequence:
 						seq++;
 						tnnode = new DerivationTree::SequenceNode;
-						dtree->_nodes.insert(tnnode);
+						dtree->_nodes++;
 						dtree->_sequenceNodes++;
 						tnnode->_grammarID = gexp->_nodes[i]->_id;
 						nnode->AddChild(tnnode);
@@ -2109,7 +2109,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 						break;
 					case GrammarNode::NodeType::NonTerminal:
 						tnnode = new DerivationTree::NonTerminalNode;
-						dtree->_nodes.insert(tnnode);
+						dtree->_nodes++;
 						tnnode->_grammarID = gexp->_nodes[i]->_id;
 						nnode->AddChild(tnnode);
 						if (gexp->_nodes[i]->_flags & GrammarNode::NodeFlags::ProduceSequence)
@@ -2120,7 +2120,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 					case GrammarNode::NodeType::Terminal:
 						// create new terminal node
 						ttnode = new DerivationTree::TerminalNode();
-						dtree->_nodes.insert(ttnode);
+						dtree->_nodes++;
 						ttnode->_grammarID = gexp->_nodes[i]->_id;
 						ttnode->_content = GetSymbols(gexp->_nodes[i], randan);
 						//ttnode->_content = gexp->_nodes[i]->_identifier;
@@ -2196,7 +2196,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 			case GrammarNode::NodeType::Sequence:
 				seq++;
 				tnnode = new DerivationTree::SequenceNode;
-				dtree->_nodes.insert(tnnode);
+				dtree->_nodes++;
 				dtree->_sequenceNodes++;
 				tnnode->_grammarID = gexp->_nodes[i]->_id;
 				nnode->AddChild(tnnode);
@@ -2204,7 +2204,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 				break;
 			case GrammarNode::NodeType::NonTerminal:
 				tnnode = new DerivationTree::NonTerminalNode;
-				dtree->_nodes.insert(tnnode);
+				dtree->_nodes++;
 				tnnode->_grammarID = gexp->_nodes[i]->_id;
 				nnode->AddChild(tnnode);
 				qnonterminals.push_back({ tnnode, gexp->_nodes[i] });
@@ -2212,7 +2212,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 			case GrammarNode::NodeType::Terminal:
 				// create new terminal node
 				ttnode = new DerivationTree::TerminalNode();
-				dtree->_nodes.insert(ttnode);
+				dtree->_nodes++;
 				ttnode->_grammarID = gexp->_nodes[i]->_id;
 				ttnode->_content = GetSymbols(gexp->_nodes[i], randan);
 				nnode->AddChild(ttnode);
@@ -2259,7 +2259,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 			case GrammarNode::NodeType::Sequence:
 				seq++;
 				tnnode = new DerivationTree::SequenceNode;
-				dtree->_nodes.insert(tnnode);
+				dtree->_nodes++;
 				dtree->_sequenceNodes++;
 				tnnode->_grammarID = gexp->_nodes[i]->_id;
 				nnode->AddChild(tnnode);
@@ -2267,7 +2267,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 				break;
 			case GrammarNode::NodeType::NonTerminal:
 				tnnode = new DerivationTree::NonTerminalNode;
-				dtree->_nodes.insert(tnnode);
+				dtree->_nodes++;
 				tnnode->_grammarID = gexp->_nodes[i]->_id;
 				nnode->AddChild(tnnode);
 				qnonterminals.push_back({ tnnode, gexp->_nodes[i] });
@@ -2275,7 +2275,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 			case GrammarNode::NodeType::Terminal:
 				// create new terminal node
 				ttnode = new DerivationTree::TerminalNode();
-				dtree->_nodes.insert(tnnode);
+				dtree->_nodes++;
 				ttnode->_grammarID = gexp->_nodes[i]->_id;
 				ttnode->_content = GetSymbols(gexp->_nodes[i], randan);
 				//ttnode->_content = gexp->_nodes[i]->_identifier;
@@ -2355,19 +2355,19 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 		std::stack<std::pair<DerivationTree::NonTerminalNode*, DerivationTree::NonTerminalNode*>> nodestack;
 		if (stree->_root->Type() == DerivationTree::NodeType::Sequence) {
 			nnode = new DerivationTree::SequenceNode;
-			dtree->_nodes.insert(nnode);
+			dtree->_nodes++;
 			nnode->_grammarID = ((DerivationTree::SequenceNode*)stree->_root)->_grammarID;
 			dtree->_root = nnode;
 			nodestack.push({ nnode, (DerivationTree::NonTerminalNode*)stree->_root });
 		} else if (stree->_root->Type() == DerivationTree::NodeType::NonTerminal) {
 			nnode = new DerivationTree::NonTerminalNode;
-			dtree->_nodes.insert(nnode);
+			dtree->_nodes++;
 			nnode->_grammarID = ((DerivationTree::NonTerminalNode*)stree->_root)->_grammarID;
 			dtree->_root = nnode;
 			nodestack.push({ nnode, (DerivationTree::NonTerminalNode*)stree->_root });
 		} else {
 			ttnode = new DerivationTree::TerminalNode;
-			dtree->_nodes.insert(ttnode);
+			dtree->_nodes++;
 			ttnode->_grammarID = ((DerivationTree::NonTerminalNode*)stree->_root)->_grammarID;
 			dtree->_root = ttnode;
 			ttnode->_content = _tree->_root->_identifier;
@@ -2381,14 +2381,14 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 					tnnode = new DerivationTree::NonTerminalNode;
 					tnnode->_grammarID = ((DerivationTree::NonTerminalNode*)snode->_children[i])->_grammarID;
 					dnode->AddChild(tnnode);
-					dtree->_nodes.insert(tnnode);
+					dtree->_nodes++;
 					nodestack.push({ tnnode, (DerivationTree::NonTerminalNode*)snode->_children[i] });
 					break;
 				case DerivationTree::NodeType::Sequence:
 					tnnode = new DerivationTree::SequenceNode;
 					tnnode->_grammarID = ((DerivationTree::SequenceNode*)snode->_children[i])->_grammarID;
 					dnode->AddChild(tnnode);
-					dtree->_nodes.insert(tnnode);
+					dtree->_nodes++;
 					dtree->_sequenceNodes++;
 					nodestack.push({ tnnode, (DerivationTree::SequenceNode*)snode->_children[i] });
 					break;
@@ -2397,7 +2397,7 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 					ttnode->_grammarID = ((DerivationTree::TerminalNode*)snode->_children[i])->_grammarID;
 					ttnode->_content = ((DerivationTree::TerminalNode*)snode->_children[i])->_content;
 					dnode->AddChild(ttnode);
-					dtree->_nodes.insert(ttnode);
+					dtree->_nodes++;
 					break;
 				}
 			}
@@ -2469,15 +2469,15 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 					if (node->Type() == DerivationTree::NodeType::NonTerminal || node->Type() == DerivationTree::NodeType::Sequence)
 						stack.push((DerivationTree::NonTerminalNode*)node);
 					else {
-						tree->_nodes.erase(node);
+						tree->_nodes--;
 						delete (DerivationTree::TerminalNode*)node;
 					}
 				}
 				if (tmp->Type() == DerivationTree::NodeType::Sequence) {
-					tree->_nodes.erase(tmp);
+					tree->_nodes--;
 					delete (DerivationTree::SequenceNode*)tmp;
 				} else {
-					tree->_nodes.erase(tmp);
+					tree->_nodes--;
 					delete (DerivationTree::NonTerminalNode*)tmp;
 				}
 			}

@@ -589,6 +589,7 @@ size_t SessionData::GetStaticSize(int32_t version)
 
 	static size_t size0x2 = size0x1  // last size
 	                        + 8      // listsize _generations
+	                        + 8      // exitstats.pipe
 	                        + 1      // _generationEnding
 	                        + 1;     // _generationFinishing
 
@@ -993,11 +994,13 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 					_positiveInputs.set_ordering(std::SetOrdering::Length);
 					break;
 				case Settings::GenerationSourcesType::FilterPrimaryScore:
+				case Settings::GenerationSourcesType::FilterPrimaryScoreRelative:
 					_negativeInputs.set_ordering(std::SetOrdering::Primary);
 					_unfinishedInputs.set_ordering(std::SetOrdering::Primary);
 					_positiveInputs.set_ordering(std::SetOrdering::Primary);
 					break;
 				case Settings::GenerationSourcesType::FilterSecondaryScore:
+				case Settings::GenerationSourcesType::FilterSecondaryScoreRelative:
 					_negativeInputs.set_ordering(std::SetOrdering::Secondary);
 					_unfinishedInputs.set_ordering(std::SetOrdering::Secondary);
 					_positiveInputs.set_ordering(std::SetOrdering::Secondary);

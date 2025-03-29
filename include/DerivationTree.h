@@ -45,6 +45,7 @@ public:
 		{
 			for (int i = 0; i < _children.size(); i++)
 				delete _children[i];
+			_children.clear();
 		}
 
 		NodeType Type() override { return NodeType::NonTerminal; }
@@ -115,7 +116,6 @@ public:
 
 		~SequenceNode()
 		{
-			NonTerminalNode::~NonTerminalNode();
 		}
 
 		std::pair<Node*, std::vector<Node*>> CopyRecursive() override
@@ -186,7 +186,7 @@ public:
 	bool _valid = false;
 	uint32_t _seed = 0;
 	int32_t _targetlen = 0;
-	std::set<Node*> _nodes;
+	int64_t _nodes;
 	int64_t _sequenceNodes = 0;
 	ParentTree _parent;
 	FormID _inputID = 0;

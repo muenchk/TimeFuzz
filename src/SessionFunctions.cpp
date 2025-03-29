@@ -351,8 +351,16 @@ void SessionFunctions::ReclaimMemory(std::shared_ptr<SessionData>& sessiondata)
 	profile(TimeProfiling, "Visiting {}", size);
 	ResetProfiling;
 
-	for (auto& form : free)
+	for (auto& form : free) {
 		form->FreeMemory();
+		if (form->GetType() == FormType::Input) {
+			auto _input = form->As<Input>();
+			if (_input->GetGenerated() == false && _input->test && _input->test->IsValid() == false) {
+				if (_input->derive)
+					_input->derive->FreeMemory();
+			}
+		}
+	}
 	free.clear();
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
@@ -664,8 +672,6 @@ bool SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 		}
 		break;
 	}
-	// free memory to save reclaim time
-	input->FreeMemory();
 	return false;
 }
 

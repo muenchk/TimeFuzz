@@ -604,11 +604,8 @@ void Input::FreeMemory()
 		// (i.e. we have evaluated oracle and stuff)
 		// we can destroy the derivation tree and clear the _sequence to reclaim
 		// memory space
-		if (_generatedSequence && test && test->IsValid() == false && !test->_callback) {
+		if (_generatedSequence && test && test->IsValid() == false) {
 			_generatedSequence = false;
-
-			if (derive)
-				derive->FreeMemory();
 
 			_sequence.clear();
 			_orig_sequence.clear();
