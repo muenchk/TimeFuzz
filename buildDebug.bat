@@ -1,4 +1,4 @@
-cmake --build build --config Debug
-cd build
+cmake --build debug
+cd debug
 ctest
 cd ..

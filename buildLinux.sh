@@ -1,4 +1,4 @@
-cmake --build buildLinux --config Release
-cd ./buildLinux
+cmake --build build-linux-release
+cd ./build-linux-release
 ctest
 cd ..

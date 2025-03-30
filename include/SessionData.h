@@ -66,6 +66,8 @@ class SessionData : public Form
 	{
 		bool operator()(const std::shared_ptr<InputNode>& lhs, const std::shared_ptr<InputNode>& rhs) const
 		{
+			if (!rhs)
+				return false;
 			if (lhs->primary == rhs->primary)
 				return lhs->secondary > rhs->secondary;
 			else
@@ -77,6 +79,8 @@ class SessionData : public Form
 	{
 		bool operator()(const std::shared_ptr<InputNode>& lhs, const std::shared_ptr<InputNode>& rhs) const
 		{
+			if (!rhs)
+				return false;
 			if (lhs->secondary == rhs->secondary)
 				return lhs->primary > rhs->primary;
 			else
@@ -88,6 +92,8 @@ class SessionData : public Form
 	{
 		bool operator()(const std::shared_ptr<InputNode>& lhs, const std::shared_ptr<InputNode>& rhs) const
 		{
+			if (!rhs)
+				return false;
 			return lhs->length > rhs->length;
 		}
 	};

@@ -108,6 +108,18 @@
       }
     },
     {
+      "name": "clang19",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang-19",
+        "CMAKE_CXX_COMPILER": "clang++-19"
+      },
+      "environment": {
+        "PROJECT_COMPILER": "clang",
+        "PROJECT_COMPILER_FLAGS": "-Wno-overloaded-virtual -Wno-delete-non-abstract-non-virtual-dtor -Wno-inconsistent-missing-override -Wno-reinterpret-base-class -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format"
+      }
+    },
+    {
       "name": "gnu",
       "hidden": true,
       "cacheVariables": {
@@ -117,6 +129,30 @@
       "environment": {
         "PROJECT_COMPILER": "GNU",
         "PROJECT_COMPILER_FLAGS": "-Wno-overloaded-virtual -Wno-multichar -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format"
+      }
+    },
+    {
+      "name": "gnu14",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "gcc-14",
+        "CMAKE_CXX_COMPILER": "g++-14"
+      },
+      "environment": {
+        "PROJECT_COMPILER": "GNU",
+        "PROJECT_COMPILER_FLAGS": "-Wno-overloaded-virtual -Wno-multichar -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format"
+      }
+    },
+    {
+      "name": "gnu14-debug",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "gcc-14",
+        "CMAKE_CXX_COMPILER": "g++-14"
+      },
+      "environment": {
+        "PROJECT_COMPILER": "GNU",
+        "PROJECT_COMPILER_FLAGS": "-Wno-overloaded-virtual -Wno-multichar -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format -D_GLIBCXX_USE_CXX11_ABI=0"
       }
     },
     {
@@ -154,7 +190,7 @@
       }
     },
     {
-      "name": "buildclang",
+      "name": "release-clang",
       "inherits": [
         "base",
         "vcpkg",
@@ -167,7 +203,7 @@
       "displayName": "Release",
       "description": "Optimized release build.",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build",
+      "binaryDir": "${sourceDir}/build-clang",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": {
           "type": "STRING",
@@ -176,7 +212,7 @@
       }
     },
     {
-      "name": "buildRelease",
+      "name": "release",
       "inherits": [
         "base",
         "vcpkg",
@@ -189,7 +225,7 @@
       "displayName": "Build (Release)",
       "description": "Optimized release build.",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/buildRelease",
+      "binaryDir": "${sourceDir}/build-release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": {
           "type": "STRING",
@@ -198,7 +234,7 @@
       }
     },
     {
-      "name": "build",
+      "name": "debug",
       "inherits": [
         "base",
         "vcpkg",
@@ -211,7 +247,7 @@
       "displayName": "Build",
       "description": "Optimized release build.",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build",
+      "binaryDir": "${sourceDir}/build-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": {
           "type": "STRING",
@@ -234,7 +270,28 @@
       "displayName": "All",
       "description": "Optimized release build.",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/buildall",
+      "binaryDir": "${sourceDir}/build-all",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": {
+          "type": "STRING",
+          "value": "Debug"
+        }
+      }
+    },
+    {
+      "name": "linux-debug",
+      "inherits": [
+        "base",
+        "vcpkg-linux",
+        "ui",
+        "x64",
+        "clang",
+        "generator-ninja"
+      ],
+      "displayName": "Linux",
+      "description": "Optimized release build.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-linux-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": {
           "type": "STRING",
@@ -255,16 +312,16 @@
       "displayName": "Linux",
       "description": "Optimized release build.",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/buildLinux",
+      "binaryDir": "${sourceDir}/build-linux-release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": {
           "type": "STRING",
-          "value": "Debug"
+          "value": "Release"
         }
       }
     },
     {
-      "name": "kali",
+      "name": "kali-release",
       "inherits": [
         "base",
         "vcpkg-linux",
@@ -274,7 +331,7 @@
         "generator-ninja"
       ],
       "displayName": "Kali",
-      "binaryDir": "${sourceDir}/buildKali",
+      "binaryDir": "${sourceDir}/buil-kali-release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": {
           "type": "STRING",
@@ -285,10 +342,10 @@
     {
       "name": "kali-debug",
       "inherits": [
-        "linux"
+        "kali-release"
       ],
       "displayName": "Kali",
-      "binaryDir": "${sourceDir}/buildKaliDebug",
+      "binaryDir": "${sourceDir}/build-kali-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": {
           "type": "STRING",
@@ -297,7 +354,7 @@
       }
     },
     {
-      "name": "kaliNoUI",
+      "name": "kali-release-noui",
       "inherits": [
         "base",
         "vcpkg-linux",
@@ -306,7 +363,7 @@
         "generator-ninja"
       ],
       "displayName": "Kali",
-      "binaryDir": "${sourceDir}/buildKaliNoUI",
+      "binaryDir": "${sourceDir}/build-kali-release-noui",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": {
           "type": "STRING",
@@ -315,7 +372,7 @@
       }
     },
     {
-      "name": "Gnu",
+      "name": "linux-gnu-release",
       "inherits": [
         "base",
         "vcpkg-linux",
@@ -328,7 +385,7 @@
       "displayName": "Linux",
       "description": "Optimized release build.",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/buildLinuxGnu",
+      "binaryDir": "${sourceDir}/build-linux-gnu-release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": {
           "type": "STRING",
@@ -337,7 +394,7 @@
       }
     },
     {
-      "name": "GnuNoUI",
+      "name": "linux-gnu-release-noui",
       "inherits": [
         "base",
         "vcpkg-linux",
@@ -349,11 +406,51 @@
       "displayName": "Linux",
       "description": "Optimized release build.",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/buildLinuxGnuNoUI",
+      "binaryDir": "${sourceDir}/build-linux-gnu-release-noui",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": {
           "type": "STRING",
           "value": "Release"
+        }
+      }
+    },
+    {
+      "name": "linux-gnu-debug-noui",
+      "inherits": [
+        "base",
+        "vcpkg-linux",
+        "x64",
+        "gnu14-debug",
+        "generator-ninja-fixedpath"
+      ],
+      "displayName": "Linux",
+      "description": "Optimized release build.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-linux-gnu-debug-noui",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": {
+          "type": "STRING",
+          "value": "Debug"
+        }
+      }
+    },
+    {
+      "name": "linux-debug-noui",
+      "inherits": [
+        "base",
+        "vcpkg-linux",
+        "x64",
+        "clang",
+        "generator-ninja-fixedpath"
+      ],
+      "displayName": "Linux",
+      "description": "Optimized release build.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-linux-debug-noui",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": {
+          "type": "STRING",
+          "value": "Debug"
         }
       }
     },

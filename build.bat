@@ -1,4 +1,4 @@
-cmake --build buildall --config Release
-cd buildall
+cmake --build all
+cd build-all
 ctest
 cd ..

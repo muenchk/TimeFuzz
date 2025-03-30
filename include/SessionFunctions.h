@@ -32,6 +32,8 @@ struct InputGainGreaterPrimary
 {
 	bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
 	{
+		if (!rhs)
+			return false;
 		//return (lhs->GetPrimaryScore() / lhs->Length()) > (rhs->GetPrimaryScore() / rhs->Length());
 		// exponential ratios
 		// the ratio itself is the result of an exponential e^x, we want to get this x
@@ -49,6 +51,8 @@ struct InputGreaterPrimary
 {
 	bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
 	{
+		if (!rhs)
+			return false;
 		return lhs->GetPrimaryScore() > rhs->GetPrimaryScore();
 	}
 };
@@ -57,6 +61,8 @@ struct InputGainGreaterSecondary
 {
 	bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
 	{
+		if (!rhs)
+			return false;
 		double left = (lhs->Length() / lhs->GetSecondaryScore());
 		double right = (rhs->Length() / rhs->GetSecondaryScore());
 		return left < right;
@@ -67,6 +73,8 @@ struct InputGreaterSecondary
 {
 	bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
 	{
+		if (!rhs)
+			return false;
 		return lhs->GetSecondaryScore() > rhs->GetSecondaryScore();
 	}
 };
@@ -75,6 +83,8 @@ struct InputLengthGreater
 {
 	bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
 	{
+		if (!rhs)
+			return false;
 		return lhs->Length() > rhs->Length();
 	}
 };

@@ -23,6 +23,8 @@ struct FormIDLess
 {
 	bool operator()(const std::shared_ptr<T>& lhs, const std::shared_ptr<T>& rhs) const
 	{
+		if (!rhs)
+			return true;
 		return lhs->GetFormID() < rhs->GetFormID();
 	}
 };

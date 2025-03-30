@@ -1,5 +1,5 @@
-cmake --preset kali
-cmake --build buildKali --config Release
-cd ./buildKali
+cmake --preset kali-release
+cmake --build build-kali-release
+cd ./build-kali-release
 ctest
 cd ..
