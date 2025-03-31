@@ -619,6 +619,8 @@ void StartSession()
 	args.settingsPath = CmdArgs::_settingspath;
 	args.loadNewGrammar = CmdArgs::_updateGrammar;
 	args.skipExclusionTree = CmdArgs::_doNotLoadExclusionTree;
+	args.customsavepath = CmdArgs::_customsavepath;
+	args.savepath = CmdArgs::_savepath;
 
 	if (CmdArgs::_load) {
 		args.startSession = true;
@@ -648,7 +650,7 @@ void StartSession()
 		// create sessions and start it
 		session = Session::CreateSession();
 		bool error = false;
-		session->StartSession(error, args.skipExclusionTree, false, false, CmdArgs::_settingspath);
+		session->StartSession(error, args.skipExclusionTree, false, false, CmdArgs::_settingspath, {}, CmdArgs::_customsavepath, CmdArgs::_savepath);
 		session->InitStatus(status);
 		if (error == true) {
 			logcritical("Couldn't start the session, exiting...");
@@ -709,10 +711,13 @@ int32_t main(int32_t argc, char** argv)
 		"    --no-exclusiontree                   - Skips the loading of data from the exclusion tree\n"
 		"    --debug                              - Enable debug logging\n"
 		"    --clear-tasks                        - clears all tasks and active tests from the session\n"
-		"    --save-status <time/sec> <FOLDER>    - saves the current status every x seconds\n";
+		"    --save-status <time/sec> <FOLDER>    - saves the current status every x seconds\n"
+		"    --savepath <FOLDER>                  - custom path to savefiles\n";
 
 	std::string logpath = "";
 	bool logtimestamps = false;
+	std::string savepath = "";
+	bool custsavepath = false;
 
 	std::filesystem::path execpath = std::filesystem::path(argv[0]).parent_path();
 
@@ -766,6 +771,16 @@ int32_t main(int32_t argc, char** argv)
 				i++;
 			} else {
 				std::cerr << "missing logpath";
+				exit(ExitCodes::ArgumentError);
+			}
+		} else if (option.find("--savepath") != std::string::npos) {
+			if (i + 1 < argc) {
+				std::cout << "Parameter: --savepath\n";
+				custsavepath = true;
+				savepath = argv[i + 1];
+				i++;
+			} else {
+				std::cerr << "missing savepath";
 				exit(ExitCodes::ArgumentError);
 			}
 		} else if (option.find("--consoleui") != std::string::npos) {
@@ -910,6 +925,13 @@ int32_t main(int32_t argc, char** argv)
 
 	if (CmdArgs::_saveStatus)
 		std::filesystem::create_directories(CmdArgs::workdir / statuspath);
+
+	if (custsavepath)
+	{
+		CmdArgs::_customsavepath = custsavepath;
+		std::filesystem::create_directories(CmdArgs::workdir / savepath);
+		CmdArgs::_savepath = std::filesystem::absolute(CmdArgs::workdir / savepath);
+	}
 
 	// init logging engine
 	Logging::InitializeLog(CmdArgs::workdir / logpath, false, logtimestamps);

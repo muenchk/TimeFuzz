@@ -331,7 +331,7 @@
         "generator-ninja"
       ],
       "displayName": "Kali",
-      "binaryDir": "${sourceDir}/buil-kali-release",
+      "binaryDir": "${sourceDir}/build-kali-release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": {
           "type": "STRING",

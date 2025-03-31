@@ -5,6 +5,7 @@
 #include <memory>
 #include <mutex>
 #include <unordered_map>
+#include <semaphore>
 
 class Test;
 
@@ -27,6 +28,9 @@ private:
 	std::unordered_map<FormID, WriteData*> _writeQueue;
 
 	std::mutex _writeQueueLock;
+	std::binary_semaphore _writeQueueSem = std::binary_semaphore(1);
+
+	void PerformWritesInternal();
 
 public:
 	static IPCommManager* GetSingleton();

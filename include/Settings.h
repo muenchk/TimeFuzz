@@ -41,6 +41,8 @@ public:
 	static inline bool _consoleUI = false;
 	static inline bool _saveStatus = false;
 	static inline int32_t _saveStatusSeconds = 60;
+	static inline bool _customsavepath = false;
+	static inline std::filesystem::path _savepath;
 };
 
 enum class RangeSkipOptions

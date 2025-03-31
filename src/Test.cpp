@@ -906,13 +906,13 @@ namespace Functions
 				_input->UnsetFlag(Form::FormFlags::DoNotFree);
 				_input->test->UnsetFlag(Form::FormFlags::DoNotFree);
 				// free memory to save reclaim time
-				StartProfiling;
 				_input->FreeMemory();
 				if (_input->GetGenerated() == false && _input->test && _input->test->IsValid() == false) {
 					if (_input->derive)
 						_input->derive->FreeMemory();
+					if (_input->test)
+						_input->test->FreeMemory();
 				}
-				profile(TimeProfiling, "free");
 			}
 		}
 		// schedule test generation

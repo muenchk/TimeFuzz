@@ -1,0 +1,17 @@
+cmake (3.20+)
+ninja-build
+python3.8
+pip3
+clang-18 and dependencies
+llvm-18
+libstdc++-14-dev
+pkg-config
+libxinerama-dev
+libxcursor-dev
+xorg-dev
+libglu1-mesa
+
+
+
+python:
+	open-cv

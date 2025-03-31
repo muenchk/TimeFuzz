@@ -106,7 +106,10 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, LoadSessionArgs&
 	session->_sessiondata = dat->CreateForm<SessionData>();
 	session->_sessiondata->_settings = sett;
 	session->data = dat;
-	dat->SetSavePath(sett->saves.savepath);
+	if (loadargs.customsavepath)
+		dat->SetSavePath(loadargs.savepath);
+	else
+		dat->SetSavePath(sett->saves.savepath);
 	logdebug("Set save path");
 	LoadSessionArgs* asyncargs = nullptr;
 	if (loadargs.startSession) {
@@ -117,6 +120,8 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, LoadSessionArgs&
 		asyncargs->loadNewGrammar = loadargs.loadNewGrammar;
 		asyncargs->clearTasks = loadargs.clearTasks;
 		asyncargs->skipExclusionTree = loadargs.skipExclusionTree;
+		asyncargs->customsavepath = loadargs.customsavepath;
+		asyncargs->savepath = loadargs.savepath;
 	}
 	std::thread th(LoadSession_Async, dat, name, -1, asyncargs);
 	th.detach();
@@ -139,7 +144,10 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, 
 	session->_sessiondata = dat->CreateForm<SessionData>();
 	session->_sessiondata->_settings = sett;
 	session->data = dat;
-	dat->SetSavePath(sett->saves.savepath);
+	if (loadargs.customsavepath)
+		dat->SetSavePath(loadargs.savepath);
+	else
+		dat->SetSavePath(sett->saves.savepath);
 	logdebug("Set save path");
 	LoadSessionArgs* asyncargs = nullptr;
 	if (loadargs.startSession) {
@@ -150,6 +158,8 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, 
 		asyncargs->loadNewGrammar = loadargs.loadNewGrammar;
 		asyncargs->clearTasks = loadargs.clearTasks;
 		asyncargs->skipExclusionTree = loadargs.skipExclusionTree;
+		asyncargs->customsavepath = loadargs.customsavepath;
+		asyncargs->savepath = loadargs.savepath;
 	}
 	std::thread th(LoadSession_Async, dat, name, number, asyncargs);
 	th.detach();
@@ -405,7 +415,7 @@ void Session::StartLoadedSession(bool& error, bool reloadsettings, std::wstring 
 	_sessioncontroller = std::thread(&Session::SessionControl, this);
 }
 
-void Session::StartSession(bool& error, bool disableexclusiontree, bool globalTaskController, bool globalExecutionHandler, std::wstring settingsPath, std::function<void()> callback)
+void Session::StartSession(bool& error, bool disableexclusiontree, bool globalTaskController, bool globalExecutionHandler, std::wstring settingsPath, std::function<void()> callback, bool customsavepath, std::filesystem::path savepath)
 {
 	_loaded = true;
 	logmessage("Starting new session");
@@ -426,7 +436,10 @@ void Session::StartSession(bool& error, bool disableexclusiontree, bool globalTa
 	if (callback != nullptr)
 		_callback = callback;
 	// set save path
-	data->SetSavePath(_sessiondata->_settings->saves.savepath);
+	if (customsavepath)
+		data->SetSavePath(savepath);
+	else
+		data->SetSavePath(_sessiondata->_settings->saves.savepath);
 	data->SetSaveName(_sessiondata->_settings->saves.savename);
 	// disable exclusion tree if set
 	if (disableexclusiontree)
@@ -1153,9 +1166,9 @@ void Session::UI_GetDatabaseObjectStatus()
 {
 	StartProfiling;
 	int64_t freedObjects = 0, fullObjects = 0;
-	Data::SaveStats stats, nums;
+	Data::SaveStats stats, nums, freed;
 	uint64_t unfreed = 0;
-	std::function<Data::VisitAction(std::shared_ptr<Form>)> report = [&freedObjects, &fullObjects, &stats, &nums, &unfreed](std::shared_ptr<Form> form) {
+	std::function<Data::VisitAction(std::shared_ptr<Form>)> report = [&freedObjects, &fullObjects, &stats, &nums, &freed, &unfreed](std::shared_ptr<Form> form) {
 		if (form->Freed())
 			freedObjects++;
 		else
@@ -1164,6 +1177,8 @@ void Session::UI_GetDatabaseObjectStatus()
 		case FormType::Input:
 			stats._Input += form->MemorySize();
 			nums._Input ++;
+			if (form->Freed() == false)
+				freed._Input++;
 			//if (form->HasFlag(Form::FormFlags::DoNotFree)) {
 			//	auto inp = dynamic_pointer_cast<Input>(form);
 			//	if (inp->GetSequenceLength() > 0)
@@ -1173,10 +1188,14 @@ void Session::UI_GetDatabaseObjectStatus()
 		case FormType::Grammar:
 			stats._Grammar += form->MemorySize();
 			nums._Grammar++;
+			if (form->Freed() == false)
+				freed._Grammar++;
 			break;
 		case FormType::DevTree:
 			stats._DevTree += form->MemorySize();
 			nums._DevTree++;
+			if (form->Freed() == false)
+				freed._DevTree++;
 			//if (form->HasFlag(Form::FormFlags::DoNotFree)) {
 			//	auto dev = dynamic_pointer_cast<DerivationTree>(form);
 			//	if (dev->_nodes.size() > 0)
@@ -1186,46 +1205,68 @@ void Session::UI_GetDatabaseObjectStatus()
 		case FormType::ExclTree:
 			stats._ExclTree += form->MemorySize();
 			nums._ExclTree++;
+			if (form->Freed() == false)
+				freed._ExclTree++;
 			break;
 		case FormType::Generator:
 			stats._Generator += form->MemorySize();
 			nums._Generator++;
+			if (form->Freed() == false)
+				freed._Generator++;
 			break;
 		case FormType::Generation:
 			stats._Generation += form->MemorySize();
 			nums._Generation++;
+			if (form->Freed() == false)
+				freed._Generation++;
 			break;
 		case FormType::Session:
 			stats._Session += form->MemorySize();
 			nums._Session++;
+			if (form->Freed() == false)
+				freed._Session++;
 			break;
 		case FormType::Settings:
 			stats._Settings += form->MemorySize();
 			nums._Settings++;
+			if (form->Freed() == false)
+				freed._Settings++;
 			break;
 		case FormType::Test:
 			stats._Test += form->MemorySize();
 			nums._Test++;
+			if (form->Freed() == false)
+				freed._Test++;
 			break;
 		case FormType::TaskController:
 			stats._TaskController += form->MemorySize();
 			nums._TaskController++;
+			if (form->Freed() == false)
+				freed._TaskController++;
 			break;
 		case FormType::ExecutionHandler:
 			stats._ExecutionHandler += form->MemorySize();
 			nums._ExecutionHandler++;
+			if (form->Freed() == false)
+				freed._ExecutionHandler++;
 			break;
 		case FormType::Oracle:
 			stats._Oracle += form->MemorySize();
 			nums._Oracle++;
+			if (form->Freed() == false)
+				freed._Oracle++;
 			break;
 		case FormType::SessionData:
 			stats._SessionData += form->MemorySize();
 			nums._SessionData++;
+			if (form->Freed() == false)
+				freed._SessionData++;
 			break;
 		case FormType::DeltaController:
 			stats._DeltaController += form->MemorySize();
 			nums._DeltaController++;
+			if (form->Freed() == false)
+				freed._DeltaController++;
 			break;
 		}
 		stats._Fail += form->MemorySize();
@@ -1237,19 +1278,19 @@ void Session::UI_GetDatabaseObjectStatus()
 	logmessage("Database Status:");
 	logmessage("Freed Objects:               {}", freedObjects);
 	logmessage("Full Objects:                {}", fullObjects);
-	logmessage("Size of Input:              {:>10}, {:>15} B, {:2.3f}%%", nums._Input, stats._Input, (double)stats._Input * 100 / (double)stats._Fail);
-	logmessage("Size of Grammar:            {:>10}, {:>15} B, {:2.3f}%%", nums._Grammar, stats._Grammar, (double)stats._Grammar * 100 / (double)stats._Fail);
-	logmessage("Size of DevTree:            {:>10}, {:>15} B, {:2.3f}%%", nums._DevTree, stats._DevTree, (double)stats._DevTree * 100 / (double)stats._Fail);
-	logmessage("Size of ExclTree:           {:>10}, {:>15} B, {:2.3f}%%", nums._ExclTree, stats._ExclTree, (double)stats._ExclTree * 100 / (double)stats._Fail);
-	logmessage("Size of Generator:          {:>10}, {:>15} B, {:2.3f}%%", nums._Generator, stats._Generator, (double)stats._Generator * 100 / (double)stats._Fail);
-	logmessage("Size of Generation:         {:>10}, {:>15} B, {:2.3f}%%", nums._Generation, stats._Generation, (double)stats._Generation * 100 / (double)stats._Fail);
-	logmessage("Size of Session:            {:>10}, {:>15} B, {:2.3f}%%", nums._Session, stats._Session, (double)stats._Session * 100 / (double)stats._Fail);
-	logmessage("Size of Settings:           {:>10}, {:>15} B, {:2.3f}%%", nums._Settings, stats._Settings, (double)stats._Settings * 100 / (double)stats._Fail);
-	logmessage("Size of Test:               {:>10}, {:>15} B, {:2.3f}%%", nums._Test, stats._Test, (double)stats._Test * 100 / (double)stats._Fail);
-	logmessage("Size of TaskController:     {:>10}, {:>15} B, {:2.3f}%%", nums._TaskController, stats._TaskController, (double)stats._TaskController * 100 / (double)stats._Fail);
-	logmessage("Size of ExecutionHandler:   {:>10}, {:>15} B, {:2.3f}%%", nums._ExecutionHandler, stats._ExecutionHandler, (double)stats._ExecutionHandler * 100 / (double)stats._Fail);
-	logmessage("Size of Oracle:             {:>10}, {:>15} B, {:2.3f}%%", nums._Oracle, stats._Oracle, (double)stats._Oracle * 100 / (double)stats._Fail);
-	logmessage("Size of SessionData:        {:>10}, {:>15} B, {:2.3f}%%", nums._SessionData, stats._SessionData, (double)stats._SessionData * 100 / (double)stats._Fail);
-	logmessage("Size of DeltaController:    {:>10}, {:>15} B, {:2.3f}%%", nums._DeltaController, stats._DeltaController, (double)stats._DeltaController * 100 / (double)stats._Fail);
+	logmessage("Size of Input:              {:>10}, {:>10}, {:>15} B, {:2.3f}%%", nums._Input, freed._Input, stats._Input, (double)stats._Input * 100 / (double)stats._Fail);
+	logmessage("Size of Grammar:            {:>10}, {:>10}, {:>15} B, {:2.3f}%%", nums._Grammar, freed._Grammar, stats._Grammar, (double)stats._Grammar * 100 / (double)stats._Fail);
+	logmessage("Size of DevTree:            {:>10}, {:>10}, {:>15} B, {:2.3f}%%", nums._DevTree, freed._DevTree, stats._DevTree, (double)stats._DevTree * 100 / (double)stats._Fail);
+	logmessage("Size of ExclTree:           {:>10}, {:>10}, {:>15} B, {:2.3f}%%", nums._ExclTree, freed._ExclTree, stats._ExclTree, (double)stats._ExclTree * 100 / (double)stats._Fail);
+	logmessage("Size of Generator:          {:>10}, {:>10}, {:>15} B, {:2.3f}%%", nums._Generator, freed._Generator, stats._Generator, (double)stats._Generator * 100 / (double)stats._Fail);
+	logmessage("Size of Generation:         {:>10}, {:>10}, {:>15} B, {:2.3f}%%", nums._Generation, freed._Generation, stats._Generation, (double)stats._Generation * 100 / (double)stats._Fail);
+	logmessage("Size of Session:            {:>10}, {:>10}, {:>15} B, {:2.3f}%%", nums._Session, freed._Session, stats._Session, (double)stats._Session * 100 / (double)stats._Fail);
+	logmessage("Size of Settings:           {:>10}, {:>10}, {:>15} B, {:2.3f}%%", nums._Settings, freed._Settings, stats._Settings, (double)stats._Settings * 100 / (double)stats._Fail);
+	logmessage("Size of Test:               {:>10}, {:>10}, {:>15} B, {:2.3f}%%", nums._Test, freed._Test, stats._Test, (double)stats._Test * 100 / (double)stats._Fail);
+	logmessage("Size of TaskController:     {:>10}, {:>10}, {:>15} B, {:2.3f}%%", nums._TaskController, freed._TaskController, stats._TaskController, (double)stats._TaskController * 100 / (double)stats._Fail);
+	logmessage("Size of ExecutionHandler:   {:>10}, {:>10}, {:>15} B, {:2.3f}%%", nums._ExecutionHandler, freed._ExecutionHandler, stats._ExecutionHandler, (double)stats._ExecutionHandler * 100 / (double)stats._Fail);
+	logmessage("Size of Oracle:             {:>10}, {:>10}, {:>15} B, {:2.3f}%%", nums._Oracle, freed._Oracle, stats._Oracle, (double)stats._Oracle * 100 / (double)stats._Fail);
+	logmessage("Size of SessionData:        {:>10}, {:>10}, {:>15} B, {:2.3f}%%", nums._SessionData, freed._SessionData, stats._SessionData, (double)stats._SessionData * 100 / (double)stats._Fail);
+	logmessage("Size of DeltaController:    {:>10}, {:>10}, {:>15} B, {:2.3f}%%", nums._DeltaController, freed._DeltaController, stats._DeltaController, (double)stats._DeltaController * 100 / (double)stats._Fail);
 	profile(TimeProfiling, "");
 }

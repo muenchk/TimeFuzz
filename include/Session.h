@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <semaphore>
+#include <filesystem>
 
 #include "Generator.h"
 #include "Grammar.h"
@@ -47,6 +48,8 @@ struct LoadSessionArgs
 	/// clears all tasks and active tests from the session
 	/// </summary>
 	bool clearTasks = false;
+	bool customsavepath = false;
+	std::filesystem::path savepath;
 };
 
 struct SessionStatus
@@ -134,7 +137,7 @@ public:
 	/// <param name="error"></param>
 	/// <param name="globalTaskController"></param>
 	/// <param name="globalExecutionHandler"></param>
-	void StartSession(bool& error, bool disableexclusiontree, bool globalTaskController = false, bool globalExecutionHandler = false, std::wstring settingsPath = L"", std::function<void()> callback = nullptr);
+	void StartSession(bool& error, bool disableexclusiontree, bool globalTaskController = false, bool globalExecutionHandler = false, std::wstring settingsPath = L"", std::function<void()> callback = nullptr, bool customsavepath = false, std::filesystem::path savepath = {});
 
 	void StartLoadedSession(bool& error, bool reloadsettings = false, std::wstring settingsPath = L"", std::function<void()> callback = nullptr);
 

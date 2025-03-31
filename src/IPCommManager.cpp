@@ -1,5 +1,6 @@
 #include "IPCommManager.h"
 #include "Test.h"
+#include "Logging.h"
 
 IPCommManager::WriteData::WriteData(std::shared_ptr<Test> test, const char* data, size_t offset, size_t length)
 {
@@ -48,11 +49,9 @@ bool IPCommManager::Write(std::shared_ptr<Test> test, const char* data, size_t o
 	return true;
 }
 
-
-void IPCommManager::PerformWrites()
+void IPCommManager::PerformWritesInternal()
 {
-	std::unique_lock<std::mutex> guard(_writeQueueLock);
-
+	StartProfiling;
 	// do something
 	auto itr = _writeQueue.begin();
 	while (itr != _writeQueue.end()) {
@@ -75,12 +74,10 @@ void IPCommManager::PerformWrites()
 		// now write some stuff
 
 		bool skipitrinc = false;
-		if (auto test = itr->second->_test.lock(); test)
-		{
+		if (auto test = itr->second->_test.lock(); test) {
 			auto write = itr->second;
 			size_t written = 1;
-			while (written != 0 && write != nullptr)
-			{
+			while (written != 0 && write != nullptr) {
 				written = test->Write(write->_data, write->_offset, write->_length);
 				// update write information
 				write->_offset += written;
@@ -88,32 +85,26 @@ void IPCommManager::PerformWrites()
 				if (written == -1) {
 					itr = _writeQueue.erase(itr);
 					skipitrinc = true;
-					while (write != nullptr)
-					{
+					while (write != nullptr) {
 						auto next = write->next;
 						delete write;
 						write = next;
 					}
 					continue;
-				}
-				else if (write->_length <= 0)
-				{
+				} else if (write->_length <= 0) {
 					auto next = write->next;
 					if (next != nullptr) {
 						_writeQueue.insert_or_assign(test->GetFormID(), next);
 						delete write;
 						write = next;
-					}
-					else {
+					} else {
 						itr = _writeQueue.erase(itr);
 						skipitrinc = true;
 						delete write;
 						write = nullptr;
 						continue;
 					}
-				}
-				else
-				{
+				} else {
 					// couldn't write everything, so break loop
 					break;
 				}
@@ -121,5 +112,18 @@ void IPCommManager::PerformWrites()
 		}
 		if (!skipitrinc)
 			itr++;
+	}
+	_writeQueueSem.release();
+	profile(TimeProfiling, "Write pipe content");
+}
+
+void IPCommManager::PerformWrites()
+{
+	//std::unique_lock<std::mutex> guard(_writeQueueLock);
+	if (_writeQueueSem.try_acquire()) {
+		if (_writeQueue.size() > 0) {
+			std::thread(std::bind(&IPCommManager::PerformWritesInternal, this)).detach();
+		} else
+			_writeQueueSem.release();
 	}
 }

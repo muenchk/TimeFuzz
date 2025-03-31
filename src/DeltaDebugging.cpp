@@ -41,7 +41,6 @@ namespace Functions
 		}
 
 		_DDcontroller->CallbackTest(_input, _batchident, _batchtasks);
-		_input->test->UnsetFlag(Form::FormFlags::DoNotFree);
 
 		// ----- SESSION STUFF -----
 		// contrary to normal test cases, we do not need to generate new tests as this
@@ -441,8 +440,6 @@ namespace DeltaDebugging
 		{
 			std::unique_lock<std::mutex> guard(_completedTestsLock);
 			if (batchident == genCompData.batchident) {
-				_completedTests.insert(input);
-
 				_tests++;
 				_remainingtests--;
 				_activetests--;
@@ -453,6 +450,18 @@ namespace DeltaDebugging
 				//loginfo("{}, wrong batch, tasks --: {}", input->GetFormID(), tasks->tasks.load());
 				//logmessage("Skipped: Current batch: {}, Actual Batch: {}", genCompData.batchident, batchident);
 				// old batch aldtready superseeded
+				// unset flags and free
+				input->UnsetFlag(Form::FormFlags::DoNotFree);
+				input->test->UnsetFlag(Form::FormFlags::DoNotFree);
+				// free memory to save reclaim time
+				input->FreeMemory();
+				if (input->GetGenerated() == false && input->test && input->test->IsValid() == false) {
+					if (input->derive)
+						input->derive->FreeMemory();
+					if (input->test)
+						input->test->FreeMemory();
+				}
+				logmessage("free ddtest {}", input->GetFormID());
 				return;
 			}
 		}
@@ -488,18 +497,20 @@ namespace DeltaDebugging
 				return;
 			}
 
+			bool res = false;
+			switch (_params->mode) {
+			case DDMode::Standard:
+				res = StandardEvaluateInput(input);
+				break;
+			case DDMode::ScoreProgress:
+				res = ScoreProgressEvaluateInput(input);
+				break;
+			}
+			_completedTests.insert(input);
+
 			// evaluate whether th level should be ended prematurely
 			if (_sessiondata->_settings->dd.batchprocessing != 0 /*enabled*/) {
 				// evaluate the testcase here and now
-				bool res = false;
-				switch (_params->mode) {
-				case DDMode::Standard:
-					res = StandardEvaluateInput(input);
-					break;
-				case DDMode::ScoreProgress:
-					res = ScoreProgressEvaluateInput(input);
-					break;
-				}
 				if (res)
 					_stopbatch = true;
 				std::unique_lock<std::mutex> guard(_batchlock);
@@ -528,6 +539,19 @@ namespace DeltaDebugging
 				}
 			}
 		} else {
+			// unset flags and free
+			input->UnsetFlag(Form::FormFlags::DoNotFree);
+			input->test->UnsetFlag(Form::FormFlags::DoNotFree);
+			// free memory to save reclaim time
+			input->FreeMemory();
+			if (input->GetGenerated() == false && input->test && input->test->IsValid() == false) {
+				if (input->derive)
+					input->derive->FreeMemory();
+				if (input->test)
+					input->test->FreeMemory();
+			}
+			logmessage("free ddtest {}", input->GetFormID());
+
 			tasks->tasks--;
 			loginfo("{}, inactive batch, tasks --: {}", input->GetFormID(), tasks->tasks.load());
 		}
@@ -801,7 +825,7 @@ namespace DeltaDebugging
 
 		// try to find derivation tree for our input
 		inp->derive = _sessiondata->data->CreateForm<DerivationTree>();
-		inp->derive->SetFlag(Form::FormFlags::DoNotFree);
+		//inp->derive->SetFlag(Form::FormFlags::DoNotFree);
 		inp->derive->_inputID = inp->GetFormID();
 
 		auto segments = inp->GetParentSplits();
@@ -1799,7 +1823,20 @@ namespace DeltaDebugging
 				if (l < msparams->acceptableLossSecondary && lossSecondaryAbsolute(input) < msparams->acceptableLossSecondaryAbsolute) {
 					return true;
 				}
-				return false;
+				else
+				{
+					input->UnsetFlag(Form::FormFlags::DoNotFree);
+					input->test->UnsetFlag(Form::FormFlags::DoNotFree);
+					// free memory to save reclaim time
+					input->FreeMemory();
+					if (input->GetGenerated() == false && input->test && input->test->IsValid() == false) {
+						if (input->derive)
+							input->derive->FreeMemory();
+						if (input->test)
+							input->test->FreeMemory();
+					}
+					return false;
+				}
 			}
 			break;
 		case DDGoal::MaximizePrimaryScore:
@@ -1809,7 +1846,19 @@ namespace DeltaDebugging
 				if (l < mpparams->acceptableLoss && lossPrimaryAbsolute(input) < mpparams->acceptableLossAbsolute) {
 					return true;
 				}
-				return false;
+				else {
+					input->UnsetFlag(Form::FormFlags::DoNotFree);
+					input->test->UnsetFlag(Form::FormFlags::DoNotFree);
+					// free memory to save reclaim time
+					input->FreeMemory();
+					if (input->GetGenerated() == false && input->test && input->test->IsValid() == false) {
+						if (input->derive)
+							input->derive->FreeMemory();
+						if (input->test)
+							input->test->FreeMemory();
+					}
+					return false;
+				}
 			}
 			break;
 		case DDGoal::MaximizeBothScores:
@@ -1822,8 +1871,19 @@ namespace DeltaDebugging
 					seconl < mbparams->acceptableLossSecondary &&
 					lossSecondaryAbsolute(input) < mbparams->acceptableLossSecondaryAbsolute) {
 					return true;
+				} else {
+					input->UnsetFlag(Form::FormFlags::DoNotFree);
+					input->test->UnsetFlag(Form::FormFlags::DoNotFree);
+					// free memory to save reclaim time
+					input->FreeMemory();
+					if (input->GetGenerated() == false && input->test && input->test->IsValid() == false) {
+						if (input->derive)
+							input->derive->FreeMemory();
+						if (input->test)
+							input->test->FreeMemory();
+					}
+					return false;
 				}
-				return false;
 			}
 			break;
 		case DDGoal::None:
@@ -1833,8 +1893,19 @@ namespace DeltaDebugging
 				auto oracle = _origInput->GetOracleResult();
 				if (oracle == (input)->GetOracleResult()) {
 					return true;
+				} else {
+					input->UnsetFlag(Form::FormFlags::DoNotFree);
+					input->test->UnsetFlag(Form::FormFlags::DoNotFree);
+					// free memory to save reclaim time
+					input->FreeMemory();
+					if (input->GetGenerated() == false && input->test && input->test->IsValid() == false) {
+						if (input->derive)
+							input->derive->FreeMemory();
+						if (input->test)
+							input->test->FreeMemory();
+					}
+					return false;
 				}
-				return false;
 			}
 			break;
 		}
@@ -1851,18 +1922,18 @@ namespace DeltaDebugging
 			for (auto ptr : _completedTests) {
 				// if the ptr is not in the list of results
 				if (_results.find(ptr) == _results.end()) {
-					ptr->UnsetFlag(Form::FormFlags::DoNotFree);
-					if (ptr->derive)
-						ptr->derive->UnsetFlag(Form::FormFlags::DoNotFree);
+					//ptr->UnsetFlag(Form::FormFlags::DoNotFree);
+					//if (ptr->derive)
+					//	ptr->derive->UnsetFlag(Form::FormFlags::DoNotFree);
 				}
 			}
 			_completedTests.clear();
 			for (auto ptr : _activeInputs) {
 				// if the ptr is not in the list of results
 				if (_results.find(ptr) == _results.end()) {
-					ptr->UnsetFlag(Form::FormFlags::DoNotFree);
-					if (ptr->derive)
-						ptr->derive->UnsetFlag(Form::FormFlags::DoNotFree);
+					//ptr->UnsetFlag(Form::FormFlags::DoNotFree);
+					//if (ptr->derive)
+					//	ptr->derive->UnsetFlag(Form::FormFlags::DoNotFree);
 				}
 			}
 			_activeInputs.clear();
@@ -2150,10 +2221,34 @@ namespace DeltaDebugging
 			ptr->UnsetFlag(Form::FormFlags::DoNotFree);
 			if (ptr->derive)
 				ptr->derive->UnsetFlag(Form::FormFlags::DoNotFree);
+			// unset flags and free
+			ptr->UnsetFlag(Form::FormFlags::DoNotFree);
+			ptr->test->UnsetFlag(Form::FormFlags::DoNotFree);
+			// free memory to save reclaim time
+			ptr->FreeMemory();
+			if (ptr->GetGenerated() == false && ptr->test && ptr->test->IsValid() == false) {
+				if (ptr->derive)
+					ptr->derive->FreeMemory();
+				if (ptr->test)
+					ptr->test->FreeMemory();
+			}
 		}
 		_origInput->UnsetFlag(Form::FormFlags::DoNotFree);
 		if (_origInput->derive)
 			_origInput->derive->UnsetFlag(Form::FormFlags::DoNotFree);
+		if (_origInput->test)
+			_origInput->test->UnsetFlag(Form::FormFlags::DoNotFree);
+		// unset flags and free
+		_origInput->UnsetFlag(Form::FormFlags::DoNotFree);
+		_origInput->test->UnsetFlag(Form::FormFlags::DoNotFree);
+		// free memory to save reclaim time
+		_origInput->FreeMemory();
+		if (_origInput->GetGenerated() == false && _origInput->test && _origInput->test->IsValid() == false) {
+			if (_origInput->derive)
+				_origInput->derive->FreeMemory();
+			if (_origInput->test)
+				_origInput->test->FreeMemory();
+		}
 		_activeInputs.clear();
 		_completedTests.clear();
 		{
