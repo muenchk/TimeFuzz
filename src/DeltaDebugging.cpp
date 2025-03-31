@@ -745,6 +745,16 @@ namespace DeltaDebugging
 	bool DeltaController::CheckInput(std::shared_ptr<Input> parentinp, std::shared_ptr<Input> inp, double approxthreshold)
 	{
 		StartProfiling;
+		// fix for parentinp
+		if (parentinp->GetGenerated() == false || parentinp->GetSequenceLength() == 0) {
+			parentinp->SetGenerated(false);
+			// we are trying to add an parentinp that hasn't been generated or regenerated
+			// try the generate it and if it succeeds add the test
+			SessionFunctions::GenerateInput(parentinp, _sessiondata);
+			if (parentinp->GetGenerated() == false)
+				return false;
+		}
+
 		// check against exclusion tree
 		if (_sessiondata->_settings->dd.approximativeTestExecution && _params->GetGoal() == DDGoal::MaximizePrimaryScore) {
 			auto [hasPrefix, prefixID, hasextension, extensionID] = _sessiondata->_excltree->HasPrefixAndShortestExtension(inp);
@@ -975,6 +985,8 @@ namespace DeltaDebugging
 			_skippedTests++;
 			return;
 		}
+		if (!parent) // skip if parent is for some reason empty
+			return;
 		auto inp = GetComplement(begin, length, approx, parent);
 		if (inp) {
 			if (DoTest(inp, batchident, tasks))  // if the test is valid and is being executed just return
@@ -1156,11 +1168,23 @@ namespace DeltaDebugging
 		case DDGoal::ReproduceResult:
 			{
 				auto oracle = this->_origInput->GetOracleResult();
-				if (oracle != input->GetOracleResult()) {
-					return false;  // doesn't reproduce, return
+				if (oracle == input->GetOracleResult()) {
+					return true;  // doesn't reproduce, return
 				}
 				// we have found an input that reproduces the result and thus we return true, as all requirements are fulfilled
-				return true;
+				else {
+					input->UnsetFlag(Form::FormFlags::DoNotFree);
+					input->test->UnsetFlag(Form::FormFlags::DoNotFree);
+					// free memory to save reclaim time
+					input->FreeMemory();
+					if (input->GetGenerated() == false && input->test && input->test->IsValid() == false) {
+						if (input->derive)
+							input->derive->FreeMemory();
+						if (input->test)
+							input->test->FreeMemory();
+					}
+					return false;
+				}
 			}
 			break;
 		case DDGoal::MaximizePrimaryScore:
@@ -1180,8 +1204,19 @@ namespace DeltaDebugging
 					lossPrimaryAbsolute(input) < mpparams->acceptableLossAbsolute) {
 					// we have found an input that reproduces the result and thus we return true, as all requirements are fulfilled
 					return true;
+				} else {
+					input->UnsetFlag(Form::FormFlags::DoNotFree);
+					input->test->UnsetFlag(Form::FormFlags::DoNotFree);
+					// free memory to save reclaim time
+					input->FreeMemory();
+					if (input->GetGenerated() == false && input->test && input->test->IsValid() == false) {
+						if (input->derive)
+							input->derive->FreeMemory();
+						if (input->test)
+							input->test->FreeMemory();
+					}
+					return false;
 				}
-				return false;
 			}
 			break;
 		case DDGoal::MaximizeSecondaryScore:
@@ -1201,8 +1236,19 @@ namespace DeltaDebugging
 					lossSecondaryAbsolute(input) < mpparams->acceptableLossSecondaryAbsolute) {
 					// we have found an input that reproduces the result and thus we return true, as all requirements are fulfilled
 					return true;
+				} else {
+					input->UnsetFlag(Form::FormFlags::DoNotFree);
+					input->test->UnsetFlag(Form::FormFlags::DoNotFree);
+					// free memory to save reclaim time
+					input->FreeMemory();
+					if (input->GetGenerated() == false && input->test && input->test->IsValid() == false) {
+						if (input->derive)
+							input->derive->FreeMemory();
+						if (input->test)
+							input->test->FreeMemory();
+					}
+					return false;
 				}
-				return false;
 			}
 			break;
 		case DDGoal::MaximizeBothScores:
@@ -1225,8 +1271,19 @@ namespace DeltaDebugging
 					lossSecondaryAbsolute(input) < mbparams->acceptableLossSecondaryAbsolute) {
 					// we have found an input that reproduces the result and thus we return true, as all requirements are fulfilled
 					return true;
+				} else {
+					input->UnsetFlag(Form::FormFlags::DoNotFree);
+					input->test->UnsetFlag(Form::FormFlags::DoNotFree);
+					// free memory to save reclaim time
+					input->FreeMemory();
+					if (input->GetGenerated() == false && input->test && input->test->IsValid() == false) {
+						if (input->derive)
+							input->derive->FreeMemory();
+						if (input->test)
+							input->test->FreeMemory();
+					}
+					return false;
 				}
-				return false;
 			}
 			break;
 		}
@@ -1242,18 +1299,18 @@ namespace DeltaDebugging
 			for (auto ptr : _completedTests) {
 				// if the ptr is not in the list of results
 				if (_results.find(ptr) == _results.end()) {
-					ptr->UnsetFlag(Form::FormFlags::DoNotFree);
-					if (ptr->derive)
-						ptr->derive->UnsetFlag(Form::FormFlags::DoNotFree);
+					//ptr->UnsetFlag(Form::FormFlags::DoNotFree);
+					//if (ptr->derive)
+					//	ptr->derive->UnsetFlag(Form::FormFlags::DoNotFree);
 				}
 			}
 			_completedTests.clear();
 			for (auto ptr : _activeInputs) {
 				// if the ptr is not in the list of results
 				if (_results.find(ptr) == _results.end()) {
-					ptr->UnsetFlag(Form::FormFlags::DoNotFree);
-					if (ptr->derive)
-						ptr->derive->UnsetFlag(Form::FormFlags::DoNotFree);
+					//ptr->UnsetFlag(Form::FormFlags::DoNotFree);
+					//if (ptr->derive)
+					//	ptr->derive->UnsetFlag(Form::FormFlags::DoNotFree);
 				}
 			}
 			_activeInputs.clear();
@@ -1270,8 +1327,8 @@ namespace DeltaDebugging
 				auto reproc = [this]() {
 					std::vector<std::shared_ptr<Input>> res;
 					auto oracle = this->_origInput->GetOracleResult();
-					auto itr = _activeInputs.begin();
-					while (itr != _activeInputs.end()) {
+					auto itr = _completedTests.begin();
+					while (itr != _completedTests.end()) {
 						if (oracle == (*itr)->GetOracleResult()) {
 							res.push_back(*itr);
 							_results.insert_or_assign(*itr, std::tuple<double, double, int32_t>{ 0, 0, _level });
@@ -1404,8 +1461,8 @@ namespace DeltaDebugging
 				// begin() -> end() == higher score -> lower score
 				auto sortprimary = [this]() {
 					std::multiset<std::shared_ptr<Input>, PrimaryLess> res;
-					auto itr = _activeInputs.begin();
-					while (itr != _activeInputs.end()) {
+					auto itr = _completedTests.begin();
+					while (itr != _completedTests.end()) {
 						res.insert(*itr);
 						itr++;
 					}
@@ -1484,8 +1541,8 @@ namespace DeltaDebugging
 				// begin() -> end() == higher score -> lower score
 				auto sortprimary = [this]() {
 					std::multiset<std::shared_ptr<Input>, SecondaryLess> res;
-					auto itr = _activeInputs.begin();
-					while (itr != _activeInputs.end()) {
+					auto itr = _completedTests.begin();
+					while (itr != _completedTests.end()) {
 						res.insert(*itr);
 						itr++;
 					}
@@ -1565,8 +1622,8 @@ namespace DeltaDebugging
 				// begin() -> end() == higher score -> lower score
 				auto sortprimary = [this]() {
 					std::multiset<std::shared_ptr<Input>, PrimaryLess> res;
-					auto itr = _activeInputs.begin();
-					while (itr != _activeInputs.end()) {
+					auto itr = _completedTests.begin();
+					while (itr != _completedTests.end()) {
 						res.insert(*itr);
 						itr++;
 					}

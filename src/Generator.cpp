@@ -205,6 +205,7 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> p
 	StartProfiling;
 
 	FlagHolder<Input> inputflag(input, Form::FormFlags::DoNotFree);
+	FlagHolder<DerivationTree> deriveflag(input->derive, Form::FormFlags::DoNotFree);
 	std::vector<std::unique_ptr<FlagHolder<Input>>> parentflags;
 	std::vector<std::unique_ptr<FlagHolder<DerivationTree>>> parenttreeflags;
 	std::vector<std::shared_ptr<Form>> locklist;
