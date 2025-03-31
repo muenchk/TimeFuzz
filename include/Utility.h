@@ -20,7 +20,7 @@
 
 typedef uint64_t EnumType;
 
-class Form;
+#include "Form.h"
 
 class Utility
 {
@@ -62,6 +62,14 @@ public:
 		static_assert(false, "unrecognized platform");
 
 #endif
+	}
+
+	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+	static std::string PrintForm(std::shared_ptr<T> form)
+	{
+		if (!form || form->GetFormID() == 0)
+			return "None";
+		return std::string("[") + typeid(T).name() + "<" + Utility::GetHex(form->GetFormID()) + ">";
 	}
 
 	/// <summary>

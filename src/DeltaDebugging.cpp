@@ -123,7 +123,8 @@ namespace Functions
 
 	void DDEvaluateExplicitCallback::Run()
 	{
-		_DDcontroller->CallbackExplicitEvaluate();
+		if (_DDcontroller)
+			_DDcontroller->CallbackExplicitEvaluate();
 	}
 
 	std::shared_ptr<BaseFunction> DDEvaluateExplicitCallback::DeepCopy()
@@ -162,7 +163,8 @@ namespace Functions
 
 	void DDGenerateComplementCallback::Run()
 	{
-		_DDcontroller->GenerateComplements_Async_Callback(_begin, _length, _approxthreshold, _batchident, _input, _batchtasks);
+		if (_DDcontroller && _input && _batchtasks)
+			_DDcontroller->GenerateComplements_Async_Callback(_begin, _length, _approxthreshold, _batchident, _input, _batchtasks);
 	}
 	bool DDGenerateComplementCallback::ReadData(std::istream* buffer, size_t& offset, size_t, LoadResolver* resolver)
 	{
@@ -224,6 +226,7 @@ namespace Functions
 
 	void DDGenerateCheckSplit::Run()
 	{
+		if (_DDcontroller && _input && _batchtasks)
 		_DDcontroller->GenerateSplits_Async_Callback(_input, _approxthreshold, _batchident, _batchtasks);
 	}
 
@@ -550,10 +553,9 @@ namespace DeltaDebugging
 				if (input->test)
 					input->test->FreeMemory();
 			}
-			logmessage("free ddtest {}", input->GetFormID());
 
 			tasks->tasks--;
-			loginfo("{}, inactive batch, tasks --: {}", input->GetFormID(), tasks->tasks.load());
+			loginfo("{}, inactive batch, tasks --: {}", Utility::PrintForm(input), tasks->tasks.load());
 		}
 	}
 
@@ -724,7 +726,7 @@ namespace DeltaDebugging
 			}
 		}
 		tasks->tasks--;
-		loginfo("{}, tasks --: {}", input->GetFormID(), tasks->tasks.load());
+		loginfo("{}, tasks --: {}", Utility::PrintForm(input), tasks->tasks.load());
 		if (job) {
 			// if job has been found
 			_sessiondata->_controller->AddTask(job);
@@ -985,13 +987,14 @@ namespace DeltaDebugging
 			_skippedTests++;
 			return;
 		}
-		if (!parent) // skip if parent is for some reason empty
-			return;
-		auto inp = GetComplement(begin, length, approx, parent);
-		if (inp) {
-			if (DoTest(inp, batchident, tasks))  // if the test is valid and is being executed just return
-				return;
-		} 
+		if (parent)  // skip if parent is for some reason empty
+		{
+			auto inp = GetComplement(begin, length, approx, parent);
+			if (inp) {
+				if (DoTest(inp, batchident, tasks))  // if the test is valid and is being executed just return
+					return;
+			}
+		}
 		// if the test is not valid or cannot be executed generate a new test for execution
 		std::shared_ptr<Functions::BaseFunction> job;
 		{
@@ -1004,7 +1007,7 @@ namespace DeltaDebugging
 			}
 		}
 		tasks->tasks--;
-		loginfo("{}, tasks --: {}", parent->GetFormID(), tasks->tasks.load());
+		loginfo("{}, tasks --: {}", Utility::PrintForm(parent), tasks->tasks.load());
 		if (job)
 		{
 			// if job has been found
