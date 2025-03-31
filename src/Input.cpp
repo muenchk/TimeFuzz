@@ -359,6 +359,12 @@ size_t Input::GetSequenceLength()
 	return _sequence.size();
 }
 
+void Input::Debug_ClearSequence()
+{
+	std::unique_lock<std::shared_mutex> guard(_lock);
+	_sequence.clear();
+}
+
 std::string& Input::operator[](size_t index)
 {
 	auto itr = begin();

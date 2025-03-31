@@ -28,8 +28,9 @@ bool IPCommManager::Write(std::shared_ptr<Test> test, const char* data, size_t o
 	if (test && data != nullptr && length > 0) {
 		if (test->IsValid() == false)
 			return false;
-
-		std::unique_lock<std::mutex> guard(_writeQueueLock);
+		
+		_writeQueueSem.acquire();
+		//std::unique_lock<std::mutex> guard(_writeQueueLock);
 
 		auto write = new WriteData(test, data, offset, length);
 
@@ -44,6 +45,7 @@ bool IPCommManager::Write(std::shared_ptr<Test> test, const char* data, size_t o
 		} else {
 			_writeQueue.insert_or_assign(test->GetFormID(), write);
 		}
+		_writeQueueSem.release();
 	}
 	// return true if the write request is somewhat correct, if its an empty write or test isn't set its still acceptable, only if we cannot write to the test anymore it's not
 	return true;
