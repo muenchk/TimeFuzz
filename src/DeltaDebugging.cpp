@@ -465,7 +465,7 @@ namespace DeltaDebugging
 					if (input->test)
 						input->test->FreeMemory();
 				}
-				logmessage("free ddtest {}", input->GetFormID());
+				//logmessage("free ddtest {}", input->GetFormID());
 				return;
 			}
 		}
@@ -563,7 +563,8 @@ namespace DeltaDebugging
 
 	void DeltaController::CallbackExplicitEvaluate()
 	{
-		if (genCompData.tasks.load()->processedEndEvent)
+		auto tasks = genCompData.tasks.load();
+		if (!tasks || tasks->processedEndEvent)
 		{
 			logwarn("already processed end event, aborting");
 			return;
@@ -2284,7 +2285,7 @@ namespace DeltaDebugging
 		// set DD end time
 		_DD_end = _sessiondata->data->GetRuntime();
 
-		if (_params->mode != DDMode::Standard && _sessiondata->_settings->dd.runReproduceResultsAfterScoreApproxOnPositive) {
+		if (_params->mode != DDMode::Standard && _sessiondata->_settings->dd.runReproduceResultsAfterScoreApproxOnPositive && _params->GetGoal() == DDGoal::ReproduceResult) {
 			// start normal delat debugging for test purposes
 			DeltaDebugging::DDParameters* params = nullptr;
 			DeltaDebugging::ReproduceResult* par = new DeltaDebugging::ReproduceResult;

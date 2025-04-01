@@ -136,14 +136,6 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMA
 		target_link_libraries(
 			"${PROJECT_NAME}"
 			PRIVATE
-			fmt::fmt
-			lua
-			CrashHandler
-			imgui::imgui
-			glfw
-			glad::glad
-			glm::glm
-			liblzma::liblzma
 			${PROJECT_NAME}_lib
 		)
 		target_link_libraries(
