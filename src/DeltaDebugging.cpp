@@ -538,7 +538,7 @@ namespace DeltaDebugging
 					// get out of light callback so we aren't blocking vital tasks
 					auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
 					callback->_DDcontroller = _self;
-					genCompData.tasks.load()->sendEndEvent = true;
+					tasks->sendEndEvent = true;
 					_sessiondata->_controller->AddTask(callback);
 				}
 			}
