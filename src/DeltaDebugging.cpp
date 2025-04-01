@@ -2365,7 +2365,7 @@ namespace DeltaDebugging
 		if (_finished == false){
 			for (auto call : _callback)
 			{
-				if (call->GetType() == type)
+				if (call && call->GetType() == type)
 					return true;
 			}
 		} else
