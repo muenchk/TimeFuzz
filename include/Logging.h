@@ -288,8 +288,13 @@ public:
 	static void write(std::string message)
 	{
 		if (_stream) {
-			_stream->write(message.c_str(), message.size());
-			_stream->flush();
+			try {
+				_stream->write(message.c_str(), message.size());
+				_stream->flush();
+			}
+			catch (std::exception& e) {
+				std::cout << "Error in profiling stream: " << e.what() << "\n";
+			}
 		}
 	}
 };
@@ -371,8 +376,12 @@ public:
 	{
 		lock.acquire();
 		if (_stream) {
-			_stream->write(message.c_str(), message.size());
-			_stream->flush();
+			try {
+				_stream->write(message.c_str(), message.size());
+				_stream->flush();
+			} catch (std::exception& e) {
+				std::cout << "Error in logging stream: " << e.what() << "\n";
+			}
 		}
 		lock.release();
 	}
