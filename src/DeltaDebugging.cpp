@@ -456,6 +456,7 @@ namespace DeltaDebugging
 				// unset flags and free
 				input->UnsetFlag(Form::FormFlags::DoNotFree);
 				input->test->UnsetFlag(Form::FormFlags::DoNotFree);
+				input->derive->UnsetFlag(Form::FormFlags::DoNotFree);
 				// free memory to save reclaim time
 				input->FreeMemory();
 				if (input->GetGenerated() == false && input->test && input->test->IsValid() == false) {
@@ -545,6 +546,7 @@ namespace DeltaDebugging
 			// unset flags and free
 			input->UnsetFlag(Form::FormFlags::DoNotFree);
 			input->test->UnsetFlag(Form::FormFlags::DoNotFree);
+			input->derive->UnsetFlag(Form::FormFlags::DoNotFree);
 			// free memory to save reclaim time
 			input->FreeMemory();
 			if (input->GetGenerated() == false && input->test && input->test->IsValid() == false) {
@@ -649,6 +651,8 @@ namespace DeltaDebugging
 		if (tmp < 1)
 			tmp = 1;
 
+		_input->LockRead();
+
 		// this value is rounded so the actual length our inputs get is different from
 		// the naive caluclation we need to recalculate [number] and can then calculate
 		// the actual splitsize
@@ -701,6 +705,7 @@ namespace DeltaDebugging
 			callback->_batchtasks = genCompData.tasks;
 			genCompData.testqueue.push_back(callback);
 		}
+		_input->UnlockRead();
 		StandardGenerateNextLevel_Inter();
 	}
 	void DeltaController::GenerateSplits_Async_Callback(std::shared_ptr<Input>& input, double approxthreshold, uint64_t batchident, std::shared_ptr<DeltaDebugging::Tasks> tasks)
@@ -747,8 +752,12 @@ namespace DeltaDebugging
 	bool DeltaController::CheckInput(std::shared_ptr<Input> parentinp, std::shared_ptr<Input> inp, double approxthreshold)
 	{
 		StartProfiling;
+		LockHolder<Input> inputlock(inp);
+		ReadLockHolder<Input> parentlock(parentinp);
+		ReadLockHolder<DerivationTree> parentdevlock(parentinp->derive);
+
 		// fix for parentinp
-		if (parentinp->GetGenerated() == false || parentinp->GetSequenceLength() == 0) {
+		if (parentinp->GetGenerated() == false || parentinp->GetSequenceLength() == 0 || parentinp->derive->_nodes == 0) {
 			parentinp->SetGenerated(false);
 			// we are trying to add an parentinp that hasn't been generated or regenerated
 			// try the generate it and if it succeeds add the test
@@ -837,11 +846,14 @@ namespace DeltaDebugging
 
 		// try to find derivation tree for our input
 		inp->derive = _sessiondata->data->CreateForm<DerivationTree>();
+		inp->derive->SetFlag(Form::FormFlags::DoNotFree);
+		LockHolder<DerivationTree> inputdevlock(inp->derive);
 		//inp->derive->SetFlag(Form::FormFlags::DoNotFree);
 		inp->derive->_inputID = inp->GetFormID();
 
 		auto segments = inp->GetParentSplits();
 		_sessiondata->_grammar->Extract(parentinp->derive, inp->derive, segments, parentinp->Length(), inp->GetParentSplitComplement());
+
 		if (inp->derive->_valid == false) {
 			// the input cannot be derived from the given grammar
 			logwarn("The split cannot be derived from the grammar.");
@@ -851,6 +863,8 @@ namespace DeltaDebugging
 			profile(TimeProfiling, "Time taken to check input");
 			return false;
 		}
+		inputlock.~LockHolder();
+		inputdevlock.~LockHolder();
 
 		inp->SetGenerated();
 		inp->SetGenerationTime(_sessiondata->data->GetRuntime());
@@ -862,6 +876,9 @@ namespace DeltaDebugging
 	std::shared_ptr<Input> DeltaController::GetComplement(int32_t begin, int32_t end, double approxthreshold, std::shared_ptr<Input>& parent)
 	{
 		StartProfiling;
+
+		ReadLockHolder<Input> parentlock(parent);
+		ReadLockHolder<DerivationTree> parentdevlock(parent->derive);
 
 		DeltaInformation dcmpl;
 		dcmpl.positionbegin = (int32_t)begin;
@@ -1179,6 +1196,7 @@ namespace DeltaDebugging
 				else {
 					input->UnsetFlag(Form::FormFlags::DoNotFree);
 					input->test->UnsetFlag(Form::FormFlags::DoNotFree);
+					input->derive->UnsetFlag(Form::FormFlags::DoNotFree);
 					// free memory to save reclaim time
 					input->FreeMemory();
 					if (input->GetGenerated() == false && input->test && input->test->IsValid() == false) {
@@ -1211,6 +1229,7 @@ namespace DeltaDebugging
 				} else {
 					input->UnsetFlag(Form::FormFlags::DoNotFree);
 					input->test->UnsetFlag(Form::FormFlags::DoNotFree);
+					input->derive->UnsetFlag(Form::FormFlags::DoNotFree);
 					// free memory to save reclaim time
 					input->FreeMemory();
 					if (input->GetGenerated() == false && input->test && input->test->IsValid() == false) {
@@ -1243,6 +1262,7 @@ namespace DeltaDebugging
 				} else {
 					input->UnsetFlag(Form::FormFlags::DoNotFree);
 					input->test->UnsetFlag(Form::FormFlags::DoNotFree);
+					input->derive->UnsetFlag(Form::FormFlags::DoNotFree);
 					// free memory to save reclaim time
 					input->FreeMemory();
 					if (input->GetGenerated() == false && input->test && input->test->IsValid() == false) {
@@ -1278,6 +1298,7 @@ namespace DeltaDebugging
 				} else {
 					input->UnsetFlag(Form::FormFlags::DoNotFree);
 					input->test->UnsetFlag(Form::FormFlags::DoNotFree);
+					input->derive->UnsetFlag(Form::FormFlags::DoNotFree);
 					// free memory to save reclaim time
 					input->FreeMemory();
 					if (input->GetGenerated() == false && input->test && input->test->IsValid() == false) {
@@ -1889,6 +1910,7 @@ namespace DeltaDebugging
 				{
 					input->UnsetFlag(Form::FormFlags::DoNotFree);
 					input->test->UnsetFlag(Form::FormFlags::DoNotFree);
+					input->derive->UnsetFlag(Form::FormFlags::DoNotFree);
 					// free memory to save reclaim time
 					input->FreeMemory();
 					if (input->GetGenerated() == false && input->test && input->test->IsValid() == false) {
@@ -1911,6 +1933,7 @@ namespace DeltaDebugging
 				else {
 					input->UnsetFlag(Form::FormFlags::DoNotFree);
 					input->test->UnsetFlag(Form::FormFlags::DoNotFree);
+					input->derive->UnsetFlag(Form::FormFlags::DoNotFree);
 					// free memory to save reclaim time
 					input->FreeMemory();
 					if (input->GetGenerated() == false && input->test && input->test->IsValid() == false) {
@@ -1936,6 +1959,7 @@ namespace DeltaDebugging
 				} else {
 					input->UnsetFlag(Form::FormFlags::DoNotFree);
 					input->test->UnsetFlag(Form::FormFlags::DoNotFree);
+					input->derive->UnsetFlag(Form::FormFlags::DoNotFree);
 					// free memory to save reclaim time
 					input->FreeMemory();
 					if (input->GetGenerated() == false && input->test && input->test->IsValid() == false) {
@@ -1958,6 +1982,7 @@ namespace DeltaDebugging
 				} else {
 					input->UnsetFlag(Form::FormFlags::DoNotFree);
 					input->test->UnsetFlag(Form::FormFlags::DoNotFree);
+					input->derive->UnsetFlag(Form::FormFlags::DoNotFree);
 					// free memory to save reclaim time
 					input->FreeMemory();
 					if (input->GetGenerated() == false && input->test && input->test->IsValid() == false) {
@@ -2295,14 +2320,14 @@ namespace DeltaDebugging
 					ptr->test->FreeMemory();
 			}
 		}
+		// unset _input
+		_input->derive->UnsetFlag(Form::FormFlags::DoNotFree);
+		// unset and free originput
 		_origInput->UnsetFlag(Form::FormFlags::DoNotFree);
 		if (_origInput->derive)
 			_origInput->derive->UnsetFlag(Form::FormFlags::DoNotFree);
 		if (_origInput->test)
 			_origInput->test->UnsetFlag(Form::FormFlags::DoNotFree);
-		// unset flags and free
-		_origInput->UnsetFlag(Form::FormFlags::DoNotFree);
-		_origInput->test->UnsetFlag(Form::FormFlags::DoNotFree);
 		// free memory to save reclaim time
 		_origInput->FreeMemory();
 		if (_origInput->GetGenerated() == false && _origInput->test && _origInput->test->IsValid() == false) {

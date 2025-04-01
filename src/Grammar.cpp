@@ -1723,8 +1723,9 @@ void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<Der
 					//auto [cnode, cnodes] = targetnodes[c]->CopyRecursive();
 					//droot->_children[c] = targetnodes[c];
 					droot->SetChild(c, targetnodes[c]);
-					for (auto x : targetnodesvec[c])
-						dtree->_nodes++;
+					dtree->_nodes += targetnodesvec[c].size();
+					//for (auto x : targetnodesvec[c])
+					//	dtree->_nodes++;
 				}
 
 				dtree->_valid = true;

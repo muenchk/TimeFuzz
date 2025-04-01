@@ -214,7 +214,7 @@ namespace DeltaDebugging
 		std::unordered_map<std::shared_ptr<Input>, std::tuple<double, double, int32_t>>* GetResults() { return &_results; }
 		std::shared_ptr<Input> GetInput() { return _input; }
 		std::shared_ptr<Input> GetOriginalInput() { return _origInput; }
-		std::set<std::shared_ptr<Input>, FormIDLess<Input>>* GetActiveInputs() { return &_activeInputs; }
+		ts_set<std::shared_ptr<Input>, FormIDLess<Input>>* GetActiveInputs() { return &_activeInputs; }
 
 		/// <summary>
 		/// Adds a callback to the controller [if the controller has already finished the callback is not called
@@ -513,7 +513,7 @@ namespace DeltaDebugging
 		/// <summary>
 		/// set of inputs active in this iteration
 		/// </summary>
-		std::set<std::shared_ptr<Input>, FormIDLess<Input>> _activeInputs;
+		ts_set<std::shared_ptr<Input>, FormIDLess<Input>> _activeInputs;
 		/// <summary>
 		/// atomic flag for spinlock access to _activeInputs
 		/// </summary>

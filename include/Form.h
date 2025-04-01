@@ -259,6 +259,70 @@ public:
 		}
 	}
 };
+
+template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+class ReadLockHolder
+{
+	std::shared_ptr<T> _form;
+
+	ReadLockHolder(ReadLockHolder<T>&) = delete;
+	ReadLockHolder(ReadLockHolder<T>&&) = delete;
+	ReadLockHolder<T>& operator=(const ReadLockHolder<T>&) = delete;
+	ReadLockHolder<T>& operator=(const ReadLockHolder<T>&&) = delete;
+
+public:
+	ReadLockHolder()
+	{
+	}
+
+	ReadLockHolder(std::shared_ptr<T> form)
+	{
+		if (form) {
+			_form = form;
+			_form->LockRead();
+		}
+	}
+
+	~ReadLockHolder()
+	{
+		if (_form) {
+			_form->UnlockRead();
+			_form.reset();
+		}
+	}
+};
+
+template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+class LockHolder
+{
+	std::shared_ptr<T> _form;
+
+	LockHolder(LockHolder<T>&) = delete;
+	LockHolder(LockHolder<T>&&) = delete;
+	LockHolder<T>& operator=(const LockHolder<T>&) = delete;
+	LockHolder<T>& operator=(const LockHolder<T>&&) = delete;
+
+public:
+	LockHolder()
+	{
+	}
+
+	LockHolder(std::shared_ptr<T> form)
+	{
+		if (form) {
+			_form = form;
+			_form->Lock();
+		}
+	}
+
+	~LockHolder()
+	{
+		if (_form) {
+			_form->Unlock();
+			_form.reset();
+		}
+	}
+};
  
 struct FormType
 {

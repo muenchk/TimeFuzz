@@ -576,7 +576,7 @@ void Input::DeepCopy(std::shared_ptr<Input> other)
 {
 	other->derive = derive;
 	other->_orig_sequence = _orig_sequence;
-	other->_lua_sequence_next = _lua_sequence_next;
+	//other->_lua_sequence_next = _lua_sequence_next;
 	other->_sequence = _sequence;
 	other->_oracleResult = _oracleResult;
 	other->_stringrep = _stringrep;
