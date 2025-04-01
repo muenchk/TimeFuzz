@@ -752,9 +752,6 @@ namespace DeltaDebugging
 	bool DeltaController::CheckInput(std::shared_ptr<Input> parentinp, std::shared_ptr<Input> inp, double approxthreshold)
 	{
 		StartProfiling;
-		LockHolder<Input> inputlock(inp);
-		ReadLockHolder<Input> parentlock(parentinp);
-		ReadLockHolder<DerivationTree> parentdevlock(parentinp->derive);
 
 		// fix for parentinp
 		if (parentinp->GetGenerated() == false || parentinp->GetSequenceLength() == 0 || parentinp->derive->_nodes == 0) {
@@ -765,6 +762,10 @@ namespace DeltaDebugging
 			if (parentinp->GetGenerated() == false)
 				return false;
 		}
+
+		LockHolder<Input> inputlock(inp);
+		ReadLockHolder<Input> parentlock(parentinp);
+		ReadLockHolder<DerivationTree> parentdevlock(parentinp->derive);
 
 		// check against exclusion tree
 		if (_sessiondata->_settings->dd.approximativeTestExecution && _params->GetGoal() == DDGoal::MaximizePrimaryScore) {

@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <mutex>
 
+#include "Threading.h"
 #include "Utility.h"
 
 class Logging
@@ -163,6 +164,8 @@ class Profile
 {
 	static inline std::ofstream* _stream = nullptr;
 	static inline std::binary_semaphore lock{ 1 };
+	static inline std::mutex _m_lock;
+	static inline std::atomic_flag _exec_flag = ATOMIC_FLAG_INIT;
 	static inline bool _writelog;
 
 public:
@@ -197,11 +200,12 @@ public:
 
 	static void Dispose()
 	{
-		lock.acquire();
+		SpinlockA guard(_exec_flag);
+		//lock.acquire();
 		for (auto [func, exec] : exectimes)
 			delete exec;
 		exectimes.clear();
-		lock.release();
+		//lock.release();
 	}
 
 	/// <summary>
@@ -210,7 +214,8 @@ public:
 	/// <param name="pluginname"></param>
 	static void Init(std::string pluginname, bool append = false)
 	{
-		lock.acquire();
+		std::unique_lock<std::mutex> guard(_m_lock);
+		//lock.acquire();
 		//auto path = SKSE::log::log_directory();
 		//if (path.has_value()) {
 		//	_stream = new std::ofstream(path.value() / (pluginname + "_profile.log"), std::ios_base::out | std::ios_base::trunc);
@@ -221,7 +226,7 @@ public:
 			_stream = new std::ofstream(Logging::log_directory / (pluginname + "_profile.log"), std::ios_base::out | std::ios_base::ate);
 		if (_stream == nullptr || _stream->is_open() == false)
 			std::cout << "Cannot create Profiling Log!\n";
-		lock.release();
+		//lock.release();
 	}
 
 	static void SetWriteLog(bool writelogfile)
@@ -234,23 +239,28 @@ public:
 	/// </summary>
 	static void Close()
 	{
-		lock.acquire();
+		std::unique_lock<std::mutex> guard(_m_lock);
+		//lock.acquire();
 		if (_stream != nullptr) {
 			_stream->flush();
 			_stream->close();
 			delete _stream;
 			_stream = nullptr;
 		}
-		lock.release();
+		//lock.release();
 	}
 	static void log(std::string message, std::string func, std::string file, std::chrono::nanoseconds ns, std::chrono::steady_clock::time_point time, std::string usermes, bool writetolog)
 	{
-		lock.acquire();
+		//lock.acquire();
 		if (writetolog)
 			write(message);
-		auto itr = exectimes.find(file + "::" + func);
-		if (itr != exectimes.end())
+
+		std::unordered_map<std::string, ExecTime*>::iterator itr = exectimes.end();
 		{
+			SpinlockA guard(_exec_flag);
+			itr = exectimes.find(file + "::" + func);
+		}
+		if (itr != exectimes.end()) {
 			itr->second->Lock();
 			itr->second->functionName = func;
 			itr->second->average = std::chrono::nanoseconds((long long)(itr->second->exectime.count() * itr->second->executions + ns.count()) / (itr->second->executions + 1));
@@ -260,12 +270,13 @@ public:
 			itr->second->fileName = file;
 			itr->second->usermessage = usermes;
 			itr->second->Unlock();
-		}
-		else
-		{
+		} else {
 			ExecTime* exec = new ExecTime();
-			exectimes.insert_or_assign(file + "::" + func, exec);
 			exec->Lock();
+			{
+				SpinlockA guard(_exec_flag);
+				exectimes.insert_or_assign(file + "::" + func, exec);
+			}
 			exec->functionName = func;
 			exec->average = ns;
 			exec->exectime = ns;
@@ -276,7 +287,7 @@ public:
 
 			exec->Unlock();
 		}
-		lock.release();
+		//lock.release();
 	}
 
 	/// <summary>
@@ -287,6 +298,7 @@ public:
 	template <class... Args>
 	static void write(std::string message)
 	{
+		std::unique_lock<std::mutex> guard(_m_lock);
 		if (_stream) {
 			try {
 				_stream->write(message.c_str(), message.size());
@@ -329,6 +341,7 @@ class Log
 {
 	static inline std::ofstream* _stream = nullptr;
 	static inline std::binary_semaphore lock{ 1 };
+	static inline std::mutex _m_lock;
 
 public:
 	/// <summary>
@@ -337,7 +350,8 @@ public:
 	/// <param name="pluginname"></param>
 	static void Init(std::string pluginname, bool append = false)
 	{
-		lock.acquire();
+		std::unique_lock<std::mutex> guard(_m_lock);
+		//lock.acquire();
 		//auto path = SKSE::log::log_directory();
 		//if (path.has_value()) {
 		//	_stream = new std::ofstream(path.value() / pluginname / (pluginname + "log.log"), std::ios_base::out | std::ios_base::trunc);
@@ -348,7 +362,7 @@ public:
 			_stream = new std::ofstream(Logging::log_directory / (pluginname + ".log"), std::ios_base::out | std::ios_base::ate);
 		if (_stream == nullptr || _stream->is_open() == false)
 			std::cout << "Cannot create Log!\n";
-		lock.release();
+		//lock.release();
 	}
 
 	/// <summary>
@@ -356,14 +370,15 @@ public:
 	/// </summary>
 	static void Close()
 	{
-		lock.acquire();
+		std::unique_lock<std::mutex> guard(_m_lock);
+		//lock.acquire();
 		if (_stream != nullptr) {
 			_stream->flush();
 			_stream->close();
 			delete _stream;
 			_stream = nullptr;
 		}
-		lock.release();
+		//lock.release();
 	}
 
 	/// <summary>
@@ -374,7 +389,8 @@ public:
 	template <class... Args>
 	static void write(std::string message)
 	{
-		lock.acquire();
+		std::unique_lock<std::mutex> guard(_m_lock);
+		//lock.acquire();
 		if (_stream) {
 			try {
 				_stream->write(message.c_str(), message.size());
@@ -383,7 +399,7 @@ public:
 				std::cout << "Error in logging stream: " << e.what() << "\n";
 			}
 		}
-		lock.release();
+		//lock.release();
 	}
 };
 
