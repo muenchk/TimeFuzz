@@ -3,6 +3,7 @@
 #include "Form.h"
 #include "Function.h"
 #include "Input.h"
+#include "ThreadSafe.h"
 
 #include <memory>
 #include <vector>
@@ -146,7 +147,7 @@ namespace DeltaDebugging
 	{
 
 		std::atomic<bool> active = false;
-		std::shared_ptr<Tasks> tasks;
+		std::atomic<std::shared_ptr<Tasks>> tasks;
 		std::vector<std::shared_ptr<Input>> splits;
 		std::vector<std::shared_ptr<Input>> complements;
 		std::vector<DeltaInformation> dinfo;
@@ -199,8 +200,8 @@ namespace DeltaDebugging
 
 		int32_t GetTests() { return _tests; }
 		int32_t GetTestsRemaining() { 
-			if (genCompData.tasks)
-				return (int32_t)genCompData.tasks->tasks.load() + (int32_t)genCompData.testqueue.size();
+			if (auto ptr = genCompData.tasks.load(); ptr)
+				return (int32_t)ptr->tasks.load() + (int32_t)genCompData.testqueue.size();
 			else
 				return (int32_t)genCompData.testqueue.size();
 		}
@@ -241,7 +242,7 @@ namespace DeltaDebugging
 		/// <returns></returns>
 		std::shared_ptr<Tasks> GetBatchTasks()
 		{
-			return genCompData.tasks;
+			return genCompData.tasks.load();
 		}
 		
 		/// <summary>
@@ -520,7 +521,7 @@ namespace DeltaDebugging
 		/// <summary>
 		/// tests completed in the current iteration
 		/// </summary>
-		std::set<std::shared_ptr<Input>> _completedTests;
+		ts_set<std::shared_ptr<Input>> _completedTests;
 		/// <summary>
 		/// mutex to completed Tests
 		/// </summary>

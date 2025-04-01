@@ -478,7 +478,7 @@ namespace DeltaDebugging
 					job = genCompData.testqueue.front();
 					genCompData.testqueue.pop_front();
 					if (job)
-						genCompData.tasks->tasks++;
+						genCompData.tasks.load()->tasks++;
 				}
 			}
 			// task has finished
@@ -489,13 +489,13 @@ namespace DeltaDebugging
 				_sessiondata->_controller->AddTask(job);
 			}
 			// if there is no more task to start check whether the active inputs are 0 and then end the level
-			if (genCompData.tasks->tasks.load() == 0 /*&& _activetests == 0 */) {
+			if (genCompData.tasks.load()->tasks.load() == 0 /*&& _activetests == 0 */) {
 				genCompData.active = false;
 				// the current stage has finished
 				// get out of light callback so we aren't blocking vital tasks
 				auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
 				callback->_DDcontroller = _self;
-				genCompData.tasks->sendEndEvent = true;
+				genCompData.tasks.load()->sendEndEvent = true;
 				_sessiondata->_controller->AddTask(callback);
 				return;
 			}
@@ -537,7 +537,7 @@ namespace DeltaDebugging
 					// get out of light callback so we aren't blocking vital tasks
 					auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
 					callback->_DDcontroller = _self;
-					genCompData.tasks->sendEndEvent = true;
+					genCompData.tasks.load()->sendEndEvent = true;
 					_sessiondata->_controller->AddTask(callback);
 				}
 			}
@@ -561,12 +561,12 @@ namespace DeltaDebugging
 
 	void DeltaController::CallbackExplicitEvaluate()
 	{
-		if (genCompData.tasks->processedEndEvent)
+		if (genCompData.tasks.load()->processedEndEvent)
 		{
 			logwarn("already processed end event, aborting");
 			return;
 		}
-		genCompData.tasks->processedEndEvent = true;
+		genCompData.tasks.load()->processedEndEvent = true;
 		switch (_params->mode) {
 		case DDMode::Standard:
 			StandardEvaluateLevel();
@@ -722,7 +722,7 @@ namespace DeltaDebugging
 				job = genCompData.testqueue.front();
 				genCompData.testqueue.pop_front();
 				if (job)
-					genCompData.tasks->tasks++;
+					genCompData.tasks.load()->tasks++;
 			}
 		}
 		tasks->tasks--;
@@ -732,7 +732,7 @@ namespace DeltaDebugging
 			_sessiondata->_controller->AddTask(job);
 		} else {
 			std::unique_lock<std::mutex> guard(_completedTestsLock);
-			if (genCompData.tasks->tasks.load() == 0 /*&& _activetests == 0 */) {
+			if (genCompData.tasks.load()->tasks.load() == 0 /*&& _activetests == 0 */) {
 				genCompData.active = false;
 				// the current stage has finished
 				// get out of light callback so we aren't blocking vital tasks
@@ -1003,7 +1003,7 @@ namespace DeltaDebugging
 				job = genCompData.testqueue.front();
 				genCompData.testqueue.pop_front();
 				if (job)
-					genCompData.tasks->tasks++;
+					genCompData.tasks.load()->tasks++;
 			}
 		}
 		tasks->tasks--;
@@ -1014,7 +1014,7 @@ namespace DeltaDebugging
 			_sessiondata->_controller->AddTask(job);
 		} else {
 			std::unique_lock<std::mutex> guard(_completedTestsLock);
-			if (genCompData.tasks->tasks.load() == 0 /*&& _activetests == 0 */) {
+			if (genCompData.tasks.load()->tasks.load() == 0 /*&& _activetests == 0 */) {
 				genCompData.active = false;
 				// the current stage has finished
 				// get out of light callback so we aren't blocking vital tasks
@@ -1078,7 +1078,7 @@ namespace DeltaDebugging
 		genCompData.Reset();
 		genCompData.active = true;
 		genCompData.tasks = std::make_shared<Tasks>();
-		genCompData.tasks->tasks = 0;
+		genCompData.tasks.load()->tasks = 0;
 		__NextGenTime = std::chrono::steady_clock::now();
 		// insurance
 		if (_input->GetGenerated() == false) {
@@ -1125,12 +1125,13 @@ namespace DeltaDebugging
 		
 		// reset tests active in this batch
 		_activetests = 0;
-		genCompData.tasks->tasks = 0;
+		auto tasks = genCompData.tasks.load();
+		tasks->tasks = 0;
 		int32_t active = 0;
 		if (_sessiondata->_settings->dd.batchprocessing > 0) {
 			while (active < _sessiondata->_settings->dd.batchprocessing && genCompData.testqueue.size() > 0) {
 				if (genCompData.testqueue.front()) {
-					genCompData.tasks->tasks++;
+					tasks->tasks++;
 					active++;
 					_sessiondata->_controller->AddTask(genCompData.testqueue.front());
 				}
@@ -1139,7 +1140,7 @@ namespace DeltaDebugging
 		} else {
 			for (auto ptr : genCompData.testqueue) {
 				if (ptr) {
-					genCompData.tasks->tasks++;
+					tasks->tasks++;
 					active++;
 					_sessiondata->_controller->AddTask(ptr);
 				}
@@ -1799,7 +1800,7 @@ namespace DeltaDebugging
 		genCompData.Reset();
 		genCompData.active = true;
 		genCompData.tasks = std::make_shared<Tasks>();
-		genCompData.tasks->tasks = 0;
+		genCompData.tasks.load()->tasks = 0;
 		__NextGenTime = std::chrono::steady_clock::now();
 
 		// insurance
@@ -1836,13 +1837,14 @@ namespace DeltaDebugging
 		loginfo("{} start tests", genCompData.batchident);
 		// reset tests active in this batch
 		_activetests = 0;
-		genCompData.tasks->tasks = 0;
+		auto tasks = genCompData.tasks.load();
+		tasks->tasks = 0;
 		_tests = 0;
 		int32_t active = 0;
 		if (_sessiondata->_settings->dd.batchprocessing > 0) {
 			while (active < _sessiondata->_settings->dd.batchprocessing && genCompData.testqueue.size() > 0) {
 				if (genCompData.testqueue.front()) {
-					genCompData.tasks->tasks++;
+					tasks->tasks++;
 					active++;
 					_sessiondata->_controller->AddTask(genCompData.testqueue.front());
 				}
@@ -1851,7 +1853,7 @@ namespace DeltaDebugging
 		} else {
 			for (auto ptr : genCompData.testqueue) {
 				if (ptr) {
-					genCompData.tasks->tasks++;
+					tasks->tasks++;
 					active++;
 					_sessiondata->_controller->AddTask(ptr);
 				}
@@ -2593,10 +2595,10 @@ namespace DeltaDebugging
 		// VERSION 0x3
 		Buffer::WriteSize(_skipRanges, buffer, offset);
 		Buffer::Write(genCompData.active.load(), buffer, offset);
-		if (genCompData.tasks) {
-			Buffer::Write(genCompData.tasks->tasks.load(), buffer, offset);
-			Buffer::Write(genCompData.tasks->sendEndEvent, buffer, offset);
-			Buffer::Write(genCompData.tasks->processedEndEvent, buffer, offset);
+		if (auto tasks = genCompData.tasks.load(); tasks) {
+			Buffer::Write(tasks->tasks.load(), buffer, offset);
+			Buffer::Write(tasks->sendEndEvent, buffer, offset);
+			Buffer::Write(tasks->processedEndEvent, buffer, offset);
 		} else {
 			Buffer::Write((int64_t)0, buffer, offset);
 			Buffer::Write(false, buffer, offset);
@@ -2965,9 +2967,10 @@ namespace DeltaDebugging
 					_skipRanges = Buffer::ReadSize(buffer, offset);
 					genCompData.active = Buffer::ReadBool(buffer, offset);
 					genCompData.tasks = std::make_shared<Tasks>();
-					genCompData.tasks->tasks = Buffer::ReadInt64(buffer, offset);
-					genCompData.tasks->sendEndEvent = Buffer::ReadBool(buffer, offset);
-					genCompData.tasks->processedEndEvent = Buffer::ReadBool(buffer, offset);
+					auto tasks = genCompData.tasks.load();
+					tasks->tasks = Buffer::ReadInt64(buffer, offset);
+					tasks->sendEndEvent = Buffer::ReadBool(buffer, offset);
+					tasks->processedEndEvent = Buffer::ReadBool(buffer, offset);
 					size_t splitsize = Buffer::ReadSize(buffer, offset);
 					std::vector<FormID> splitids;
 					for (size_t i = 0; i < splitsize; i++)

@@ -19,7 +19,7 @@ namespace std
 		}
 
 		stable_set() {}
-		
+
 	public:
 		void setMaxSize(int32_t maxsize)
 		{
@@ -43,7 +43,7 @@ namespace std
 		stable_set(int32_t maxsize, _Iter _First, _Iter _Last, const Compare& _Pred)
 		{
 			_maxsize = maxsize;
-			_set->insert(_First, _Last);
+			_set->insert(_First, _Last, _Pred);
 			trunc();
 		}
 
@@ -51,7 +51,7 @@ namespace std
 		stable_set(int32_t maxsize, _Iter _First, _Iter _Last, const Allocator& _Al)
 		{
 			_maxsize = maxsize;
-			_set->insert(_First, _Last);
+			_set->insert(_First, _Last, _Al);
 			trunc();
 		}
 
@@ -59,7 +59,7 @@ namespace std
 		stable_set(int32_t maxsize, _Iter _First, _Iter _Last, const Compare& _Pred, const Allocator& _Al)
 		{
 			_maxsize = maxsize;
-			_set->insert(_First, _Last);
+			_set->insert(_First, _Last, _Pred, _Al);
 			trunc();
 		}
 
@@ -73,21 +73,21 @@ namespace std
 		stable_set(int32_t maxsize, initializer_list<Key> _Ilist, const Compare& _Pred)
 		{
 			_maxsize = maxsize;
-			_set->insert(_Ilist);
+			_set->insert(_Ilist, _Pred);
 			trunc();
 		}
 
 		stable_set(int32_t maxsize, initializer_list<Key> _Ilist, const Allocator& _Al)
 		{
 			_maxsize = maxsize;
-			_set->insert(_Ilist);
+			_set->insert(_Ilist, _Al);
 			trunc();
 		}
 
 		stable_set(int32_t maxsize, initializer_list<Key> _Ilist, const Compare& _Pred, const Allocator& _Al)
 		{
 			_maxsize = maxsize;
-			_set->insert(_Ilist);
+			_set->insert(_Ilist, _Pred, _Al);
 			trunc();
 		}
 
@@ -98,7 +98,7 @@ namespace std
 			trunc();
 			return *this;
 		}
-		
+
 		auto begin()
 		{
 			return _set.begin();
@@ -207,7 +207,7 @@ namespace std
 		stable_multiset(int32_t maxsize, _Iter _First, _Iter _Last, const Compare& _Pred)
 		{
 			_maxsize = maxsize;
-			_set->insert(_First, _Last);
+			_set->insert(_First, _Last, _Pred);
 			trunc();
 		}
 
@@ -215,7 +215,7 @@ namespace std
 		stable_multiset(int32_t maxsize, _Iter _First, _Iter _Last, const Allocator& _Al)
 		{
 			_maxsize = maxsize;
-			_set->insert(_First, _Last);
+			_set->insert(_First, _Last, _Al);
 			trunc();
 		}
 
@@ -223,7 +223,7 @@ namespace std
 		stable_multiset(int32_t maxsize, _Iter _First, _Iter _Last, const Compare& _Pred, const Allocator& _Al)
 		{
 			_maxsize = maxsize;
-			_set->insert(_First, _Last);
+			_set->insert(_First, _Last, _Pred, _Al);
 			trunc();
 		}
 
@@ -237,21 +237,21 @@ namespace std
 		stable_multiset(int32_t maxsize, initializer_list<Key> _Ilist, const Compare& _Pred)
 		{
 			_maxsize = maxsize;
-			_set->insert(_Ilist);
+			_set->insert(_Ilist, _Pred);
 			trunc();
 		}
 
 		stable_multiset(int32_t maxsize, initializer_list<Key> _Ilist, const Allocator& _Al)
 		{
 			_maxsize = maxsize;
-			_set->insert(_Ilist);
+			_set->insert(_Ilist, _Al);
 			trunc();
 		}
 
 		stable_multiset(int32_t maxsize, initializer_list<Key> _Ilist, const Compare& _Pred, const Allocator& _Al)
 		{
 			_maxsize = maxsize;
-			_set->insert(_Ilist);
+			_set->insert(_Ilist, _Pred, _Al);
 			trunc();
 		}
 
