@@ -1149,12 +1149,13 @@ namespace DeltaDebugging
 		int32_t active = 0;
 		if (_sessiondata->_settings->dd.batchprocessing > 0) {
 			while (active < _sessiondata->_settings->dd.batchprocessing && genCompData.testqueue.size() > 0) {
-				if (genCompData.testqueue.front()) {
-					tasks->tasks++;
-					active++;
-					_sessiondata->_controller->AddTask(genCompData.testqueue.front());
-				}
-				genCompData.testqueue.pop_front();
+				tasks->tasks++;
+				active++;
+				auto task = genCompData.testqueue.front();
+				if (task)
+					_sessiondata->_controller->AddTask(task);
+				if (!genCompData.testqueue.empty())
+					genCompData.testqueue.pop_front();
 			}
 		} else {
 			for (auto ptr : genCompData.testqueue) {
@@ -1866,12 +1867,13 @@ namespace DeltaDebugging
 		int32_t active = 0;
 		if (_sessiondata->_settings->dd.batchprocessing > 0) {
 			while (active < _sessiondata->_settings->dd.batchprocessing && genCompData.testqueue.size() > 0) {
-				if (genCompData.testqueue.front()) {
-					tasks->tasks++;
-					active++;
-					_sessiondata->_controller->AddTask(genCompData.testqueue.front());
-				}
-				genCompData.testqueue.pop_front();
+				tasks->tasks++;
+				active++;
+				auto task = genCompData.testqueue.front();
+				if (task)
+					_sessiondata->_controller->AddTask(task);
+				if (!genCompData.testqueue.empty())
+					genCompData.testqueue.pop_front();
 			}
 		} else {
 			for (auto ptr : genCompData.testqueue) {
