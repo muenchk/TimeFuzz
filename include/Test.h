@@ -27,6 +27,9 @@ class Oracle;
 class Session;
 class SessionData;
 
+#define PIPE_SIZE 1048576
+#define PIPE_SIZE_LINUX 65536
+
 class Test : public Form
 {
 	void Init();

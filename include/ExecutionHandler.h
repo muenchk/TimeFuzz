@@ -56,7 +56,6 @@ public:
 
 namespace Functions
 {
-
 	class ExecInitTestsCallback : public BaseFunction
 	{
 	public:
@@ -81,6 +80,34 @@ namespace Functions
 		virtual const char* GetName() override
 		{
 			return "ExecInitTestsCallback";
+		}
+	};
+
+	class WriteTestInputCallback : public BaseFunction
+	{
+	public:
+		std::shared_ptr<Test> _test;
+		char* data;
+		size_t length;
+
+		void Run() override;
+		static uint64_t GetTypeStatic() { return 'WTIC'; }
+		uint64_t GetType() override { return 'WTIC'; }
+
+		FunctionType GetFunctionType() override { return FunctionType::Light; }
+
+		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
+
+		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool WriteData(std::ostream* buffer, size_t& offset) override;
+
+		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<WriteTestInputCallback>()); }
+		void Dispose() override;
+		size_t GetLength() override;
+
+		virtual const char* GetName() override
+		{
+			return "WriteTestInputCallback";
 		}
 	};
 }

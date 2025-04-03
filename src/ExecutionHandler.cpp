@@ -122,6 +122,7 @@ void ExecutionHandler::RegisterFactories()
 	if (!_registeredFactories) {
 		_registeredFactories = !_registeredFactories;
 		Functions::RegisterFactory(Functions::ExecInitTestsCallback::GetTypeStatic(), Functions::ExecInitTestsCallback::Create);
+		Functions::RegisterFactory(Functions::WriteTestInputCallback::GetTypeStatic(), Functions::WriteTestInputCallback::Create);
 	}
 }
 
@@ -502,7 +503,20 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 	} else if (_oracle->GetOracletype() == Oracle::PUTType::Script) {
 		// if it is a script we can dump a special string onto the stdin of the put
 		//test->WriteInput(test->_scriptArgs, true);
+
+#if defined(unix) || defined(__unix__) || defined(__unix)
+		if (test->_scriptArgs.size() >= PIPE_SIZE_LINUX) {
+			auto callback = dynamic_pointer_cast<Functions::WriteTestInputCallback>(Functions::WriteTestInputCallback::Create());
+			callback->_test = test;
+			callback->length = test->_scriptArgs.size();
+			callback->data = new char[test->_scriptArgs.size()];
+			memcpy(callback->data, test->_scriptArgs.c_str(), test->_scriptArgs.size());
+			_threadpool->AddTask(callback);
+		} else
+			IPCommManager::GetSingleton()->Write(test, test->_scriptArgs.c_str(), 0, test->_scriptArgs.size());
+#elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 		IPCommManager::GetSingleton()->Write(test, test->_scriptArgs.c_str(), 0, test->_scriptArgs.size());
+#endif
 	}
 	_currentTests++;
 	test->_exitreason = Test::ExitReason::Running;
@@ -1135,5 +1149,66 @@ namespace Functions
 		auto ptr = std::make_shared<ExecInitTestsCallback>();
 		ptr->_sessiondata = sessiondata;
 		return dynamic_pointer_cast<BaseFunction>(ptr);
+	}
+
+	void WriteTestInputCallback::Run()
+	{
+		if (_test && data != nullptr)
+		{
+			size_t offset = 0;
+			size_t written = 1;
+			while (written != 0 && length > 0) {
+				written = _test->Write(data, offset, length);
+				// update write information
+				offset += written;
+				length -= written;
+				if (written == -1) {
+					break;
+				} else if (length <= 0) {
+					break;
+				}
+			}
+			if (data != nullptr) {
+				delete[] data;
+				data = nullptr;
+			}
+		}
+		else if (data != nullptr)
+		{
+			delete[] data;
+			data = nullptr;
+		}
+	}
+
+	std::shared_ptr<BaseFunction> WriteTestInputCallback::DeepCopy()
+	{
+		// not copyable
+		auto ptr = std::make_shared<WriteTestInputCallback>();
+		return dynamic_pointer_cast<BaseFunction>(ptr);
+	}
+
+	bool WriteTestInputCallback::ReadData(std::istream*, size_t&, size_t, LoadResolver*)
+	{
+		_test = {};
+		return true;
+	}
+
+	bool WriteTestInputCallback::WriteData(std::ostream* buffer, size_t& offset)
+	{
+		BaseFunction::WriteData(buffer, offset);
+		return true;
+	}
+
+	size_t WriteTestInputCallback::GetLength()
+	{
+		return BaseFunction::GetLength();
+	}
+
+	void WriteTestInputCallback::Dispose()
+	{
+		_test.reset();
+		if (data != nullptr)
+			delete[] data;
+		data = nullptr;
 	}
 }

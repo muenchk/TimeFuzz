@@ -48,9 +48,6 @@ extern int __fcntl_time64(int __fd, int __request, ...) __THROW;
 #	include <Windows.h>
 #endif
 
-#define PIPE_SIZE 1048576
-#define PIPE_SIZE_LINUX 1048576
-
 Test::Test(std::shared_ptr<Functions::BaseFunction> a_callback, uint64_t id) :
 	_callback(a_callback)
 {
