@@ -18,7 +18,7 @@ namespace Functions
 
 	std::shared_ptr<BaseFunction> FunctionFactory(uint64_t classid)
 	{
-		loginfo("Looking for Class ID: {}", classid);
+		//loginfo("Looking for Class ID: {}", classid);
 		if (classregistry.contains(classid) == false)
 			logcritical("Missing Class ID: {}", classid);
 		auto func = classregistry.at(classid);

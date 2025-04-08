@@ -127,6 +127,10 @@ private:
 	/// </summary>
 	int32_t _savenumber = 1;
 	/// <summary>
+	/// lock restricting access to save routine
+	/// </summary>
+	std::mutex _savelock;
+	/// <summary>
 	/// start time of this session
 	/// </summary>
 	std::chrono::steady_clock::time_point _sessionBegin = std::chrono::steady_clock::now();

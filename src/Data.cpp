@@ -81,296 +81,298 @@ void Data::SetSavePath(std::filesystem::path path)
 
 void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 {
-	_runtime += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - _sessionBegin);
-	_actionloadsave = true;
-	_actionloadsave_max = 0;
-	_actionrecord_len = 0;
-	_actionrecord_offset = 0;
-	_status = "Beginning save...";
-	StartProfiling;
-	// saves the current state of the program to disk
-	// saving requires all active operations to cease while the data is collected and written to disk
-	
-	SaveStats stats;
+	if (_savelock.try_lock()) {
+		_runtime += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - _sessionBegin);
+		_actionloadsave = true;
+		_actionloadsave_max = 0;
+		_actionrecord_len = 0;
+		_actionrecord_offset = 0;
+		_status = "Beginning save...";
+		StartProfiling;
+		// saves the current state of the program to disk
+		// saving requires all active operations to cease while the data is collected and written to disk
 
-	auto settings = CreateForm<Settings>();
+		SaveStats stats;
 
-	auto sessiondata = CreateForm<SessionData>();
+		auto settings = CreateForm<Settings>();
 
-	std::cout << "hashtable size: " << _hashmap.size() << "\n";
-	// create new file on disc
-	std::string name = GetSaveName();
-	if (!std::filesystem::exists(_savepath))
-		std::filesystem::create_directories(_savepath);
-	logdebug("{}", (_savepath / name).string());
-	std::cout << "path: " << (_savepath / name).string() << "\n";
-	std::ofstream fsave = std::ofstream((_savepath / name), std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
-	if (fsave.is_open()) {
-		// lock access to taskcontroller and executionhandler
-		_status = "Freezing controllers...";
-		std::shared_ptr<TaskController> taskcontrol = CreateForm<TaskController>();
-		std::shared_ptr<ExecutionHandler> execcontrol = CreateForm<ExecutionHandler>();
-		taskcontrol->RequestFreeze();
-		//execcontrol->Freeze(true);
-		execcontrol->Freeze(false);
-		taskcontrol->Freeze();
+		auto sessiondata = CreateForm<SessionData>();
 
-		// write main information about savefile: name, _savenumber, nextformid, _runtime etc.
-		{
-			size_t len = 38;
-			size_t offset = 0;
-			unsigned char* buffer = new unsigned char[len];
-			Buffer::Write(saveversion, buffer, offset);
-			Buffer::Write(guid1, buffer, offset);
-			Buffer::Write(guid2, buffer, offset);
-			Buffer::Write(_nextformid, buffer, offset);
-			Buffer::Write(_globalTasks, buffer, offset);
-			Buffer::Write(_globalExec, buffer, offset);
-			Buffer::Write(_runtime, buffer, offset);
-			fsave.write((char*)buffer, len);
-			delete[] buffer;
-		}
-		// also write information about the file itself, including compression used and compression level
-		{
-			size_t len = 5;
-			size_t offset = 0;
-			unsigned char* buffer = new unsigned char[len];
-			Buffer::Write(settings->saves.compressionLevel, buffer, offset);
-			Buffer::Write(settings->saves.compressionExtreme, buffer, offset);
-			fsave.write((char*)buffer, len);
-			delete[] buffer;
-		}
+		std::cout << "hashtable size: " << _hashmap.size() << "\n";
+		// create new file on disc
+		std::string name = GetSaveName();
+		if (!std::filesystem::exists(_savepath))
+			std::filesystem::create_directories(_savepath);
+		logdebug("{}", (_savepath / name).string());
+		std::cout << "path: " << (_savepath / name).string() << "\n";
+		std::ofstream fsave = std::ofstream((_savepath / name), std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
+		if (fsave.is_open()) {
+			// lock access to taskcontroller and executionhandler
+			_status = "Freezing controllers...";
+			std::shared_ptr<TaskController> taskcontrol = CreateForm<TaskController>();
+			std::shared_ptr<ExecutionHandler> execcontrol = CreateForm<ExecutionHandler>();
+			taskcontrol->RequestFreeze();
+			//execcontrol->Freeze(true);
+			execcontrol->Freeze(false);
+			taskcontrol->Freeze();
 
-		Streambuf* sbuf = nullptr;
-		if (settings->saves.compressionLevel != -1) {
-			sbuf = new LZMAStreambuf(&fsave, settings->saves.compressionLevel, settings->saves.compressionExtreme, settings->general.numthreads);
-		} else
-			sbuf = new Streambuf(&fsave);
-		std::ostream save(sbuf);
-		loginfo("Opened save-file \"{}\"", name);
-
-		// here we are going to save the callbac we are supposed to call, so that we can call it even if the 
-		// program end after this save
-		// we are allocating a flat 256 bytes for this, the callback shouldn't be larger than this
-		{
-			size_t len = 256;
-			size_t offset = 0;
-			unsigned char* buffer = new unsigned char[len];
-			if (callback) {
-				Buffer::Write(true, &save, offset);
-				callback->WriteData(&save, offset);
-				save.write((char*)buffer, len - callback->GetLength() - 1);
-			} else {
-				Buffer::Write(false, buffer, offset);
-				save.write((char*)buffer, len);
-			}
-			delete[] buffer;
-		}
-
-		_status = "Writing save...";
-
-		// write session data
-		{
-			std::shared_lock<std::shared_mutex> guard(_hashmaplock);
-			loginfo("Saving {} records...", _hashmap.size());
-			_actionloadsave_max = _hashmap.size() + 1;
-			_actionloadsave_current = 0;
+			// write main information about savefile: name, _savenumber, nextformid, _runtime etc.
 			{
-				size_t len = 8;
+				size_t len = 38;
 				size_t offset = 0;
 				unsigned char* buffer = new unsigned char[len];
-				Buffer::WriteSize(_hashmap.size() + 1 /*string Hashmap*/, buffer, offset);
-				save.write((char*)buffer, len);
+				Buffer::Write(saveversion, buffer, offset);
+				Buffer::Write(guid1, buffer, offset);
+				Buffer::Write(guid2, buffer, offset);
+				Buffer::Write(_nextformid, buffer, offset);
+				Buffer::Write(_globalTasks, buffer, offset);
+				Buffer::Write(_globalExec, buffer, offset);
+				Buffer::Write(_runtime, buffer, offset);
+				fsave.write((char*)buffer, len);
 				delete[] buffer;
 			}
-			// write string hashmap [its coded as a type of record]
+			// also write information about the file itself, including compression used and compression level
 			{
-				size_t sz = GetStringHashmapSize();  // record length
-				_actionrecord_offset = 0;
-				_actionrecord_len = sz;
-				Records::CreateRecordHeaderStringHashmap(&save, _actionrecord_len, _actionrecord_offset);
-				WriteStringHashmap(&save, _actionrecord_offset, _actionrecord_len);
-				loginfo("Wrote string hashmap. {} entries.", _stringHashmap.left.size());
-				_actionloadsave_current++;
-				if (fsave.bad())
-					logcritical("critical error in underlying savefile");
+				size_t len = 5;
+				size_t offset = 0;
+				unsigned char* buffer = new unsigned char[len];
+				Buffer::Write(settings->saves.compressionLevel, buffer, offset);
+				Buffer::Write(settings->saves.compressionExtreme, buffer, offset);
+				fsave.write((char*)buffer, len);
+				delete[] buffer;
 			}
-			for (auto& [formid, form] : _hashmap) {
-				_actionrecord_len = 0;
-				_actionrecord_offset = 0;
-				//unsigned char* buffer = nullptr;
-				_record = form->GetType();
-				switch (_record) {
-				case FormType::Input:
-					Records::CreateRecord<Input>(dynamic_pointer_cast<Input>(form),&save, _actionrecord_offset, _actionrecord_len);
-					if (_actionrecord_offset > _actionrecord_len) {
-						logcritical("Buffer overflow in record: Input");
-					}
-					stats._Input++;
-					//logdebug("Write Record:      Input");
-					break;
-				case FormType::Grammar:
-					Records::CreateRecord<Grammar>(dynamic_pointer_cast<Grammar>(form), &save, _actionrecord_offset, _actionrecord_len);
-					if (_actionrecord_offset > _actionrecord_len) {
-						logcritical("Buffer overflow in record: Grammar");
-					}
-					stats._Grammar++;
-					//Logdebug("Write Record:      Grammar");
-					break;
-				case FormType::DevTree:
-					Records::CreateRecord<DerivationTree>(dynamic_pointer_cast<DerivationTree>(form), &save, _actionrecord_offset, _actionrecord_len);
-					if (_actionrecord_offset > _actionrecord_len) {
-						logcritical("Buffer overflow in record: DerivationTree");
-					}
-					stats._DevTree++;
-					//logdebug("Write Record:      DerivationTree");
-					break;
-				case FormType::ExclTree:
-					Records::CreateRecord<ExclusionTree>(dynamic_pointer_cast<ExclusionTree>(form), &save, _actionrecord_offset, _actionrecord_len);
-					if (_actionrecord_offset > _actionrecord_len) {
-						logcritical("Buffer overflow in record: ExclusionTree");
-					}
-					stats._ExclTree++;
-					//logdebug("Write Record:      ExclusionTree");
-					break;
-				case FormType::Generator:
-					Records::CreateRecord<Generator>(dynamic_pointer_cast<Generator>(form), &save, _actionrecord_offset, _actionrecord_len);
-					if (_actionrecord_offset > _actionrecord_len) {
-						logcritical("Buffer overflow in record: Generator");
-					}
-					stats._Generator++;
-					//logdebug("Write Record:      Generator");
-					break;
-				case FormType::Session:
-					Records::CreateRecord<Session>(dynamic_pointer_cast<Session>(form), &save, _actionrecord_offset, _actionrecord_len);
-					if (_actionrecord_offset > _actionrecord_len) {
-						logcritical("Buffer overflow in record: Session");
-					}
-					stats._Session++;
-					//logdebug("Write Record:      Session");
-					break;
-				case FormType::Settings:
-					Records::CreateRecord<Settings>(dynamic_pointer_cast<Settings>(form), &save, _actionrecord_offset, _actionrecord_len);
-					if (_actionrecord_offset > _actionrecord_len) {
-						logcritical("Buffer overflow in record: Settings");
-					}
-					stats._Settings++;
-					//logdebug("Write Record:      Settings");
-					break;
-				case FormType::Test:
-					Records::CreateRecord<Test>(dynamic_pointer_cast<Test>(form), &save, _actionrecord_offset, _actionrecord_len);
-					if (_actionrecord_offset > _actionrecord_len) {
-						logcritical("Buffer overflow in record: Test");
-						auto sz = dynamic_pointer_cast<Test>(form)->GetDynamicSize();
-					}
-					stats._Test++;
-					//logdebug("Write Record:      Test");
-					break;
-				case FormType::TaskController:
-					Records::CreateRecord<TaskController>(dynamic_pointer_cast<TaskController>(form), &save, _actionrecord_offset, _actionrecord_len);
-					if (_actionrecord_offset > _actionrecord_len) {
-						logcritical("Buffer overflow in record: TaskController");
-					}
-					stats._TaskController++;
-					//logdebug("Write Record:      TaskController");
-					break;
-				case FormType::ExecutionHandler:
-					Records::CreateRecord<ExecutionHandler>(dynamic_pointer_cast<ExecutionHandler>(form), &save, _actionrecord_offset, _actionrecord_len);
-					if (_actionrecord_offset > _actionrecord_len) {
-						logcritical("Buffer overflow in record: ExecutionHandler");
-					}
-					stats._ExecutionHandler++;
-					//logdebug("Write Record:      ExecutionHandler");
-					break;
-				case FormType::Oracle:
-					Records::CreateRecord<Oracle>(dynamic_pointer_cast<Oracle>(form), &save, _actionrecord_offset, _actionrecord_len);
-					if (_actionrecord_offset > _actionrecord_len) {
-						logcritical("Buffer overflow in record: Oracle");
-					}
-					stats._Oracle++;
-					//logdebug("Write Record:      Oracle");
-					break;
-				case FormType::SessionData:
-					Records::CreateRecord<SessionData>(dynamic_pointer_cast<SessionData>(form), &save, _actionrecord_offset, _actionrecord_len);
-					if (_actionrecord_offset > _actionrecord_len) {
-						logcritical("Buffer overflow in record: SessionData");
-					}
-					stats._SessionData++;
-					//logdebug("Write Record:      SessionData");
-					break;
-				case FormType::DeltaController:
-					Records::CreateRecord<DeltaDebugging::DeltaController>(dynamic_pointer_cast<DeltaDebugging::DeltaController>(form), &save, _actionrecord_offset, _actionrecord_len);
-					if (_actionrecord_offset > _actionrecord_len) {
-						logcritical("Buffer overflow in record: DeltaController");
-					}
-					stats._DeltaController++;
-					//logdebug("Write Record:      DeltaController");
-					break;
-				case FormType::Generation:
-					Records::CreateRecord<Generation>(dynamic_pointer_cast<Generation>(form), &save, _actionrecord_offset, _actionrecord_len);
-					if (_actionrecord_offset > _actionrecord_len) {
-						logcritical("Buffer overflow in record: Generation");
-					}
-					stats._Generation++;
-					//logdebug("Write Record:      Generation");
-					break;
-				default:
-					stats._Fail++;
-					logcritical("Trying to save unknown formtype");
-					break;
+
+			Streambuf* sbuf = nullptr;
+			if (settings->saves.compressionLevel != -1) {
+				sbuf = new LZMAStreambuf(&fsave, settings->saves.compressionLevel, settings->saves.compressionExtreme, settings->general.numthreads);
+			} else
+				sbuf = new Streambuf(&fsave);
+			std::ostream save(sbuf);
+			loginfo("Opened save-file \"{}\"", name);
+
+			// here we are going to save the callbac we are supposed to call, so that we can call it even if the
+			// program end after this save
+			// we are allocating a flat 256 bytes for this, the callback shouldn't be larger than this
+			{
+				size_t len = 256;
+				size_t offset = 0;
+				unsigned char* buffer = new unsigned char[len];
+				if (callback) {
+					Buffer::Write(true, &save, offset);
+					callback->WriteData(&save, offset);
+					save.write((char*)buffer, len - callback->GetLength() - 1);
+				} else {
+					Buffer::Write(false, buffer, offset);
+					save.write((char*)buffer, len);
 				}
-				//if (buffer != nullptr) {
-				//	save.write((char*)buffer, _actionrecord_len);
-				//	if (fsave.bad())
-				//		logcritical("critical error in underlying savefile")
-				//} else {
-				//	stats._Fail++;
-				//	logcritical("record buffer could not be created");
-				//}
-				_actionloadsave_current++;
+				delete[] buffer;
 			}
+
+			_status = "Writing save...";
+
+			// write session data
+			{
+				std::shared_lock<std::shared_mutex> guard(_hashmaplock);
+				loginfo("Saving {} records...", _hashmap.size());
+				_actionloadsave_max = _hashmap.size() + 1;
+				_actionloadsave_current = 0;
+				{
+					size_t len = 8;
+					size_t offset = 0;
+					unsigned char* buffer = new unsigned char[len];
+					Buffer::WriteSize(_hashmap.size() + 1 /*string Hashmap*/, buffer, offset);
+					save.write((char*)buffer, len);
+					delete[] buffer;
+				}
+				// write string hashmap [its coded as a type of record]
+				{
+					size_t sz = GetStringHashmapSize();  // record length
+					_actionrecord_offset = 0;
+					_actionrecord_len = sz;
+					Records::CreateRecordHeaderStringHashmap(&save, _actionrecord_len, _actionrecord_offset);
+					WriteStringHashmap(&save, _actionrecord_offset, _actionrecord_len);
+					loginfo("Wrote string hashmap. {} entries.", _stringHashmap.left.size());
+					_actionloadsave_current++;
+					if (fsave.bad())
+						logcritical("critical error in underlying savefile");
+				}
+				for (auto& [formid, form] : _hashmap) {
+					_actionrecord_len = 0;
+					_actionrecord_offset = 0;
+					//unsigned char* buffer = nullptr;
+					_record = form->GetType();
+					switch (_record) {
+					case FormType::Input:
+						//logdebug("Write Record:      Input");
+						Records::CreateRecord<Input>(dynamic_pointer_cast<Input>(form), &save, _actionrecord_offset, _actionrecord_len);
+						if (_actionrecord_offset > _actionrecord_len) {
+							logcritical("Buffer overflow in record: Input");
+						}
+						stats._Input++;
+						break;
+					case FormType::Grammar:
+						//logdebug("Write Record:      Grammar");
+						Records::CreateRecord<Grammar>(dynamic_pointer_cast<Grammar>(form), &save, _actionrecord_offset, _actionrecord_len);
+						if (_actionrecord_offset > _actionrecord_len) {
+							logcritical("Buffer overflow in record: Grammar");
+						}
+						stats._Grammar++;
+						break;
+					case FormType::DevTree:
+						//logdebug("Write Record:      DerivationTree");
+						Records::CreateRecord<DerivationTree>(dynamic_pointer_cast<DerivationTree>(form), &save, _actionrecord_offset, _actionrecord_len);
+						if (_actionrecord_offset > _actionrecord_len) {
+							logcritical("Buffer overflow in record: DerivationTree");
+						}
+						stats._DevTree++;
+						break;
+					case FormType::ExclTree:
+						//logdebug("Write Record:      ExclusionTree");
+						Records::CreateRecord<ExclusionTree>(dynamic_pointer_cast<ExclusionTree>(form), &save, _actionrecord_offset, _actionrecord_len);
+						if (_actionrecord_offset > _actionrecord_len) {
+							logcritical("Buffer overflow in record: ExclusionTree");
+						}
+						stats._ExclTree++;
+						break;
+					case FormType::Generator:
+						//logdebug("Write Record:      Generator");
+						Records::CreateRecord<Generator>(dynamic_pointer_cast<Generator>(form), &save, _actionrecord_offset, _actionrecord_len);
+						if (_actionrecord_offset > _actionrecord_len) {
+							logcritical("Buffer overflow in record: Generator");
+						}
+						stats._Generator++;
+						break;
+					case FormType::Session:
+						//logdebug("Write Record:      Session");
+						Records::CreateRecord<Session>(dynamic_pointer_cast<Session>(form), &save, _actionrecord_offset, _actionrecord_len);
+						if (_actionrecord_offset > _actionrecord_len) {
+							logcritical("Buffer overflow in record: Session");
+						}
+						stats._Session++;
+						break;
+					case FormType::Settings:
+						//logdebug("Write Record:      Settings");
+						Records::CreateRecord<Settings>(dynamic_pointer_cast<Settings>(form), &save, _actionrecord_offset, _actionrecord_len);
+						if (_actionrecord_offset > _actionrecord_len) {
+							logcritical("Buffer overflow in record: Settings");
+						}
+						stats._Settings++;
+						break;
+					case FormType::Test:
+						//logdebug("Write Record:      Test");
+						Records::CreateRecord<Test>(dynamic_pointer_cast<Test>(form), &save, _actionrecord_offset, _actionrecord_len);
+						if (_actionrecord_offset > _actionrecord_len) {
+							logcritical("Buffer overflow in record: Test");
+							auto sz = dynamic_pointer_cast<Test>(form)->GetDynamicSize();
+						}
+						stats._Test++;
+						break;
+					case FormType::TaskController:
+						//logdebug("Write Record:      TaskController");
+						Records::CreateRecord<TaskController>(dynamic_pointer_cast<TaskController>(form), &save, _actionrecord_offset, _actionrecord_len);
+						if (_actionrecord_offset > _actionrecord_len) {
+							logcritical("Buffer overflow in record: TaskController");
+						}
+						stats._TaskController++;
+						break;
+					case FormType::ExecutionHandler:
+						//logdebug("Write Record:      ExecutionHandler");
+						Records::CreateRecord<ExecutionHandler>(dynamic_pointer_cast<ExecutionHandler>(form), &save, _actionrecord_offset, _actionrecord_len);
+						if (_actionrecord_offset > _actionrecord_len) {
+							logcritical("Buffer overflow in record: ExecutionHandler");
+						}
+						stats._ExecutionHandler++;
+						break;
+					case FormType::Oracle:
+						//logdebug("Write Record:      Oracle");
+						Records::CreateRecord<Oracle>(dynamic_pointer_cast<Oracle>(form), &save, _actionrecord_offset, _actionrecord_len);
+						if (_actionrecord_offset > _actionrecord_len) {
+							logcritical("Buffer overflow in record: Oracle");
+						}
+						stats._Oracle++;
+						break;
+					case FormType::SessionData:
+						//logdebug("Write Record:      SessionData");
+						Records::CreateRecord<SessionData>(dynamic_pointer_cast<SessionData>(form), &save, _actionrecord_offset, _actionrecord_len);
+						if (_actionrecord_offset > _actionrecord_len) {
+							logcritical("Buffer overflow in record: SessionData");
+						}
+						stats._SessionData++;
+						break;
+					case FormType::DeltaController:
+						//logdebug("Write Record:      DeltaController");
+						Records::CreateRecord<DeltaDebugging::DeltaController>(dynamic_pointer_cast<DeltaDebugging::DeltaController>(form), &save, _actionrecord_offset, _actionrecord_len);
+						if (_actionrecord_offset > _actionrecord_len) {
+							logcritical("Buffer overflow in record: DeltaController");
+						}
+						stats._DeltaController++;
+						break;
+					case FormType::Generation:
+						//logdebug("Write Record:      Generation");
+						Records::CreateRecord<Generation>(dynamic_pointer_cast<Generation>(form), &save, _actionrecord_offset, _actionrecord_len);
+						if (_actionrecord_offset > _actionrecord_len) {
+							logcritical("Buffer overflow in record: Generation");
+						}
+						stats._Generation++;
+						break;
+					default:
+						stats._Fail++;
+						logcritical("Trying to save unknown formtype");
+						break;
+					}
+					//if (buffer != nullptr) {
+					//	save.write((char*)buffer, _actionrecord_len);
+					//	if (fsave.bad())
+					//		logcritical("critical error in underlying savefile")
+					//} else {
+					//	stats._Fail++;
+					//	logcritical("record buffer could not be created");
+					//}
+					_actionloadsave_current++;
+				}
+			}
+			sbuf->flush();
+			save.flush();
+			fsave.flush();
+			fsave.close();
+			if (sbuf != nullptr) {
+				delete sbuf;
+				sbuf = nullptr;
+			}
+			// set proper
+			_sessionBegin = std::chrono::steady_clock::now();
+			// unlock taskcontroller and executionhandler
+			taskcontrol->Thaw();
+			execcontrol->Thaw();
+			loginfo("Saved session");
+		} else {
+			logcritical("Cannot open new savefile");
 		}
-		sbuf->flush();
-		save.flush();
-		fsave.flush();
-		fsave.close();
-		if (sbuf != nullptr)
-		{
-			delete sbuf;
-			sbuf = nullptr;
+
+		if (callback) {
+			auto sessdata = CreateForm<SessionData>();
+			sessdata->_controller->AddTask(callback);
 		}
-		// set proper
-		_sessionBegin = std::chrono::steady_clock::now();
-		// unlock taskcontroller and executionhandler
-		taskcontrol->Thaw();
-		execcontrol->Thaw();
-		loginfo("Saved session");
-	} else {
-		logcritical("Cannot open new savefile");
+
+		loginfo("Saved Records:");
+		loginfo("Input: {}", stats._Input);
+		loginfo("Grammar: {}", stats._Grammar);
+		loginfo("DerivationTree: {}", stats._DevTree);
+		loginfo("ExclusionTree: {}", stats._ExclTree);
+		loginfo("Generator: {}", stats._Generator);
+		loginfo("Session: {}", stats._Session);
+		loginfo("Settings: {}", stats._Settings);
+		loginfo("Test: {}", stats._Test);
+		loginfo("TaskController: {}", stats._TaskController);
+		loginfo("ExecutionHandler: {}", stats._ExecutionHandler);
+		loginfo("Oracle: {}", stats._Oracle);
+		loginfo("Fails: {}", stats._Fail);
+
+		_actionloadsave = false;
+		_status = "Running...";
+		profile(TimeProfiling, "Saved session");
+		_savelock.unlock();
 	}
-
-	if (callback) {
-		auto sessdata = CreateForm<SessionData>();
-		sessdata->_controller->AddTask(callback);
-	}
-
-	loginfo("Saved Records:");
-	loginfo("Input: {}", stats._Input);
-	loginfo("Grammar: {}", stats._Grammar);
-	loginfo("DerivationTree: {}", stats._DevTree);
-	loginfo("ExclusionTree: {}", stats._ExclTree);
-	loginfo("Generator: {}", stats._Generator);
-	loginfo("Session: {}", stats._Session);
-	loginfo("Settings: {}", stats._Settings);
-	loginfo("Test: {}", stats._Test);
-	loginfo("TaskController: {}", stats._TaskController);
-	loginfo("ExecutionHandler: {}", stats._ExecutionHandler);
-	loginfo("Oracle: {}", stats._Oracle);
-	loginfo("Fails: {}", stats._Fail);
-
-	_actionloadsave = false;
-	_status = "Running...";
-	profile(TimeProfiling, "Saving session");
 }
 
 void Data::Load(std::string name, LoadSaveArgs& loadArgs)
