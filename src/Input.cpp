@@ -6,6 +6,7 @@
 #include "Logging.h"
 #include "ExecutionHandler.h"
 #include "BufferOperations.h"
+#include "SessionFunctions.h"
 #include "Data.h"
 #include "Test.h"
 
@@ -70,10 +71,10 @@ size_t Input::GetDynamicSize()
 	              + Buffer::VectorBasic::GetVectorSize(_primaryScoreIndividual)     // primaryScoreIndividual
 	              + Buffer::VectorBasic::GetVectorSize(_secondaryScoreIndividual);  // secondaryScoreIndividual
 	size += Buffer::CalcStringLength(_stringrep);
-	if (HasFlag(Form::FormFlags::DoNotFree)) {  // if do not free flag is present this input is needed for something and won't be checked for regeneration
-		size += Buffer::List::GetListLength(_sequence);
-		size += Buffer::List::GetListLength(_orig_sequence);
-	}
+	//if (HasFlag(Form::FormFlags::DoNotFree)) {  // if do not free flag is present this input is needed for something and won't be checked for regeneration
+	//	size += Buffer::List::GetListLength(_sequence);
+	//	size += Buffer::List::GetListLength(_orig_sequence);
+	//}
 	return size;
 }
 
@@ -95,10 +96,10 @@ bool Input::WriteData(std::ostream* buffer, size_t& offset)
 	} else
 		Buffer::Write((FormID)0, buffer, offset);
 	Buffer::Write(_stringrep, buffer, offset);
-	if (HasFlag(Form::FormFlags::DoNotFree)) {
-		Buffer::List::WriteList(_sequence, buffer, offset);
-		Buffer::List::WriteList(_orig_sequence, buffer, offset);
-	}
+	//if (HasFlag(Form::FormFlags::DoNotFree)) {
+	//	Buffer::List::WriteList(_sequence, buffer, offset);
+	//	Buffer::List::WriteList(_orig_sequence, buffer, offset);
+	//}
 	Buffer::Write(_primaryScore, buffer, offset);
 	Buffer::Write(_secondaryScore, buffer, offset);
 	Buffer::Write(_trimmedlength, buffer, offset);
@@ -205,10 +206,10 @@ bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRe
 			//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
 			//	return false;
 			_stringrep = Buffer::ReadString(buffer, offset);
-			if (HasFlag(Form::FormFlags::DoNotFree)) {
-				Buffer::List::ReadList(_sequence, buffer, offset);
-				Buffer::List::ReadList(_orig_sequence, buffer, offset);
-			}
+			//if (HasFlag(Form::FormFlags::DoNotFree)) {
+			//	Buffer::List::ReadList(_sequence, buffer, offset);
+			//	Buffer::List::ReadList(_orig_sequence, buffer, offset);
+			//}
 			_primaryScore = Buffer::ReadDouble(buffer, offset);
 			_secondaryScore = Buffer::ReadDouble(buffer, offset);
 			_trimmedlength = Buffer::ReadInt64(buffer, offset);
@@ -228,6 +229,23 @@ bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRe
 			_primaryScoreIndividual = Buffer::VectorBasic::ReadVector<double>(buffer, offset);
 			_secondaryScoreIndividual = Buffer::VectorBasic::ReadVector<double>(buffer, offset);
 			_derivedFails = Buffer::ReadUInt64(buffer, offset);
+			if (HasFlag(Form::FormFlags::DoNotFree))
+			{
+				resolver->AddLateTask([this, resolver]() {
+					if (GetGenerated() == false || GetSequenceLength() == 0) {
+						SetGenerated(false);
+						// we are trying to add an _input that hasn't been generated or regenerated
+						// try the generate it and if it succeeds add the test
+						auto input = resolver->ResolveFormID<Input>(_formid);
+						auto sessdata = resolver->_data->CreateForm<SessionData>();
+						if (input && sessdata)
+							SessionFunctions::GenerateInput(input, sessdata);
+						if (GetGenerated() == false)
+							return false;
+					}
+					return true;
+				});
+			}
 		}
 		return true;
 	default:

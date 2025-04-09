@@ -221,11 +221,11 @@ void TaskController::InternalLoop_LightExclusive(int32_t number)
 	if (!_disableLua)
 		Lua::RegisterThread(_sessiondata);
 
+	_status[number] = ThreadStatus::Waiting;
 	while (true) {
 		std::shared_ptr<Functions::BaseFunction> del;
 		{
 			std::unique_lock<std::mutex> guard(_lockLight);
-			_status[number] = ThreadStatus::Waiting;
 			// while freeze is [true], this will never return, if freeze is [false] it only returns when [tasks is non-empty], when [terinated and not waiting], or when [terminating and tasks is empty]
 			_condition_light.wait(guard, [this] { return _freeze == false && (!_tasks_light.empty() || _terminate && _wait == false || _terminate && _tasks_light.empty()); });
 			if (_terminate && _wait == false || _terminate && _tasks_light.empty())
@@ -241,6 +241,7 @@ void TaskController::InternalLoop_LightExclusive(int32_t number)
 			del->Dispose();
 			_completedjobs++;
 		}
+		_status[number] = ThreadStatus::Waiting;
 	}
 
 	// unregister thread from lua functions
@@ -254,11 +255,11 @@ void TaskController::InternalLoop_Medium(int32_t number)
 	if (!_disableLua)
 		Lua::RegisterThread(_sessiondata);
 
+	_status[number] = ThreadStatus::Waiting;
 	while (true) {
 		std::shared_ptr<Functions::BaseFunction> del;
 		{
 			std::unique_lock<std::mutex> guard(_lockMedium);
-			_status[number] = ThreadStatus::Waiting;
 			// while freeze is [true], this will never return, if freeze is [false] it only returns when [tasks is non-empty], when [terinated and not waiting], or when [terminating and tasks is empty]
 			_condition_medium.wait(guard, [this] { return _freeze == false && (!_tasks_medium.empty() || _terminate && _wait == false || _terminate && _tasks_medium.empty()); });
 			if (_terminate && _wait == false || _terminate && _tasks_medium.empty())
@@ -276,6 +277,7 @@ void TaskController::InternalLoop_Medium(int32_t number)
 			del->Dispose();
 			_completedjobs++;
 		}
+		_status[number] = ThreadStatus::Waiting;
 	}
 
 	// unregister thread from lua functions
@@ -289,11 +291,11 @@ void TaskController::InternalLoop_Heavy(int32_t number)
 	if (!_disableLua)
 		Lua::RegisterThread(_sessiondata);
 
+	_status[number] = ThreadStatus::Waiting;
 	while (true) {
 		std::shared_ptr<Functions::BaseFunction> del;
 		{
 			std::unique_lock<std::mutex> guard(_lock);
-			_status[number] = ThreadStatus::Waiting;
 			// while freeze is [true], this will never return, if freeze is [false] it only returns when [tasks is non-empty], when [terinated and not waiting], or when [terminating and tasks is empty]
 			_condition.wait(guard, [this] { return _freeze == false && (!_tasks.empty() || _terminate && _wait == false || _terminate && _tasks.empty()); });
 			if (_terminate && _wait == false || _terminate && _tasks.empty())
@@ -311,6 +313,7 @@ void TaskController::InternalLoop_Heavy(int32_t number)
 			del->Dispose();
 			_completedjobs++;
 		}
+		_status[number] = ThreadStatus::Waiting;
 	}
 
 	// unregister thread from lua functions
@@ -324,11 +327,11 @@ void TaskController::InternalLoop_SingleThread(int32_t number)
 	if (!_disableLua)
 		Lua::RegisterThread(_sessiondata);
 
+	_status[number] = ThreadStatus::Waiting;
 	while (true) {
 		std::shared_ptr<Functions::BaseFunction> del;
 		{
 			std::unique_lock<std::mutex> guard(_lock);
-			_status[number] = ThreadStatus::Waiting;
 			// while freeze is [true], this will never return, if freeze is [false] it only returns when [tasks is non-empty], when [terinated and not waiting], or when [terminating and tasks is empty]
 			_condition.wait_for(guard, std::chrono::milliseconds(100), [this] { return _freeze == false && (!_tasks_light.empty() || !_tasks_medium.empty() || !_tasks.empty() || _terminate && _wait == false || _terminate && _tasks_light.empty() && _tasks_medium.empty() && _tasks.empty()); });
 			if (_terminate && _wait == false || _terminate && _tasks_light.empty() && _tasks_medium.empty() && _tasks.empty())
@@ -354,6 +357,7 @@ void TaskController::InternalLoop_SingleThread(int32_t number)
 			del->Dispose();
 			_completedjobs++;
 		}
+		_status[number] = ThreadStatus::Waiting;
 	}
 
 	// unregister thread from lua functions

@@ -939,21 +939,21 @@ void ExecutionHandler::ClearTests()
 	std::unique_lock<std::mutex> guardqueue(_lockqueue);
 
 	std::unique_lock<std::mutex> guardstart(_startingLock);
-	while (!_waitingTests.empty()) {
-		std::weak_ptr<Test> test = _waitingTests.front();
-		_waitingTests.pop_front();
-	}
+	_waitingTests.clear();
 	while (!_waitingTestsExec.empty()) {
 		std::weak_ptr<Test> test = _waitingTestsExec.front();
 		_waitingTestsExec.pop_front();
 		if (auto ptr = test.lock(); ptr && _session->data)
 			ptr->InValidatePreExec();
 	}
-	for (auto test : _runningTests) {
-		if (auto ptr = test.lock(); ptr && ptr->IsRunning()) {
+	auto itr = _runningTests.begin();
+	while (itr != _runningTests.end()) {
+		if (auto ptr = (*itr).lock(); ptr && ptr->IsRunning()) {
 			ptr->KillProcess();
 			StopTest(ptr);
 		}
+		_runningTests.pop_front();
+		itr = _runningTests.begin();
 	}
 	while (!_startingTests.empty()) {
 		std::shared_ptr<Test> test = _startingTests.front();
