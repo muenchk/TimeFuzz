@@ -535,10 +535,13 @@ bool SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 	if (input->test->_skipOracle) {
 		return false;
 	}
+	StartProfiling
 
 	// calculate oracle result
 	bool stateerror = false;
 	input->_oracleResult = Lua::EvaluateOracle(std::bind(&Oracle::Evaluate, sessiondata->_oracle, std::placeholders::_1, std::placeholders::_2), input->test, stateerror);
+	profile(TimeProfiling, "{}: calcualted oracle", Utility::PrintForm(input));
+	ResetProfiling;
 	if (stateerror) {
 		logcritical("Test End functions cannot be completed, as the calling thread lacks a lua context");
 		// remove input from the current generation
@@ -580,6 +583,8 @@ bool SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 		if (input->GetGenerationID() == sessiondata->GetCurrentGenerationID())
 			sessiondata->CheckGenerationEnd();
 	}
+	profile(TimeProfiling, "{}: added input to generation", Utility::PrintForm(input));
+	ResetProfiling;
 
 	// check whether _output should be stored
 	input->test->_storeoutput = sessiondata->_settings->tests.storePUToutput || (sessiondata->_settings->tests.storePUToutputSuccessful && input->GetOracleResult() == OracleResult::Passing);
@@ -675,6 +680,7 @@ bool SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 		}
 		break;
 	}
+	profile(TimeProfiling, "{}: added input to lists", Utility::PrintForm(input));
 	return false;
 }
 

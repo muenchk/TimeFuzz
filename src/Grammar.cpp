@@ -1649,6 +1649,7 @@ void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<Der
 
 		// gather the sequence nodes of the source tree
 		std::vector<DerivationTree::SequenceNode*> seqnodes;
+		seqnodes.reserve(stree->_sequenceNodes);
 		std::stack<DerivationTree::NonTerminalNode*> stacks;
 		stacks.push((DerivationTree::NonTerminalNode*)(stree->_root));
 		DerivationTree::NonTerminalNode* tmp = nullptr;
@@ -1674,7 +1675,9 @@ void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<Der
 		// sequence nodes are in order
 
 		std::vector<DerivationTree::SequenceNode*> targetnodes;
+		targetnodes.reserve(stree->_sequenceNodes);
 		std::vector<std::vector<DerivationTree::Node*>> targetnodesvec;
+		targetnodesvec.reserve(stree->_nodes);
 		if (complement)
 		{
 			int64_t idx = 0;
@@ -1921,6 +1924,8 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t targetlength
 	if (_tree->_root->IsSequence()) {
 		//nnode = new DerivationTree::NonTerminalNode;
 		nnode = allocators->DerivationTree_NonTerminalNode()->New();
+		if (_tree->_simpleGrammar) // if we have a simple grammar most nodes will be derived from this one
+			nnode->_children.reserve(targetlength);
 		dtree->_nodes++;
 		nnode->_grammarID = _tree->_root->_id;
 		dtree->_root = nnode;
@@ -1929,6 +1934,8 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t targetlength
 	} else if (_tree->_root->_type == GrammarNode::NodeType::NonTerminal) {
 		//nnode = new DerivationTree::NonTerminalNode;
 		nnode = allocators->DerivationTree_NonTerminalNode()->New();
+		if (_tree->_simpleGrammar)  // if we have a simple grammar most nodes will be derived from this one
+			nnode->_children.reserve(targetlength);
 		dtree->_nodes++;
 		nnode->_grammarID = _tree->_root->_id;
 		dtree->_root = nnode;
@@ -1948,7 +1955,7 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t targetlength
 	dtree->SetRegenerate(true);
 	dtree->_sequenceNodes = seq;
 
-	profile(TimeProfiling, "Time taken for derivation of length: {}", dtree->_sequenceNodes);
+	profile(TimeProfiling, "{}: Time taken for derivation of length: {}", Utility::PrintForm(dtree), dtree->_sequenceNodes);
 }
 
 std::string GetSymbols(std::shared_ptr<GrammarNode> node, std::mt19937& randan)
@@ -1987,6 +1994,7 @@ std::string GetSymbols(std::shared_ptr<GrammarNode> node, std::mt19937& randan)
 
 void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<std::pair<DerivationTree::NonTerminalNode*, std::shared_ptr<GrammarNode>>>& qnonterminals, std::deque<std::pair<DerivationTree::NonTerminalNode*, std::shared_ptr<GrammarNode>>>& qseqnonterminals, std::mt19937& randan, int32_t& seq)
 {
+	StartProfiling
 	DerivationTree::NonTerminalNode* nnode = nullptr;
 	DerivationTree::TerminalNode* ttnode = nullptr;
 	DerivationTree::NonTerminalNode* tnnode = nullptr;
@@ -2164,6 +2172,8 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 		}
 		flip = true;
 	}
+	profile(TimeProfiling, "{}: created sequence nodes", Utility::PrintForm(dtree));
+	ResetProfiling;
 
 	// in the second loop we expand all seq-nonterminals until non remain, while favoring expansions that
 	// do not produce new sequences
@@ -2255,6 +2265,8 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 			}
 		}
 	}
+	profile(TimeProfiling, "{}: expanded sequence nodes", Utility::PrintForm(dtree));
+	ResetProfiling;
 
 	// in the third loop we expand all non-terminals, favoring rules that do not increase the sequence nodes,
 	// until only terminal nodes remain
@@ -2322,6 +2334,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 			}
 		}
 	}
+	profile(TimeProfiling, "{}: expanded nonterminal nodes", Utility::PrintForm(dtree));
 }
 
 void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTree> dtree, bool backtrack, int32_t targetlength, uint32_t seed, int32_t& backtrackingdone, int32_t /*maxsteps*/)
@@ -2589,6 +2602,8 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 	std::deque<std::pair<DerivationTree::NonTerminalNode*, std::shared_ptr<GrammarNode>>> qseqnonterminals;
 
 	// begin: insert start node
+	if (_tree->_simpleGrammar)
+		root->_children.reserve(root->_children.size() + targetlength);
 	if (gnode->_flags & GrammarNode::NodeFlags::ProduceSequence) {
 		qseqnonterminals.push_back({ root, gnode });
 	} else if (gnode->_flags & GrammarNode::NodeFlags::ProduceNonTerminals) {

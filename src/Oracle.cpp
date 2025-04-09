@@ -228,6 +228,8 @@ void Oracle::ApplyLuaCommands(lua_State* L)
 
 OracleResult Oracle::Evaluate(lua_State* L, std::shared_ptr<Test> test)
 {
+	StartProfiling;
+	profile(TimeProfiling, "{}: begin oracle", Utility::PrintForm(test));
 	auto input = test->_input.lock();
 	OracleResult result = OracleResult::None;
 	if (input)
@@ -254,6 +256,7 @@ OracleResult Oracle::Evaluate(lua_State* L, std::shared_ptr<Test> test)
 		while (lua_gettop(L) != 0)
 			lua_pop(L, 1);
 	}
+	profile(TimeProfiling, "{}: calcualted oracle", Utility::PrintForm(test));
 
 	return result;
 }

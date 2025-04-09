@@ -86,6 +86,8 @@ std::string Snapshot(bool full)
 	static UI::UIInputInformation inputinfo;
 	bool updatedddcontrollers = false;
 
+	StartProfiling;
+
 	// get session status
 	session->GetStatus(status);
 
@@ -138,6 +140,9 @@ std::string Snapshot(bool full)
 	}
 	snap << "\n\n";
 
+	profile(TimeProfiling, "Snap: General");
+	ResetProfiling;
+
 	// advanced stats
 	snap << "### ADVANCED STATS\n";
 	{
@@ -185,6 +190,9 @@ std::string Snapshot(bool full)
 	}
 	snap << "\n\n";
 
+	profile(TimeProfiling, "Snap: Advanced");
+	ResetProfiling;
+
 	// tasks
 	snap << "### TASKS\n";
 	{
@@ -202,6 +210,9 @@ std::string Snapshot(bool full)
 		}
 	}
 	snap << "\n\n";
+
+	profile(TimeProfiling, "Snap: Tasks");
+	ResetProfiling;
 
 	// inputs
 	snap << "### INPUT INFO\n";
@@ -247,6 +258,9 @@ std::string Snapshot(bool full)
 		}
 	}
 	snap << "\n\n";
+
+	profile(TimeProfiling, "Snap: Input");
+	ResetProfiling;
 
 	// thread status
 	snap << "### THREAD STATUS\n";
@@ -306,6 +320,9 @@ std::string Snapshot(bool full)
 		snap << fmt::format("Status: {}", toStringExec(execstatus)) << "\n";
 	}
 	snap << "\n\n";
+
+	profile(TimeProfiling, "Snap: Thread");
+	ResetProfiling;
 
 	auto res = [](UI::Result result) {
 		if (result == UI::Result::Failing)
@@ -393,6 +410,9 @@ std::string Snapshot(bool full)
 	}
 	snap << "\n\n";
 
+	profile(TimeProfiling, "Snap: Generation");
+	ResetProfiling;
+
 	// top k
 	snap << "### TOP K\n";
 	{
@@ -417,6 +437,9 @@ std::string Snapshot(bool full)
 		}
 	}
 	snap << "\n\n";
+
+	profile(TimeProfiling, "Snap: TopK");
+	ResetProfiling;
 
 	// profiling
 	snap << "### PROFILING\n";
@@ -449,6 +472,9 @@ std::string Snapshot(bool full)
 	}
 	snap << "\n\n";
 
+	profile(TimeProfiling, "Snap: Profiling");
+	ResetProfiling;
+
 	// last generated
 	snap << "### LAST GENERATED\n";
 	{
@@ -472,6 +498,9 @@ std::string Snapshot(bool full)
 	}
 
 	snap << "\n\n";
+
+	profile(TimeProfiling, "Snap: Last generated");
+	ResetProfiling;
 
 	// delta debugging
 	snap << "### DELTA DEBUGGING\n";
@@ -580,6 +609,9 @@ std::string Snapshot(bool full)
 		}
 	}
 	snap << "\n\n";
+
+	profile(TimeProfiling, "Snap: DeltaDebugging");
+	ResetProfiling;
 
 	return snap.str();
 }
@@ -2521,7 +2553,7 @@ Responsive:
 		//	std::this_thread::sleep_for(std::chrono::milliseconds(50));
 		//}
 		while (session->Finished() == false) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(250));
+			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 			auto out = Snapshot(false);
 			clearScreen();
 			moveTo(1, 1);

@@ -83,14 +83,14 @@ public:
 	/// [terminal] the terminals to be produced
 	/// [sequence] the begin of a new sequence entry
 	/// </summary>
-	std::string _identifier;
-	std::string _derivation;
+	std::string _identifier = "";
+	std::string _derivation = "";
 	/// <summary>
 	/// global treeid associated with this object
 	/// </summary>
-	uint64_t _id;
+	uint64_t _id = 0;
 	std::vector<std::shared_ptr<GrammarExpansion>> _expansions;
-	EnumType _flags;
+	EnumType _flags = 0;
 	NodeType _type = NodeType::NonTerminal;
 	std::set<std::shared_ptr<GrammarExpansion>> _parents;
 
@@ -166,11 +166,11 @@ public:
 	/// <summary>
 	/// the relative weight, that this expansion is chosen during input generation
 	/// </summary>
-	float _weight;
+	float _weight = 0.0f;
 	/// <summary>
 	/// global treeid associated with this object
 	/// </summary>
-	uint64_t _id;
+	uint64_t _id = 0;
 	/// <summary>
 	/// whether at least one subtree created by this expansion is producing
 	/// </summary>
@@ -178,7 +178,7 @@ public:
 	/// <summary>
 	/// flags collected from nodes
 	/// </summary>
-	EnumType _flags;
+	EnumType _flags = 0;
 	/// <summary>
 	/// used in pruning. When set to true the expansion needs to be deleted
 	/// </summary>

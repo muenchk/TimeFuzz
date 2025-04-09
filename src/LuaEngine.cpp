@@ -64,6 +64,7 @@ void Lua::UnregisterThread()
 
 EnumType Lua::EvaluateOracle(std::function<EnumType(lua_State*, std::shared_ptr<Test>)> func, std::shared_ptr<Test> test, bool& stateerror)
 {
+	StartProfiling;
 	auto threadid = std::this_thread::get_id();
 	lua_State* luas = nullptr;
 	std::shared_lock<std::shared_mutex> guard(_statesLock);
@@ -76,6 +77,7 @@ EnumType Lua::EvaluateOracle(std::function<EnumType(lua_State*, std::shared_ptr<
 		stateerror = true;
 		return OracleResult::None;
 	}
+	profile(TimeProfiling, "{}: preparing oracle", Utility::PrintForm(test));
 	// call the enclosed function
 	return func(luas, test);
 }
