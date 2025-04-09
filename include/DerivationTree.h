@@ -31,6 +31,7 @@ public:
 	{
 		virtual NodeType Type() = 0;
 		virtual std::pair<Node*, std::vector<Node*>> CopyRecursive() = 0;
+		virtual std::pair<Node*, std::vector<Node*>> CopyRecursiveAlloc(Allocators* alloc) = 0;
 
 		virtual ~Node() {
 
@@ -74,6 +75,8 @@ public:
 			nodes.push_back(tmp);
 			return { tmp, nodes };
 		}
+
+		std::pair<Node*, std::vector<Node*>> CopyRecursiveAlloc(Allocators* alloc) override;
 
 		bool AddChild(Node* node)
 		{
@@ -120,6 +123,7 @@ public:
 			tmp->_content = _content;
 			return { tmp, { tmp } };
 		}
+		std::pair<Node*, std::vector<Node*>> CopyRecursiveAlloc(Allocators* alloc) override;
 	};
 
 	struct SequenceNode : public NonTerminalNode
@@ -151,6 +155,8 @@ public:
 			nodes.push_back(tmp);
 			return { tmp, nodes };
 		}
+
+		std::pair<Node*, std::vector<Node*>> CopyRecursiveAlloc(Allocators* alloc) override;
 	};
 
 	struct ParentTree

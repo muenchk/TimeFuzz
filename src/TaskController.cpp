@@ -8,6 +8,7 @@
 #include "Logging.h"
 #include "LuaEngine.h"
 #include "SessionData.h"
+#include "Allocators.h"
 
 TaskController* TaskController::GetSingleton()
 {
@@ -221,6 +222,8 @@ void TaskController::InternalLoop_LightExclusive(int32_t number)
 	if (!_disableLua)
 		Lua::RegisterThread(_sessiondata);
 
+	Allocators::InitThreadAllocators(std::this_thread::get_id());
+
 	_status[number] = ThreadStatus::Waiting;
 	while (true) {
 		std::shared_ptr<Functions::BaseFunction> del;
@@ -244,6 +247,8 @@ void TaskController::InternalLoop_LightExclusive(int32_t number)
 		_status[number] = ThreadStatus::Waiting;
 	}
 
+	Allocators::DestroyThreadAllocators(std::this_thread::get_id());
+
 	// unregister thread from lua functions
 	if (!_disableLua)
 		Lua::UnregisterThread();
@@ -254,6 +259,8 @@ void TaskController::InternalLoop_Medium(int32_t number)
 	// register new lua state for lua functions executed by the thread
 	if (!_disableLua)
 		Lua::RegisterThread(_sessiondata);
+
+	Allocators::InitThreadAllocators(std::this_thread::get_id());
 
 	_status[number] = ThreadStatus::Waiting;
 	while (true) {
@@ -280,6 +287,8 @@ void TaskController::InternalLoop_Medium(int32_t number)
 		_status[number] = ThreadStatus::Waiting;
 	}
 
+	Allocators::DestroyThreadAllocators(std::this_thread::get_id());
+
 	// unregister thread from lua functions
 	if (!_disableLua)
 		Lua::UnregisterThread();
@@ -290,6 +299,8 @@ void TaskController::InternalLoop_Heavy(int32_t number)
 	// register new lua state for lua functions executed by the thread
 	if (!_disableLua)
 		Lua::RegisterThread(_sessiondata);
+
+	Allocators::InitThreadAllocators(std::this_thread::get_id());
 
 	_status[number] = ThreadStatus::Waiting;
 	while (true) {
@@ -316,6 +327,8 @@ void TaskController::InternalLoop_Heavy(int32_t number)
 		_status[number] = ThreadStatus::Waiting;
 	}
 
+	Allocators::DestroyThreadAllocators(std::this_thread::get_id());
+
 	// unregister thread from lua functions
 	if (!_disableLua)
 		Lua::UnregisterThread();
@@ -326,6 +339,8 @@ void TaskController::InternalLoop_SingleThread(int32_t number)
 	// register new lua state for lua functions executed by the thread
 	if (!_disableLua)
 		Lua::RegisterThread(_sessiondata);
+
+	Allocators::InitThreadAllocators(std::this_thread::get_id());
 
 	_status[number] = ThreadStatus::Waiting;
 	while (true) {
@@ -359,6 +374,8 @@ void TaskController::InternalLoop_SingleThread(int32_t number)
 		}
 		_status[number] = ThreadStatus::Waiting;
 	}
+
+	Allocators::DestroyThreadAllocators(std::this_thread::get_id());
 
 	// unregister thread from lua functions
 	if (!_disableLua)

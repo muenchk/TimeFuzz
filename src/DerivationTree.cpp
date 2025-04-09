@@ -29,6 +29,55 @@ void DerivationTree::SequenceNode::__Delete(Allocators* alloc)
 	alloc->DerivationTree_SequenceNode()->Delete((DerivationTree::SequenceNode*)this);
 }
 
+std::pair<DerivationTree::Node*, std::vector<DerivationTree::Node*>> DerivationTree::TerminalNode::CopyRecursiveAlloc(Allocators* alloc)
+{
+	auto tmp = alloc->DerivationTree_TerminalNode()->New();
+	tmp->_grammarID = _grammarID;
+	tmp->_content = _content;
+	return { tmp, { tmp } };
+}
+
+std::pair<DerivationTree::Node*, std::vector<DerivationTree::Node*>> DerivationTree::NonTerminalNode::CopyRecursiveAlloc(Allocators* alloc)
+{
+	std::vector<Node*> nodes;
+	auto tmp = alloc->DerivationTree_NonTerminalNode()->New();
+	nodes.push_back(tmp);
+	tmp->_grammarID = _grammarID;
+	tmp->_children.resize(_children.size());
+	for (int64_t i = 0; i < (int64_t)_children.size(); i++) {
+		auto [node, cnodes] = _children[i]->CopyRecursiveAlloc(alloc);
+		tmp->_children[i] = node;
+		// not available in linux (barf)
+		//nodes.append_range(cnodes);
+		auto begin = nodes.size();
+		nodes.resize(begin + cnodes.size());
+		for (size_t x = 0; x < cnodes.size(); x++)
+			nodes[begin + x] = cnodes[x];
+	}
+	nodes.push_back(tmp);
+	return { tmp, nodes };
+}
+
+std::pair<DerivationTree::Node*, std::vector<DerivationTree::Node*>> DerivationTree::SequenceNode::CopyRecursiveAlloc(Allocators* alloc)
+{
+	std::vector<Node*> nodes;
+	auto tmp = alloc->DerivationTree_SequenceNode()->New();
+	tmp->_grammarID = _grammarID;
+	tmp->_children.resize(_children.size());
+	for (int64_t i = 0; i < (int64_t)_children.size(); i++) {
+		auto [node, cnodes] = _children[i]->CopyRecursiveAlloc(alloc);
+		tmp->_children[i] = node;
+		// not available in linux (barf)
+		//nodes.append_range(cnodes);
+		auto begin = nodes.size();
+		nodes.resize(begin + cnodes.size());
+		for (size_t x = 0; x < cnodes.size(); x++)
+			nodes[begin + x] = cnodes[x];
+	}
+	nodes.push_back(tmp);
+	return { tmp, nodes };
+}
+
 size_t DerivationTree::GetStaticSize(int32_t version)
 {
 	size_t size0x1 = 4                      // version
@@ -156,7 +205,10 @@ void DerivationTree::ClearInternal()
 	_valid = false;
 	if (_root == nullptr)
 		return;
-	delete _root;
+
+	auto allocators = Allocators::GetThreadAllocators(std::this_thread::get_id());
+	//delete _root;
+	_root->__Delete(allocators);
 	/*auto itr = _nodes.begin();
 	int count = 0;
 	while (itr != _nodes.end()) {
@@ -263,8 +315,11 @@ void DerivationTree::FreeMemory()
 		}
 		Form::Unlock();
 	}
-	if (tmp != nullptr)
-		delete tmp;
+	if (tmp != nullptr) {
+		auto allocators = Allocators::GetThreadAllocators(std::this_thread::get_id());
+		//delete tmp;
+		tmp->__Delete(allocators);
+	}
 }
 
 bool DerivationTree::Freed()

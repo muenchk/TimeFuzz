@@ -511,7 +511,7 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 			callback->length = test->_scriptArgs.size();
 			callback->data = new char[test->_scriptArgs.size()];
 			memcpy(callback->data, test->_scriptArgs.c_str(), test->_scriptArgs.size());
-			_threadpool->AddTask(callback);
+			_threadpool->AddTask(callback, true);
 		} else
 			IPCommManager::GetSingleton()->Write(test, test->_scriptArgs.c_str(), 0, test->_scriptArgs.size());
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
