@@ -306,6 +306,11 @@ private:
 
 	inline static bool _registeredFactories = false;
 
+	/// <summary>
+	/// Lock used to make sure only one thread gets to end the session
+	/// </summary>
+	std::mutex _endMutex;
+
 public:
 	void Clear();
 	~SessionData();
@@ -523,6 +528,16 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	bool CanGenerate();
+
+	bool TryLockEnd()
+	{
+		return _endMutex.try_lock();
+	}
+
+	void UnlockEnd()
+	{
+		return _endMutex.unlock();
+	}
 
 	#pragma region Form
 

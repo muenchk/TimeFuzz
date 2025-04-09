@@ -365,6 +365,24 @@ void Generation::GetDDControllers(std::vector<std::shared_ptr<DeltaDebugging::De
 	}
 }
 
+size_t Generation::TryGetDDControllers(std::vector<std::shared_ptr<DeltaDebugging::DeltaController>>& controllers)
+{
+	if (_ddControllers.size() > controllers.size())
+		controllers.resize(_ddControllers.size());
+	if (_lock.try_lock_shared()) {
+		auto itr = _ddControllers.begin();
+		int i = 0;
+		while (itr != _ddControllers.end()) {
+			controllers[i] = itr->second;
+			i++;
+			itr++;
+		}
+		_lock.unlock_shared();
+		return _ddControllers.size();
+	} else
+		return 0;
+}
+
 size_t Generation::GetNumberOfDDControllers()
 {
 	return _ddControllers.size();

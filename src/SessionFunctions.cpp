@@ -306,21 +306,24 @@ bool SessionFunctions::EndCheck(std::shared_ptr<SessionData>& sessiondata, bool 
 
 void SessionFunctions::EndSession_Async(std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Functions::BaseFunction> callback)
 {
-	loginfo("Master End Session");
-	auto session = sessiondata->data->CreateForm<Session>();
-	if (session->_abort)
-		return;
-	// async function that ends the session itself
+	if (sessiondata->TryLockEnd()) {
+		loginfo("Master End Session");
+		auto session = sessiondata->data->CreateForm<Session>();
+		if (session->_abort)
+			return;
+		// async function that ends the session itself
 
-	// force save
-	if (checkendconditionsskipsaving == false)
-		session->data->Save({});
-	checkendconditionsskipsaving = false;
+		// force save
+		if (checkendconditionsskipsaving == false)
+			session->data->Save({});
+		checkendconditionsskipsaving = false;
 
-	// end the session
+		// end the session
 
-	// set abort flag to catch all threads that try to escape
-	session->StopSession(false, false);
+		// set abort flag to catch all threads that try to escape
+		session->StopSession(false, false);
+		sessiondata->UnlockEnd();
+	}
 }
 
 bool HandleForms(std::shared_ptr<Form> form)

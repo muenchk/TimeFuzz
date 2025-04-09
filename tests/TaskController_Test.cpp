@@ -1,7 +1,7 @@
 #include "Logging.h"
 #include "TaskController.h"
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-#include "CrashHandler.h"
+#include "ChrashHandlerINCL.h"
 #endif
 
 #include "Function.h"

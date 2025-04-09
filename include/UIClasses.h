@@ -168,6 +168,7 @@ namespace UI
 		std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> _ddcontrollers;
 		bool hasbegun = false;
 		size_t lastddcontrollers = 0;
+		bool gotsources = false;
 	};
 
 	class UIInputInformation

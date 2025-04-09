@@ -189,6 +189,12 @@ public:
 	/// <param name="controllers"></param>
 	void GetDDControllers(std::vector<std::shared_ptr<DeltaDebugging::DeltaController>>& controllers);
 	/// <summary>
+	/// Returns the ddcontrollers active in this generation if there is no lock active
+	/// </summary>
+	/// <param name="controllers"></param>
+	/// <returns>Number of dd controllers returned</returns>
+	size_t TryGetDDControllers(std::vector<std::shared_ptr<DeltaDebugging::DeltaController>>& controllers);
+	/// <summary>
 	/// returns the number of ddcontrollers in this instance
 	/// </summary>
 	/// <returns></returns>

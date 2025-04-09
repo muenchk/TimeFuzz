@@ -862,7 +862,7 @@ namespace DeltaDebugging
 			_sessiondata->data->DeleteForm(inp->derive);
 			_sessiondata->data->DeleteForm(inp);
 			_invalidTests++;
-			profile(TimeProfiling, "Time taken to check input");
+			profile(TimeProfiling, "{}: Time taken to check input", Utility::PrintForm(inp->derive));
 			return false;
 		}
 		inputlock.~LockHolder();
@@ -871,7 +871,7 @@ namespace DeltaDebugging
 		inp->SetGenerated();
 		inp->SetGenerationTime(_sessiondata->data->GetRuntime());
 		inp->SetGenerationID(_sessiondata->GetCurrentGenerationID());
-		profile(TimeProfiling, "Time taken to check input");
+		profile(TimeProfiling, "{}: Time taken to check input", Utility::PrintForm(inp->derive));
 		return true;
 	}
 
@@ -881,6 +881,7 @@ namespace DeltaDebugging
 
 		ReadLockHolder<Input> parentlock(parent);
 		ReadLockHolder<DerivationTree> parentdevlock(parent->derive);
+		profile(TimeProfiling, "{}: Time taken to get locks", Utility::PrintForm(parent));
 
 		DeltaInformation dcmpl;
 		dcmpl.positionbegin = (int32_t)begin;
@@ -898,6 +899,7 @@ namespace DeltaDebugging
 			psplitinfo = parent->GetParentSplits();
 		RangeCalculator<int64_t> calc(&psplitinfo, _origInput->Length());
 		auto ranges = calc.GetNewRangesWithout((int64_t)begin, (int64_t)end);
+		profile(TimeProfiling, "{}: Got new ranges", Utility::PrintForm(parent));
 
 		auto inp = _sessiondata->data->CreateForm<Input>();
 		inp->SetFlag(Form::FormFlags::DoNotFree);
@@ -918,7 +920,7 @@ namespace DeltaDebugging
 
 		if (inp->GetSequenceLength() > parent->GetSequenceLength())
 			logcritical("ooooopss");
-		profile(TimeProfiling, "Time taken for complement generation");
+		profile(TimeProfiling, "{}: Time taken for complement generation", Utility::PrintForm(parent));
 		if (CheckInput(_origInput, inp, approxthreshold))
 			return inp;
 		else

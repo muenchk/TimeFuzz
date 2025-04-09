@@ -256,7 +256,7 @@
       }
     },
     {
-      "name": "all",
+      "name": "all-debug",
       "inherits": [
         "base",
         "vcpkg",
@@ -270,11 +270,34 @@
       "displayName": "All",
       "description": "Optimized release build.",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build-all",
+      "binaryDir": "${sourceDir}/build-debug-all",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": {
           "type": "STRING",
           "value": "Debug"
+        }
+      }
+    },
+    {
+      "name": "all-release",
+      "inherits": [
+        "base",
+        "vcpkg",
+        "ui",
+        "win32-unicode",
+        "x64",
+        "generator-ninja",
+        "build-tests",
+        "msvc"
+      ],
+      "displayName": "All",
+      "description": "Optimized release build.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-release-all",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": {
+          "type": "STRING",
+          "value": "Release"
         }
       }
     },
@@ -350,6 +373,36 @@
         "CMAKE_BUILD_TYPE": {
           "type": "STRING",
           "value": "Debug"
+        }
+      }
+    },
+    {
+      "name": "kali-debug-all",
+      "inherits": [
+        "kali-release",
+        "build-tests"
+      ],
+      "displayName": "Kali",
+      "binaryDir": "${sourceDir}/build-kali-debug-all",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": {
+          "type": "STRING",
+          "value": "Debug"
+        }
+      }
+    },
+    {
+      "name": "kali-release-all",
+      "inherits": [
+        "kali-release",
+        "build-tests"
+      ],
+      "displayName": "Kali",
+      "binaryDir": "${sourceDir}/build-kali-release-all",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": {
+          "type": "STRING",
+          "value": "Release"
         }
       }
     },

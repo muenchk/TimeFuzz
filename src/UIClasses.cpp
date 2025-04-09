@@ -230,13 +230,16 @@ int64_t UIGeneration::GetActiveInputs()
 }
 int64_t UIGeneration::GetNumberOfSources()
 {
-	return _generation->GetNumberOfSources();
+	return sources.size();
 }
 void UIGeneration::GetSources(std::vector<UIInput>& inputs)
 { 
 	if (hasbegun)
 	{
-		_generation->GetSources(sources);
+		if (gotsources == false) {
+			_generation->GetSources(sources);
+			gotsources = true;
+		}
 		if (inputs.size() < sources.size())
 			inputs.resize(sources.size());
 		for (size_t i = 0; i < sources.size(); i++) {
@@ -259,8 +262,7 @@ void UIGeneration::GetDDControllers(std::vector<UIDeltaDebugging>& dd, size_t& s
 {
 	if (lastddcontrollers == _generation->GetNumberOfDDControllers())
 		return;
-	_generation->GetDDControllers(_ddcontrollers);
-	lastddcontrollers = _generation->GetNumberOfDDControllers();
+	lastddcontrollers = _generation->TryGetDDControllers(_ddcontrollers);
 	size = lastddcontrollers;
 	if (dd.size() < _ddcontrollers.size())
 		dd.resize(_ddcontrollers.size());

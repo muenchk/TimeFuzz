@@ -3,6 +3,7 @@
 #include "Form.h"
 #include "Utility.h"
 #include "Logging.h"
+#include "Allocatable.h"
 
 #include <string>
 #include <vector>
@@ -26,7 +27,7 @@ public:
 		NonTerminal = 1,
 		Sequence = 2,
 	};
-	struct Node
+	struct Node : public Allocatable
 	{
 		virtual NodeType Type() = 0;
 		virtual std::pair<Node*, std::vector<Node*>> CopyRecursive() = 0;
@@ -40,6 +41,9 @@ public:
 	{
 		std::vector<Node*> _children;
 		uint64_t _grammarID;
+
+		void __Clear(Allocators* alloc) override;
+		void __Delete(Allocators* alloc) override;
 
 		~NonTerminalNode()
 		{
@@ -99,6 +103,14 @@ public:
 		uint64_t _grammarID;
 		std::string _content;
 
+		void __Clear(Allocators*) override
+		{
+			_grammarID = 0;
+			_content = "";
+			_content.shrink_to_fit();
+		}
+		void __Delete(Allocators* alloc) override;
+
 		NodeType Type() override { return NodeType::Terminal; }
 
 		std::pair<Node*, std::vector<Node*>> CopyRecursive() override
@@ -117,6 +129,8 @@ public:
 		~SequenceNode()
 		{
 		}
+
+		void __Delete(Allocators* alloc) override;
 
 		std::pair<Node*, std::vector<Node*>> CopyRecursive() override
 		{

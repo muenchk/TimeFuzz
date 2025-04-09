@@ -411,9 +411,9 @@ std::shared_ptr<Generation> SessionData::GetLastGeneration()
 
 void SessionData::GetGenerationIDs(std::vector<std::pair<FormID, int32_t>>& gens, size_t& size)
 {
+	std::shared_lock<std::shared_mutex> guard(_generationsLock);
 	if (_generations.size() > gens.size())
 		gens.resize(_generations.size());
-	std::shared_lock<std::shared_mutex> guard(_generationsLock);
 	size = _generations.size();
 	int i = 0;
 	auto itr = _generations.begin();

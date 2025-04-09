@@ -6,7 +6,7 @@
 #		include <sys/wait.h>
 #endif
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-#include "CrashHandler.h"
+#include "ChrashHandlerINCL.h"
 #endif
 #include "Settings.h"
 #include "TaskController.h"

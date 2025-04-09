@@ -1,8 +1,33 @@
 #include "DerivationTree.h"
 #include "BufferOperations.h"
 #include "Data.h"
+#include "Allocators.h"
 
 #include <stack>
+
+
+void DerivationTree::NonTerminalNode::__Clear(Allocators* alloc)
+{
+	for (int i = 0; i < _children.size(); i++) {
+		_children[i]->__Delete(alloc);
+	}
+	_children.clear();
+}
+
+void DerivationTree::NonTerminalNode::__Delete(Allocators* alloc)
+{
+	alloc->DerivationTree_NonTerminalNode()->Delete((DerivationTree::NonTerminalNode*)this);
+}
+
+void DerivationTree::TerminalNode::__Delete(Allocators* alloc)
+{
+	alloc->DerivationTree_TerminalNode()->Delete((DerivationTree::TerminalNode*)this);
+}
+
+void DerivationTree::SequenceNode::__Delete(Allocators* alloc)
+{
+	alloc->DerivationTree_SequenceNode()->Delete((DerivationTree::SequenceNode*)this);
+}
 
 size_t DerivationTree::GetStaticSize(int32_t version)
 {

@@ -1,7 +1,7 @@
 #include "Logging.h"
 #include "Utility.h"
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-#include "CrashHandler.h"
+#include "ChrashHandlerINCL.h"
 #endif
 
 bool TestSplitString(std::string input, std::vector<std::string> output, bool removeempty, bool disableescape = false)

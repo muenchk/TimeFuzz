@@ -1665,6 +1665,8 @@ void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<Der
 			logwarn("Danger");
 			return;
 		}
+
+		profile(TimeProfiling, "{}: gathered sequence nodes", Utility::PrintForm(dtree));
 		// sequence nodes are in order
 
 		std::vector<DerivationTree::SequenceNode*> targetnodes;
@@ -1702,6 +1704,8 @@ void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<Der
 			}
 		}
 
+		profile(TimeProfiling, "{}: copied nodes", Utility::PrintForm(dtree));
+
 		// got all nodes
 		// we know that our grammar is simple, so our tree root is a regex that derives all the nodes
 		
@@ -1734,7 +1738,7 @@ void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<Der
 			} else
 				logwarn("Something wrong in simple extraction");
 		}
-		profile(TimeProfiling, "Time taken for extraction of length: {}, form length: {}", dtree->_sequenceNodes, stree->_sequenceNodes);
+		profile(TimeProfiling, "{}: Time taken for extraction of length: {}, form length: {}", Utility::PrintForm(dtree), dtree->_sequenceNodes, stree->_sequenceNodes);
 	}
 }
 

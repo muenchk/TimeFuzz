@@ -1,7 +1,7 @@
 #include "Input.h"
 #include "Logging.h"
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-#include "CrashHandler.h"
+#include "ChrashHandlerINCL.h"
 #endif
 
 int main(/* int argc, char** argv*/)

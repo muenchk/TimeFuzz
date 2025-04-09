@@ -396,17 +396,18 @@ std::string Snapshot(bool full)
 	// top k
 	snap << "### TOP K\n";
 	{
-		static int32_t MAX_ITEMS = 100;
+		int32_t max = 5;
+		if (full)
+			max = 100;
 		static std::vector<UI::UIInput> elements;
 
 		// GET ITEMS FROM SESSION
-		session->UI_GetTopK(elements, MAX_ITEMS);
+		session->UI_GetTopK(elements, max);
 
 		snap << "Inputs:\n";
 		snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs") << "\n";
 
-		int32_t max = 5;
-		if (full || elements.size() < max)
+		if (elements.size() < max)
 			max = (int32_t)elements.size();
 		for (int32_t i = 0; i < max; i++) {
 			auto item = &elements[i];
