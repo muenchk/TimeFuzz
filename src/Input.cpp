@@ -155,8 +155,8 @@ bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRe
 			//	return false;
 			_stringrep = Buffer::ReadString(buffer, offset);
 			if (HasFlag(Form::FormFlags::DoNotFree)) {
-				Buffer::List::ReadList(_sequence, buffer, offset);
-				Buffer::List::ReadList(_orig_sequence, buffer, offset);
+				_sequence = Buffer::VectorBasic::ReadVector<std::string>(buffer, offset);
+				_orig_sequence = Buffer::VectorBasic::ReadVector<std::string>(buffer, offset);
 			}
 			_primaryScore = Buffer::ReadDouble(buffer, offset);
 			_secondaryScore = Buffer::ReadDouble(buffer, offset);
@@ -418,12 +418,12 @@ std::string Input::ToString()
 	return str;
 }
 
-std::list<std::string>::iterator Input::begin()
+std::vector<std::string>::iterator Input::begin()
 {
 	return _sequence.begin();
 }
 
-std::list<std::string>::iterator Input::end()
+std::vector<std::string>::iterator Input::end()
 {
 	return _sequence.end();
 }

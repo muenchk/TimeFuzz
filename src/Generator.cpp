@@ -111,6 +111,8 @@ void Generator::GenInputFromDevTree(std::shared_ptr<Input> input)
 		input->AddEntry(((DerivationTree::TerminalNode*)(input->derive->_root))->_content);
 	} else {
 		std::vector<DerivationTree::SequenceNode*> seqnodes;
+		seqnodes.reserve(input->derive->_sequenceNodes);
+		input->ReserveSequence(input->derive->_sequenceNodes);
 
 		std::stack<DerivationTree::NonTerminalNode*> stack;
 		stack.push((DerivationTree::NonTerminalNode*)(input->derive->_root));

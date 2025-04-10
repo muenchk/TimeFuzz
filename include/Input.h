@@ -273,6 +273,10 @@ public:
 	/// </summary>
 	/// <param name="entry"></param>
 	void AddEntry(std::string entry);
+	void ReserveSequence(size_t size)
+	{
+		_sequence.reserve(size);
+	}
 	/// <summary>
 	/// Marks the input as containing a valid input sequence
 	/// </summary>
@@ -296,12 +300,12 @@ public:
 	/// iterator pointing to the first element of the input
 	/// </summary>
 	/// <returns></returns>
-	[[nodiscard]] std::list<std::string>::iterator begin();
+	[[nodiscard]] std::vector<std::string>::iterator begin();
 	/// <summary>
 	/// iterator pointing beyond the last element of the input
 	/// </summary>
 	/// <returns></returns>
-	[[nodiscard]] std::list<std::string>::iterator end();
+	[[nodiscard]] std::vector<std::string>::iterator end();
 
 	/// <summary>
 	/// Returns the execution time of the test if it has already finished, otherwise -1
@@ -525,14 +529,14 @@ private:
 	/// <summary>
 	/// the underlying representation of the input sequence
 	/// </summary>
-	std::list<std::string> _sequence;
+	std::vector<std::string> _sequence;
 
-	std::list<std::string>::iterator _lua_sequence_next;
+	std::vector<std::string>::iterator _lua_sequence_next;
 
 	/// <summary>
 	/// originally generated sequence [stores sequence after trimming]
 	/// </summary>
-	std::list<std::string> _orig_sequence;
+	std::vector<std::string> _orig_sequence;
 
 	bool ReadData0x1(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 	bool ReadData0x2(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);

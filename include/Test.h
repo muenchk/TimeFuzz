@@ -112,7 +112,7 @@ public:
 	/// <summary>
 	/// the iterator the to the next sequence element to be given to executable
 	/// </summary>
-	std::list<std::string>::iterator _itr;
+	std::vector<std::string>::iterator _itr;
 	/// <summary>
 	/// the number of fragments executed
 	/// </summary>
@@ -120,7 +120,7 @@ public:
 	/// <summary>
 	/// the end iterator of the sequence
 	/// </summary>
-	std::list<std::string>::iterator _itrend;
+	std::vector<std::string>::iterator _itrend;
 	/// <summary>
 	/// last string written to program
 	/// </summary>
