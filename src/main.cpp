@@ -140,9 +140,6 @@ std::string Snapshot(bool full)
 	}
 	snap << "\n\n";
 
-	profile(TimeProfiling, "Snap: General");
-	ResetProfiling;
-
 	// advanced stats
 	snap << "### ADVANCED STATS\n";
 	{
@@ -190,9 +187,6 @@ std::string Snapshot(bool full)
 	}
 	snap << "\n\n";
 
-	profile(TimeProfiling, "Snap: Advanced");
-	ResetProfiling;
-
 	// tasks
 	snap << "### TASKS\n";
 	{
@@ -210,9 +204,6 @@ std::string Snapshot(bool full)
 		}
 	}
 	snap << "\n\n";
-
-	profile(TimeProfiling, "Snap: Tasks");
-	ResetProfiling;
 
 	// inputs
 	snap << "### INPUT INFO\n";
@@ -258,9 +249,6 @@ std::string Snapshot(bool full)
 		}
 	}
 	snap << "\n\n";
-
-	profile(TimeProfiling, "Snap: Input");
-	ResetProfiling;
 
 	// thread status
 	snap << "### THREAD STATUS\n";
@@ -320,9 +308,6 @@ std::string Snapshot(bool full)
 		snap << fmt::format("Status: {}", toStringExec(execstatus)) << "\n";
 	}
 	snap << "\n\n";
-
-	profile(TimeProfiling, "Snap: Thread");
-	ResetProfiling;
 
 	auto res = [](UI::Result result) {
 		if (result == UI::Result::Failing)
@@ -396,22 +381,19 @@ std::string Snapshot(bool full)
 				// do something with sources
 
 				snap << "Sources:\n";
-				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs") << "\n";
+				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs", "ExecTime") << "\n";
 
 				int32_t max = 5;
 				if (full || sources.size() < max)
 					max = (int32_t)sources.size();
 				for (int32_t i = 0; i < max; i++) {
 					auto item = &sources[i];
-					snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs) << "\n";
+					snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}ns", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs, item->exectime.count()) << "\n";
 				}
 			}
 		}
 	}
 	snap << "\n\n";
-
-	profile(TimeProfiling, "Snap: Generation");
-	ResetProfiling;
 
 	// top k
 	snap << "### TOP K\n";
@@ -425,21 +407,18 @@ std::string Snapshot(bool full)
 		session->UI_GetTopK(elements, max);
 
 		snap << "Inputs:\n";
-		snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs") << "\n";
+		snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs", "ExecTime") << "\n";
 
 		if (elements.size() < max)
 			max = (int32_t)elements.size();
 		for (int32_t i = 0; i < max; i++) {
 			auto item = &elements[i];
 			if (item->id != 0) {
-				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs) << "\n";
+				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}ns", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs, item->exectime.count()) << "\n";
 			}
 		}
 	}
 	snap << "\n\n";
-
-	profile(TimeProfiling, "Snap: TopK");
-	ResetProfiling;
 
 	// profiling
 	snap << "### PROFILING\n";
@@ -472,9 +451,6 @@ std::string Snapshot(bool full)
 	}
 	snap << "\n\n";
 
-	profile(TimeProfiling, "Snap: Profiling");
-	ResetProfiling;
-
 	// last generated
 	snap << "### LAST GENERATED\n";
 	{
@@ -483,7 +459,7 @@ std::string Snapshot(bool full)
 		// GET ITEMS FROM SESSION
 		session->UI_GetLastRunInputs(elements, 0);
 
-		snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs") << "\n";
+		snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs", "ExecTime") << "\n";
 
 		int32_t max = 10;
 		if (full || elements.size() < max)
@@ -492,15 +468,12 @@ std::string Snapshot(bool full)
 		{
 			auto item = &elements[i];
 			if (item->id != 0) {
-				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs) << "\n";
+				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}ns", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs, item->exectime.count()) << "\n";
 			}
 		}
 	}
 
 	snap << "\n\n";
-
-	profile(TimeProfiling, "Snap: Last generated");
-	ResetProfiling;
 
 	// delta debugging
 	snap << "### DELTA DEBUGGING\n";
@@ -568,40 +541,40 @@ std::string Snapshot(bool full)
 
 			
 			snap << "Original Input:\n";
-			snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs") << "\n";
+			snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs", "ExecTime") << "\n";
 			{
 				auto item = &origInput;
-				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs) << "\n";
+				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}ns", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs, item->exectime.count()) << "\n";
 			}
 			
 			snap << "Input:\n";
-			snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs") << "\n";
+			snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs", "ExecTime") << "\n";
 			{
 				auto item = &input;
-				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs) << "\n";
+				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}ns", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs, item->exectime.count()) << "\n";
 			}
 
 			snap << "Results:\n";
-			snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<10} {:<16} {:<17}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Level", "Loss (Primary)", "Loss (Secondary)") << "\n";
+			snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<10} {:<16} {:<17} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Level", "Loss (Primary)", "Loss (Secondary)", "ExecTime") << "\n";
 
 			int32_t max = 5;
 			if (full || results.size() < max)
 				max = (int32_t)results.size();
 			for (int i = 0; i < max; i++) {
 				auto item = &results[i];
-				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<10} {:<16} {:<17}", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->level, item->primaryLoss, item->secondaryLoss) << "\n";
+				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<10} {:<16} {:<17} {:<15}ns", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->level, item->primaryLoss, item->secondaryLoss, item->exectime.count()) << "\n";
 			}
 
 
 			snap << "Active Inputs:\n";
-			snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs") << "\n";
+			snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs", "ExecTime") << "\n";
 
 			max = 5;
 			if (full || inputs.size() < max)
 				max = (int32_t)inputs.size();
 			for (int i = 0; i < max; i++) {
 				auto item = &inputs[i];
-				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs) << "\n";
+				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}ns", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs, item->exectime.count()) << "\n";
 			}
 
 		} else {
@@ -610,8 +583,7 @@ std::string Snapshot(bool full)
 	}
 	snap << "\n\n";
 
-	profile(TimeProfiling, "Snap: DeltaDebugging");
-	ResetProfiling;
+	profile(TimeProfiling, "Snap");
 
 	return snap.str();
 }
@@ -1662,7 +1634,7 @@ int32_t main(int32_t argc, char** argv)
 							ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable | ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_ScrollY;
 
 						// do something with sources
-						if (ImGui::BeginTable("Sources", 9, flags, ImVec2(0.0f, 0.0f), 0.0f)) {
+						if (ImGui::BeginTable("Sources", 10, flags, ImVec2(0.0f, 0.0f), 0.0f)) {
 							ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputID);
 							ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputLength);
 							ImGui::TableSetupColumn("Primary Score", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputPrimaryScore);
@@ -1671,6 +1643,7 @@ int32_t main(int32_t argc, char** argv)
 							ImGui::TableSetupColumn("Flags", ImGuiTableColumnFlags_WidthFixed, 80.0f, UI::UIInput::ColumnID::InputFlags);
 							ImGui::TableSetupColumn("Generation", ImGuiTableColumnFlags_WidthFixed, 80.0f, UI::UIInput::ColumnID::InputGenerationNum);
 							ImGui::TableSetupColumn("Derived Inputs", ImGuiTableColumnFlags_WidthFixed, 80.0f, UI::UIInput::ColumnID::InputDerivedNum);
+							ImGui::TableSetupColumn("ExecTime in ns", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputExecTime);
 							ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputAction);
 							ImGui::TableSetupScrollFreeze(0, 1);
 							ImGui::TableHeadersRow();
@@ -1708,6 +1681,8 @@ int32_t main(int32_t argc, char** argv)
 									ImGui::Text("%5d", item->generationNumber);
 									ImGui::TableNextColumn();
 									ImGui::Text("%6ld", item->derivedInputs);
+									ImGui::TableNextColumn();
+									ImGui::Text("%15lld", item->exectime.count());
 									ImGui::TableNextColumn();
 									if (ImGui::SmallButton("Replay")) {
 										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1, std::placeholders::_2), item->id, &inputinfo);
@@ -1755,7 +1730,7 @@ int32_t main(int32_t argc, char** argv)
 					//PushStyleCompact
 					//...
 					//PopStyleCompact
-					if (ImGui::BeginTable("postable", 9, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * rownum), 0.0f)) {
+					if (ImGui::BeginTable("postable", 10, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * rownum), 0.0f)) {
 						ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputID);
 						ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputLength);
 						ImGui::TableSetupColumn("Primary Score", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputPrimaryScore);
@@ -1764,6 +1739,7 @@ int32_t main(int32_t argc, char** argv)
 						ImGui::TableSetupColumn("Flags", ImGuiTableColumnFlags_WidthFixed, 80.0f, UI::UIInput::ColumnID::InputFlags);
 						ImGui::TableSetupColumn("Generation", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputGenerationNum);
 						ImGui::TableSetupColumn("Derived Inputs", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputDerivedNum);
+						ImGui::TableSetupColumn("ExecTime in ns", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputExecTime);
 						ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputAction);
 						ImGui::TableSetupScrollFreeze(0, 1);
 						ImGui::TableHeadersRow();
@@ -1801,6 +1777,8 @@ int32_t main(int32_t argc, char** argv)
 								ImGui::Text("%6d", item->generationNumber);
 								ImGui::TableNextColumn();
 								ImGui::Text("%6lld", item->derivedInputs);
+								ImGui::TableNextColumn();
+								ImGui::Text("%15lld", item->exectime.count());
 								ImGui::TableNextColumn();
 								if (ImGui::SmallButton("Replay")) {
 									std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1, std::placeholders::_2), item->id, &inputinfo);
@@ -1841,7 +1819,7 @@ int32_t main(int32_t argc, char** argv)
 					//PushStyleCompact
 					//...
 					//PopStyleCompact
-					if (ImGui::BeginTable("postable", 9, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 11), 0.0f)) {
+					if (ImGui::BeginTable("postable", 10, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 11), 0.0f)) {
 						ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputID);
 						ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputLength);
 						ImGui::TableSetupColumn("Primary Score", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputPrimaryScore);
@@ -1850,6 +1828,7 @@ int32_t main(int32_t argc, char** argv)
 						ImGui::TableSetupColumn("Flags", ImGuiTableColumnFlags_WidthFixed, 80.0f, UI::UIInput::ColumnID::InputFlags);
 						ImGui::TableSetupColumn("Generation", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputGenerationNum);
 						ImGui::TableSetupColumn("Derived Inputs", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputDerivedNum);
+						ImGui::TableSetupColumn("ExecTime in ns", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputExecTime);
 						ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputAction);
 						ImGui::TableSetupScrollFreeze(0, 1);
 						ImGui::TableHeadersRow();
@@ -1887,6 +1866,8 @@ int32_t main(int32_t argc, char** argv)
 								ImGui::Text("%6d", item->generationNumber);
 								ImGui::TableNextColumn();
 								ImGui::Text("%6lld", item->derivedInputs);
+								ImGui::TableNextColumn();
+								ImGui::Text("%15lld", item->exectime.count());
 								ImGui::TableNextColumn();
 								if (ImGui::SmallButton("Replay")) {
 									std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1, std::placeholders::_2), item->id, &inputinfo);
@@ -1945,7 +1926,7 @@ int32_t main(int32_t argc, char** argv)
 						//PushStyleCompact
 						//...
 						//PopStyleCompact
-						if (ImGui::BeginTable("itemtable", 9, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * rownum), 0.0f)) {
+						if (ImGui::BeginTable("itemtable", 10, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * rownum), 0.0f)) {
 							ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputID);
 							ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputLength);
 							ImGui::TableSetupColumn("Primary Score", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputPrimaryScore);
@@ -1954,6 +1935,7 @@ int32_t main(int32_t argc, char** argv)
 							ImGui::TableSetupColumn("Flags", ImGuiTableColumnFlags_WidthFixed, 80.0f, UI::UIInput::ColumnID::InputFlags);
 							ImGui::TableSetupColumn("Generation", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputGenerationNum);
 							ImGui::TableSetupColumn("Derived Inputs", ImGuiTableColumnFlags_WidthFixed, 70.0f, UI::UIInput::ColumnID::InputDerivedNum);
+							ImGui::TableSetupColumn("ExecTime in ns", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputExecTime);
 							ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputAction);
 							ImGui::TableSetupScrollFreeze(0, 1);
 							ImGui::TableHeadersRow();
@@ -1991,6 +1973,8 @@ int32_t main(int32_t argc, char** argv)
 									ImGui::Text("%6d", item->generationNumber);
 									ImGui::TableNextColumn();
 									ImGui::Text("%6ld", item->derivedInputs);
+									ImGui::TableNextColumn();
+									ImGui::Text("%15lld", item->exectime.count());
 									ImGui::TableNextColumn();
 									if (ImGui::SmallButton("Replay")) {
 										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1, std::placeholders::_2), item->id, &inputinfo);
@@ -2201,13 +2185,14 @@ int32_t main(int32_t argc, char** argv)
 
 						// do something with original _input
 						// // active inputs table
-						if (ImGui::BeginTable("Original Input", 7, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 2), 0.0f)) {
+						if (ImGui::BeginTable("Original Input", 8, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 2), 0.0f)) {
 							ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputID);
 							ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputLength);
 							ImGui::TableSetupColumn("Primary Score", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputPrimaryScore);
 							ImGui::TableSetupColumn("Secondary Score", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputSecondaryScore);
 							ImGui::TableSetupColumn("Result", ImGuiTableColumnFlags_WidthFixed, 120.0f, UI::UIInput::ColumnID::InputResult);
 							ImGui::TableSetupColumn("Flags", ImGuiTableColumnFlags_WidthFixed, 80.0f, UI::UIInput::ColumnID::InputFlags);
+							ImGui::TableSetupColumn("ExecTime in ns", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputExecTime);
 							ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputAction);
 							ImGui::TableSetupScrollFreeze(0, 1);
 							ImGui::TableHeadersRow();
@@ -2242,6 +2227,8 @@ int32_t main(int32_t argc, char** argv)
 									ImGui::TableNextColumn();
 									ImGui::TextUnformatted(Utility::GetHexFill(item->flags).c_str());
 									ImGui::TableNextColumn();
+									ImGui::Text("%15lld", item->exectime.count());
+									ImGui::TableNextColumn();
 									if (ImGui::SmallButton("Replay")) {
 										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1, std::placeholders::_2), item->id, &inputinfo);
 										th.detach();
@@ -2258,13 +2245,14 @@ int32_t main(int32_t argc, char** argv)
 							ImGui::EndTable();
 						}
 						// do something with currrent _input
-						if (ImGui::BeginTable("Original Input", 7, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 2), 0.0f)) {
+						if (ImGui::BeginTable("Original Input", 8, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 2), 0.0f)) {
 							ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputID);
 							ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputLength);
 							ImGui::TableSetupColumn("Primary Score", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputPrimaryScore);
 							ImGui::TableSetupColumn("Secondary Score", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputSecondaryScore);
 							ImGui::TableSetupColumn("Result", ImGuiTableColumnFlags_WidthFixed, 120.0f, UI::UIInput::ColumnID::InputResult);
 							ImGui::TableSetupColumn("Flags", ImGuiTableColumnFlags_WidthFixed, 80.0f, UI::UIInput::ColumnID::InputFlags);
+							ImGui::TableSetupColumn("ExecTime in ns", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputExecTime);
 							ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputAction);
 							ImGui::TableSetupScrollFreeze(0, 1);
 							ImGui::TableHeadersRow();
@@ -2299,6 +2287,8 @@ int32_t main(int32_t argc, char** argv)
 									ImGui::TableNextColumn();
 									ImGui::TextUnformatted(Utility::GetHexFill(item->flags).c_str());
 									ImGui::TableNextColumn();
+									ImGui::Text("%15lld", item->exectime.count());
+									ImGui::TableNextColumn();
 									if (ImGui::SmallButton("Replay")) {
 										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1, std::placeholders::_2), item->id, &inputinfo);
 										th.detach();
@@ -2315,7 +2305,7 @@ int32_t main(int32_t argc, char** argv)
 							ImGui::EndTable();
 						}
 						// results table
-						if (ImGui::BeginTable("Results", 10, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 10), 0.0f)) {
+						if (ImGui::BeginTable("Results", 11, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 10), 0.0f)) {
 							ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIDDResult::ColumnID::InputID);
 							ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIDDResult::ColumnID::InputLength);
 							ImGui::TableSetupColumn("Primary Score", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIDDResult::ColumnID::InputPrimaryScore);
@@ -2326,6 +2316,7 @@ int32_t main(int32_t argc, char** argv)
 							ImGui::TableSetupColumn("Level", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIDDResult::ColumnID::InputLevel);
 							ImGui::TableSetupColumn("Loss (Primary)", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIDDResult::ColumnID::InputLossPrimary);
 							ImGui::TableSetupColumn("Loss (Secondary)", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIDDResult::ColumnID::InputLossSecondary);
+							ImGui::TableSetupColumn("ExecTime in ns", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIDDResult::ColumnID::InputExecTime);
 							ImGui::TableSetupScrollFreeze(0, 1);
 							ImGui::TableHeadersRow();
 
@@ -2375,6 +2366,8 @@ int32_t main(int32_t argc, char** argv)
 									ImGui::Text("%2.4f", item->primaryLoss);
 									ImGui::TableNextColumn();
 									ImGui::Text("%2.4f", item->secondaryLoss);
+									ImGui::TableNextColumn();
+									ImGui::Text("%15lld", item->exectime.count());
 									ImGui::PopID();
 								}
 							}
@@ -2382,13 +2375,14 @@ int32_t main(int32_t argc, char** argv)
 						}
 
 						// active inputs table
-						if (ImGui::BeginTable("Active Inputs", 7, flags, ImVec2(0.0f, 0.0f), 0.0f)) {
+						if (ImGui::BeginTable("Active Inputs", 8, flags, ImVec2(0.0f, 0.0f), 0.0f)) {
 							ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 30.f, UI::UIInput::ColumnID::InputID);
 							ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputLength);
 							ImGui::TableSetupColumn("Primary Score", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputPrimaryScore);
 							ImGui::TableSetupColumn("Secondary Score", ImGuiTableColumnFlags_WidthFixed, 70.f, UI::UIInput::ColumnID::InputSecondaryScore);
 							ImGui::TableSetupColumn("Result", ImGuiTableColumnFlags_WidthFixed, 120.0f, UI::UIInput::ColumnID::InputResult);
 							ImGui::TableSetupColumn("Flags", ImGuiTableColumnFlags_WidthFixed, 80.0f, UI::UIInput::ColumnID::InputFlags);
+							ImGui::TableSetupColumn("ExecTime in ns", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputExecTime);
 							ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 0.0f, UI::UIInput::ColumnID::InputAction);
 							ImGui::TableSetupScrollFreeze(0, 1);
 							ImGui::TableHeadersRow();
@@ -2422,6 +2416,8 @@ int32_t main(int32_t argc, char** argv)
 										ImGui::Text("Unfinished");
 									ImGui::TableNextColumn();
 									ImGui::TextUnformatted(Utility::GetHexFill(item->flags).c_str());
+									ImGui::TableNextColumn();
+									ImGui::Text("%15lld", item->exectime.count());
 									ImGui::TableNextColumn();
 									if (ImGui::SmallButton("Replay")) {
 										std::thread th(std::bind(&Session::Replay, session, std::placeholders::_1, std::placeholders::_2), item->id, &inputinfo);
@@ -2575,9 +2571,9 @@ Responsive:
 		StartSession();
 		std::chrono::steady_clock::time_point last = std::chrono::steady_clock::now();
 		while (session->Loaded() == false) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(50));
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		}
-		std::cout << "Beginning infinite wait for session end";
+		std::cout << "Beginning infinite wait for session end\n";
 		while (session->Finished() == false) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(50));
 			if (std::chrono::steady_clock::now() - last >= std::chrono::seconds(10)) {

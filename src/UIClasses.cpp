@@ -122,6 +122,7 @@ void UIDeltaDebugging::GetResults(std::vector<UIDDResult>& results, size_t& size
 			results[count].primaryLoss = primloss;
 			results[count].secondaryLoss = seconloss;
 			results[count].level = level;
+			results[count].exectime = input->GetExecutionTime();
 			itr++;
 			count++;
 		}
@@ -141,6 +142,7 @@ void UIDeltaDebugging::GetOriginalInput(UIInput& input)
 			input.secondaryScore = inp->GetSecondaryScore();
 			input.result = (UI::Result)inp->GetOracleResult();
 			input.flags = inp->GetFlags();
+			input.exectime = inp->GetExecutionTime();
 		}
 	}
 }
@@ -156,6 +158,7 @@ void UIDeltaDebugging::GetInput(UIInput& input)
 			input.secondaryScore = inp->GetSecondaryScore();
 			input.result = (UI::Result)inp->GetOracleResult();
 			input.flags = inp->GetFlags();
+			input.exectime = inp->GetExecutionTime();
 		}
 	}
 }
@@ -177,6 +180,7 @@ void UIDeltaDebugging::GetActiveInputs(std::vector<UIInput>& inputs, size_t& siz
 			inputs[count].secondaryScore = input->GetSecondaryScore();
 			inputs[count].result = (UI::Result)input->GetOracleResult();
 			inputs[count].flags = input->GetFlags();
+			inputs[count].exectime = input->GetExecutionTime();
 			itr++;
 			count++;
 		}
@@ -207,7 +211,7 @@ int64_t UIGeneration::GetSize()
 
 int64_t UIGeneration::GetGeneratedSize()
 {
-	return _generation->GetGeneratedSize();
+	return _generation->GetTrueGeneratedSize();
 }
 
 int64_t UIGeneration::GetDDSize()
@@ -251,6 +255,7 @@ void UIGeneration::GetSources(std::vector<UIInput>& inputs)
 			inputs[i].flags = sources[i]->GetFlags();
 			inputs[i].generationNumber = _generation->GetGenerationNumber();
 			inputs[i].derivedInputs = sources[i]->GetDerivedInputs();
+			inputs[i].exectime = sources[i]->GetExecutionTime();
 		}
 	}
 }

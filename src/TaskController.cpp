@@ -9,6 +9,7 @@
 #include "LuaEngine.h"
 #include "SessionData.h"
 #include "Allocators.h"
+#include "Settings.h"
 
 TaskController* TaskController::GetSingleton()
 {
@@ -543,17 +544,26 @@ bool TaskController::ReadData(std::istream* buffer, size_t& offset, size_t lengt
 			size_t num = Buffer::ReadSize(buffer, offset);
 			for (int32_t i = 0; i < (int32_t)num; i++) {
 				std::shared_ptr<Functions::BaseFunction> func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
-				_tasks.push_back(func);
+				if (!CmdArgs::_clearTasks)
+					_tasks.push_back(func);
+				else
+					func->Dispose();
 			}
 			num = Buffer::ReadSize(buffer, offset);
 			for (int32_t i = 0; i < (int32_t)num; i++) {
 				std::shared_ptr<Functions::BaseFunction> func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
-				_tasks_medium.push_back(func);
+				if (!CmdArgs::_clearTasks)
+					_tasks_medium.push_back(func);
+				else
+					func->Dispose();
 			}
 			num = Buffer::ReadSize(buffer, offset);
 			for (int32_t i = 0; i < (int32_t)num; i++) {
 				std::shared_ptr<Functions::BaseFunction> func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
-				_tasks_light.push_back(func);
+				if (!CmdArgs::_clearTasks)
+					_tasks_light.push_back(func);
+				else
+					func->Dispose();
 			}
 			_completedjobs = Buffer::ReadUInt64(buffer, offset);
 			if (active)

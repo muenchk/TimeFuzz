@@ -26,6 +26,11 @@ public:
 	/// <returns></returns>
 	int64_t GetGeneratedSize();
 	/// <summary>
+	/// Returns the number of inputs in this generation that have been generated and run
+	/// </summary>
+	/// <returns></returns>
+	int64_t GetTrueGeneratedSize();
+	/// <summary>
 	/// Returns the number of inputs in this generation that have been created through Delta Debugging
 	/// </summary>
 	/// <returns></returns>

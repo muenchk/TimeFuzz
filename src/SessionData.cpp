@@ -30,6 +30,14 @@ void SessionData::Init()
 		_positiveInputs.set_ordering(std::SetOrdering::Secondary);
 		break;
 	}
+	_defaultGen = data->CreateForm<Generation>();
+	_defaultGen->SetTargetSize(INT64_MAX);
+	_defaultGen->SetMaxSimultaneuosGeneration(_settings->generation.generationstep);
+	_defaultGen->SetMaxActiveInputs(_settings->generation.activeGeneratedInputs);
+	_defaultGen->SetMaxDerivedFailingInput(_settings->generation.maxNumberOfFailsPerSource);
+	_defaultGen->SetMaxDerivedInput(_settings->generation.maxNumberOfGenerationsPerSource);
+	_defaultGen->SetGenerationNumber(0);
+	_defaultGen->SetStartTime(data->GetRuntime());
 }
 
 SessionData::~SessionData()
@@ -367,8 +375,7 @@ std::shared_ptr<Generation> SessionData::GetCurrentGeneration()
 	if (_settings->generation.generationalMode)
 		return GetGen();
 	else {
-		static std::shared_ptr<Generation> genptr = std::make_shared<Generation>();
-		return genptr;
+		return _defaultGen;
 	}
 }
 
@@ -384,8 +391,7 @@ std::shared_ptr<Generation> SessionData::GetGeneration(FormID generationID)
 			return genptr;
 		}
 	} else {
-		static std::shared_ptr<Generation> genptr = std::make_shared<Generation>();
-		return genptr;
+		return _defaultGen;
 	}
 }
 
@@ -399,9 +405,8 @@ std::shared_ptr<Generation> SessionData::GetGenerationByNumber(int32_t generatio
 			if (itr->second->GetGenerationNumber() == generationNumber)
 				return itr->second;
 		}
-	}
-	static std::shared_ptr<Generation> genptr = std::make_shared<Generation>();
-	return genptr;
+	} 
+	return _defaultGen;
 }
 
 std::shared_ptr<Generation> SessionData::GetLastGeneration()
@@ -457,35 +462,40 @@ void SessionData::SetNewGeneration(bool force)
 
 bool SessionData::CheckGenerationEnd(bool toomanyfails)
 {
-	// checks whether the current session should end and prepares to do so
-	bool exp = false;
-	auto gen = GetGen();
-	if ((gen->IsActive() == false || !gen->NeedsGeneration() && _exechandler->WaitingTasks() == 0 && _exechandler->GetRunningTests() == 0) && _generationEnding.compare_exchange_strong(exp, true) /*if gen is inactive and genending is false, set it to true and execute this block*/) {
-		// generation has finished
-		auto call = dynamic_pointer_cast<Functions::GenerationEndCallback>(Functions::GenerationEndCallback::Create());
-		call->_sessiondata = data->CreateForm<SessionData>();  // self
-		_controller->AddTask(call);
-		return true;
-	} else if ((_settings->generation.maxNumberOfFailsPerSource != 0 || _settings->generation.maxNumberOfGenerationsPerSource != 0) && gen->CheckSourceValidity([this](std::shared_ptr<Input> input) {
-				   if ((_settings->generation.maxNumberOfFailsPerSource == 0 || input->GetDerivedFails() < _settings->generation.maxNumberOfFailsPerSource) &&
-					   (_settings->generation.maxNumberOfGenerationsPerSource == 0 || input->GetDerivedInputs() < _settings->generation.maxNumberOfGenerationsPerSource))
-					   return true;
-				   else
-					   return false;
-			   }) == false && _generationEnding.compare_exchange_strong(exp, true)) {
-		// generation is being forcefully ended
-		auto call = dynamic_pointer_cast<Functions::GenerationEndCallback>(Functions::GenerationEndCallback::Create());
-		call->_sessiondata = data->CreateForm<SessionData>();  // self
-		_controller->AddTask(call);
-		return true;
-	} else if (toomanyfails && _generationEnding.compare_exchange_strong(exp, true)) {
-		// generation is being forcefully ended
-		auto call = dynamic_pointer_cast<Functions::GenerationEndCallback>(Functions::GenerationEndCallback::Create());
-		call->_sessiondata = data->CreateForm<SessionData>();  // self
-		_controller->AddTask(call);
-		return true;
+	if (_settings->generation.generationalMode) {
+		// checks whether the current session should end and prepares to do so
+		bool exp = false;
+		auto gen = GetGen();
+		if ((gen->IsActive() == false || !gen->NeedsGeneration() && _exechandler->WaitingTasks() == 0 && _exechandler->GetRunningTests() == 0) && _generationEnding.compare_exchange_strong(exp, true) /*if gen is inactive and genending is false, set it to true and execute this block*/) {
+			// generation has finished
+			auto call = dynamic_pointer_cast<Functions::GenerationEndCallback>(Functions::GenerationEndCallback::Create());
+			call->_sessiondata = data->CreateForm<SessionData>();  // self
+			_controller->AddTask(call);
+			return true;
+		} else if ((_settings->generation.maxNumberOfFailsPerSource != 0 || _settings->generation.maxNumberOfGenerationsPerSource != 0) && gen->CheckSourceValidity([this](std::shared_ptr<Input> input) {
+					   if ((_settings->generation.maxNumberOfFailsPerSource == 0 || input->GetDerivedFails() < _settings->generation.maxNumberOfFailsPerSource) &&
+						   (_settings->generation.maxNumberOfGenerationsPerSource == 0 || input->GetDerivedInputs() < _settings->generation.maxNumberOfGenerationsPerSource))
+						   return true;
+					   else
+						   return false;
+				   }) == false &&
+				   _generationEnding.compare_exchange_strong(exp, true)) {
+			// generation is being forcefully ended
+			auto call = dynamic_pointer_cast<Functions::GenerationEndCallback>(Functions::GenerationEndCallback::Create());
+			call->_sessiondata = data->CreateForm<SessionData>();  // self
+			_controller->AddTask(call);
+			return true;
+		} else if (toomanyfails && _generationEnding.compare_exchange_strong(exp, true)) {
+			// generation is being forcefully ended
+			auto call = dynamic_pointer_cast<Functions::GenerationEndCallback>(Functions::GenerationEndCallback::Create());
+			call->_sessiondata = data->CreateForm<SessionData>();  // self
+			_controller->AddTask(call);
+			return true;
+		}
+		return _generationEnding.load();
+	} else {
+		return false;
 	}
-	return _generationEnding.load();
 }
 
 bool SessionData::GetGenerationEnding()
@@ -502,16 +512,22 @@ int64_t SessionData::GetNumberInputsToGenerate()
 			return num;
 		else
 			return 0;
-	} else
-		return _settings->generation.generationsize - (int64_t)_exechandler->WaitingTasks();
+	} else {
+		//return _settings->generation.generationsize - (int64_t)_exechandler->WaitingTasks();
+		auto [res, num] = _defaultGen->CanGenerate();
+		if (res)
+			return num;
+		else
+			return 0;
+	}
 }
 
-int64_t SessionData::CheckNumberInputsToGenerate(int64_t generated, int64_t failcount, int64_t togenerate)
+int64_t SessionData::CheckNumberInputsToGenerate(int64_t generated, int64_t /*failcount*/, int64_t togenerate)
 {
-	if (_settings->generation.generationalMode)
+	//if (_settings->generation.generationalMode)
 		return togenerate - generated;
-	else
-		return _settings->generation.activeGeneratedInputs > (int64_t)_exechandler->WaitingTasks() && failcount < (int64_t)GENERATION_RETRIES && generated < _settings->generation.generationstep;
+	//else
+	//	return _settings->generation.activeGeneratedInputs > (int64_t)_exechandler->WaitingTasks() && failcount < (int64_t)GENERATION_RETRIES && generated < _settings->generation.generationstep;
 }
 
 void SessionData::FailNumberInputsToGenerate(int64_t fails, int64_t)
@@ -591,7 +607,8 @@ size_t SessionData::GetStaticSize(int32_t version)
 	                        + 8      // listsize _generations
 	                        + 8      // exitstats.pipe
 	                        + 1      // _generationEnding
-	                        + 1;     // _generationFinishing
+	                        + 1      // _generationFinishing
+	                        + 8;     // _defaultGen
 
 	switch (version)
 	{
@@ -706,6 +723,10 @@ bool SessionData::WriteData(std::ostream* buffer, size_t& offset)
 	Buffer::Write(_lastGenerationID, buffer, offset);
 	Buffer::Write(_generationEnding.load(), buffer, offset);
 	Buffer::Write(_generationFinishing.load(), buffer, offset);
+	if (_defaultGen)
+		Buffer::Write(_defaultGen->GetFormID(), buffer, offset);
+	else
+		Buffer::Write((uint64_t)0, buffer, offset);
 	return true;
 }
 
@@ -1017,6 +1038,10 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 			_lastGenerationID = Buffer::ReadUInt64(buffer, offset);
 			_generationEnding = Buffer::ReadBool(buffer, offset);
 			_generationFinishing = Buffer::ReadBool(buffer, offset);
+			FormID defaultID = Buffer::ReadUInt64(buffer, offset);
+			resolver->AddTask([this, resolver, defaultID]() {
+				this->_defaultGen = resolver->ResolveFormID<Generation>(defaultID);
+			});
 			return true;
 		}
 		break;

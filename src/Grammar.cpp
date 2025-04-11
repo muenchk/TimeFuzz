@@ -1994,7 +1994,6 @@ std::string GetSymbols(std::shared_ptr<GrammarNode> node, std::mt19937& randan)
 
 void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<std::pair<DerivationTree::NonTerminalNode*, std::shared_ptr<GrammarNode>>>& qnonterminals, std::deque<std::pair<DerivationTree::NonTerminalNode*, std::shared_ptr<GrammarNode>>>& qseqnonterminals, std::mt19937& randan, int32_t& seq)
 {
-	StartProfiling
 	DerivationTree::NonTerminalNode* nnode = nullptr;
 	DerivationTree::TerminalNode* ttnode = nullptr;
 	DerivationTree::NonTerminalNode* tnnode = nullptr;
@@ -2172,8 +2171,6 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 		}
 		flip = true;
 	}
-	profile(TimeProfiling, "{}: created sequence nodes", Utility::PrintForm(dtree));
-	ResetProfiling;
 
 	// in the second loop we expand all seq-nonterminals until non remain, while favoring expansions that
 	// do not produce new sequences
@@ -2265,8 +2262,6 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 			}
 		}
 	}
-	profile(TimeProfiling, "{}: expanded sequence nodes", Utility::PrintForm(dtree));
-	ResetProfiling;
 
 	// in the third loop we expand all non-terminals, favoring rules that do not increase the sequence nodes,
 	// until only terminal nodes remain
@@ -2334,7 +2329,6 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 			}
 		}
 	}
-	profile(TimeProfiling, "{}: expanded nonterminal nodes", Utility::PrintForm(dtree));
 }
 
 void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTree> dtree, bool backtrack, int32_t targetlength, uint32_t seed, int32_t& backtrackingdone, int32_t /*maxsteps*/)

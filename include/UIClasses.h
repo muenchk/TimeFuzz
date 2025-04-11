@@ -52,6 +52,7 @@ namespace UI
 			InputGenerationNum,
 			InputDerivedNum,
 			InputAction,
+			InputExecTime,
 		};
 
 		FormID id;
@@ -61,6 +62,7 @@ namespace UI
 		EnumType flags;
 		int32_t generationNumber; 
 		int64_t derivedInputs;
+		std::chrono::nanoseconds exectime;
 		UI::Result result;
 	};
 
@@ -102,6 +104,7 @@ namespace UI
 			InputLossPrimary,
 			InputLossSecondary,
 			InputLevel,
+			InputExecTime,
 		};
 
 		FormID id;
@@ -113,6 +116,7 @@ namespace UI
 		double secondaryLoss;
 		int32_t level;
 		EnumType flags;
+		std::chrono::nanoseconds exectime;
 	};
 
 	class UIDeltaDebugging

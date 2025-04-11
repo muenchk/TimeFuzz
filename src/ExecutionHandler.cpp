@@ -11,6 +11,7 @@
 #include "SessionFunctions.h"
 #include "Generation.h"
 #include "IPCommManager.h"
+#include "Settings.h"
 #include <functional>
 //#include <io.h>
 
@@ -946,14 +947,18 @@ void ExecutionHandler::ClearTests()
 		if (auto ptr = test.lock(); ptr && _session->data)
 			ptr->InValidatePreExec();
 	}
-	auto itr = _runningTests.begin();
-	while (itr != _runningTests.end()) {
-		if (auto ptr = (*itr).lock(); ptr && ptr->IsRunning()) {
-			ptr->KillProcess();
-			StopTest(ptr);
+	{
+		Utility::SpinLock guard(_runningTestsFlag);
+		auto itr = _runningTests.begin();
+		while (itr != _runningTests.end()) {
+			if (auto ptr = (*itr).lock(); ptr && ptr->IsRunning()) {
+				ptr->KillProcess();
+				StopTest(ptr);
+			}
+			if (!_runningTests.empty())
+				_runningTests.pop_front();
+			itr = _runningTests.begin();
 		}
-		_runningTests.pop_front();
-		itr = _runningTests.begin();
 	}
 	while (!_startingTests.empty()) {
 		std::shared_ptr<Test> test = _startingTests.front();
@@ -1051,26 +1056,27 @@ bool ExecutionHandler::ReadData(std::istream* buffer, size_t& offset, size_t len
 				_threadpool = resolver->_data->CreateForm<TaskController>();
 				_oracle = resolver->_data->CreateForm<Oracle>();
 				for (int32_t i = 0; i < (int32_t)ids.size(); i++) {
-					if (ids[i] != 0) {
-						auto test = resolver->ResolveFormID<Test>(ids[i]);
-						if (test->HasFlag(Form::FormFlags::DoNotFree) == false)
-							test->SetFlag(Form::FormFlags::DoNotFree);
-						test->Init(test->_callback, test->_identifier);
-						// since we found a test we still need to execute, we need to make sure that our _input contains a valid _input sequence
-						// and regenerate it if not
-						if (auto ptr = test->_input.lock(); ptr) {
-							if (!ptr->test)
-								ptr->test = test;
-							if (ptr->GetGenerated() == false)
-								SessionFunctions::GenerateInput(ptr, this->_sessiondata);
-						}
-						test->_cmdArgs = Lua::GetCmdArgs(std::bind(&Oracle::GetCmdArgs, _oracle, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), test, stateerror, false);
-						if (_oracle->GetOracletype() == Oracle::PUTType::Script)
-							test->_scriptArgs = Lua::GetScriptArgs(std::bind(&Oracle::GetScriptArgs, _oracle, std::placeholders::_1, std::placeholders::_2), test, stateerror);
-						_waitingTests.push_back(test);
+					if (!CmdArgs::_clearTasks) {
+						if (ids[i] != 0) {
+							auto test = resolver->ResolveFormID<Test>(ids[i]);
+							if (test->HasFlag(Form::FormFlags::DoNotFree) == false)
+								test->SetFlag(Form::FormFlags::DoNotFree);
+							test->Init(test->_callback, test->_identifier);
+							// since we found a test we still need to execute, we need to make sure that our _input contains a valid _input sequence
+							// and regenerate it if not
+							if (auto ptr = test->_input.lock(); ptr) {
+								if (!ptr->test)
+									ptr->test = test;
+								if (ptr->GetGenerated() == false)
+									SessionFunctions::GenerateInput(ptr, this->_sessiondata);
+							}
+							test->_cmdArgs = Lua::GetCmdArgs(std::bind(&Oracle::GetCmdArgs, _oracle, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), test, stateerror, false);
+							if (_oracle->GetOracletype() == Oracle::PUTType::Script)
+								test->_scriptArgs = Lua::GetScriptArgs(std::bind(&Oracle::GetScriptArgs, _oracle, std::placeholders::_1, std::placeholders::_2), test, stateerror);
+							_waitingTests.push_back(test);
+						} else
+							logcritical("ExecutionHandler::Load cannot resolve test");
 					}
-					else
-						logcritical("ExecutionHandler::Load cannot resolve test");
 				}
 				// make the first batch of tests ready for execution
 				InitTests();

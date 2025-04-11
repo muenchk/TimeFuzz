@@ -214,6 +214,10 @@ class SessionData : public Form
 	/// ID of the last generation
 	/// </summary>
 	FormID _lastGenerationID = 0;
+	/// <summary>
+	/// generation used when generational mode is disabled
+	/// </summary>
+	std::shared_ptr<Generation> _defaultGen;
 
 	/// <summary>
 	/// This lock allows to regulate input generation. Any function that generates new inputs from the current generation

@@ -20,6 +20,11 @@ int64_t Generation::GetGeneratedSize()
 	return _generatedSize;
 }
 
+int64_t Generation::GetTrueGeneratedSize()
+{
+	return (int64_t)_generatedInputs.size();
+}
+
 int64_t Generation::GetDDSize()
 {
 	return _ddSize;

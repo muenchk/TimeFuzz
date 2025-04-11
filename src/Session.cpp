@@ -265,7 +265,7 @@ void Session::StopSession(bool savesession, bool stopHandler)
 {
 	if (_abort == true)
 		return;
-	logmessage("Stopping session.");
+	logmessage("Stopping session...");
 	if (savesession)
 		data->Save({});
 	data->EndClock();
@@ -275,35 +275,43 @@ void Session::StopSession(bool savesession, bool stopHandler)
 	_sessionControlWait.notify_all();
 	if (_sessiondata) {
 		if (stopHandler) {
+			logmessage("Stopping handlers....");
 			// stop executionhandler first, so no more new tests are started and the
 			// taskcontroller can catch up if necessary
 			if (_sessiondata->_exechandler) {
 				_sessiondata->_exechandler->StopHandler();
+				logmessage("Stopped ExecHandler.");
 			}
 			// stop controller
 			if (_sessiondata->_controller) {
 				_sessiondata->_controller->Stop(false);
+				logmessage("Stopped Controller.");
 			}
 		} else {
 			// we don't want to stop the handlers, after all we might want to check stuff, etc.
 			// so try freezing them and delete any active tasks and tests
 			// this will effectively end the session and any ongoing stuff, without affecting the 
 			// availability of the handlers
-			if (_sessiondata->_controller)
+			if (_sessiondata->_controller) {
 				_sessiondata->_controller->Freeze();
+				logmessage("Frozen controller.");
+			}
 			if (_sessiondata->_exechandler) {
 				_sessiondata->_exechandler->Freeze(false);
 				_sessiondata->_exechandler->ClearTests();
 				_sessiondata->_exechandler->Thaw();
+				logmessage("Stopped ExecHandler.");
 			}
 			if (_sessiondata->_controller) {
 				_sessiondata->_controller->ClearTasks();
 				_sessiondata->_controller->Thaw();
+				logmessage("Stopped Controller.");
 			}
 		}
 	}
 	
 	// don't clear any data, we may want to use the data for statistics, etc.
+	logmessage("Stopped session.");
 	
 	// notify all threads waiting on the session to end, of the sessions end
 	End();
@@ -586,7 +594,8 @@ void Session::SessionControl()
 	// generates inputs, etc.
 	Lua::RegisterThread(_sessiondata);
 	SessionFunctions::MasterControl(_sessiondata);
-	SessionFunctions::GenerateTests(_sessiondata);
+	if (CmdArgs::_clearTasks == false)
+		SessionFunctions::GenerateTests(_sessiondata);
 	Lua::UnregisterThread();
 
 	logmessage("Kicked session off.");
@@ -610,7 +619,7 @@ void Session::SessionControl()
 		{
 			//logwarn("Work you lazy bastards.");
 			// check wether the generation should end
-			if (_sessiondata->CheckGenerationEnd() == false)
+			if (_sessiondata->CheckGenerationEnd() == false && CmdArgs::_clearTasks == false)
 			{
 				// if it isn't ending give generation a little push
 				int32_t max = _sessiondata->_controller->GetHeavyThreadCount();
@@ -906,6 +915,7 @@ void Session::UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k)
 		vector[i].result = (UI::Result)vec[i]->GetOracleResult();
 		vector[i].flags = vec[i]->GetFlags();
 		vector[i].derivedInputs = vec[i]->GetDerivedInputs();
+		vector[i].exectime = vec[i]->GetExecutionTime();
 		vector[i].generationNumber = _sessiondata->GetGeneration(vec[i]->GetGenerationID())->GetGenerationNumber();
 	}
 }
@@ -926,6 +936,7 @@ void Session::UI_GetPositiveInputs(std::vector<UI::UIInput>& vector, size_t k)
 			(*vec)[*c].result = (UI::Result)input->GetOracleResult();
 			(*vec)[*c].flags = input->GetFlags();
 			(*vec)[*c].derivedInputs = input->GetDerivedInputs();
+			(*vec)[*c].exectime = input->GetExecutionTime();
 			(*vec)[*c].generationNumber = sessdata->GetGeneration(input->GetGenerationID())->GetGenerationNumber();
 		}
 		else
@@ -938,6 +949,7 @@ void Session::UI_GetPositiveInputs(std::vector<UI::UIInput>& vector, size_t k)
 			uinp.result = (UI::Result)input->GetOracleResult();
 			uinp.flags = input->GetFlags();
 			uinp.derivedInputs = input->GetDerivedInputs();
+			uinp.exectime = input->GetExecutionTime();
 			uinp.generationNumber = sessdata->GetGeneration(input->GetGenerationID())->GetGenerationNumber();
 			vec->push_back(uinp);
 		}
@@ -968,6 +980,7 @@ void Session::UI_GetLastRunInputs(std::vector<UI::UIInput>& vector, size_t k)
 			(*vec)[*c].result = (UI::Result)input->GetOracleResult();
 			(*vec)[*c].flags = input->GetFlags();
 			(*vec)[*c].derivedInputs = input->GetDerivedInputs();
+			(*vec)[*c].exectime = input->GetExecutionTime();
 			(*vec)[*c].generationNumber = sessdata->GetGeneration(input->GetGenerationID())->GetGenerationNumber();
 		} else {
 			UI::UIInput uinp;
@@ -978,6 +991,7 @@ void Session::UI_GetLastRunInputs(std::vector<UI::UIInput>& vector, size_t k)
 			uinp.result = (UI::Result)input->GetOracleResult();
 			uinp.flags = input->GetFlags();
 			uinp.derivedInputs = input->GetDerivedInputs();
+			uinp.exectime = input->GetExecutionTime();
 			uinp.generationNumber = sessdata->GetGeneration(input->GetGenerationID())->GetGenerationNumber();
 			vec->push_back(uinp);
 		}
