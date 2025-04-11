@@ -19,6 +19,8 @@ class Allocator
 	size_t _maxsize = 10485760;
 	size_t _size = 0;
 
+	bool _enable = true;
+
 public:
 	uint64_t _unalloc = 0;
 	uint64_t _realloc = 0;
@@ -32,29 +34,37 @@ public:
 		_maxsize = maxsize;
 	}
 
-	void Delete(T* obj)
+	inline void Delete(T* obj)
 	{
-		if (_size >= _maxsize)
+#ifndef CUSTOM_ALLOCATORS
+		delete obj;
+#else
+		if (!_enable || _size >= _maxsize)
 			delete obj;
 		else {
 			obj->__Clear(_alloc);
 			_objects.push_back(obj);
 			_size++;
 		}
+#endif
 	}
 
-	T* New()
+	inline T* New()
 	{
-		if (_size > 0) {
+#ifndef CUSTOM_ALLOCATORS
+		return new T();
+#else
+		if (_enable && _size > 0) {
 			auto obj = _objects.front();
 			_objects.pop_front();
 			_size--;
-			_realloc++;
+			//_realloc++;
 			return obj;
 		} else {
-			_unalloc++;
+			//_unalloc++;
 			return new T();
 		}
+#endif
 	}
 
 	void Alloc(size_t size)
@@ -71,6 +81,8 @@ public:
 			delete obj;
 		_objects.clear();
 	}
+
+	friend Allocators;
 };
 
 class Allocators
@@ -90,8 +102,12 @@ public:
 	}
 	static Allocators* GetThreadAllocators(std::thread::id);
 	static void InitThreadAllocators(std::thread::id);
+	static void InitThreadAllocators(std::thread::id, bool enable);
 	static void InitThreadAllocators(std::thread::id, size_t minsize);
+	static void InitThreadAllocators(std::thread::id, size_t minsize, bool enable);
 	static void DestroyThreadAllocators(std::thread::id);
+
+	void SetMaxSize(size_t maxsize);
 
 	Allocator<DerivationTree::NonTerminalNode>* DerivationTree_NonTerminalNode();
 	Allocator<DerivationTree::TerminalNode>* DerivationTree_TerminalNode();

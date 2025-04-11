@@ -388,7 +388,7 @@ std::string Snapshot(bool full)
 					max = (int32_t)sources.size();
 				for (int32_t i = 0; i < max; i++) {
 					auto item = &sources[i];
-					snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}ns", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs, item->exectime.count()) << "\n";
+					snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:>15} ns", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs, item->exectime.count()) << "\n";
 				}
 			}
 		}
@@ -414,7 +414,7 @@ std::string Snapshot(bool full)
 		for (int32_t i = 0; i < max; i++) {
 			auto item = &elements[i];
 			if (item->id != 0) {
-				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}ns", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs, item->exectime.count()) << "\n";
+				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:>15} ns", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs, item->exectime.count()) << "\n";
 			}
 		}
 	}
@@ -468,7 +468,7 @@ std::string Snapshot(bool full)
 		{
 			auto item = &elements[i];
 			if (item->id != 0) {
-				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}ns", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs, item->exectime.count()) << "\n";
+				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:>15} ns", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs, item->exectime.count()) << "\n";
 			}
 		}
 	}
@@ -544,14 +544,14 @@ std::string Snapshot(bool full)
 			snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs", "ExecTime") << "\n";
 			{
 				auto item = &origInput;
-				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}ns", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs, item->exectime.count()) << "\n";
+				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:>15} ns", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs, item->exectime.count()) << "\n";
 			}
 			
 			snap << "Input:\n";
 			snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs", "ExecTime") << "\n";
 			{
 				auto item = &input;
-				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}ns", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs, item->exectime.count()) << "\n";
+				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:>15} ns", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs, item->exectime.count()) << "\n";
 			}
 
 			snap << "Results:\n";
@@ -574,7 +574,7 @@ std::string Snapshot(bool full)
 				max = (int32_t)inputs.size();
 			for (int i = 0; i < max; i++) {
 				auto item = &inputs[i];
-				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}ns", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs, item->exectime.count()) << "\n";
+				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:>15} ns", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs, item->exectime.count()) << "\n";
 			}
 
 		} else {

@@ -144,6 +144,8 @@ private:
 	bool _controlEnableMedium = true;
 	bool _controlEnableHeavy = true;
 
+	bool _enableCustomAllocators = false;
+
 public:
 
 	/// <summary>

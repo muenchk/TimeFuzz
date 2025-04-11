@@ -107,6 +107,7 @@ void TaskController::Start(std::shared_ptr<SessionData> session, int32_t numLigh
 		_numMediumThreads = 0;
 		_numHeavyThreads = 0;
 		_controlEnableFine = false;
+		_enableCustomAllocators = true;
 		for (int32_t c = 0; c < _numAllThreads; c++, i++) {
 			_status.push_back(ThreadStatus::Initializing);
 			_statusTime.push_back(std::chrono::steady_clock::now());
@@ -223,7 +224,8 @@ void TaskController::InternalLoop_LightExclusive(int32_t number)
 	if (!_disableLua)
 		Lua::RegisterThread(_sessiondata);
 
-	Allocators::InitThreadAllocators(std::this_thread::get_id());
+	Allocators::InitThreadAllocators(std::this_thread::get_id(), false);
+	Allocators::GetThreadAllocators(std::this_thread::get_id())->SetMaxSize(1000000);
 
 	_status[number] = ThreadStatus::Waiting;
 	while (true) {
@@ -261,7 +263,8 @@ void TaskController::InternalLoop_Medium(int32_t number)
 	if (!_disableLua)
 		Lua::RegisterThread(_sessiondata);
 
-	Allocators::InitThreadAllocators(std::this_thread::get_id());
+	Allocators::InitThreadAllocators(std::this_thread::get_id(), false);
+	Allocators::GetThreadAllocators(std::this_thread::get_id())->SetMaxSize(1000000);
 
 	_status[number] = ThreadStatus::Waiting;
 	while (true) {
@@ -301,7 +304,8 @@ void TaskController::InternalLoop_Heavy(int32_t number)
 	if (!_disableLua)
 		Lua::RegisterThread(_sessiondata);
 
-	Allocators::InitThreadAllocators(std::this_thread::get_id());
+	Allocators::InitThreadAllocators(std::this_thread::get_id(), false);
+	Allocators::GetThreadAllocators(std::this_thread::get_id())->SetMaxSize(1000000);
 
 	_status[number] = ThreadStatus::Waiting;
 	while (true) {
@@ -341,7 +345,8 @@ void TaskController::InternalLoop_SingleThread(int32_t number)
 	if (!_disableLua)
 		Lua::RegisterThread(_sessiondata);
 
-	Allocators::InitThreadAllocators(std::this_thread::get_id());
+	Allocators::InitThreadAllocators(std::this_thread::get_id(), _enableCustomAllocators);
+	Allocators::GetThreadAllocators(std::this_thread::get_id())->SetMaxSize(1000000);
 
 	_status[number] = ThreadStatus::Waiting;
 	while (true) {

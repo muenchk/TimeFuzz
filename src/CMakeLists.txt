@@ -111,6 +111,11 @@ add_library(
 	"${ROOT_DIR}/.clang-format"
 	"${ROOT_DIR}/.editorconfig")
 
+if ("${DISABLE_CUSTOM_ALLOCATORS}" STREQUAL "ON")
+	add_compile_definitions(CUSTOM_ALLOCATORS)
+	message(STATUS "Building with custom allocators")
+endif()
+
 add_executable("${PROJECT_NAME}" "${SOURCE_DIR}/main.cpp" "${VERSION_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/version.rc" "${ROOT_DIR}/.clang-format" "${ROOT_DIR}/.editorconfig")
 
 if(DIASDK_LIBRARIES)

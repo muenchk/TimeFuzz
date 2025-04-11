@@ -128,7 +128,7 @@
       },
       "environment": {
         "PROJECT_COMPILER": "GNU",
-        "PROJECT_COMPILER_FLAGS": "-O3 -Wno-overloaded-virtual -Wno-multichar -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format"
+        "PROJECT_COMPILER_FLAGS": "-O3 -Wno-overloaded-virtual -Wno-multichar -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_lib_format"
       }
     },
     {
@@ -140,7 +140,7 @@
       },
       "environment": {
         "PROJECT_COMPILER": "GNU",
-        "PROJECT_COMPILER_FLAGS": "-O3 -Wno-overloaded-virtual -Wno-multichar -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format"
+        "PROJECT_COMPILER_FLAGS": "-O3 -Wno-overloaded-virtual -Wno-multichar -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_lib_format"
       }
     },
     {
@@ -152,7 +152,7 @@
       },
       "environment": {
         "PROJECT_COMPILER": "GNU",
-        "PROJECT_COMPILER_FLAGS": "-O3 -Wno-overloaded-virtual -Wno-multichar -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format -D_GLIBCXX_USE_CXX11_ABI=0"
+        "PROJECT_COMPILER_FLAGS": "-O3 -Wno-overloaded-virtual -Wno-multichar -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_lib_format -D_GLIBCXX_USE_CXX11_ABI=0"
       }
     },
     {
@@ -528,7 +528,7 @@
       },
       "environment": {
         "PROJECT_COMPILER": "gnu",
-        "PROJECT_COMPILER_FLAGS": "-O3 -Wno-overloaded-virtual -Wno-multichar -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_consteval -D__cpp_lib_format"
+        "PROJECT_COMPILER_FLAGS": "-O3 -Wno-overloaded-virtual -Wno-multichar -Wno-builtin-macro-redefined -Wno-deprecated-declarations -D__cpp_lib_char8_t -D__cpp_lib_format"
       }
     },
     {

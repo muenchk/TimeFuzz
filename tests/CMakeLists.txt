@@ -110,6 +110,10 @@ endif()
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 add_compile_definitions(BUILD_DEBUG)
 
+if ("${DISABLE_CUSTOM_ALLOCATORS}" STREQUAL "ON")
+	add_compile_definitions(CUSTOM_ALLOCATORS)
+	message(STATUS "Building tests with custom allocators")
+endif()
 
 ############################## TESTS ##############################
 

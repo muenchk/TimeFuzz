@@ -42,7 +42,7 @@ void InitNode(DerivationTree::NonTerminalNode* node, int depth)
 void TesterCA(int num)
 {
 	StartProfiling;
-	Allocators::InitThreadAllocators(std::this_thread::get_id(), 10000);
+	Allocators::InitThreadAllocators(std::this_thread::get_id(), (size_t)10000, true);
 	auto alloc = Allocators::GetThreadAllocators(std::this_thread::get_id());
 	auto nontermalloc = alloc->DerivationTree_NonTerminalNode();
 	auto termalloc = alloc->DerivationTree_TerminalNode();
@@ -54,7 +54,7 @@ void TesterCA(int num)
 	_nodesT.resize(1000);
 	_nodesS.resize(1000);
 	for (int32_t i = 0; i < 100; i++) {
-		for (int32_t c = 0; c < 10; c++)
+		for (int32_t c = 0; c < 100; c++)
 		{
 			_nodesNT[c] = nontermalloc->New();
 			InitNodeCA((DerivationTree::NonTerminalNode*)_nodesNT[c], nontermalloc, 0);
@@ -62,7 +62,7 @@ void TesterCA(int num)
 			_nodesS[c] = seqalloc->New();
 			InitNodeCA((DerivationTree::NonTerminalNode*)_nodesS[c], nontermalloc, 0);
 		}
-		for (size_t c = 0; c < 10; c++)
+		for (size_t c = 0; c < 100; c++)
 		{
 			nontermalloc->Delete((DerivationTree::NonTerminalNode*)_nodesNT[c]);
 			termalloc->Delete((DerivationTree::TerminalNode*)_nodesT[c]);
@@ -88,14 +88,14 @@ void Tester(int num)
 	_nodesT.resize(1000);
 	_nodesS.resize(1000);
 	for (int32_t i = 0; i < 100; i++) {
-		for (int32_t c = 0; c < 10; c++) {
+		for (int32_t c = 0; c < 100; c++) {
 			_nodesNT[c] = new DerivationTree::NonTerminalNode();
 			InitNode((DerivationTree::NonTerminalNode*)_nodesNT[c], 0);
 			_nodesT[c] = new DerivationTree::TerminalNode();
 			InitNode((DerivationTree::NonTerminalNode*)_nodesNT[c], 0);
 			_nodesS[c] = new DerivationTree::SequenceNode();
 		}
-		for (size_t c = 0; c < 10; c++) {
+		for (size_t c = 0; c < 100; c++) {
 			delete _nodesNT[c];
 			delete _nodesT[c];
 			delete _nodesS[c];
