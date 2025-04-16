@@ -323,6 +323,8 @@ void UIInputInformation::Reset()
 
 void UIInputInformation::Refresh()
 {
+	Lua::RegisterThread(_sessiondata);
+
 	_inputID = _input->GetFormID();
 	_generationID = _input->GetGenerationID();
 	_derivedInputs = _input->GetDerivedInputs();
@@ -355,7 +357,8 @@ void UIInputInformation::Refresh()
 		if (_scriptArgs == "" && _sessiondata->_oracle->GetOracletype() == Oracle::PUTType::Script)
 			_input->test->_scriptArgs = Lua::GetScriptArgs(std::bind(&Oracle::GetScriptArgs, _sessiondata->_oracle, std::placeholders::_1, std::placeholders::_2), _input->test, stateerror);
 		_output = _input->test->_output;
-	}
+	} else
+		std::cout << "no test\n";
 	// get input list
 	_inputconcat = "";
 	_inputlist = "";

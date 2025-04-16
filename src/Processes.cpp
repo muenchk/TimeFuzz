@@ -276,7 +276,7 @@ namespace Processes
 		int32_t res = 0;
 		if (pid > 0) {
 			res = kill(pid, SIGTERM);
-			pid_t res = waitpid(pid, NULL, 0);
+			//pid_t res = waitpid(pid, NULL, 0);
 		}
 		else // do not kill everything because there was a stupid error
 			return false;

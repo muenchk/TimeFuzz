@@ -296,7 +296,7 @@ namespace DeltaDebugging
 		/// <param name="end"></param>
 		/// <param name="approxthreshold"></param>
 		/// <returns></returns>
-		std::shared_ptr<Input> GetComplement(int32_t begin, int32_t end, double approxthreshold, std::shared_ptr<Input>& parent);
+		std::shared_ptr<Input> GetComplement(int32_t begin, int32_t end, double approxthreshold, std::shared_ptr<Input> parent);
 		/// <summary>
 		/// checks an input for its feasability (derivation from grammar)
 		/// </summary>
@@ -315,7 +315,7 @@ namespace DeltaDebugging
 		/// Starts a test
 		/// </summary>
 		/// <param name="input"></param>
-		bool DoTest(std::shared_ptr<Input>& input, uint64_t batchident, std::shared_ptr<Tasks> tasks);
+		bool DoTest(std::shared_ptr<Input> input, uint64_t batchident, std::shared_ptr<Tasks> tasks);
 
 		/// <summary>
 		/// Generates [number] subset from [::_input]
@@ -351,7 +351,7 @@ namespace DeltaDebugging
 		/// <param name="approxthreshold">the approx threshold</param>
 		/// <param name="batchident">the batchident of the batch the input belongs to</param>
 		/// <param name="tasks">shared_ptr to the tasks structure of the inputs batch</param>
-		void GenerateSplits_Async_Callback(std::shared_ptr<Input>& input, double approxthreshold,uint64_t batchident, std::shared_ptr<Tasks> tasks);
+		void GenerateSplits_Async_Callback(std::shared_ptr<Input> input, double approxthreshold,uint64_t batchident, std::shared_ptr<Tasks> tasks);
 		/// <summary>
 		/// Callback called to generate a complement 
 		/// </summary>
@@ -361,7 +361,7 @@ namespace DeltaDebugging
 		/// <param name="batchident">batchident of the batch the input belongs to</param>
 		/// <param name="parent">the input to generate the complement from</param>
 		/// <param name="tasks">shared_ptr to the tasks structure of the inputs batch</param>
-		void GenerateComplements_Async_Callback(int32_t begin, int32_t length, double approx, uint64_t batchident, std::shared_ptr<Input>& parent, std::shared_ptr<Tasks> tasks);
+		void GenerateComplements_Async_Callback(int32_t begin, int32_t length, double approx, uint64_t batchident, std::shared_ptr<Input> parent, std::shared_ptr<Tasks> tasks);
 
 	private:
 

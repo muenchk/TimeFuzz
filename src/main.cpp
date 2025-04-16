@@ -1465,9 +1465,17 @@ int32_t main(int32_t argc, char** argv)
 						ImGui::Text("ExitReason:                   %d", inputinfo._exitreason);
 
 						ImGui::TextUnformatted("Command Line Args:");
+						ImGui::SameLine();
+						if (ImGui::SmallButton("Copy Cmd Args")) {
+							ImGui::GetPlatformIO().Platform_SetClipboardTextFn(context, inputinfo._cmdArgs.c_str());
+						}
 						ImGui::TextWrapped("%s", inputinfo._cmdArgs.c_str());
 						ImGui::TextUnformatted("Script Args:");
-						ImGui::TextWrapped("%s", inputinfo._cmdArgs.c_str());
+						ImGui::SameLine();
+						if (ImGui::SmallButton("Copy Script Args")) {
+							ImGui::GetPlatformIO().Platform_SetClipboardTextFn(context, inputinfo._scriptArgs.c_str());
+						}
+						ImGui::TextWrapped("%s", inputinfo._scriptArgs.c_str());
 						ImGui::NewLine();
 
 						ImGui::SeparatorText("Input");

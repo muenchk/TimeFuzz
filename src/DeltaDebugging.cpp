@@ -645,78 +645,81 @@ namespace DeltaDebugging
 	void DeltaController::GenerateSplits_Async(int32_t number)
 	{
 		StartProfiling;
-		double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
-		std::vector<std::shared_ptr<Input>> splits;
-		// calculate the ideal size we would get from the current level
-		int32_t tmp = (int32_t)(std::trunc(_input->Length() / number));
-		if (tmp < 1)
-			tmp = 1;
+		{
+			std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
+			double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
+			std::vector<std::shared_ptr<Input>> splits;
+			// calculate the ideal size we would get from the current level
+			int32_t tmp = (int32_t)(std::trunc(_input->Length() / number));
+			if (tmp < 1)
+				tmp = 1;
 
-		_input->LockRead();
+			_input->LockRead();
 
-		// this value is rounded so the actual length our inputs get is different from
-		// the naive caluclation we need to recalculate [number] and can then calculate
-		// the actual splitsize
-		number = (int32_t)(_input->Length() / tmp);
-		int32_t splitsize = (int32_t)(_input->Length() / number);
-		int32_t splitbegin = 0;
-		auto itr = _input->begin();
+			// this value is rounded so the actual length our inputs get is different from
+			// the naive caluclation we need to recalculate [number] and can then calculate
+			// the actual splitsize
+			number = (int32_t)(_input->Length() / tmp);
+			int32_t splitsize = (int32_t)(_input->Length() / number);
+			int32_t splitbegin = 0;
+			auto itr = _input->begin();
 
-		for (int32_t i = 0; i < number; i++) {
-			DeltaInformation df;
-			df.positionbegin = splitbegin;
-			if (i == number - 1)
-				df.length = (int32_t)_input->Length() - splitbegin;
-			else
-				df.length = splitsize;
-			df.complement = false;
-			genCompData.dinfo.push_back(df);
-			// skip inputs that are beneath the min exec length
-			if (df.length < _sessiondata->_settings->dd.executeAboveLength)
-				continue;
+			for (int32_t i = 0; i < number; i++) {
+				DeltaInformation df;
+				df.positionbegin = splitbegin;
+				if (i == number - 1)
+					df.length = (int32_t)_input->Length() - splitbegin;
+				else
+					df.length = splitsize;
+				df.complement = false;
+				genCompData.dinfo.push_back(df);
+				// skip inputs that are beneath the min exec length
+				if (df.length < _sessiondata->_settings->dd.executeAboveLength)
+					continue;
 
-			auto inp = _sessiondata->data->CreateForm<Input>();
-			inp->SetFlag(Form::FormFlags::DoNotFree);
-			if (i == number - 1)
-				inp->SetParentSplitInformation(_input->GetFormID(), { { splitbegin, (int32_t)_input->Length() - splitbegin } }, false);
-			else
-				inp->SetParentSplitInformation(_input->GetFormID(), { { splitbegin, splitsize } }, false);
+				auto inp = _sessiondata->data->CreateForm<Input>();
+				inp->SetFlag(Form::FormFlags::DoNotFree);
+				if (i == number - 1)
+					inp->SetParentSplitInformation(_input->GetFormID(), { { splitbegin, (int32_t)_input->Length() - splitbegin } }, false);
+				else
+					inp->SetParentSplitInformation(_input->GetFormID(), { { splitbegin, splitsize } }, false);
 
-			if (i == number - 1) {
-				// add rest of _input to split
-				while (itr != _input->end()) {
-					inp->AddEntry(*itr);
-					itr++;
-					splitbegin++;
+				if (i == number - 1) {
+					// add rest of _input to split
+					while (itr != _input->end()) {
+						inp->AddEntry(*itr);
+						itr++;
+						splitbegin++;
+					}
+				} else {
+					// add a specific number of strings to _input
+					for (int32_t x = 0; x < splitsize; x++) {
+						inp->AddEntry(*itr);
+						itr++;
+						splitbegin++;
+					}
 				}
-			} else {
-				// add a specific number of strings to _input
-				for (int32_t x = 0; x < splitsize; x++) {
-					inp->AddEntry(*itr);
-					itr++;
-					splitbegin++;
-				}
+
+				auto callback = dynamic_pointer_cast<Functions::DDGenerateCheckSplit>(Functions::DDGenerateCheckSplit::Create());
+				callback->_DDcontroller = _self;
+				callback->_input = inp;
+				callback->_approxthreshold = approxthreshold;
+				callback->_batchident = genCompData.batchident;
+				callback->_batchtasks = genCompData.tasks;
+				genCompData.testqueue.push_back(callback);
 			}
-
-			auto callback = dynamic_pointer_cast<Functions::DDGenerateCheckSplit>(Functions::DDGenerateCheckSplit::Create());
-			callback->_DDcontroller = _self;
-			callback->_input = inp;
-			callback->_approxthreshold = approxthreshold;
-			callback->_batchident = genCompData.batchident;
-			callback->_batchtasks = genCompData.tasks;
-			genCompData.testqueue.push_back(callback);
 		}
 		_input->UnlockRead();
 		StandardGenerateNextLevel_Inter();
 	}
-	void DeltaController::GenerateSplits_Async_Callback(std::shared_ptr<Input>& input, double approxthreshold, uint64_t batchident, std::shared_ptr<DeltaDebugging::Tasks> tasks)
+	void DeltaController::GenerateSplits_Async_Callback(std::shared_ptr<Input> input, double approxthreshold, uint64_t batchident, std::shared_ptr<DeltaDebugging::Tasks> tasks)
 	{
 		if (batchident != genCompData.batchident) {
 			// do nothing if the input we are supposed to handle is from an older batch, just discard
 			_skippedTests++;
 			return;
 		}
-		if (CheckInput(_input, input, approxthreshold)) {
+		if (CheckInput(_input, input, approxthreshold) && input) {
 			if (DoTest(input, batchident, tasks))  // if the test is valid and is being executed just return
 				return;
 		}
@@ -875,7 +878,7 @@ namespace DeltaDebugging
 		return true;
 	}
 
-	std::shared_ptr<Input> DeltaController::GetComplement(int32_t begin, int32_t end, double approxthreshold, std::shared_ptr<Input>& parent)
+	std::shared_ptr<Input> DeltaController::GetComplement(int32_t begin, int32_t end, double approxthreshold, std::shared_ptr<Input> parent)
 	{
 		StartProfiling;
 
@@ -944,8 +947,10 @@ namespace DeltaDebugging
 		_remainingtests -= fails;
 	}
 
-	bool DeltaController::DoTest(std::shared_ptr<Input>& input, uint64_t batchident, std::shared_ptr<Tasks> tasks)
+	bool DeltaController::DoTest(std::shared_ptr<Input> input, uint64_t batchident, std::shared_ptr<Tasks> tasks)
 	{
+		//if (!input)
+		//	return false;
 		auto call = dynamic_pointer_cast<Functions::DDTestCallback>(Functions::DDTestCallback::Create());
 		call->_DDcontroller = _self;
 		call->_input = input;
@@ -984,24 +989,27 @@ namespace DeltaDebugging
 	void DeltaController::GenerateComplements_Async(std::vector<DeltaInformation>& splitinfo)
 	{
 		StartProfiling;
-		double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
-		std::vector<std::shared_ptr<Input>> complements;
-		for (int32_t i = 0; i < (int32_t)splitinfo.size(); i++) {
-			auto callback = dynamic_pointer_cast<Functions::DDGenerateComplementCallback>(Functions::DDGenerateComplementCallback::Create());
-			callback->_DDcontroller = _self;
-			callback->_begin = (int32_t)splitinfo[i].positionbegin;
-			callback->_length = (int32_t)splitinfo[i].length;
-			callback->_approxthreshold = approxthreshold;
-			callback->_batchident = genCompData.batchident;
-			callback->_input = _input;
-			callback->_batchtasks = genCompData.tasks;
-			genCompData.testqueue.push_back(callback);
+		{
+			std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
+			double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
+			std::vector<std::shared_ptr<Input>> complements;
+			for (int32_t i = 0; i < (int32_t)splitinfo.size(); i++) {
+				auto callback = dynamic_pointer_cast<Functions::DDGenerateComplementCallback>(Functions::DDGenerateComplementCallback::Create());
+				callback->_DDcontroller = _self;
+				callback->_begin = (int32_t)splitinfo[i].positionbegin;
+				callback->_length = (int32_t)splitinfo[i].length;
+				callback->_approxthreshold = approxthreshold;
+				callback->_batchident = genCompData.batchident;
+				callback->_input = _input;
+				callback->_batchtasks = genCompData.tasks;
+				genCompData.testqueue.push_back(callback);
+			}
 		}
 		StandardGenerateNextLevel_End();
 		profile(TimeProfiling, "Time taken for complement generation initialization.");
 	}
 
-	void DeltaController::GenerateComplements_Async_Callback(int32_t begin, int32_t length, double approx, uint64_t batchident, std::shared_ptr<Input>& parent, std::shared_ptr<DeltaDebugging::Tasks> tasks)
+	void DeltaController::GenerateComplements_Async_Callback(int32_t begin, int32_t length, double approx, uint64_t batchident, std::shared_ptr<Input> parent, std::shared_ptr<DeltaDebugging::Tasks> tasks)
 	{
 		if (batchident != genCompData.batchident) {
 			// do nothing if the input we are supposed to handle is from an older batch, just discard
@@ -1150,6 +1158,7 @@ namespace DeltaDebugging
 		tasks->tasks = 0;
 		int32_t active = 0;
 		if (_sessiondata->_settings->dd.batchprocessing > 0) {
+			std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
 			while (active < _sessiondata->_settings->dd.batchprocessing && genCompData.testqueue.size() > 0) {
 				tasks->tasks++;
 				active++;
@@ -1160,6 +1169,7 @@ namespace DeltaDebugging
 					genCompData.testqueue.pop_front();
 			}
 		} else {
+			std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
 			for (auto ptr : genCompData.testqueue) {
 				if (ptr) {
 					tasks->tasks++;
@@ -1868,6 +1878,7 @@ namespace DeltaDebugging
 		_tests = 0;
 		int32_t active = 0;
 		if (_sessiondata->_settings->dd.batchprocessing > 0) {
+			std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
 			while (active < _sessiondata->_settings->dd.batchprocessing && genCompData.testqueue.size() > 0) {
 				tasks->tasks++;
 				active++;
@@ -1878,6 +1889,7 @@ namespace DeltaDebugging
 					genCompData.testqueue.pop_front();
 			}
 		} else {
+			std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
 			for (auto ptr : genCompData.testqueue) {
 				if (ptr) {
 					tasks->tasks++;
