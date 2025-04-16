@@ -50,6 +50,8 @@ struct LoadSessionArgs
 	bool clearTasks = false;
 	bool customsavepath = false;
 	std::filesystem::path savepath;
+
+	bool _failedload = false;
 };
 
 struct SessionStatus
@@ -126,8 +128,8 @@ public:
 
 	static std::shared_ptr<Session> CreateSession();
 
-	static std::shared_ptr<Session> LoadSession(std::string name, LoadSessionArgs& loadargs, SessionStatus* status = nullptr);
-	static std::shared_ptr<Session> LoadSession(std::string name, int32_t number, LoadSessionArgs& loadargs, SessionStatus* status = nullptr);
+	static std::shared_ptr<Session> LoadSession(std::string name, LoadSessionArgs& loadargs, bool* error, SessionStatus* status = nullptr);
+	static std::shared_ptr<Session> LoadSession(std::string name, int32_t number, LoadSessionArgs& loadargs, bool* error, SessionStatus* status = nullptr);
 
 	~Session();
 
@@ -381,7 +383,7 @@ private:
 	void End();
 
 
-	static void LoadSession_Async(Data* dat, std::string name, int32_t number, LoadSessionArgs* asyncargs);
+	static void LoadSession_Async(Data* dat, std::string name, int32_t number, bool* error, LoadSessionArgs* asyncargs);
 	
 
 	/// <summary>

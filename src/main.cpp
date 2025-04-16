@@ -71,6 +71,8 @@ void endCallback()
 
 std::shared_ptr<Session> session = nullptr;
 
+bool failedLoad = false;
+
 SessionStatus status;
 
 std::string statuspath;
@@ -619,6 +621,8 @@ void StartSession()
 
 	char buffer[128];
 
+	failedLoad = false;
+
 	LoadSessionArgs args;
 	args.reloadSettings = CmdArgs::_reloadConfig;
 	args.settingsPath = CmdArgs::_settingspath;
@@ -631,9 +635,9 @@ void StartSession()
 		args.startSession = true;
 		// load session
 		if (CmdArgs::_num)
-			session = Session::LoadSession(CmdArgs::_loadname, CmdArgs::_number, args, &status);
+			session = Session::LoadSession(CmdArgs::_loadname, CmdArgs::_number, args, &failedLoad, &status);
 		else
-			session = Session::LoadSession(CmdArgs::_loadname, args, &status);
+			session = Session::LoadSession(CmdArgs::_loadname, args, &failedLoad, &status);
 		if (!session) {
 			logcritical("Session cannot be loaded from savefile:\t{}", CmdArgs::_loadname);
 			scanf("%s", buffer);
@@ -643,9 +647,9 @@ void StartSession()
 		args.startSession = false;
 		// load session
 		if (CmdArgs::_num)
-			session = Session::LoadSession(CmdArgs::_loadname, CmdArgs::_number, args, &status);
+			session = Session::LoadSession(CmdArgs::_loadname, CmdArgs::_number, args, &failedLoad, &status);
 		else
-			session = Session::LoadSession(CmdArgs::_loadname, args, &status);
+			session = Session::LoadSession(CmdArgs::_loadname, args, &failedLoad, &status);
 		if (!session) {
 			logcritical("Session cannot be loaded from savefile:\t{}", CmdArgs::_loadname);
 			scanf("%s", buffer);
@@ -2490,11 +2494,11 @@ Responsive:
 		Logging::StdOutLogging = false;
 		// wait for session to load
 		StartSession();
-		while (session->Loaded() == false)
+		while (session->Loaded() == false && failedLoad == false)
 			std::this_thread::sleep_for(std::chrono::milliseconds(50));
 		session->SetSessionEndCallback(endCallback);
 		// stops loop
-		while (!stop) {
+		while (!stop && failedLoad == false) {
 			if (CmdArgs::_saveStatus)
 				SaveStatus();
 			// read commands from cmd and act on them
@@ -2534,6 +2538,8 @@ Responsive:
 				stop = true;
 			}
 		}
+		if (failedLoad)
+			exit(0);
 		session->Wait();
 		session->DestroySession();
 		session.reset();
@@ -2548,7 +2554,7 @@ Responsive:
 		//while (session->Loaded() == false) {
 		//	std::this_thread::sleep_for(std::chrono::milliseconds(50));
 		//}
-		while (session->Finished() == false) {
+		while (session->Finished() == false && failedLoad == false) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 			auto out = Snapshot(false);
 			clearScreen();
@@ -2559,6 +2565,8 @@ Responsive:
 				SaveStatus();
 		}
 
+		if (failedLoad)
+			exit(0);
 		restoreConsole();
 		std::cout << Snapshot(true);
 		session->Wait();
@@ -2570,11 +2578,11 @@ Responsive:
 		// wait for session to load
 		StartSession();
 		std::chrono::steady_clock::time_point last = std::chrono::steady_clock::now();
-		while (session->Loaded() == false) {
+		while (session->Loaded() == false && failedLoad == false) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		}
 		std::cout << "Beginning infinite wait for session end\n";
-		while (session->Finished() == false) {
+		while (session->Finished() == false && failedLoad == false) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(50));
 			if (std::chrono::steady_clock::now() - last >= std::chrono::seconds(10)) {
 				last = std::chrono::steady_clock::now();
@@ -2584,6 +2592,8 @@ Responsive:
 			if (CmdArgs::_saveStatus)
 				SaveStatus();
 		}
+		if (failedLoad)
+			exit(0);
 		std::cout << Snapshot(true);
 		session->Wait();
 		session->DestroySession();

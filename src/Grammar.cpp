@@ -1683,7 +1683,7 @@ void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<Der
 			int64_t idx = 0;
 			size_t segidx = 0;
 			while (idx < stop && segidx < segments.size()) {
-				while (idx < segments[segidx].first) {
+				while (idx < stop && idx < segments[segidx].first) {
 					//auto [cnode, cnodes] = seqnodes[idx]->CopyRecursive();
 					auto [cnode, cnodes] = seqnodes[idx]->CopyRecursiveAlloc(allocators);
 					targetnodes.push_back((DerivationTree::SequenceNode*)cnode);

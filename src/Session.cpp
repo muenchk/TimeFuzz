@@ -31,7 +31,7 @@ std::shared_ptr<Session> Session::CreateSession()
 	return dat->CreateForm<Session>();
 }
 
-void Session::LoadSession_Async(Data* dat, std::string name, int32_t number, LoadSessionArgs* args)
+void Session::LoadSession_Async(Data* dat, std::string name, int32_t number, bool* error, LoadSessionArgs* args)
 {
 	Data::LoadSaveArgs loadArgs;
 	if (args) {
@@ -44,6 +44,7 @@ void Session::LoadSession_Async(Data* dat, std::string name, int32_t number, Loa
 	if (dat->_loaded == false)
 	{
 		logcritical("CRITICAL ERROR");
+		*error = true;
 		return;
 	}
 	auto session = dat->CreateForm<Session>();
@@ -77,7 +78,6 @@ void Session::LoadSession_Async(Data* dat, std::string name, int32_t number, Loa
 		auto sett = dat->CreateForm<Settings>();
 		sett->Load(args->settingsPath);
 	}
-	bool error = false;
 	if (args && args->clearTasks) {
 		auto sessdata = dat->CreateForm<SessionData>();
 		// clear tasks
@@ -86,12 +86,12 @@ void Session::LoadSession_Async(Data* dat, std::string name, int32_t number, Loa
 		sessdata->_exechandler->ClearTests();
 	}
 	if (args && args->startSession == true)
-		session->StartLoadedSession(error, args->reloadSettings, args->settingsPath);
+		session->StartLoadedSession(*error, args->reloadSettings, args->settingsPath);
 	if (args)
 		delete args;
 }
 
-std::shared_ptr<Session> Session::LoadSession(std::string name, LoadSessionArgs& loadargs, SessionStatus* status)
+std::shared_ptr<Session> Session::LoadSession(std::string name, LoadSessionArgs& loadargs, bool* error, SessionStatus* status)
 {
 	loginfo("Load Session");
 	Data* dat = new Data();
@@ -123,13 +123,13 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, LoadSessionArgs&
 		asyncargs->customsavepath = loadargs.customsavepath;
 		asyncargs->savepath = loadargs.savepath;
 	}
-	std::thread th(LoadSession_Async, dat, name, -1, asyncargs);
+	std::thread th(LoadSession_Async, dat, name, -1, error, asyncargs);
 	th.detach();
 	logdebug("Started async loader");
 	return session;
 }
 
-std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, LoadSessionArgs& loadargs, SessionStatus* status)
+std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, LoadSessionArgs& loadargs, bool* error, SessionStatus* status)
 {
 	loginfo("Load Session");
 	Data* dat = new Data();
@@ -161,7 +161,7 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, 
 		asyncargs->customsavepath = loadargs.customsavepath;
 		asyncargs->savepath = loadargs.savepath;
 	}
-	std::thread th(LoadSession_Async, dat, name, number, asyncargs);
+	std::thread th(LoadSession_Async, dat, name, number, error, asyncargs);
 	th.detach();
 	logdebug("Started async loader");
 	return session;
