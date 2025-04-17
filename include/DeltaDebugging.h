@@ -209,6 +209,7 @@ namespace DeltaDebugging
 		int32_t GetLevel() { return _level; }
 		int32_t GetSkippedTests() { return _skippedTests; }
 		int32_t GetPrefixTests() { return _prefixTests; }
+		int32_t GetApproxTests() { return _approxTests; }
 		int32_t GetInvalidTests() { return _invalidTests; }
 		bool Finished() { return _finished; }
 		std::unordered_map<std::shared_ptr<Input>, std::tuple<double, double, int32_t>>* GetResults() { return &_results; }
@@ -286,7 +287,7 @@ namespace DeltaDebugging
 		void Clear();
 
 	private:
-		const int32_t classversion = 0x3;
+		const int32_t classversion = 0x4;
 		static inline bool _registeredFactories = false;
 
 		/// <summary>
@@ -470,6 +471,10 @@ namespace DeltaDebugging
 		/// number of tests skipped due to prefix
 		/// </summary>
 		int32_t _prefixTests = 0;
+		/// <summary>
+		/// number of tests excluded due to approximation
+		/// </summary>
+		int32_t _approxTests = 0;
 		/// <summary>
 		/// number of generated inputs that are not valid under the grammar
 		/// </summary>

@@ -132,6 +132,7 @@ namespace UI
 		int32_t GetLevel();
 		int32_t GetSkippedTests();
 		int32_t GetPrefixTests();
+		int32_t GetApproxTests();
 		int32_t GetInvalidTests();
 		bool Finished();
 		uint64_t GetBatchIdent();

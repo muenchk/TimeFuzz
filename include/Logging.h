@@ -101,6 +101,42 @@ public:
 		return ss.str();
 	}
 
+	/// <summary>
+	/// Formats microseconds into a proper time string
+	/// </summary>
+	/// <returns></returns>
+	static std::string FormatTimeNS(int64_t nanoseconds)
+	{
+		std::stringstream ss;
+		int64_t tmp = 0;
+		if (nanoseconds > 60000000000) {
+			tmp = (int64_t)trunc((long double)nanoseconds / 60000000000);
+			ss << std::setw(6) << tmp << "m ";
+			nanoseconds -= tmp * 60000000000;
+		} else
+			ss << "        ";
+		if (nanoseconds > 1000000000) {
+			tmp = (int64_t)trunc((long double)nanoseconds / 1000000000);
+			ss << std::setw(2) << tmp << "s ";
+			nanoseconds -= tmp * 1000000000;
+		} else
+			ss << "    ";
+		if (nanoseconds > 1000000) {
+			tmp = (int64_t)trunc((long double)nanoseconds / 1000000);
+			ss << std::setw(3) << tmp << "ms ";
+			nanoseconds -= tmp * 1000000;
+		} else
+			ss << "      ";
+		if (nanoseconds > 1000) {
+			tmp = (int64_t)trunc((long double)nanoseconds / 1000);
+			ss << std::setw(3) << tmp << "μs ";
+			nanoseconds -= tmp * 1000;
+		} else
+			ss << "      ";
+		ss << std::setw(3) << nanoseconds << "ns";
+		return ss.str();
+	}
+
 	static void InitializeLog(std::filesystem::path _path, bool append = false, bool timestamp = false);
 };
 

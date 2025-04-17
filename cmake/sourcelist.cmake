@@ -7,6 +7,7 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/DeltaDebugging.cpp"
 	"${SOURCE_DIR}/ExecutionHandler.cpp"
 	"${SOURCE_DIR}/ExclusionTree.cpp"
+	"${SOURCE_DIR}/Evaluation.cpp"
 	"${SOURCE_DIR}/Form.cpp"
 	"${SOURCE_DIR}/Function.cpp"
 	"${SOURCE_DIR}/Grammar.cpp"

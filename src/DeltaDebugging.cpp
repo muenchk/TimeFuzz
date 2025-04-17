@@ -14,6 +14,22 @@ namespace Functions
 {
 	void DDTestCallback::Run()
 	{
+		// check whether the input length doesn't match the devtree size
+		if ((int64_t)_input->Length() > _input->derive->_sequenceNodes) {
+			logcritical("Input is longer than dev tree large, Form: {}", Utility::PrintForm(_input));
+			_input->IncRetries();
+			_input->test->_exitreason = Test::ExitReason::Repeat;
+			_input->Debug_ClearSequence();
+			_input->SetGenerated(false);
+			auto test = _input->test;
+			_input->test.reset();
+			auto callback = this->DeepCopy();
+			_sessiondata->data->DeleteForm(test);
+			_sessiondata->_exechandler->AddTest(_input, callback, true, false);
+			SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::Repeat);
+			return;
+		}
+
 		// if the input we just ran is a duplicate of some other input, we will 
 		// find the other input using the exclusiontree.
 		// After we found it, we can delete the input and corresponding test as we don't need it
@@ -475,9 +491,11 @@ namespace DeltaDebugging
 			std::shared_ptr<Functions::BaseFunction> job;
 			{
 				std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
-				if (genCompData.testqueue.size() > 0) {
+				if (genCompData.testqueue.empty() == false) {
 					job = genCompData.testqueue.front();
-					genCompData.testqueue.pop_front();
+					if (genCompData.testqueue.empty() == false) {
+						genCompData.testqueue.pop_front();
+					}
 					if (job)
 						genCompData.tasks.load()->tasks++;
 				}
@@ -526,13 +544,16 @@ namespace DeltaDebugging
 					genCompData.active = false;
 					{
 						std::unique_lock<std::mutex> guardtestlock(genCompData.testqueuelock);
+						std::list<std::shared_ptr<Functions::BaseFunction>> tmp;
+						genCompData.testqueue.swap(tmp);
+						genCompData.testqueue.clear();
 						// stop batch, delete all waiting tests and call evaluate
-						_skippedTests += (int32_t)genCompData.testqueue.size();
+						_skippedTests += (int32_t)tmp.size();
 						_remainingtests = 0;
-						for (auto ptr : genCompData.testqueue) {
+
+						for (auto ptr : tmp) {
 							ptr->Dispose();
 						}
-						genCompData.testqueue.clear();
 					}
 
 					// get out of light callback so we aren't blocking vital tasks
@@ -727,9 +748,11 @@ namespace DeltaDebugging
 		std::shared_ptr<Functions::BaseFunction> job;
 		{
 			std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
-			if (genCompData.testqueue.size() > 0) {
+			if (genCompData.testqueue.empty() == false) {
 				job = genCompData.testqueue.front();
-				genCompData.testqueue.pop_front();
+				if (genCompData.testqueue.empty() == false) {
+					genCompData.testqueue.pop_front();
+				}
 				if (job)
 					genCompData.tasks.load()->tasks++;
 			}
@@ -781,6 +804,7 @@ namespace DeltaDebugging
 				} else {
 					_sessiondata->IncExcludedApproximation();
 					_sessiondata->data->DeleteForm(inp);
+					_approxTests++;
 					profile(TimeProfiling, "Time taken to check input");
 					return false;
 				}
@@ -1028,9 +1052,11 @@ namespace DeltaDebugging
 		std::shared_ptr<Functions::BaseFunction> job;
 		{
 			std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
-			if (genCompData.testqueue.size() > 0) {
+			if (genCompData.testqueue.empty() == false) {
 				job = genCompData.testqueue.front();
-				genCompData.testqueue.pop_front();
+				if (genCompData.testqueue.empty() == false) {
+					genCompData.testqueue.pop_front();
+				}
 				if (job)
 					genCompData.tasks.load()->tasks++;
 			}
@@ -2449,6 +2475,8 @@ namespace DeltaDebugging
 		                        + 8      // GenerateComplementsData::batchident
 		                        + 8      // Time::_DD_begin
 		                        + 8;     // Time::_DD_end
+		static size_t size0x4 = size0x3  // prior size
+		                        + 4;     // _approxTests
 
 
 		switch (version)
@@ -2459,6 +2487,8 @@ namespace DeltaDebugging
 			return size0x2;
 		case 0x3:
 			return size0x3;
+		case 0x4:
+			return size0x4;
 		default:
 			return 0;
 		}
@@ -2678,6 +2708,8 @@ namespace DeltaDebugging
 		// time stuff
 		Buffer::Write(_DD_begin, buffer, offset);
 		Buffer::Write(_DD_end, buffer, offset);
+		// VERSION 0x4
+		Buffer::Write(_approxTests, buffer, offset);
 		return true;
 	}
 
@@ -2827,6 +2859,7 @@ namespace DeltaDebugging
 			break;
 		case 0x2:
 		case 0x3:
+		case 0x4:
 			{
 				Form::ReadData(buffer, offset, length, resolver);
 				_tasks = Buffer::ReadInt32(buffer, offset);
@@ -3047,6 +3080,10 @@ namespace DeltaDebugging
 					// time stuff
 					_DD_begin = Buffer::ReadNanoSeconds(buffer, offset);
 					_DD_end = Buffer::ReadNanoSeconds(buffer, offset);
+				}
+				if (version >= 0x4) {
+					// VERSION 0x4
+					_approxTests = Buffer::ReadInt32(buffer, offset);
 				}
 				return true;
 			}

@@ -534,6 +534,7 @@ std::string Snapshot(bool full)
 			snap << fmt::format("Total Tests: {}", dd.GetTotalTests()) << "\n";
 			snap << fmt::format("Skipped Tests: {}", dd.GetSkippedTests()) << "\n";
 			snap << fmt::format("Prefix Tests: {}", dd.GetPrefixTests()) << "\n";
+			snap << fmt::format("Approx Tests: {}", dd.GetApproxTests()) << "\n";
 			snap << fmt::format("Invalid Tests: {}", dd.GetInvalidTests()) << "\n";
 			snap << fmt::format("Tests done: {}", dd.GetTests()) << "\t\t";
 			snap << fmt::format("Tests Remaining: {}", dd.GetTestsRemaining()) << "\n";
@@ -2185,6 +2186,8 @@ int32_t main(int32_t argc, char** argv)
 						ImGui::SameLine(300);
 						ImGui::Text("Prefix Tests: %d", dd.GetPrefixTests());
 						ImGui::SameLine(600);
+						ImGui::Text("Approx Tests: %d", dd.GetApproxTests());
+						ImGui::SameLine(900);
 						ImGui::Text("Invalid Tests: %d", dd.GetInvalidTests());
 						ImGui::Text("Tests done: %d", dd.GetTests());
 						ImGui::SameLine(300);

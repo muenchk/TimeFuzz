@@ -19,6 +19,7 @@ class SessionStatistics;
 class ExclusionTree;
 struct Records;
 class Lua;
+class Evaluation;
 
 struct LoadSessionArgs
 {
@@ -385,6 +386,7 @@ private:
 
 	static void LoadSession_Async(Data* dat, std::string name, int32_t number, bool* error, LoadSessionArgs* asyncargs);
 	
+	friend class Evaluation;
 
 	/// <summary>
 	/// class version

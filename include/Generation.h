@@ -150,6 +150,9 @@ public:
 	/// <param name="visitor"></param>
 	void VisitDeltaDebugging(std::function<bool(std::shared_ptr<DeltaDebugging::DeltaController>)> visitor);
 
+	void VisitGeneratedInputs(std::function<bool(std::shared_ptr<Input>)> visitor);
+	void VisitDDInputs(std::function<bool(std::shared_ptr<Input>)> visitor);
+
 	/// <summary>
 	/// returns whether this generation has sources
 	/// </summary>

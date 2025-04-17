@@ -86,6 +86,10 @@ int32_t UIDeltaDebugging::GetPrefixTests()
 	return _ddcontroller->GetPrefixTests();
 }
 
+int32_t UIDeltaDebugging::GetApproxTests() {
+	return _ddcontroller->GetApproxTests();
+}
+
 int32_t UIDeltaDebugging::GetInvalidTests()
 {
 	return _ddcontroller->GetInvalidTests();
@@ -234,16 +238,12 @@ int64_t UIGeneration::GetActiveInputs()
 }
 int64_t UIGeneration::GetNumberOfSources()
 {
-	return sources.size();
+	return _generation->GetNumberOfSources();
 }
 void UIGeneration::GetSources(std::vector<UIInput>& inputs)
 { 
-	if (hasbegun)
-	{
-		if (gotsources == false) {
-			_generation->GetSources(sources);
-			gotsources = true;
-		}
+	if (hasbegun) {
+		sources = _generation->GetSources();
 		if (inputs.size() < sources.size())
 			inputs.resize(sources.size());
 		for (size_t i = 0; i < sources.size(); i++) {

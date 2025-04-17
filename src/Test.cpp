@@ -879,6 +879,23 @@ namespace Functions
 
 	void TestCallback::Run()
 	{
+		// check whether the input length doesn't match the devtree size
+		if ((int64_t)_input->Length() > _input->derive->_sequenceNodes) {
+			logcritical("Input is longer than dev tree large, Form: {}", Utility::PrintForm(_input));
+			loginfo("Repeating test");
+			_input->IncRetries();
+			_input->test->_exitreason = Test::ExitReason::Repeat;
+			_input->Debug_ClearSequence();
+			_input->SetGenerated(false);
+			auto test = _input->test;
+			_input->test.reset();
+			auto callback = this->DeepCopy();
+			_sessiondata->data->DeleteForm(test);
+			_sessiondata->_exechandler->AddTest(_input, callback, true, false);
+			SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::Repeat);
+			return;
+		}
+
 		// what happens when a test has finsihed?
 		// 1. Input has been executed
 		//		Check the execution status and decide what to do with the test, i.e. the meaning

@@ -205,6 +205,22 @@ void Generation::VisitDeltaDebugging(std::function<bool(std::shared_ptr<DeltaDeb
 	}
 }
 
+void Generation::VisitGeneratedInputs(std::function<bool(std::shared_ptr<Input>)> visitor)
+{
+	for (auto [_, form] : _generatedInputs) {
+		if (visitor(form))
+			return;
+	}
+}
+
+void Generation::VisitDDInputs(std::function<bool(std::shared_ptr<Input>)> visitor)
+{
+	for (auto [_, form] : _ddInputs) {
+		if (visitor(form))
+			return;
+	}
+}
+
 bool Generation::HasSources()
 {
 	return _sources.size() > 0;
@@ -453,7 +469,7 @@ void Generation::SetEndTime(std::chrono::nanoseconds end)
 std::chrono::nanoseconds Generation::GetRunTime()
 {
 	if (_gen_end.count() != 0)
-		return _gen_begin - _gen_end;
+		return _gen_end - _gen_begin;
 	else
 		return std::chrono::nanoseconds(0);
 }
