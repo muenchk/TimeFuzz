@@ -518,6 +518,7 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 			//IPCommManager::GetSingleton()->Write(test, test->_scriptArgs.c_str(), 0, test->_scriptArgs.size());
 			size_t offset = 0;
 			long written = 1;
+			size_t length = test->_scriptArgs.size();
 			while (written != 0 && length > 0) {
 				written = test->Write(test->_scriptArgs.c_str(), offset, length);
 				// update write information
