@@ -1269,6 +1269,7 @@ namespace Functions
 				_sessiondata->GetCurrentGeneration()->GetNumberOfDDControllers(),
 				_sessiondata->GetCurrentGeneration()->GetDDSize());
 			auto generation = _sessiondata->GetCurrentGeneration();
+			WaitForGen(generation, _sessiondata, std::chrono::milliseconds(10000));
 			if (_sessiondata->GetCurrentGeneration()->IsDeltaDebuggingActive() == false && 
 				_sessiondata->_generationFinishing.compare_exchange_strong(exp, true) /*if there are multiple callbacks for the same generation, make sure that only one gets executed, i.e. the fastest*/) {
 				if (SessionFunctions::EndCheck(_sessiondata, true)) {
