@@ -622,8 +622,12 @@ void Session::SessionControl()
 			if (_sessiondata->CheckGenerationEnd() == false && CmdArgs::_clearTasks == false)
 			{
 				// if it isn't ending give generation a little push
-				int32_t max = _sessiondata->_controller->GetHeavyThreadCount();
-				for (int32_t i = 0; i < max; i++)
+				int32_t maxtasks = std::min((int32_t)(_sessiondata->_controller->GetHeavyThreadCount() * 0.8), _sessiondata->_settings->generation.activeGeneratedInputs / _sessiondata->_settings->generation.generationstep);
+				if (maxtasks < 1)
+					maxtasks = 1;
+				if (maxtasks == _sessiondata->_controller->GetHeavyThreadCount() && maxtasks != 1)
+					maxtasks = _sessiondata->_controller->GetHeavyThreadCount() - 1;
+				for (int32_t i = 0; i < maxtasks; i++)
 					SessionFunctions::GenerateTests(_sessiondata);
 			}
 

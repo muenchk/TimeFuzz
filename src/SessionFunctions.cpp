@@ -1058,7 +1058,7 @@ namespace Functions
 		loginfo("wait for generation to end");
 		int64_t lastactive = 0, active = generation->GetActiveInputs();
 	StartWait:
-		while (sessiondata->_exechandler->WaitingTasks() > 0 || sessiondata->_controller->GetWaitingLightJobs() > 0 || sessiondata->_controller->GetWaitingHeavyJobs() > 0 || sessiondata->_controller->GetWaitingMediumJobs() > 1) {
+		while (sessiondata->_exechandler->WaitingTasks() > 0 || sessiondata->_controller->GetWaitingLightJobs() > 0 || sessiondata->_controller->GetWaitingHeavyJobs() > 0 || sessiondata->_controller->GetWaitingMediumJobs() > 0) {
 				loginfo("WaitingTests: {}, LightTasks: {}", sessiondata->_exechandler->WaitingTasks(), sessiondata->_controller->GetWaitingLightJobs());
 			std::this_thread::sleep_for(std::chrono::milliseconds(10));
 		}
@@ -1068,7 +1068,7 @@ namespace Functions
 			if (lastactive != generation->GetActiveInputs())
 				time = std::chrono::steady_clock::now();
 			loginfo("Active Tasks: {}", generation->GetActiveInputs());
-			if (sessiondata->_exechandler->WaitingTasks() > 0 || sessiondata->_controller->GetWaitingLightJobs() > 0 || sessiondata->_controller->GetWaitingHeavyJobs() > 0 || sessiondata->_controller->GetWaitingMediumJobs() > 1)
+			if (sessiondata->_exechandler->WaitingTasks() > 0 || sessiondata->_controller->GetWaitingLightJobs() > 0 || sessiondata->_controller->GetWaitingHeavyJobs() > 0 || sessiondata->_controller->GetWaitingMediumJobs() > 0)
 				goto StartWait;
 			std::this_thread::sleep_for(std::chrono::milliseconds(10));
 		}
@@ -1079,7 +1079,7 @@ namespace Functions
 		loginfo("Generation ended.");
 
 		auto generation = _sessiondata->GetCurrentGeneration();
-		if (_sessiondata->_controller->GetNumThreads() == 1 && _sessiondata->_controller->GetWaitingLightJobs() > 0 || _sessiondata->_controller->GetWaitingHeavyJobs() > 0 || _sessiondata->_controller->GetWaitingMediumJobs() > 1) {
+		if (_sessiondata->_controller->GetNumThreads() == 1 && _sessiondata->_controller->GetWaitingLightJobs() > 0 || _sessiondata->_controller->GetWaitingHeavyJobs() > 0 || _sessiondata->_controller->GetWaitingMediumJobs() > 0) {
 			// if we only have one thread running, put ourselves back into waiting queue and
 			// give the taskhandler a chance to execute the waiting light tasks first
 			auto callback = dynamic_pointer_cast<Functions::GenerationEndCallback>(Functions::GenerationFinishedCallback::Create());
@@ -1269,9 +1269,9 @@ namespace Functions
 				_sessiondata->GetCurrentGeneration()->GetNumberOfDDControllers(),
 				_sessiondata->GetCurrentGeneration()->GetDDSize());
 			auto generation = _sessiondata->GetCurrentGeneration();
-			WaitForGen(generation, _sessiondata, std::chrono::milliseconds(10000));
 			if (_sessiondata->GetCurrentGeneration()->IsDeltaDebuggingActive() == false && 
 				_sessiondata->_generationFinishing.compare_exchange_strong(exp, true) /*if there are multiple callbacks for the same generation, make sure that only one gets executed, i.e. the fastest*/) {
+				WaitForGen(generation, _sessiondata, std::chrono::milliseconds(10000));
 				if (SessionFunctions::EndCheck(_sessiondata, true)) {
 					// we are ending the session, so the callback is gonna be saved and we don't need to do anything else
 					return;
@@ -1432,7 +1432,11 @@ namespace Functions
 			_sessiondata->_generationFinishing = false;
 
 			// now we can continue with our generation as normal
-			int32_t maxtasks = _sessiondata->_controller->GetHeavyThreadCount();
+			int32_t maxtasks = std::min((int32_t)(_sessiondata->_controller->GetHeavyThreadCount() * 0.8), _sessiondata->_settings->generation.activeGeneratedInputs / _sessiondata->_settings->generation.generationstep);
+			if (maxtasks < 1)
+				maxtasks = 1;
+			if (maxtasks == _sessiondata->_controller->GetHeavyThreadCount() && maxtasks != 1)
+				maxtasks = _sessiondata->_controller->GetHeavyThreadCount() - 1;
 			for (int32_t i = 0; i < maxtasks; i++)
 				SessionFunctions::GenerateTests(_sessiondata);
 			loginfo("New generation begun.");
