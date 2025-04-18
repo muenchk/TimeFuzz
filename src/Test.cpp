@@ -322,7 +322,7 @@ bool Test::WriteInput(std::string str, bool /*waitwrite*/)
 	return bSuccess;
 }
 
-size_t Test::Write(const char* data, size_t offset, size_t length)
+long Test::Write(const char* data, size_t offset, size_t length)
 {
 	if (!_valid) {
 		logcritical("called Write after invalidation");
@@ -337,7 +337,7 @@ size_t Test::Write(const char* data, size_t offset, size_t length)
 	fds.events = POLLOUT;
 	events = poll(&fds, 1, 0);
 	if ((fds.revents & POLLOUT) == POLLOUT) {
-		size_t written = write(red_input[1], data + offset, length);
+		long written = write(red_input[1], data + offset, length);
 		if (written == -1)
 		{
 			if (errno == EPIPE)

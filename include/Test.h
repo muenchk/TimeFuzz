@@ -213,7 +213,7 @@ public:
 	/// <param name="offset">the offset to start at</param>
 	/// <param name="length">the number of bytes to write</param>
 	/// <returns></returns>
-	size_t Write(const char* data, size_t offset, size_t length);
+	long Write(const char* data, size_t offset, size_t length);
 	/// <summary>
 	/// Writes next input to PUT
 	/// </summary>

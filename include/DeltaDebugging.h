@@ -161,7 +161,7 @@ namespace DeltaDebugging
 		{
 			std::unique_lock<std::mutex> guard(testqueuelock);
 			active = false;
-			tasks = 0;
+			tasks.store({});
 			complements.clear();
 			dinfo.clear();
 			splits.clear();

@@ -71,6 +71,8 @@ void IPCommManager::PerformWritesInternal()
 				tmp2 = tmp2->next;
 			}
 			delete tmp;
+			itr = _writeQueue.erase(itr);
+			continue;
 		}
 		// write pointer is valid and test pointer too
 		// now write some stuff
@@ -78,7 +80,7 @@ void IPCommManager::PerformWritesInternal()
 		bool skipitrinc = false;
 		if (auto test = itr->second->_test.lock(); test) {
 			auto write = itr->second;
-			size_t written = 1;
+			long written = 1;
 			while (written != 0 && write != nullptr) {
 				written = test->Write(write->_data, write->_offset, write->_length);
 				// update write information
