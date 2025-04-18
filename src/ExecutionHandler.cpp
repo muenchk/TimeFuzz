@@ -753,7 +753,7 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 				continue;
 			}
 		}
-		logdebug("Handling running tests: {}", _currentTests);
+		logdebug("Handling running tests: {}", _currentTests.load());
 
 		for (int32_t i = 0; i < tohandle; i++) {
 			if (stoken->stop_requested()) {

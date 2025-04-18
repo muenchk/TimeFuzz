@@ -352,6 +352,7 @@ public:
 	int32_t GetWaitingJobs();
 	int32_t GetWaitingLightJobs();
 	int32_t GetWaitingMediumJobs();
+	int32_t GetWaitingHeavyJobs();
 
 	void GetThreadStatus(std::vector<ThreadStatus>& status, std::vector<const char*>& names, std::vector<std::string>& time);
 

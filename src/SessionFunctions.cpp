@@ -1058,7 +1058,7 @@ namespace Functions
 		loginfo("wait for generation to end");
 		int64_t lastactive = 0, active = generation->GetActiveInputs();
 	StartWait:
-		while (sessiondata->_exechandler->WaitingTasks() > 0 || sessiondata->_controller->GetWaitingLightJobs() > 0) {
+		while (sessiondata->_exechandler->WaitingTasks() > 0 || sessiondata->_controller->GetWaitingLightJobs() > 0 || sessiondata->_controller->GetWaitingHeavyJobs() > 0 || sessiondata->_controller->GetWaitingMediumJobs() > 1) {
 				loginfo("WaitingTests: {}, LightTasks: {}", sessiondata->_exechandler->WaitingTasks(), sessiondata->_controller->GetWaitingLightJobs());
 			std::this_thread::sleep_for(std::chrono::milliseconds(10));
 		}
@@ -1068,7 +1068,7 @@ namespace Functions
 			if (lastactive != generation->GetActiveInputs())
 				time = std::chrono::steady_clock::now();
 			loginfo("Active Tasks: {}", generation->GetActiveInputs());
-			if (sessiondata->_exechandler->WaitingTasks() > 0 || sessiondata->_controller->GetWaitingLightJobs() > 0)
+			if (sessiondata->_exechandler->WaitingTasks() > 0 || sessiondata->_controller->GetWaitingLightJobs() > 0 || sessiondata->_controller->GetWaitingHeavyJobs() > 0 || sessiondata->_controller->GetWaitingMediumJobs() > 1)
 				goto StartWait;
 			std::this_thread::sleep_for(std::chrono::milliseconds(10));
 		}
@@ -1079,7 +1079,7 @@ namespace Functions
 		loginfo("Generation ended.");
 
 		auto generation = _sessiondata->GetCurrentGeneration();
-		if (_sessiondata->_controller->GetNumThreads() == 1 && _sessiondata->_controller->GetWaitingLightJobs() > 0) {
+		if (_sessiondata->_controller->GetNumThreads() == 1 && _sessiondata->_controller->GetWaitingLightJobs() > 0 || _sessiondata->_controller->GetWaitingHeavyJobs() > 0 || _sessiondata->_controller->GetWaitingMediumJobs() > 1) {
 			// if we only have one thread running, put ourselves back into waiting queue and
 			// give the taskhandler a chance to execute the waiting light tasks first
 			auto callback = dynamic_pointer_cast<Functions::GenerationEndCallback>(Functions::GenerationFinishedCallback::Create());

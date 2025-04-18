@@ -408,6 +408,11 @@ int32_t TaskController::GetWaitingMediumJobs()
 	return (int32_t)_tasks_medium.size();
 }
 
+int32_t TaskController::GetWaitingHeavyJobs()
+{
+	return (int32_t)_tasks.size();
+}
+
 size_t TaskController::GetStaticSize(int32_t version)
 {
 	static size_t size0x1 = 4     // version

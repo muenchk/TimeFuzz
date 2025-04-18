@@ -158,7 +158,7 @@ private:
 	/// <summary>
 	/// currently active tests
 	/// </summary>
-	int32_t _currentTests = 0;
+	std::atomic<int32_t> _currentTests = 0;
 	/// <summary>
 	/// Maximum amount of tests that can be fully initialized for execution at the same time
 	/// </summary>
