@@ -159,6 +159,7 @@ namespace DeltaDebugging
 
 		void Reset()
 		{
+			std::unique_lock<std::mutex> guard(testqueuelock);
 			active = false;
 			tasks = 0;
 			complements.clear();

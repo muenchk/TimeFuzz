@@ -1159,15 +1159,18 @@ namespace DeltaDebugging
 
 		_stopbatch = false;
 		
-		// check if all the input results are already known
-		if (genCompData.testqueue.size() == 0) {
-			// start new callback to avoid blocking for too long, and to avoid reentry into the lock as
-			// the Evaluation Methods are blocking
-			auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
-			callback->_DDcontroller = _self;
-			_sessiondata->_controller->AddTask(callback);
-			profile(__NextGenTime, "Time taken to generate next dd level.");
-			return;
+		{
+			std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
+			// check if all the input results are already known
+			if (genCompData.testqueue.size() == 0) {
+				// start new callback to avoid blocking for too long, and to avoid reentry into the lock as
+				// the Evaluation Methods are blocking
+				auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
+				callback->_DDcontroller = _self;
+				_sessiondata->_controller->AddTask(callback);
+				profile(__NextGenTime, "Time taken to generate next dd level.");
+				return;
+			}
 		}
 
 		// if there are inputs to be generated, add them to generation
@@ -1795,20 +1798,23 @@ namespace DeltaDebugging
 		size_t size = rangeIterator.GetLength() / level;
 		loginfo("6, size: {}",size);
 
-		auto ranges = rangeIterator.GetRangesAbove(size);
-		loginfo("{} iterate", genCompData.batchident);
-		for (size_t i = 0; i < ranges.size(); i++) {
-			auto [begin, length] = ranges[i];
+		{
+			std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
+			auto ranges = rangeIterator.GetRangesAbove(size);
+			loginfo("{} iterate", genCompData.batchident);
+			for (size_t i = 0; i < ranges.size(); i++) {
+				auto [begin, length] = ranges[i];
 
-			auto callback = dynamic_pointer_cast<Functions::DDGenerateComplementCallback>(Functions::DDGenerateComplementCallback::Create());
-			callback->_DDcontroller = _self;
-			callback->_begin = (int32_t)begin;
-			callback->_length = (int32_t)length;
-			callback->_approxthreshold = approxthreshold;
-			callback->_batchident = genCompData.batchident;
-			callback->_input = _input;
-			callback->_batchtasks = genCompData.tasks;
-			genCompData.testqueue.push_back(callback);
+				auto callback = dynamic_pointer_cast<Functions::DDGenerateComplementCallback>(Functions::DDGenerateComplementCallback::Create());
+				callback->_DDcontroller = _self;
+				callback->_begin = (int32_t)begin;
+				callback->_length = (int32_t)length;
+				callback->_approxthreshold = approxthreshold;
+				callback->_batchident = genCompData.batchident;
+				callback->_input = _input;
+				callback->_batchtasks = genCompData.tasks;
+				genCompData.testqueue.push_back(callback);
+			}
 		}
 		loginfo("{} end", genCompData.batchident);
 		ScoreProgressGenerateNextLevel_End();
@@ -1882,15 +1888,18 @@ namespace DeltaDebugging
 	{
 		loginfo("{} enter", genCompData.batchident);
 		// check if there are no inputs to be generated
-		if (genCompData.testqueue.size() == 0) {
-			loginfo("{} no tests", genCompData.batchident);
-			// start new callback to avoid blocking for too long, and to avoid reentry into the lock as
-			// the Evaluation Methods are blocking
-			auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
-			callback->_DDcontroller = _self;
-			_sessiondata->_controller->AddTask(callback);
-			profile(__NextGenTime, "Time taken to generate next level.");
-			return;
+		{
+			std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
+			if (genCompData.testqueue.size() == 0) {
+				loginfo("{} no tests", genCompData.batchident);
+				// start new callback to avoid blocking for too long, and to avoid reentry into the lock as
+				// the Evaluation Methods are blocking
+				auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
+				callback->_DDcontroller = _self;
+				_sessiondata->_controller->AddTask(callback);
+				profile(__NextGenTime, "Time taken to generate next level.");
+				return;
+			}
 		}
 		// if there are inputs to be generated, add them to generation
 
