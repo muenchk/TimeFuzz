@@ -506,16 +506,16 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 		//test->WriteInput(test->_scriptArgs, true);
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
-		if (test->_scriptArgs.size() >= PIPE_SIZE_LINUX) {
+		//if (test->_scriptArgs.size() >= PIPE_SIZE_LINUX) {
 			auto callback = dynamic_pointer_cast<Functions::WriteTestInputCallback>(Functions::WriteTestInputCallback::Create());
 			callback->_test = test;
 			callback->length = test->_scriptArgs.size();
 			callback->data = new char[test->_scriptArgs.size()];
 			memcpy(callback->data, test->_scriptArgs.c_str(), test->_scriptArgs.size());
 			_threadpool->AddTask(callback, true);
-		} else {
+		//} else {
 		
-			IPCommManager::GetSingleton()->Write(test, test->_scriptArgs.c_str(), 0, test->_scriptArgs.size());
+		//	IPCommManager::GetSingleton()->Write(test, test->_scriptArgs.c_str(), 0, test->_scriptArgs.size());
 			/* size_t offset = 0;
 			long written = 1;
 			size_t length = test->_scriptArgs.size();
@@ -530,7 +530,7 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 					break;
 				}
 			}*/
-		}
+		//}
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 		IPCommManager::GetSingleton()->Write(test, test->_scriptArgs.c_str(), 0, test->_scriptArgs.size());
 #endif
