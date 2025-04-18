@@ -114,8 +114,7 @@ void IPCommManager::PerformWritesInternal()
 				}
 			}
 		}
-		if (!skipitrinc)
-			itr++;
+		itr++;
 	}
 	_writeQueueSem.release();
 	profile(TimeProfiling, "Write pipe content");

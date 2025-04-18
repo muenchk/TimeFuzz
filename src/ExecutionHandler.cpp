@@ -515,8 +515,8 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 			_threadpool->AddTask(callback, true);
 		} else {
 		
-			//IPCommManager::GetSingleton()->Write(test, test->_scriptArgs.c_str(), 0, test->_scriptArgs.size());
-			size_t offset = 0;
+			IPCommManager::GetSingleton()->Write(test, test->_scriptArgs.c_str(), 0, test->_scriptArgs.size());
+			/* size_t offset = 0;
 			long written = 1;
 			size_t length = test->_scriptArgs.size();
 			while (written != 0 && length > 0) {
@@ -529,7 +529,7 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 				} else if (length <= 0) {
 					break;
 				}
-			}
+			}*/
 		}
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 		IPCommManager::GetSingleton()->Write(test, test->_scriptArgs.c_str(), 0, test->_scriptArgs.size());
