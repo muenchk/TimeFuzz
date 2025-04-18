@@ -233,7 +233,7 @@ void Test::Init()
 	SetHandleInformation(&red_input[1], HANDLE_FLAG_INHERIT, 0);*/
 #endif
 	_pipeinit = true;
-	_internalvalidity = true;
+	_avail = true;
 	profile(TimeProfiling, "");
 }
 
@@ -275,7 +275,7 @@ bool Test::WriteInput(std::string str, bool /*waitwrite*/)
 	int bSuccess = 0;
 #if defined(unix) || defined(__unix__) || defined(__unix)
 	SpinlockA guard(_availFlag);
-	if (_avail = false)
+	if (_avail == false)
 		return false;
 	size_t len = strlen(str.c_str());
 	//if (IsRunning()) {
@@ -284,6 +284,12 @@ bool Test::WriteInput(std::string str, bool /*waitwrite*/)
 	fds.fd = red_input[1];  // stdin
 	fds.events = POLLOUT;
 	events = poll(&fds, 1, 0);
+	// check it it is still running
+	bool res = Processes::GetProcessRunning(processid, &exitcode);
+	if (res == false) {
+		_avail = false;
+		return 0;
+	}
 	if ((fds.revents & POLLOUT) == POLLOUT) {
 		if (waitwrite) {
 			size_t totalwritten = 0;
@@ -473,7 +479,7 @@ std::string Test::ReadOutput()
 #if defined(unix) || defined(__unix__) || defined(__unix)
 	SpinlockA guard(_availFlag);
 	if (_avail == false)
-		return false;
+		return "";
 	struct pollfd fds;
 	int32_t events = 0;
 	fds.fd = red_output[0];  // stdin
