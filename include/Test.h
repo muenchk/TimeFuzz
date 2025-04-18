@@ -311,6 +311,8 @@ private:
 	inline static bool _registeredFactories = false;
 	bool _valid = true;
 	bool _pipeinit = false;
+	bool _avail = false;
+	std::atomic_flag _availFlag = ATOMIC_FLAG_INIT;
 };
 
 namespace Functions

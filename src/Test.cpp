@@ -233,6 +233,7 @@ void Test::Init()
 	SetHandleInformation(&red_input[1], HANDLE_FLAG_INHERIT, 0);*/
 #endif
 	_pipeinit = true;
+	_internalvalidity = true;
 	profile(TimeProfiling, "");
 }
 
@@ -244,7 +245,10 @@ bool Test::IsRunning()
 		return false;
 	}
 #if defined(unix) || defined(__unix__) || defined(__unix)
+	SpinlockA guard(_availFlag);
 	bool res = Processes::GetProcessRunning(processid, &exitcode);
+	if (res == false)
+		_avail = false;
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	bool res = Processes::GetProcessRunning(pi.hProcess);
 #endif
@@ -270,6 +274,9 @@ bool Test::WriteInput(std::string str, bool /*waitwrite*/)
 	}
 	int bSuccess = 0;
 #if defined(unix) || defined(__unix__) || defined(__unix)
+	SpinlockA guard(_availFlag);
+	if (_avail = false)
+		return false;
 	size_t len = strlen(str.c_str());
 	//if (IsRunning()) {
 	struct pollfd fds;
@@ -330,12 +337,18 @@ long Test::Write(const char* data, size_t offset, size_t length)
 	}
 	int bSuccess = 0;
 #if defined(unix) || defined(__unix__) || defined(__unix)
+	SpinlockA guard(_availFlag);
+	if (_avail == false) {
+		return 0;
+	}
 	//if (IsRunning()) {
 	struct pollfd fds;
 	int32_t events = 0;
 	fds.fd = red_input[1];  // stdin
 	fds.events = POLLOUT;
 	events = poll(&fds, 1, 0);
+	if ((fds.revents & POLLNVAL) || (fds.revents & POLLERR) || (fds.revents & POLLHUP))
+		return 
 	if ((fds.revents & POLLOUT) == POLLOUT) {
 		long written = write(red_input[1], data + offset, length);
 		if (written == -1)
@@ -410,6 +423,9 @@ bool Test::CheckInput()
 	}
 	bool ret = false;
 #if defined(unix) || defined(__unix__) || defined(__unix)
+	SpinlockA guard(_availFlag);
+	if (_avail == false)
+		return false;
 	struct pollfd fds;
 	int32_t events = 0;
 	fds.fd = red_input[0];  // stdin
@@ -453,6 +469,9 @@ std::string Test::ReadOutput()
 	}
 	std::string ret;
 #if defined(unix) || defined(__unix__) || defined(__unix)
+	SpinlockA guard(_availFlag);
+	if (_avail == false)
+		return false;
 	struct pollfd fds;
 	int32_t events = 0;
 	fds.fd = red_output[0];  // stdin

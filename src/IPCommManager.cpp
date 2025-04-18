@@ -94,7 +94,7 @@ void IPCommManager::PerformWritesInternal()
 						delete write;
 						write = next;
 					}
-					continue;
+					break;
 				} else if (write->_length <= 0) {
 					auto next = write->next;
 					if (next != nullptr) {
@@ -106,7 +106,7 @@ void IPCommManager::PerformWritesInternal()
 						skipitrinc = true;
 						delete write;
 						write = nullptr;
-						continue;
+						break;
 					}
 				} else {
 					// couldn't write everything, so break loop
@@ -114,7 +114,8 @@ void IPCommManager::PerformWritesInternal()
 				}
 			}
 		}
-		itr++;
+		if (!skipitrinc)
+			itr++;
 	}
 	_writeQueueSem.release();
 	profile(TimeProfiling, "Write pipe content");
