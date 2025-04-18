@@ -513,8 +513,23 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 			callback->data = new char[test->_scriptArgs.size()];
 			memcpy(callback->data, test->_scriptArgs.c_str(), test->_scriptArgs.size());
 			_threadpool->AddTask(callback, true);
-		} else
-			IPCommManager::GetSingleton()->Write(test, test->_scriptArgs.c_str(), 0, test->_scriptArgs.size());
+		} else {
+		
+			//IPCommManager::GetSingleton()->Write(test, test->_scriptArgs.c_str(), 0, test->_scriptArgs.size());
+			size_t offset = 0;
+			long written = 1;
+			while (written != 0 && length > 0) {
+				written = test->Write(test->_scriptArgs.c_str(), offset, length);
+				// update write information
+				offset += written;
+				length -= written;
+				if (written == -1) {
+					break;
+				} else if (length <= 0) {
+					break;
+				}
+			}
+		}
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 		IPCommManager::GetSingleton()->Write(test, test->_scriptArgs.c_str(), 0, test->_scriptArgs.size());
 #endif
