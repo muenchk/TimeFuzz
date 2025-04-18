@@ -1130,10 +1130,13 @@ namespace DeltaDebugging
 
 	void DeltaController::StandardGenerateNextLevel_Async()
 	{
-		genCompData.Reset();
-		genCompData.active = true;
-		genCompData.tasks = std::make_shared<Tasks>();
-		genCompData.tasks.load()->tasks = 0;
+		{
+			std::unique_lock<std::mutex> guard(_completedTestsLock);
+			genCompData.Reset();
+			genCompData.active = true;
+			genCompData.tasks = std::make_shared<Tasks>();
+			genCompData.tasks.load()->tasks = 0;
+		}
 		__NextGenTime = std::chrono::steady_clock::now();
 		// insurance
 		if (_input->GetGenerated() == false) {
@@ -1865,10 +1868,13 @@ namespace DeltaDebugging
 	void DeltaController::ScoreProgressGenerateNextLevel_Async()
 	{
 		loginfo("{}", genCompData.batchident);
-		genCompData.Reset();
-		genCompData.active = true;
-		genCompData.tasks = std::make_shared<Tasks>();
-		genCompData.tasks.load()->tasks = 0;
+		{
+			std::unique_lock<std::mutex> guard(_completedTestsLock);
+			genCompData.Reset();
+			genCompData.active = true;
+			genCompData.tasks = std::make_shared<Tasks>();
+			genCompData.tasks.load()->tasks = 0;
+		}
 		__NextGenTime = std::chrono::steady_clock::now();
 
 		// insurance
