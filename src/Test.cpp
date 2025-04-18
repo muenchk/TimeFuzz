@@ -347,8 +347,10 @@ long Test::Write(const char* data, size_t offset, size_t length)
 	fds.fd = red_input[1];  // stdin
 	fds.events = POLLOUT;
 	events = poll(&fds, 1, 0);
-	if ((fds.revents & POLLNVAL) || (fds.revents & POLLERR) || (fds.revents & POLLHUP))
-		return 
+	if ((fds.revents & POLLNVAL) || (fds.revents & POLLERR) || (fds.revents & POLLHUP)) {
+		_pipeError = true;
+		return -1;
+	}
 	if ((fds.revents & POLLOUT) == POLLOUT) {
 		long written = write(red_input[1], data + offset, length);
 		if (written == -1)
