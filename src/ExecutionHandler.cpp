@@ -578,9 +578,9 @@ void ExecutionHandler::TestStarter(std::shared_ptr<stop_token> stoken)
 		waittime = _waittime;
 	std::shared_ptr<Test> test;
 	std::weak_ptr<Test> testweak;
-	std::unique_lock<std::mutex> guard(_startingLock);
 	int32_t newtests = 0;
 	while (_stopHandler == false || _finishtests || stoken->stop_requested() == false) {
+		std::unique_lock<std::mutex> guard(_startingLock);
 		newtests = 0;
 		if (_freeze)
 		{
