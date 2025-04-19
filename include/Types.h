@@ -8,6 +8,25 @@
 
 #include "Threading.h"
 
+template <class T>
+class Vector;
+template <class Y>
+class Deque;
+
+namespace std
+{
+	template <class Y>
+	void swap(Vector<Y>& lhs, Vector<Y>& rhs)
+	{
+		lhs.swap(rhs);
+	}
+	template <class Y>
+	void swap(Deque<Y>& lhs, Deque<Y>& rhs)
+	{
+		lhs.swap(rhs);
+	}
+}
+
 class String
 {
 private:
@@ -664,17 +683,3 @@ public:
 	template <class Y>
 	friend void std::swap(Deque<Y>& lhs, Deque<Y>& rhs);
 };
-
-namespace std
-{
-	template<class Y>
-	void swap(Vector<Y>& lhs, Vector<Y>& rhs)
-	{
-		lhs.swap(rhs);
-	}
-	template <class Y>
-	void swap(Deque<Y>& lhs, Deque<Y>& rhs)
-	{
-		lhs.swap(rhs);
-	}
-}
