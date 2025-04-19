@@ -9,6 +9,7 @@
 #include "TaskController.h"
 #include "Utility.h"
 #include "Form.h"
+#include "Types.h"
 
 class ExecutionHandler;
 class Test;
@@ -99,11 +100,11 @@ private:
 	/// <summary>
 	/// stores the individual primary score values to all executed entries of [sequence]
 	/// </summary>
-	std::vector<double> _primaryScoreIndividual;
+	Deque<double> _primaryScoreIndividual;
 	/// <summary>
 	/// stores the individual secondary score values to all executed entries of [sequence]
 	/// </summary>
-	std::vector<double> _secondaryScoreIndividual;
+	Deque<double> _secondaryScoreIndividual;
 
 	/// <summary>
 	/// whether the individual storage of primary score values is enabled
@@ -120,7 +121,7 @@ private:
 	/// <summary>
 	/// the python representation of the input
 	/// </summary>
-	std::string _pythonstring = "";
+	String _pythonstring = "";
 	/// <summary>
 	/// whether the python representation has been calculated
 	/// </summary>
@@ -521,7 +522,7 @@ private:
 	/// <summary>
 	/// the string representation of the input
 	/// </summary>
-	std::string _stringrep = "";
+	String _stringrep = "";
 	/// <summary>
 	/// the oracle result of the input
 	/// </summary>
@@ -529,14 +530,14 @@ private:
 	/// <summary>
 	/// the underlying representation of the input sequence
 	/// </summary>
-	std::vector<std::string> _sequence;
+	Vector<std::string> _sequence;
 
 	std::vector<std::string>::iterator _lua_sequence_next;
 
 	/// <summary>
 	/// originally generated sequence [stores sequence after trimming]
 	/// </summary>
-	std::vector<std::string> _orig_sequence;
+	Vector<std::string> _orig_sequence;
 
 	bool ReadData0x1(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 	bool ReadData0x2(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);

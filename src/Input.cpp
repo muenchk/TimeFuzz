@@ -68,8 +68,8 @@ size_t Input::GetDynamicSize()
 	size_t size = Form::GetDynamicSize()                                            // form stuff
 	              + GetStaticSize(classversion)                                     // static stuff
 	              + 8 + _parent.segments.size() * 16                                // sizeof(), parent.segments content 16 Bytes
-	              + Buffer::VectorBasic::GetVectorSize(_primaryScoreIndividual)     // primaryScoreIndividual
-	              + Buffer::VectorBasic::GetVectorSize(_secondaryScoreIndividual);  // secondaryScoreIndividual
+	              + Buffer::DequeBasic::GetDequeSize(_primaryScoreIndividual)      // primaryScoreIndividual
+	              + Buffer::DequeBasic::GetDequeSize(_secondaryScoreIndividual);  // secondaryScoreIndividual
 	size += Buffer::CalcStringLength(_stringrep);
 	//if (HasFlag(Form::FormFlags::DoNotFree)) {  // if do not free flag is present this input is needed for something and won't be checked for regeneration
 	//	size += Buffer::List::GetListLength(_sequence);
@@ -115,8 +115,8 @@ bool Input::WriteData(std::ostream* buffer, size_t& offset)
 	Buffer::Write(_generationTime, buffer, offset);
 	Buffer::Write(_enablePrimaryScoreIndividual, buffer, offset);
 	Buffer::Write(_enableSecondaryScoreIndividual, buffer, offset);
-	Buffer::VectorBasic::WriteVector(_primaryScoreIndividual, buffer, offset);
-	Buffer::VectorBasic::WriteVector(_secondaryScoreIndividual, buffer, offset);
+	Buffer::DequeBasic::WriteDeque(_primaryScoreIndividual, buffer, offset);
+	Buffer::DequeBasic::WriteDeque(_secondaryScoreIndividual, buffer, offset);
 	Buffer::Write(_derivedFails, buffer, offset);
 	return true;
 }
@@ -226,8 +226,8 @@ bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRe
 			_generationTime = Buffer::ReadNanoSeconds(buffer, offset);
 			_enablePrimaryScoreIndividual = Buffer::ReadBool(buffer, offset);
 			_enableSecondaryScoreIndividual = Buffer::ReadBool(buffer, offset);
-			_primaryScoreIndividual = Buffer::VectorBasic::ReadVector<double>(buffer, offset);
-			_secondaryScoreIndividual = Buffer::VectorBasic::ReadVector<double>(buffer, offset);
+			_primaryScoreIndividual = Buffer::DequeBasic::ReadDeque<double>(buffer, offset);
+			_secondaryScoreIndividual = Buffer::DequeBasic::ReadDeque<double>(buffer, offset);
 			_derivedFails = Buffer::ReadUInt64(buffer, offset);
 			if (HasFlag(Form::FormFlags::DoNotFree))
 			{
@@ -632,12 +632,14 @@ void Input::FreeMemory()
 			_generatedSequence = false;
 
 			_sequence.clear();
+			_sequence.shrink_to_fit();
 			_orig_sequence.clear();
+			_orig_sequence.shrink_to_fit();
 		}
 		// reset python string
 		_pythonconverted = false;
-		_pythonstring = "";
-		_pythonstring.shrink_to_fit();
+		_pythonstring.reset();
+		_stringrep.reset();
 
 		if (!derive)
 			logcritical("Input is missing dev tree now");
@@ -881,7 +883,7 @@ double Input::GetIndividualSecondaryScore(size_t position)
 }
 
 template <class T>
-std::vector<std::pair<size_t, size_t>> ExtractRanges(std::vector<T> range, size_t max)
+std::vector<std::pair<size_t, size_t>> ExtractRanges(Deque<T>& range, size_t max)
 {
 	if (range.size() > 0) {
 		std::vector<std::pair<size_t, size_t>> ranges;

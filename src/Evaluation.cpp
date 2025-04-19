@@ -105,7 +105,7 @@ Evaluation::CSV Evaluation::Evaluate()
 		// Primary Score
 		str += ";" + std::to_string(input->GetPrimaryScore());
 		// Relative Primary Score
-		long lng = input->GetTrimmedLength();
+		int64_t lng = input->GetTrimmedLength();
 		if (lng == -1)
 			lng = input->GetTargetLength();
 		str += ";" + std::to_string(lng / input->GetPrimaryScore());

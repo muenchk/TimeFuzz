@@ -19,6 +19,7 @@
 #include "Form.h"
 #include "Function.h"
 #include "UIClasses.h"
+#include "Types.h"
 
 class Settings;
 class TaskController;
@@ -141,16 +142,16 @@ public:
 	/// <summary>
 	/// command line args for the test
 	/// </summary>
-	std::string _cmdArgs;
+	String _cmdArgs;
 	/// <summary>
 	/// stdin arguments for scripts
 	/// </summary>
-	std::string _scriptArgs;
+	String _scriptArgs;
 
 	/// <summary>
 	/// output of the PUT
 	/// </summary>
-	std::string _output;
+	String _output;
 	/// <summary>
 	/// whether to store the put output
 	/// </summary>

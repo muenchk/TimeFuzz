@@ -6,9 +6,7 @@
 #include <vector>
 #include <string>
 #include <iostream>
-#include <deque>
 #include "Form.h"
-#include "Types.h"
 
 namespace Buffer
 {
@@ -371,11 +369,6 @@ namespace Buffer
 		{
 			return 8 + (vector.size() * sizeof(T));
 		}
-		template <class T>
-		size_t GetVectorSize(Vector<T>& vector)
-		{
-			return 8 + (vector.size() * sizeof(T));
-		}
 		template<class T>
 		size_t GetVectorSize(unsigned char* buffer, size_t offset)
 		{
@@ -390,21 +383,7 @@ namespace Buffer
 				Buffer::Write(vector[i], buffer, offset);
 		}
 		template <class T>
-		void WriteVector(Vector<T>& vector, unsigned char* buffer, size_t& offset)
-		{
-			Buffer::WriteSize(vector.size(), buffer, offset);
-			for (int64_t i = 0; i < (int64_t)vector.size(); i++)
-				Buffer::Write(vector[i], buffer, offset);
-		}
-		template <class T>
 		void WriteVector(std::vector<T>& vector, std::ostream* buffer, size_t& offset)
-		{
-			Buffer::WriteSize(vector.size(), buffer, offset);
-			for (int64_t i = 0; i < (int64_t)vector.size(); i++)
-				Buffer::Write(vector[i], buffer, offset);
-		}
-		template <class T>
-		void WriteVector(Vector<T>& vector, std::ostream* buffer, size_t& offset)
 		{
 			Buffer::WriteSize(vector.size(), buffer, offset);
 			for (int64_t i = 0; i < (int64_t)vector.size(); i++)
@@ -441,11 +420,6 @@ namespace Buffer
 			return 8 + (deque.size() * sizeof(T));
 		}
 		template <class T>
-		size_t GetDequeSize(Deque<T>& deque)
-		{
-			return 8 + (deque.size() * sizeof(T));
-		}
-		template <class T>
 		size_t GetDequeSize(unsigned char* buffer, size_t offset)
 		{
 			size_t length = *((size_t*)(buffer + offset));
@@ -459,21 +433,7 @@ namespace Buffer
 				Buffer::Write(deque[i], buffer, offset);
 		}
 		template <class T>
-		void WriteDeque(Deque<T>& deque, unsigned char* buffer, size_t& offset)
-		{
-			Buffer::WriteSize(deque.size(), buffer, offset);
-			for (int64_t i = 0; i < (int64_t)deque.size(); i++)
-				Buffer::Write(deque[i], buffer, offset);
-		}
-		template <class T>
 		void WriteDeque(std::deque<T>& deque, std::ostream* buffer, size_t& offset)
-		{
-			Buffer::WriteSize(deque.size(), buffer, offset);
-			for (int64_t i = 0; i < (int64_t)deque.size(); i++)
-				Buffer::Write(deque[i], buffer, offset);
-		}
-		template <class T>
-		void WriteDeque(Deque<T>& deque, std::ostream* buffer, size_t& offset)
 		{
 			Buffer::WriteSize(deque.size(), buffer, offset);
 			for (int64_t i = 0; i < (int64_t)deque.size(); i++)

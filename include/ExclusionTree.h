@@ -31,7 +31,7 @@ class ExclusionTree : public Form
 		/// <summary>
 		/// (rough) number of visits to node, exclusion wise, may be used to prune the tree if necessary [race condition]
 		/// </summary>
-		uint64_t _visitcount;
+		//uint64_t _visitcount;
 		/// <summary>
 		/// children of the node
 		/// </summary>
@@ -90,7 +90,7 @@ public:
 
 	~ExclusionTree();
 
-	const int32_t classversion = 0x1;
+	const int32_t classversion = 0x2;
 
 	#pragma region InheritedForm
 
