@@ -79,18 +79,90 @@ Evaluation::CSV Evaluation::Evaluate()
 
 		csv.General = header + "\n" + line + "\n";
 	}
+	std::string inputHeader = "ID;Parent ID;Generation ID;Derived Inputs;Derived Fails;Flags;Generation Time;Generation Length;Trimmed Length;Execution Time;Primary Score;Relative Primary Score;Secondary Score;Relative Secondary Score;Exit Code;Exit Reason;Result;Individual Primary;Individual Secondary;Retries\n";
+	auto printInput = [](std::shared_ptr<Input> input) {
+		std::string str = "";
+		// ID
+		str += Utility::GetHex(input->GetFormID());
+		// Parent ID
+		str += ";" + Utility::GetHex(input->GetParentID());
+		// Generation ID
+		str += ";" + Utility::GetHex(input->GetGenerationID());
+		// Derived Inputs
+		str += ";" + std::to_string(input->GetDerivedInputs());
+		// Derived Fails
+		str += ";" + std::to_string(input->GetDerivedFails());
+		// Flags
+		str += ";" + Utility::GetHexFill(input->GetFlags());
+		// Generation Time
+		str += ";" + Logging::FormatTimeNS(input->GetGenerationTime().count());
+		// Generation Length
+		str += ";" + std::to_string(input->GetTargetLength());
+		// Trimmed Length
+		str += ";" + std::to_string(input->GetTrimmedLength());
+		// Execution Time
+		str += ";" + Logging::FormatTimeNS(input->GetExecutionTime().count());
+		// Primary Score
+		str += ";" + std::to_string(input->GetPrimaryScore());
+		// Relative Primary Score
+		long lng = input->GetTrimmedLength();
+		if (lng == -1)
+			lng = input->GetTargetLength();
+		str += ";" + std::to_string(lng / input->GetPrimaryScore());
+		// Secondary Score
+		str += ";" + std::to_string(input->GetSecondaryScore());
+		// Relative Secondary Score
+		str += ";" + std::to_string(lng / input->GetSecondaryScore());
+		// Exit code
+		str += ";" + std::to_string(input->GetExitCode());
+		// Exit reason
+		if (input->test)
+			str += ";" + Utility::GetHex(input->test->_exitreason);
+		else
+			str += ";";
+		// Result
+		if (input->GetOracleResult() == OracleResult::Failing)
+			str += ";Failing";
+		else if (input->GetOracleResult() == OracleResult::Passing)
+			str += ";Passing";
+		else if (input->GetOracleResult() == OracleResult::Running)
+			str += ";Running";
+		else str += ";Unfinished";
+		// Individual Primary
+		if (input->GetIndividualPrimaryScoresLength() > 0) {
+			str += std::to_string(input->GetIndividualPrimaryScore(0));
+			for (long c = 1; c < (long)input->GetIndividualPrimaryScoresLength(); c++) {
+				str += "," + std::to_string(input->GetIndividualPrimaryScore(c));
+			}
+		}
+		str += ";";
+		// Individual Secondary
+		if (input->GetIndividualSecondaryScoresLength() > 0) {
+			str += std::to_string(input->GetIndividualSecondaryScore(0));
+			for (long c = 1; c < (long)input->GetIndividualSecondaryScoresLength(); c++) {
+				str += "," + std::to_string(input->GetIndividualSecondaryScore(c));
+			}
+		}
+		str += ";";
+		// Retries
+		str += std::to_string(input->GetRetries());
+
+		return str;
+	};
+
 	// ### Generations
 	{
 		std::string header;
 		std::string avline;
 		std::string lines;
-		header = "Generation Size;DD Size;Number of DD;Runtime;Tests per Minute;Average Test Execution Time;Average DD Runtime;Total primary score increase;Total secondary increase\n";
+		header = "ID;Generation Size;DD Size;Number of DD;Runtime;Tests per Minute;Average Test Execution Time;Average DD Runtime;Total primary score increase;Total secondary increase\n";
 		int64_t gensize = 0, avgensize = 0, ddsize = 0, avddsize = 0, numberofdd = 0, avnumberofdd = 0;
 		double testsperminute = 0.f, avtestsperminute = 0.f, totalprimaryscoreinc = 0.f, avtotalprimaryscoreinc = 0.f, totalsecondaryscoreinc = 0.f, avtotalsecondaryscoreinc = 0.f;
 		std::chrono::nanoseconds averageddruntime, avaverageddruntime, averagetestexectime, avaveragetestexectime,runtime, avruntime;
 		for (int i = 0; i < (int)generations.size(); i++)
 		{
 			std::string line = "";
+
 			gensize = generations[i]->GetTrueGeneratedSize();
 			avgensize += generations[i]->GetTrueGeneratedSize();
 			ddsize = generations[i]->GetDDSize();
@@ -129,11 +201,76 @@ Evaluation::CSV Evaluation::Evaluate()
 			runtime = generations[i]->GetRunTime();
 			avruntime += runtime;
 
-			line += std::to_string(gensize) + ";" + std::to_string(ddsize) + ";" + std::to_string(numberofdd) + ";" + Logging::FormatTimeNS(runtime.count()) + ";" + std::to_string(testsperminute) + ";" + Logging::FormatTimeNS(averagetestexectime.count()) + ";" + Logging::FormatTimeNS(averageddruntime.count()) + ";" + std::to_string(totalprimaryscoreinc) + ";" + std::to_string(totalsecondaryscoreinc) + "\n";
+			line += Utility::GetHex(generations[i]->GetFormID()) + ";" + std::to_string(gensize) + ";" + std::to_string(ddsize) + ";" + std::to_string(numberofdd) + ";" + Logging::FormatTimeNS(runtime.count()) + ";" + std::to_string(testsperminute) + ";" + Logging::FormatTimeNS(averagetestexectime.count()) + ";" + Logging::FormatTimeNS(averageddruntime.count()) + ";" + std::to_string(totalprimaryscoreinc) + ";" + std::to_string(totalsecondaryscoreinc) + "\n";
 			lines += line;
+
+			std::string inputs;
+			inputs += inputHeader;
+
+			switch (_sessiondata->_settings->generation.sourcesType) {
+			case Settings::GenerationSourcesType::FilterLength:
+				{
+					std::set<std::shared_ptr<Input>, InputLengthGreater> inps;
+					generations[i]->GetAllInputs(inps, false, true, 0, 0);
+					auto itr = inps.begin();
+					while (itr != inps.end())
+					{
+						inputs += printInput(*itr) + "\n";
+						itr++;
+					}
+				}
+				break;
+			case Settings::GenerationSourcesType::FilterPrimaryScoreRelative:
+				{
+					std::set<std::shared_ptr<Input>, InputGainGreaterPrimary> inps;
+					generations[i]->GetAllInputs(inps, false, true, 0, 0);
+					auto itr = inps.begin();
+					while (itr != inps.end()) {
+						inputs += printInput(*itr) + "\n";
+						itr++;
+					}
+				}
+				break;
+			case Settings::GenerationSourcesType::FilterPrimaryScore:
+				{
+					std::set<std::shared_ptr<Input>, InputGreaterPrimary> inps;
+					generations[i]->GetAllInputs(inps, false, true, 0, 0);
+					auto itr = inps.begin();
+					while (itr != inps.end()) {
+						inputs += printInput(*itr) + "\n";
+						itr++;
+					}
+
+				}
+				break;
+			case Settings::GenerationSourcesType::FilterSecondaryScoreRelative:
+				{
+					std::set<std::shared_ptr<Input>, InputGainGreaterSecondary> inps;
+					generations[i]->GetAllInputs(inps, false, true, 0, 0);
+					auto itr = inps.begin();
+					while (itr != inps.end()) {
+						inputs += printInput(*itr) + "\n";
+						itr++;
+					}
+				}
+				break;
+			case Settings::GenerationSourcesType::FilterSecondaryScore:
+				{
+					std::set<std::shared_ptr<Input>, InputGreaterSecondary> inps;
+					generations[i]->GetAllInputs(inps, false, true, 0, 0);
+					auto itr = inps.begin();
+					while (itr != inps.end()) {
+						inputs += printInput(*itr) + "\n";
+						itr++;
+					}
+				}
+				break;
+			}
+
+			csv.GenInputs.push_back({ "Generation_" + std::to_string(generations[i]->GetGenerationNumber()), inputs });
 		}
 
-		avline = std::to_string(avgensize) + ";" + std::to_string(avddsize) + ";" + std::to_string(avnumberofdd) + ";" + Logging::FormatTimeNS(avruntime.count()) + ";" + std::to_string(avtestsperminute) + ";" + Logging::FormatTimeNS(avaveragetestexectime.count()) + ";" + Logging::FormatTimeNS(avaverageddruntime.count()) + ";" + std::to_string(avtotalprimaryscoreinc) + ";" + std::to_string(avtotalsecondaryscoreinc) + "\n";
+		avline = "NONE;" + std::to_string(avgensize) + ";" + std::to_string(avddsize) + ";" + std::to_string(avnumberofdd) + ";" + Logging::FormatTimeNS(avruntime.count()) + ";" + std::to_string(avtestsperminute) + ";" + Logging::FormatTimeNS(avaveragetestexectime.count()) + ";" + Logging::FormatTimeNS(avaverageddruntime.count()) + ";" + std::to_string(avtotalprimaryscoreinc) + ";" + std::to_string(avtotalsecondaryscoreinc) + "\n";
 
 		csv.GenerationAve = header + avline;
 		csv.Generations = header + lines;

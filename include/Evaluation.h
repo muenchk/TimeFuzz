@@ -15,9 +15,12 @@ class Evaluation
 		std::string General = "";
 		std::string GenerationAve = "";
 		std::string Generations;
+		std::vector<std::pair<std::string,std::string>> GenInputs;
 		std::string DDAve = "";
-		std::string DDs;
+		std::string DDs = "";
+		std::vector<std::pair<std::string, std::string>> DDInputs;
 		std::string InputAve = "";
+		std::string TopKInputs = "";
 	};
 
 private:

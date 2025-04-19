@@ -333,7 +333,7 @@ public:  // templates
 		if (includeSources)
 			for (auto input : _sources) {
 				if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing))
-					output.insert(_sources);
+					output.insert(input);
 			}
 	}
 
