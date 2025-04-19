@@ -9,6 +9,7 @@
 #include "TaskController.h"
 #include "Utility.h"
 #include "Form.h"
+#include "Types.h"
 
 class ExecutionHandler;
 class Test;
@@ -120,7 +121,7 @@ private:
 	/// <summary>
 	/// the python representation of the input
 	/// </summary>
-	std::string _pythonstring = "";
+	String _pythonstring = "";
 	/// <summary>
 	/// whether the python representation has been calculated
 	/// </summary>
@@ -521,7 +522,7 @@ private:
 	/// <summary>
 	/// the string representation of the input
 	/// </summary>
-	std::string _stringrep = "";
+	String _stringrep = "";
 	/// <summary>
 	/// the oracle result of the input
 	/// </summary>

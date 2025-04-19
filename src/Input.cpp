@@ -636,8 +636,8 @@ void Input::FreeMemory()
 		}
 		// reset python string
 		_pythonconverted = false;
-		_pythonstring = "";
-		_pythonstring.shrink_to_fit();
+		_pythonstring.reset();
+		_stringrep.reset();
 
 		if (!derive)
 			logcritical("Input is missing dev tree now");

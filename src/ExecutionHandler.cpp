@@ -333,7 +333,7 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 	test->_itr = test->_input.lock()->begin();
 	test->_itrend = test->_input.lock()->end();
 	test->_reactiontime = {};
-	test->_output = "";
+	test->_output.reset();
 	if (replay)
 		test->_skipExclusionCheck = true;
 

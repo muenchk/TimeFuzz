@@ -829,12 +829,9 @@ void Test::Clear()
 	_lastwritten = "";
 	_reactiontime.clear();
 	_lua_reactiontime_next = _reactiontime.end();
-	_cmdArgs = "";
-	_cmdArgs.shrink_to_fit();
-	_scriptArgs = "";
-	_scriptArgs.shrink_to_fit();
-	_output = "";
-	_output.shrink_to_fit();
+	_cmdArgs.reset();
+	_scriptArgs.reset();
+	_output.reset();
 	_exitreason = ExitReason::Running;
 	_skipOracle = false;
 	_skipExclusionCheck = false;
@@ -852,11 +849,9 @@ void Test::FreeMemory()
 		if (HasFlag(Form::FormFlags::DoNotFree) == false)
 		{
 			if (_storeoutput == false)
-				_output = "";
-			_scriptArgs = "";
-			_scriptArgs.shrink_to_fit();
-			_cmdArgs = "";
-			_cmdArgs.shrink_to_fit();
+				_output.reset();
+			_scriptArgs.reset();
+			_cmdArgs.reset();
 			_lastwritten = "";
 			_lastwritten.shrink_to_fit();
 		}
