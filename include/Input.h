@@ -530,14 +530,14 @@ private:
 	/// <summary>
 	/// the underlying representation of the input sequence
 	/// </summary>
-	std::vector<std::string> _sequence;
+	Vector<std::string> _sequence;
 
 	std::vector<std::string>::iterator _lua_sequence_next;
 
 	/// <summary>
 	/// originally generated sequence [stores sequence after trimming]
 	/// </summary>
-	std::vector<std::string> _orig_sequence;
+	Vector<std::string> _orig_sequence;
 
 	bool ReadData0x1(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 	bool ReadData0x2(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);

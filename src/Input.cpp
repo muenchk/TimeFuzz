@@ -632,7 +632,9 @@ void Input::FreeMemory()
 			_generatedSequence = false;
 
 			_sequence.clear();
+			_sequence.shrink_to_fit();
 			_orig_sequence.clear();
+			_orig_sequence.shrink_to_fit();
 		}
 		// reset python string
 		_pythonconverted = false;
