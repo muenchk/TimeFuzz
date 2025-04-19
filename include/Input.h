@@ -100,11 +100,11 @@ private:
 	/// <summary>
 	/// stores the individual primary score values to all executed entries of [sequence]
 	/// </summary>
-	std::vector<double> _primaryScoreIndividual;
+	Deque<double> _primaryScoreIndividual;
 	/// <summary>
 	/// stores the individual secondary score values to all executed entries of [sequence]
 	/// </summary>
-	std::vector<double> _secondaryScoreIndividual;
+	Deque<double> _secondaryScoreIndividual;
 
 	/// <summary>
 	/// whether the individual storage of primary score values is enabled

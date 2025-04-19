@@ -13,6 +13,7 @@
 #include <boost/bimap/set_of.hpp>
 
 typedef uint64_t FormID;
+typedef uint32_t FormIDS;
 
 class LoadResolver;
 class Data;
