@@ -682,10 +682,13 @@ void StartSession()
 #include <csignal>
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 #else
+#include <stacktrace>
 //#	include <signal.h>
 extern "C" void signal_callback_handler(int signum)
 {
-	printf("Caught signal SIGPIPE %d\n", signum);
+	printf("Caught signal SIGSEGV %d\n", signum);
+
+	std::cout << std::stacktrace::current();
 }
 #endif
 
@@ -1007,6 +1010,7 @@ int32_t main(int32_t argc, char** argv)
 	#if defined(unix) || defined(__unix__) || defined(__unix)
 	loginfo("install signal handler for SIGPIPE unix");
 	std::signal(SIGPIPE, SIG_IGN);
+	std::signal(SIGSEGV, signal_callback_handler);
 	#endif
 
 

@@ -455,11 +455,8 @@ static char *addr2line(const char *image, void *addr, bool color_output,
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #endif
 
-#include <iostream>
-#include <stacktrace>
 
 void DeathHandler::HandleSignal(int sig, void * /* info */, void *secret) {
-std::cout << std::stacktrace::current();
   // Stop all other running threads by forking
   pid_t forkedPid = fork();
   if (forkedPid != 0) {
