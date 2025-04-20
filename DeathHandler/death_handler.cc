@@ -68,12 +68,12 @@ void* __malloc_impl(size_t size) {
     assert(Debug::DeathHandler::memory_ != NULL);
     char* malloc_buffer =
         Debug::DeathHandler::memory_ + Debug::DeathHandler::kNeededMemory - 512;
-    if (size > 512U) {
-      const char* msg = "malloc() replacement function should not return "
-          "a memory block larger than 512 bytes\n";
-      Debug::DeathHandler::print(msg, strlen(msg) + 1);
-      _Exit(EXIT_FAILURE);
-    }
+    //if (size > 512U) {
+    //  const char* msg = "malloc() replacement function should not return "
+    //      "a memory block larger than 512 bytes\n";
+    //  Debug::DeathHandler::print(msg, strlen(msg) + 1);
+    //  _Exit(EXIT_FAILURE);
+    //}
     return malloc_buffer;
 }
 
@@ -455,7 +455,11 @@ static char *addr2line(const char *image, void *addr, bool color_output,
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #endif
 
+#include <iostream>
+#include <stacktrace>
+
 void DeathHandler::HandleSignal(int sig, void * /* info */, void *secret) {
+std::cout << std::stacktrace::current();
   // Stop all other running threads by forking
   pid_t forkedPid = fork();
   if (forkedPid != 0) {
