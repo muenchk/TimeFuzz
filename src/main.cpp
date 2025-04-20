@@ -682,13 +682,12 @@ void StartSession()
 #include <csignal>
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 #else
-#include <stacktrace>
+#include <boost/stacktrace.hpp>
 //#	include <signal.h>
 extern "C" void signal_callback_handler(int signum)
 {
 	printf("Caught signal SIGSEGV %d\n", signum);
-
-	std::cout << std::stacktrace::current();
+	std::cout << boost::stacktrace::stacktrace();
 }
 #endif
 

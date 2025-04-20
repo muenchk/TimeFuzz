@@ -6,8 +6,7 @@
     "rapidcsv",
     "fmt",
     {
-      "name": "boost-stacktrace",
-      "platform": "windows"
+      "name": "boost-stacktrace"
     },
     "boost-multiprecision",
     "boost-circular-buffer",
