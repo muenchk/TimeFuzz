@@ -180,7 +180,7 @@ bool Generator::BuildSequence(std::shared_ptr<Input> input)
 	return false;
 }
 
-bool Generator::GenerateInputGrammar(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>& gram, std::shared_ptr<SessionData>& sessiondata)
+bool Generator::GenerateInputGrammar(std::shared_ptr<Input> input, std::shared_ptr<Grammar> gram, std::shared_ptr<SessionData> sessiondata)
 {
 	if (input->derive->_valid == false) {
 		if (input->derive && input->derive->GetRegenerate() == true) {
@@ -202,7 +202,7 @@ bool Generator::GenerateInputGrammar(std::shared_ptr<Input>& input, std::shared_
 	return ret;
 }
 
-bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> parent, std::shared_ptr<Grammar> grammar, std::shared_ptr<SessionData>& sessiondata)
+bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> parent, std::shared_ptr<Grammar> grammar, std::shared_ptr<SessionData> sessiondata)
 {
 	StartProfiling;
 

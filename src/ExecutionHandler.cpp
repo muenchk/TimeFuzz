@@ -637,6 +637,7 @@ void ExecutionHandler::TestStarter(std::shared_ptr<stop_token> stoken)
 				if (StartTest(test)) {
 					Utility::SpinLock guardm(_runningTestsFlag);
 					_runningTests.push_back(test);
+					logdebug("Added test to running queue");
 					_waitforjob.notify_all();
 				}
 			}

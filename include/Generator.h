@@ -23,7 +23,7 @@ public:
 	/// <param name="gram"></param>
 	/// <param name="sessiondata"></param>
 	/// <returns></returns>
-	bool GenerateInputGrammar(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>& gram, std::shared_ptr<SessionData>& sessiondata);
+	bool GenerateInputGrammar(std::shared_ptr<Input> input, std::shared_ptr<Grammar> gram, std::shared_ptr<SessionData> sessiondata);
 	/// <summary>
 	/// generate input
 	/// </summary>
@@ -32,7 +32,7 @@ public:
 	/// <param name="grammar"></param>
 	/// <param name="sessiondata"></param>
 	/// <returns></returns>
-	bool Generate(std::shared_ptr<Input>& input, std::shared_ptr<Input> parent, std::shared_ptr<Grammar> grammar, std::shared_ptr<SessionData>& sessiondata);
+	bool Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> parent, std::shared_ptr<Grammar> grammar, std::shared_ptr<SessionData> sessiondata);
 	void GenInputFromDevTree(std::shared_ptr<Input> input);
 	/// <summary>
 	/// resets all progress made
