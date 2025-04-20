@@ -2,6 +2,7 @@ set(ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
 include_directories("${ROOT_DIR}/include")
 include_directories("${ROOT_DIR}/CrashHandler")
+include_directories("${ROOT_DIR}/DeathHandler")
 
 set(SOURCE_DIR "${ROOT_DIR}/src")
 include(${ROOT_DIR}/cmake/sourcelist.cmake)
@@ -356,6 +357,8 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMA
 			"$<$<CONFIG:DEBUG>:/INCREMENTAL;/OPT:NOREF;/OPT:NOICF>"
 			"$<$<CONFIG:RELEASE>:/INCREMENTAL:NO;/OPT:REF;/OPT:ICF;/DEBUG:FULL>"
 	)
+else()
+	add_compile_options(-g)
 #else()
 #	target_compile_options(
 #		"${PROJECT_NAME}"

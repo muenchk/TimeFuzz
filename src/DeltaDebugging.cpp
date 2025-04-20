@@ -14,11 +14,19 @@ namespace Functions
 {
 	void DDTestCallback::Run()
 	{
+		if (!_input) {
+			logcritical("DDTestCallback was called, but _input is empty.");
+			return;
+		}
+		if (!_sessiondata) {
+			logcritical("DDTestCallback was called, but _sessiondata was empty.");
+		}
 		// check whether the input length doesn't match the devtree size
-		if ((int64_t)_input->Length() > _input->derive->_sequenceNodes) {
+		if (_input->derive && (int64_t)_input->Length() > _input->derive->_sequenceNodes) {
 			logcritical("Input is longer than dev tree large, Form: {}", Utility::PrintForm(_input));
 			_input->IncRetries();
-			_input->test->_exitreason = Test::ExitReason::Repeat;
+			if (_input->test)
+				_input->test->_exitreason = Test::ExitReason::Repeat;
 			_input->Debug_ClearSequence();
 			_input->SetGenerated(false);
 			auto test = _input->test;

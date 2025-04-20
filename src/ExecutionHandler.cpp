@@ -303,7 +303,12 @@ bool ExecutionHandler::IsStale(std::chrono::milliseconds dur)
 bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback, bool bypass, bool replay)
 {
 	StartProfilingDebug;
-	loginfo("Adding new test");
+
+	if (!input) {
+		logcritical("Trying to add empty test");
+		return false;
+	}
+	loginfo("{}: Adding new test", Utility::PrintForm(input));
 
 	if (input->GetGenerated() == false)
 	{
@@ -356,6 +361,7 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 	_waitforjob.notify_all();
 	_startingLockCond.notify_all();
 	profileDebug(TimeProfilingDebug, "");
+	loginfo("{}: Finished adding new test", Utility::PrintForm(input));
 	return true;
 }
 

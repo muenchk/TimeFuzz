@@ -9,6 +9,11 @@
 #include "DeltaDebugging.h"
 //#include "Processes.h"
 
+
+#if defined(unix) || defined(__unix__) || defined(__unix)
+#	include "death_handler.h"
+#endif
+
 namespace Processes
 {
 #if defined(unix) || defined(__unix__) || defined(__unix)
@@ -21,6 +26,8 @@ namespace Processes
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 #	include "ChrashHandlerINCL.h"
 #endif
+
+
 
 #ifdef EnableUI
 	#include "shader/learnopengl_shader_s.h"
@@ -686,7 +693,10 @@ int32_t main(int32_t argc, char** argv)
 {
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	Crash::Install(std::filesystem::current_path().string());
+#elif defined(unix) || defined(__unix__) || defined(__unix)
+	Debug::DeathHandler deathhandler;
 #endif
+		
 
 
 	char buffer[128];
