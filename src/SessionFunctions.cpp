@@ -18,7 +18,7 @@
 #include <random>
 #include <set>
 
-std::shared_ptr<Input> SessionFunctions::GenerateInput(std::shared_ptr<SessionData>& sessiondata)
+std::shared_ptr<Input> SessionFunctions::GenerateInput(std::shared_ptr<SessionData> sessiondata)
 {
 	loginfo("[GenerateInput] create form");
 	logdebug("generating input");
@@ -49,7 +49,7 @@ std::shared_ptr<Input> SessionFunctions::GenerateInput(std::shared_ptr<SessionDa
 	return input;
 }
 
-std::shared_ptr<Input> SessionFunctions::ExtendInput(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> parent)
+std::shared_ptr<Input> SessionFunctions::ExtendInput(std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> parent)
 {
 	loginfo("[GenerateInput] create form");
 	logdebug("extending input {}", Utility::GetHex(parent->GetFormID()));
@@ -90,7 +90,7 @@ std::shared_ptr<Input> SessionFunctions::ExtendInput(std::shared_ptr<SessionData
 	return input;
 }
 
-void SessionFunctions::ExtendInput(std::shared_ptr<Input>& input, std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> parent)
+void SessionFunctions::ExtendInput(std::shared_ptr<Input> input, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> parent)
 {
 	// if we already generated the _input: skip
 	if (input->GetGenerated() || !sessiondata->_generator)
@@ -127,7 +127,7 @@ void SessionFunctions::ExtendInput(std::shared_ptr<Input>& input, std::shared_pt
 		input = ExtendInput(sessiondata, parent);
 }
 
-void SessionFunctions::GenerateInput(std::shared_ptr<Input>& input, std::shared_ptr<SessionData>& sessiondata)
+void SessionFunctions::GenerateInput(std::shared_ptr<Input> input, std::shared_ptr<SessionData> sessiondata)
 {
 	// if we already generated the _input: skip
 	if (input->GetGenerated() || !sessiondata->_generator)
@@ -154,12 +154,12 @@ void SessionFunctions::GenerateInput(std::shared_ptr<Input>& input, std::shared_
 				return;
 			}
 		}
-		loginfo("[GenerateInput] setup");
+		loginfo("{}: [GenerateInput] setup", Utility::PrintForm(input));
 	} else
 		input = GenerateInput(sessiondata);
 }
 
-void SessionFunctions::SaveCheck(std::shared_ptr<SessionData>& sessiondata, bool generationEnd)
+void SessionFunctions::SaveCheck(std::shared_ptr<SessionData> sessiondata, bool generationEnd)
 {
 	loginfo("whether to save or not to save");
 	// check whether to save at all
@@ -221,7 +221,7 @@ void SessionFunctions::SaveSession_Async(std::shared_ptr<SessionData> sessiondat
 	EndCheck(sessiondata, generationEnded);
 }
 
-bool SessionFunctions::EndCheck(std::shared_ptr<SessionData>& sessiondata, bool generationEnded)
+bool SessionFunctions::EndCheck(std::shared_ptr<SessionData> sessiondata, bool generationEnded)
 {
 	loginfo("whether to end or not to end");
 	// check whether end conditions are met
@@ -336,7 +336,7 @@ bool HandleForms(std::shared_ptr<Form> form)
 		return true;
 }
 
-void SessionFunctions::ReclaimMemory(std::shared_ptr<SessionData>& sessiondata)
+void SessionFunctions::ReclaimMemory(std::shared_ptr<SessionData> sessiondata)
 {
 	loginfo("trying to free memory");
 	StartProfiling;
@@ -376,7 +376,7 @@ void SessionFunctions::ReclaimMemory(std::shared_ptr<SessionData>& sessiondata)
 	sessiondata->_memory_mem = mem;
 }
 
-void SessionFunctions::MasterControl(std::shared_ptr<SessionData>& sessiondata, bool forceexecute)
+void SessionFunctions::MasterControl(std::shared_ptr<SessionData> sessiondata, bool forceexecute)
 {
 
 	loginfo("[Mastercontrol] begin");
@@ -509,7 +509,7 @@ void SessionFunctions::MasterControl(std::shared_ptr<SessionData>& sessiondata, 
 	return;
 }
 
-bool SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input, bool replay)
+bool SessionFunctions::TestEnd(std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> input, bool replay)
 {
 	logdebug("calculating test end");
 	if (replay == true)
@@ -684,7 +684,7 @@ bool SessionFunctions::TestEnd(std::shared_ptr<SessionData>& sessiondata, std::s
 	return false;
 }
 
-void SessionFunctions::AddTestExitReason(std::shared_ptr<SessionData>& sessiondata, int32_t reason)
+void SessionFunctions::AddTestExitReason(std::shared_ptr<SessionData> sessiondata, int32_t reason)
 {
 	switch (reason) {
 	case Test::ExitReason::Natural:
@@ -717,14 +717,14 @@ void SessionFunctions::AddTestExitReason(std::shared_ptr<SessionData>& sessionda
 	}
 }
 
-void SessionFunctions::GenerateTests(std::shared_ptr<SessionData>& sessiondata)
+void SessionFunctions::GenerateTests(std::shared_ptr<SessionData> sessiondata)
 {
 	auto callback = dynamic_pointer_cast<Functions::MasterGenerationCallback>(Functions::MasterGenerationCallback::Create());
 	callback->_sessiondata = sessiondata;
 	sessiondata->_controller->AddTask(callback);
 }
 
-std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDebugging(std::shared_ptr<SessionData>& sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback, bool bypassTests, DeltaDebugging::DDGoal goal, DeltaDebugging::DDGoal secondarygoal, int32_t budget)
+std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDebugging(std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback, bool bypassTests, DeltaDebugging::DDGoal goal, DeltaDebugging::DDGoal secondarygoal, int32_t budget)
 {
 	loginfo("enter");
 	if (goal == DeltaDebugging::DDGoal::None)
