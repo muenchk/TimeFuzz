@@ -679,10 +679,11 @@ void StartSession()
 	loginfo("Main: Started Session.");
 }
 
+#include <boost/stacktrace.hpp>
+
 #include <csignal>
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 #else
-#include <boost/stacktrace.hpp>
 //#	include <signal.h>
 extern "C" void signal_callback_handler(int signum)
 {
@@ -691,6 +692,13 @@ extern "C" void signal_callback_handler(int signum)
 }
 #endif
 
+void terminate_handler() {
+	try {
+		std::cerr << boost::stacktrace::stacktrace();
+	} catch (...) {
+	}
+}
+
 int32_t main(int32_t argc, char** argv)
 {
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
@@ -698,6 +706,8 @@ int32_t main(int32_t argc, char** argv)
 #elif defined(unix) || defined(__unix__) || defined(__unix)
 	Debug::DeathHandler deathhandler;
 #endif
+
+	std::set_terminate(&terminate_handler);
 		
 
 
@@ -1009,7 +1019,7 @@ int32_t main(int32_t argc, char** argv)
 	#if defined(unix) || defined(__unix__) || defined(__unix)
 	loginfo("install signal handler for SIGPIPE unix");
 	std::signal(SIGPIPE, SIG_IGN);
-	std::signal(SIGSEGV, signal_callback_handler);
+	//std::signal(SIGSEGV, signal_callback_handler);
 	#endif
 
 
