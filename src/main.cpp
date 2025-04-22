@@ -692,7 +692,7 @@ extern "C" void signal_callback_handler(int signum)
 }
 #endif
 
-void terminate_handler() {
+static void func_terminate_handler() {
 	try {
 		std::cerr << boost::stacktrace::stacktrace();
 	} catch (...) {
@@ -707,7 +707,7 @@ int32_t main(int32_t argc, char** argv)
 	Debug::DeathHandler deathhandler;
 #endif
 
-	std::set_terminate(&terminate_handler);
+	std::set_terminate(&func_terminate_handler);
 		
 
 
@@ -1025,6 +1025,9 @@ int32_t main(int32_t argc, char** argv)
 
 	// set debugging
 	Logging::EnableDebug = CmdArgs::_debug;
+
+	std::cout << "EnableDebug:    " << std::to_string(Logging::EnableDebug) << "\n";
+	std::cout << "CmdArgs::debug: " << std::to_string(CmdArgs::_debug) << "\n";
 
 #ifdef EnableUI
 	// -----go into responsive loop-----

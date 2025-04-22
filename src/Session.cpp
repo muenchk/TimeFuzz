@@ -590,6 +590,9 @@ void Session::SessionControl()
 	_running = true;
 	data->StartClock();
 
+	// set max gen callbacks 
+	_sessiondata->SetMaxGenerationCallbacks(_sessiondata->_controller->GetNumThreads() * 5);
+
 	// run master control and kick stuff of
 	// generates inputs, etc.
 	Lua::RegisterThread(_sessiondata);

@@ -719,9 +719,12 @@ void SessionFunctions::AddTestExitReason(std::shared_ptr<SessionData> sessiondat
 
 void SessionFunctions::GenerateTests(std::shared_ptr<SessionData> sessiondata)
 {
-	auto callback = dynamic_pointer_cast<Functions::MasterGenerationCallback>(Functions::MasterGenerationCallback::Create());
-	callback->_sessiondata = sessiondata;
-	sessiondata->_controller->AddTask(callback);
+	if (sessiondata->_active_generation_callbacks.load() < sessiondata->_max_generation_callbacks) {
+		sessiondata->_active_generation_callbacks++;
+		auto callback = dynamic_pointer_cast<Functions::MasterGenerationCallback>(Functions::MasterGenerationCallback::Create());
+		callback->_sessiondata = sessiondata;
+		sessiondata->_controller->AddTask(callback);
+	}
 }
 
 std::shared_ptr<DeltaDebugging::DeltaController> SessionFunctions::BeginDeltaDebugging(std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback, bool bypassTests, DeltaDebugging::DDGoal goal, DeltaDebugging::DDGoal secondarygoal, int32_t budget)
@@ -1050,6 +1053,7 @@ namespace Functions
 
 	void MasterGenerationCallback::Dispose()
 	{
+		_sessiondata->_active_generation_callbacks--;
 		_sessiondata.reset();
 	}
 

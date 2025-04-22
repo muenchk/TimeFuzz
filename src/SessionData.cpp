@@ -45,6 +45,11 @@ SessionData::~SessionData()
 	Clear();
 }
 
+void SessionData::SetMaxGenerationCallbacks(int32_t max)
+{
+	_max_generation_callbacks = max;
+}
+
 void SessionData::Clear()
 {
 	Form::ClearForm();

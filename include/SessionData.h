@@ -28,6 +28,11 @@ class ExecutionHandler;
 class Oracle;
 class Generation;
 
+namespace Functions
+{
+	class MasterGenerationCallback;
+}
+
 struct TestExitStats
 {
 	uint64_t natural = 0;
@@ -230,6 +235,7 @@ class SessionData : public Form
 
 	friend class SessionFunctions;
 	friend class SessionStatistics;
+	friend class Functions::MasterGenerationCallback;
 
 public:
 	std::atomic<bool> _generationFinishing = false;
@@ -306,6 +312,9 @@ private:
 	std::chrono::steady_clock::time_point _cleanup;
 	std::chrono::seconds _cleanup_period = std::chrono::seconds(60);
 
+	int32_t _max_generation_callbacks = 0;
+	std::atomic_int_fast32_t _active_generation_callbacks = 0;
+
 	const int32_t classversion = 0x2;
 
 	inline static bool _registeredFactories = false;
@@ -322,6 +331,8 @@ public:
 	Data* data;
 
 	void Init();
+
+	void SetMaxGenerationCallbacks(int32_t max);
 
 	/// <summary>
 	/// The Task used to execute the PUT and retrieve the oracle result
