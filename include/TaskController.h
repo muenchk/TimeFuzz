@@ -136,8 +136,12 @@ private:
 	/// map holding the number of individual executed tasks
 	/// </summary>
 	std::unordered_map<std::string, int64_t> _executedTasks;
-
 	std::mutex _executedTasksLock;
+#ifndef NDEBUG
+	std::unordered_map<std::string, int64_t> _finishedTasks;
+	std::mutex _finishedTasksLock;
+#endif
+
 
 	bool _controlEnableFine = true;
 	bool _controlEnableLight = true;
@@ -269,6 +273,28 @@ public:
 	{
 		return _executedTasks.end();
 	}
+#ifndef NDEBUG
+
+	void LockFinishedTasks()
+	{
+		_finishedTasksLock.lock();
+	}
+
+	void UnlockFinishedTasks()
+	{
+		_finishedTasksLock.unlock();
+	}
+
+	auto BeginFinishedTasks()
+	{
+		return _finishedTasks.begin();
+	}
+
+	auto EndFinishedTasks()
+	{
+		return _finishedTasks.end();
+	}
+#endif
 
 	/// <summary>
 	/// Starts the TaskController

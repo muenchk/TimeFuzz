@@ -203,13 +203,27 @@ std::string Snapshot(bool full)
 		if (controller.Initialized() == false)
 			session->UI_GetTaskController(controller);
 		if (controller.Initialized()) {
+#ifndef NDEBUG
+			controller.LockFinishedTasks();
+#endif
 			controller.LockExecutedTasks();
+#ifndef NDEBUG
+			auto itra = controller.beginFinishedTasks();
+#endif
 			auto itr = controller.beginExecutedTasks();
 			while (itr != controller.endExecutedTasks()) {
+#ifndef NDEBUG
+				snap << fmt::format("{}: {}: {}", itr->first.c_str(), itr->second, itr->second - itra->second) << "\n";
+				itra++;
+#else
 				snap << fmt::format("{}: {}", itr->first.c_str(), itr->second) << "\n";
+#endif
 				itr++;
 			}
 			controller.UnlockExecutedTasks();
+#ifndef NDEBUG
+			controller.UnlockFinishedTasks();
+#endif
 		}
 	}
 	snap << "\n\n";

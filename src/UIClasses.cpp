@@ -414,3 +414,23 @@ void UITaskController::UnlockExecutedTasks()
 {
 	_controller->UnlockExecutedTasks();
 }
+
+
+#ifndef NDEBUG
+std::unordered_map<std::string, int64_t>::iterator UITaskController::beginFinishedTasks()
+{
+	return _controller->BeginFinishedTasks();
+}
+std::unordered_map<std::string, int64_t>::iterator UITaskController::endFinishedTasks()
+{
+	return _controller->EndFinishedTasks();
+}
+void UITaskController::LockFinishedTasks()
+{
+	_controller->LockFinishedTasks();
+}
+void UITaskController::UnlockFinishedTasks()
+{
+	_controller->UnlockFinishedTasks();
+}
+#endif

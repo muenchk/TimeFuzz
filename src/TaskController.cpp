@@ -374,6 +374,18 @@ void TaskController::InternalLoop_SingleThread(int32_t number)
 			_status[number] = ThreadStatus::Running;
 			_statusTime[number] = std::chrono::steady_clock::now();
 			_statusTask[number] = del->GetName();
+#ifndef NDEBUG
+			{
+				std::unique_lock<std::mutex> finLock(_finishedTasksLock);
+				int32_t type = (int32_t)del->GetType();
+				std::string name = std::string(del->GetName() /*typeid(T).name()) + " | " + std::string((char*)&type* 4*/);
+				auto itr = _finishedTasks.find(name);
+				if (itr != _finishedTasks.end())
+					_finishedTasks.insert_or_assign(name, itr->second + 1);
+				else
+					_finishedTasks.insert_or_assign(name, 1);
+			}
+#endif
 			del->Run();
 			del->Dispose();
 			_completedjobs++;

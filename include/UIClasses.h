@@ -226,6 +226,12 @@ namespace UI
 		std::unordered_map<std::string, int64_t>::iterator endExecutedTasks();
 		void LockExecutedTasks();
 		void UnlockExecutedTasks();
+#ifndef NDEBUG
+		std::unordered_map<std::string, int64_t>::iterator beginFinishedTasks();
+		std::unordered_map<std::string, int64_t>::iterator endFinishedTasks();
+		void LockFinishedTasks();
+		void UnlockFinishedTasks();
+#endif
 	private:
 		std::shared_ptr<TaskController> _controller;
 
