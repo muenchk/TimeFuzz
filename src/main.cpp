@@ -197,7 +197,7 @@ std::string Snapshot(bool full)
 	snap << "\n\n";
 
 	// tasks
-	snap << "### TASKS\n";
+	/*snap << "### TASKS\n";
 	{
 		static UI::UITaskController controller;
 		if (controller.Initialized() == false)
@@ -226,7 +226,7 @@ std::string Snapshot(bool full)
 #endif
 		}
 	}
-	snap << "\n\n";
+	snap << "\n\n";*/
 
 	// inputs
 	snap << "### INPUT INFO\n";
@@ -905,7 +905,7 @@ int32_t main(int32_t argc, char** argv)
 		} else if (option.substr(0, 4).find("--ui") != std::string::npos) {
 			std::cout << "Parameter: --ui\n";
 			CmdArgs::_ui = true;
-		} else if (option.substr(0, 4).find("--debug") != std::string::npos) {
+		} else if (option.find("--debug") != std::string::npos) {
 			std::cout << "Parameter: --debug\n";
 			CmdArgs::_debug = true;
 			Logging::EnableDebug = true;

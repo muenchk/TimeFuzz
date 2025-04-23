@@ -214,6 +214,9 @@ namespace Processes
 		}
 		pargs.push_back(NULL);
 
+		if (Logging::EnableDebug) {
+			logtest("{}: {}", Utility::PrintForm(test), Utility::AccString(pargs));
+		}
 		pid_t pid;
 		int32_t _status = posix_spawnp(&pid, app.c_str(), &action, NULL, (char* const*)pargs.data(), NULL);
 		if (_status != 0) {

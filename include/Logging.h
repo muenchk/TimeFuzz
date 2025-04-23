@@ -185,7 +185,13 @@ public:
 	if (Logging::EnableLog) { static_cast<void>(crit(__func__, __VA_ARGS__)); }
 
 #define logdebug(...)                                   \
-	if (Logging::EnableDebug) { static_cast<void>(debug(__func__, __VA_ARGS__)); }
+	if (Logging::EnableDebug) {                          \
+		static_cast<void>(debug(__func__, __VA_ARGS__)); \
+	}
+#define logtest(...)                                      \
+	if (Logging::EnableDebug) {                             \
+		static_cast<void>(logTest(__func__, __VA_ARGS__)); \
+	}
 
 #define profile(...)                          \
 	 static_cast<void>(prof(__func__, true, __VA_ARGS__));  // we check for enabled in the function itself, so we can save the exectimes itself
@@ -542,3 +548,90 @@ struct [[maybe_unused]] debug
 
 template <class... Args>
 debug(std::string, fmt::format_string<Args...>, Args&&...) -> debug<Args...>;
+
+
+
+class TestLog
+{
+	static inline std::ofstream* _stream = nullptr;
+	static inline std::binary_semaphore lock{ 1 };
+	static inline std::mutex _m_lock;
+
+public:
+	/// <summary>
+	/// Inits profile log
+	/// </summary>
+	/// <param name="pluginname"></param>
+	static void Init(std::string pluginname, bool append = false)
+	{
+		std::unique_lock<std::mutex> guard(_m_lock);
+		//lock.acquire();
+		//auto path = SKSE::log::log_directory();
+		//if (path.has_value()) {
+		//	_stream = new std::ofstream(path.value() / pluginname / (pluginname + "log.log"), std::ios_base::out | std::ios_base::trunc);
+		//}
+		if (!append)
+			_stream = new std::ofstream(Logging::log_directory / (pluginname + "_test.log"), std::ios_base::out | std::ios_base::trunc);
+		else
+			_stream = new std::ofstream(Logging::log_directory / (pluginname + "_test.log"), std::ios_base::out | std::ios_base::ate);
+		if (_stream == nullptr || _stream->is_open() == false)
+			std::cout << "Cannot create Log!\n";
+		//lock.release();
+	}
+
+	/// <summary>
+	/// Closes log log
+	/// </summary>
+	static void Close()
+	{
+		std::unique_lock<std::mutex> guard(_m_lock);
+		//lock.acquire();
+		if (_stream != nullptr) {
+			_stream->flush();
+			_stream->close();
+			delete _stream;
+			_stream = nullptr;
+		}
+		//lock.release();
+	}
+
+	/// <summary>
+	/// writes to the log log
+	/// </summary>
+	/// <typeparam name="...Args"></typeparam>
+	/// <param name="message"></param>
+	template <class... Args>
+	static void write(std::string message)
+	{
+		std::unique_lock<std::mutex> guard(_m_lock);
+		//lock.acquire();
+		if (_stream) {
+			try {
+				_stream->write(message.c_str(), message.size());
+				_stream->flush();
+			} catch (std::exception& e) {
+				std::cout << "Error in logging stream: " << e.what() << "\n";
+			}
+		}
+		//lock.release();
+	}
+};
+
+template <class... Args>
+struct [[maybe_unused]] logTest
+{
+	logTest() = delete;
+
+	explicit logTest(
+		std::string func,
+		fmt::format_string<Args...> a_fmt,
+		Args&&... a_args,
+		std::source_location a_loc = std::source_location::current())
+	{
+		std::string mes = fmt::format("{:<25} {} {} {:<30}\t{}", std::filesystem::path(a_loc.file_name()).filename().string() + "(" + std::to_string(static_cast<int>(a_loc.line())) + "):", "[test]   ", Logging::TimePassed(), "[" + func + "]", fmt::format(a_fmt, std::forward<Args>(a_args)...) + "\n");
+		TestLog::write(mes);
+	}
+};
+
+template <class... Args>
+logTest(std::string, fmt::format_string<Args...>, Args&&...) -> logTest<Args...>;

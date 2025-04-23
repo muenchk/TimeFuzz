@@ -174,6 +174,32 @@ public:
 	/// <returns></returns>
 	static std::vector<std::string> SplitString(std::string str, std::string delimiter, bool removeEmpty, bool escape = false, char escapesymbol = '\"');
 
+	static std::string AccString(std::vector<std::string>& vec, char sep = '|')
+	{
+		std::string res = "";
+		if (vec.size() > 0)
+		{
+			res += vec[0];
+			for (int64_t i = 0; i < (int64_t)vec.size(); i++)
+				res += sep + vec[i];
+		}
+		return res;
+	}
+	static std::string AccString(std::vector<const char*>& vec, char sep = '|')
+	{
+		std::string res = "";
+		if (vec.size() > 0) {
+			res += vec[0];
+			for (int64_t i = 0; i < (int64_t)vec.size(); i++) {
+				if (vec[i] != NULL)
+					res += sep + std::string(vec[i]);
+				else
+					res += sep;
+			}
+		}
+		return res;
+	}
+
 	/// <summary>
 	/// Evaluates whether the char at position [position] is escaped
 	/// </summary>
