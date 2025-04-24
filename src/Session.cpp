@@ -916,7 +916,7 @@ void Session::UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k)
 	for (int32_t i = 0; i < (int32_t)vec.size(); i++)
 	{
 		vector[i].id = vec[i]->GetFormID();
-		vector[i].length = vec[i]->Length();
+		vector[i].length = vec[i]->EffectiveLength();
 		vector[i].primaryScore = vec[i]->GetPrimaryScore();
 		vector[i].secondaryScore = vec[i]->GetSecondaryScore();
 		vector[i].result = (UI::Result)vec[i]->GetOracleResult();
@@ -937,7 +937,7 @@ void Session::UI_GetPositiveInputs(std::vector<UI::UIInput>& vector, size_t k)
 	auto visitor = [&k, &c, &vec, sessdata = _sessiondata](std::shared_ptr<Input> input) {
 		if ((int)vec->size() > *c) {
 			(*vec)[*c].id = input->GetFormID();
-			(*vec)[*c].length = input->Length();
+			(*vec)[*c].length = input->EffectiveLength();
 			(*vec)[*c].primaryScore = input->GetPrimaryScore();
 			(*vec)[*c].secondaryScore = input->GetSecondaryScore();
 			(*vec)[*c].result = (UI::Result)input->GetOracleResult();
@@ -950,7 +950,7 @@ void Session::UI_GetPositiveInputs(std::vector<UI::UIInput>& vector, size_t k)
 		{
 			UI::UIInput uinp;
 			uinp.id = input->GetFormID();
-			uinp.length = input->Length();
+			uinp.length = input->EffectiveLength();
 			uinp.primaryScore = input->GetPrimaryScore();
 			uinp.secondaryScore = input->GetSecondaryScore();
 			uinp.result = (UI::Result)input->GetOracleResult();
@@ -981,7 +981,7 @@ void Session::UI_GetLastRunInputs(std::vector<UI::UIInput>& vector, size_t k)
 	auto visitor = [&k, &c, &vec, sessdata = _sessiondata](std::shared_ptr<Input> input) {
 		if ((int)vec->size() > *c) {
 			(*vec)[*c].id = input->GetFormID();
-			(*vec)[*c].length = input->Length();
+			(*vec)[*c].length = input->EffectiveLength();
 			(*vec)[*c].primaryScore = input->GetPrimaryScore();
 			(*vec)[*c].secondaryScore = input->GetSecondaryScore();
 			(*vec)[*c].result = (UI::Result)input->GetOracleResult();
@@ -992,7 +992,7 @@ void Session::UI_GetLastRunInputs(std::vector<UI::UIInput>& vector, size_t k)
 		} else {
 			UI::UIInput uinp;
 			uinp.id = input->GetFormID();
-			uinp.length = input->Length();
+			uinp.length = input->EffectiveLength();
 			uinp.primaryScore = input->GetPrimaryScore();
 			uinp.secondaryScore = input->GetSecondaryScore();
 			uinp.result = (UI::Result)input->GetOracleResult();

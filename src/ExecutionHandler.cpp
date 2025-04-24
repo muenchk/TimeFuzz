@@ -318,7 +318,7 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 		if (input->GetGenerated() == false)
 			return false;
 	}
-	if (input->Length() == 0)
+	if (input->GetSequenceLength() == 0)
 		return false;
 
 	uint64_t id = 0;
@@ -429,7 +429,7 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 	StartProfilingDebug;
 	// everything that has less than 50 list entries is very likely to be already run when for 
 	// for instance using delta debugging, so just check again to be sure we haven't run it already
-	if (auto ptr = test->_input.lock(); test->_skipExclusionCheck == false && ptr && ptr->Length() <= 50)
+	if (auto ptr = test->_input.lock(); test->_skipExclusionCheck == false && ptr && ptr->GetSequenceLength() <= 50)
 	{
 		FormID prefixID = 0;
 		if (_sessiondata->_excltree->HasPrefix(ptr, prefixID) && prefixID != 0)
@@ -565,7 +565,7 @@ void ExecutionHandler::StopTest(std::shared_ptr<Test> test)
 		if (!ptr->HasFlag(Input::Flags::GeneratedDeltaDebugging))
 			_sessiondata->GetCurrentGeneration()->SetInputCompleted();
 
-		if ((int64_t)ptr->Length() > ptr->derive->_sequenceNodes)
+		if ((int64_t)ptr->GetSequenceLength() > ptr->derive->_sequenceNodes)
 			logcritical("Input is longer than dev tree large");
 	} else {
 		logwarn("ptr invalid");

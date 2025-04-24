@@ -433,8 +433,8 @@ void Generation::SetInactive()
 
 bool Generation::CheckOracleResultAndLength(std::shared_ptr<Input>& input, bool allowFailing, size_t min_length_unfinished, size_t min_length_failing)
 {
-	if (input && ((allowFailing && input->GetOracleResult() == OracleResult::Failing && input->Length() >= min_length_failing) ||
-					 (input->GetOracleResult() == OracleResult::Unfinished && input->Length() >= min_length_unfinished)))
+	if (input && ((allowFailing && input->GetOracleResult() == OracleResult::Failing && input->EffectiveLength() >= (int64_t)min_length_failing) ||
+					 (input->GetOracleResult() == OracleResult::Unfinished && input->EffectiveLength() >= (int64_t)min_length_unfinished)))
 		return true;
 	else
 		return false;

@@ -485,6 +485,8 @@ public:
 
 	int64_t GetTargetLength();
 
+	int64_t EffectiveLength();
+
 	bool IsIndividualPrimaryScoresEnabled();
 
 	bool IsIndividualSecondaryScoresEnabled();

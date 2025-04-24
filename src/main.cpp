@@ -2225,9 +2225,8 @@ int32_t main(int32_t argc, char** argv)
 						ImGui::Text("Skipped Tests: %d", dd.GetSkippedTests());
 						ImGui::SameLine(300);
 						ImGui::Text("Prefix Tests: %d", dd.GetPrefixTests());
-						ImGui::SameLine(600);
 						ImGui::Text("Approx Tests: %d", dd.GetApproxTests());
-						ImGui::SameLine(900);
+						ImGui::SameLine(300);
 						ImGui::Text("Invalid Tests: %d", dd.GetInvalidTests());
 						ImGui::Text("Tests done: %d", dd.GetTests());
 						ImGui::SameLine(300);

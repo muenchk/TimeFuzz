@@ -909,7 +909,7 @@ namespace Functions
 			logcritical("TestCallback was called, but _sessiondata was empty.");
 		}
 		// check whether the input length doesn't match the devtree size
-		if (_input->derive && (int64_t)_input->Length() > _input->derive->_sequenceNodes) {
+		if (_input->derive && (int64_t)_input->GetSequenceLength() > _input->derive->_sequenceNodes) {
 			logcritical("Input is longer than dev tree large, Form: {}", Utility::PrintForm(_input));
 			loginfo("Repeating test");
 			_input->IncRetries();

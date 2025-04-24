@@ -38,8 +38,8 @@ struct InputGainGreaterPrimary
 		// exponential ratios
 		// the ratio itself is the result of an exponential e^x, we want to get this x
 		// first we add 1 to the ratio value, so 1 is the minimal value, then get the logarithm
-		double oldleft = (lhs->Length() / lhs->GetPrimaryScore());
-		double oldright = (rhs->Length() / rhs->GetPrimaryScore());
+		double oldleft = (lhs->EffectiveLength() / lhs->GetPrimaryScore());
+		double oldright = (rhs->EffectiveLength() / rhs->GetPrimaryScore());
 		//double left = std::log((lhs->Length() / lhs->GetPrimaryScore()) + 1);
 		//double right = std::log((rhs->Length() / rhs->GetPrimaryScore()) + 1);
 		//logwarn("Compare Values.\tOL: {},\tOR: {},\tNL: {},\tNR: {}", oldleft, oldright, left, right);
@@ -63,8 +63,8 @@ struct InputGainGreaterSecondary
 	{
 		if (!rhs)
 			return false;
-		double left = (lhs->Length() / lhs->GetSecondaryScore());
-		double right = (rhs->Length() / rhs->GetSecondaryScore());
+		double left = (lhs->EffectiveLength() / lhs->GetSecondaryScore());
+		double right = (rhs->EffectiveLength() / rhs->GetSecondaryScore());
 		return left < right;
 	}
 };
@@ -85,7 +85,7 @@ struct InputLengthGreater
 	{
 		if (!rhs)
 			return false;
-		return lhs->Length() > rhs->Length();
+		return lhs->EffectiveLength() > rhs->EffectiveLength();
 	}
 };
 

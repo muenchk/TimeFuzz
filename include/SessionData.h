@@ -74,7 +74,10 @@ class SessionData : public Form
 			if (!rhs)
 				return false;
 			if (lhs->primary == rhs->primary)
-				return lhs->secondary > rhs->secondary;
+				if (lhs->secondary == rhs->secondary)
+					return lhs->length < rhs->length;
+				else
+					return lhs->secondary > rhs->secondary;
 			else
 				return lhs->primary > rhs->primary;
 		}
@@ -87,7 +90,10 @@ class SessionData : public Form
 			if (!rhs)
 				return false;
 			if (lhs->secondary == rhs->secondary)
-				return lhs->primary > rhs->primary;
+				if (lhs->primary == rhs->primary)
+					return lhs->length < rhs->length;
+				else
+					return lhs->primary > rhs->primary;
 			else
 				return lhs->secondary > rhs->secondary;
 		}
@@ -99,7 +105,13 @@ class SessionData : public Form
 		{
 			if (!rhs)
 				return false;
-			return lhs->length > rhs->length;
+			if (lhs->length == rhs->length)
+				if (lhs->primary == rhs->primary)
+					return lhs->secondary > rhs->secondary;
+				else
+					return lhs->primary > rhs->primary;
+			else
+				return lhs->length > rhs->length;
 		}
 	};
 

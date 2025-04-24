@@ -156,7 +156,7 @@ void Generator::GenInputFromDevTree(std::shared_ptr<Input> input)
 				}
 			}
 			input->AddEntry(entry);
-			if (input->GetTrimmedLength() != -1 && (int64_t)input->Length() == input->GetTrimmedLength())
+			if (input->GetTrimmedLength() != -1 && (int64_t)input->GetSequenceLength() == input->GetTrimmedLength())
 				break;
 		}
 	}
@@ -167,9 +167,9 @@ bool Generator::BuildSequence(std::shared_ptr<Input> input)
 	if (input->derive->_valid && input->GetSequenceLength() == 0) {
 		GenInputFromDevTree(input);
 		input->SetGenerated();
-		if ((int64_t)input->Length() != input->derive->_sequenceNodes && (!input->IsTrimmed() || (int64_t)input->Length() != input->GetTrimmedLength()))
-			logwarn("The input length is different from the generated sequence. Length: {}, Expected: {}, Trimmed: {}", input->Length(), input->derive->_sequenceNodes, input->GetTrimmedLength());
-		if ((int64_t)input->Length() == 0)
+		if ((int64_t)input->GetSequenceLength() != input->derive->_sequenceNodes && (!input->IsTrimmed() || (int64_t)input->GetSequenceLength() != input->GetTrimmedLength()))
+			logwarn("The input length is different from the generated sequence. Length: {}, Expected: {}, Trimmed: {}", input->GetSequenceLength(), input->derive->_sequenceNodes, input->GetTrimmedLength());
+		if ((int64_t)input->GetSequenceLength() == 0)
 			logwarn("The input length is 0.");
 
 		return true;
@@ -488,7 +488,7 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 			if (inp->derive->_valid == false)
 			{
 				auto segments = inp->GetParentSplits();
-				gram->Extract(par->derive, inp->derive, segments, par->Length(), inp->GetParentSplitComplement());
+				gram->Extract(par->derive, inp->derive, segments, par->GetSequenceLength(), inp->GetParentSplitComplement());
 				if (inp->derive->_valid == false) {
 					// the input cannot be derived from the given grammar
 					logwarn("The input {} cannot be derived from the grammar.", Utility::GetHex(inp->GetFormID()));

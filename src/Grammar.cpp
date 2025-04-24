@@ -2391,15 +2391,15 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 		if (sinput->GetTrimmedLength() - trackback < 1)
 			return;
 		std::vector<std::pair<int64_t, int64_t>> segments = { { 0, sinput->GetTrimmedLength() - trackback } };
-		Extract(sinput->derive, dtree, segments, sinput->Length(), false);
+		Extract(sinput->derive, dtree, segments, sinput->GetSequenceLength(), false);
 		if (dtree->_valid == false)
 			return;
 	} else if (trackback > 0) {
 		// nothing to extract and then extend
-		if (sinput->Length() - trackback < 1)
+		if (sinput->GetSequenceLength() - trackback < 1)
 			return;
-		std::vector<std::pair<int64_t, int64_t>> segments = { { 0, sinput->Length() - trackback } };
-		Extract(sinput->derive, dtree, segments, sinput->Length(), false);
+		std::vector<std::pair<int64_t, int64_t>> segments = { { 0, sinput->GetSequenceLength() - trackback } };
+		Extract(sinput->derive, dtree, segments, sinput->GetSequenceLength(), false);
 		if (dtree->_valid == false)
 			return;
 	}

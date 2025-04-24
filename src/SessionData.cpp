@@ -69,7 +69,7 @@ void SessionData::AddInput(std::shared_ptr<Input>& input, EnumType list, double 
 			node->weight = optionalweight;
 			node->primary = input->GetPrimaryScore();
 			node->secondary = input->GetSecondaryScore();
-			node->length = input->Length();
+			node->length = input->EffectiveLength();
 			std::unique_lock<std::shared_mutex> guard(_negativeInputsLock);
 			_negativeInputs.insert(node);
 			std::unique_lock<std::shared_mutex> guardm(_multiset_lock);
@@ -97,7 +97,7 @@ void SessionData::AddInput(std::shared_ptr<Input>& input, EnumType list, double 
 			node->weight = optionalweight;
 			node->primary = input->GetPrimaryScore();
 			node->secondary = input->GetSecondaryScore();
-			node->length = input->Length();
+			node->length = input->EffectiveLength();
 			std::unique_lock<std::shared_mutex> guard(_unfinishedInputsLock);
 			_unfinishedInputs.insert(node);
 			std::unique_lock<std::shared_mutex> guardm(_multiset_lock);

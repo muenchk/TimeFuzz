@@ -354,22 +354,21 @@ size_t Input::Length()
 				return derive->_sequenceNodes;
 			else
 			{
-				if (derive->_parent._parentID != 0) {
-					if (derive->_parent._complement)
-						return derive->_parent._stop - derive->_parent._length;
-					else
-						// this is either DD: length has value, targetlen = 0
-						// or extended: length has parent length, targetlen has this length
-						return derive->_parent._length + derive->_targetlen;
-				}
-				else
-				{
-					return derive->_targetlen;
-				}
+				return SIZE_MAX;
 			}
 		}
 	}
 	return _sequence.size();
+}
+
+int64_t Input::EffectiveLength()
+{
+	if (_trimmed)
+		return _trimmedlength;
+	else if (derive)
+		return derive->_sequenceNodes;
+	else
+		return (int64_t)_sequence.size();
 }
 
 size_t Input::GetSequenceLength()

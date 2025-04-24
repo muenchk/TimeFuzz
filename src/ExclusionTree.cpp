@@ -134,7 +134,7 @@ bool ExclusionTree::HasPrefix(std::shared_ptr<Input> input, FormID& prefixID)
 		itr++;
 		count++;
 		// do this here because the loop will exit
-		if (count == input->Length()) {
+		if (count == input->GetSequenceLength()) {
 			// if the current depth is identical to our length and the result is unfinished
 			// we are trying to run a test a second time
 			if (node->_result == OracleResult::Unfinished) {
@@ -178,7 +178,7 @@ std::tuple<bool, FormID, bool, FormID> ExclusionTree::HasPrefixAndShortestExtens
 		itr++;
 		count++;
 		// do this here because the loop will exit
-		if (count == input->Length()) {
+		if (count == input->GetSequenceLength()) {
 			// if the current depth is identical to our length and the result is unfinished
 			// we are trying to run a test a second time
 			if (node->_result == OracleResult::Unfinished) {

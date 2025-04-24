@@ -118,7 +118,7 @@ void UIDeltaDebugging::GetResults(std::vector<UIDDResult>& results, size_t& size
 			auto input = itr->first;
 			auto [primloss, seconloss, level] = itr->second;
 			results[count].id = input->GetFormID();
-			results[count].length = input->Length();
+			results[count].length = input->EffectiveLength();
 			results[count].primaryScore = input->GetPrimaryScore();
 			results[count].secondaryScore = input->GetSecondaryScore();
 			results[count].flags = input->GetFlags();
@@ -141,7 +141,7 @@ void UIDeltaDebugging::GetOriginalInput(UIInput& input)
 		auto inp = _ddcontroller->GetOriginalInput();
 		if (inp) {
 			input.id = inp->GetFormID();
-			input.length = inp->Length();
+			input.length = inp->EffectiveLength();
 			input.primaryScore = inp->GetPrimaryScore();
 			input.secondaryScore = inp->GetSecondaryScore();
 			input.result = (UI::Result)inp->GetOracleResult();
@@ -157,7 +157,7 @@ void UIDeltaDebugging::GetInput(UIInput& input)
 		auto inp = _ddcontroller->GetInput();
 		if (inp) {
 			input.id = inp->GetFormID();
-			input.length = inp->Length();
+			input.length = inp->EffectiveLength();
 			input.primaryScore = inp->GetPrimaryScore();
 			input.secondaryScore = inp->GetSecondaryScore();
 			input.result = (UI::Result)inp->GetOracleResult();
@@ -179,7 +179,7 @@ void UIDeltaDebugging::GetActiveInputs(std::vector<UIInput>& inputs, size_t& siz
 		while (itr != act->end() && count < sz) {
 			auto input = *itr;
 			inputs[count].id = input->GetFormID();
-			inputs[count].length = input->Length();
+			inputs[count].length = input->EffectiveLength();
 			inputs[count].primaryScore = input->GetPrimaryScore();
 			inputs[count].secondaryScore = input->GetSecondaryScore();
 			inputs[count].result = (UI::Result)input->GetOracleResult();
@@ -248,7 +248,7 @@ void UIGeneration::GetSources(std::vector<UIInput>& inputs)
 			inputs.resize(sources.size());
 		for (size_t i = 0; i < sources.size(); i++) {
 			inputs[i].id = sources[i]->GetFormID();
-			inputs[i].length = sources[i]->Length();
+			inputs[i].length = sources[i]->EffectiveLength();
 			inputs[i].primaryScore = sources[i]->GetPrimaryScore();
 			inputs[i].secondaryScore = sources[i]->GetSecondaryScore();
 			inputs[i].result = (UI::Result)sources[i]->GetOracleResult();

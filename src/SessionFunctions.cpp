@@ -1330,8 +1330,8 @@ namespace Functions
 					for (auto input : topk) {
 						if (_sessiondata->_settings->generation.maxNumberOfFailsPerSource > input->GetDerivedFails() || _sessiondata->_settings->generation.maxNumberOfFailsPerSource == 0) {
 							// check that the length of the source is longer than min backtrack, such that it can be extended in the first place
-							if (input->GetOracleResult() == OracleResult::Unfinished && input->Length() > _sessiondata->_settings->methods.IterativeConstruction_Extension_Backtrack_min ||
-								input->GetOracleResult() == OracleResult::Failing && input->Length() > _sessiondata->_settings->methods.IterativeConstruction_Backtrack_Backtrack_min) {
+							if (input->GetOracleResult() == OracleResult::Unfinished && input->EffectiveLength() > _sessiondata->_settings->methods.IterativeConstruction_Extension_Backtrack_min ||
+								input->GetOracleResult() == OracleResult::Failing && input->EffectiveLength() > _sessiondata->_settings->methods.IterativeConstruction_Backtrack_Backtrack_min) {
 								sources.insert(input);
 								loginfo("Found New Source: {}", Input::PrintForm(input));
 							}
