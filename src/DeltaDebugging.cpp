@@ -1448,7 +1448,8 @@ namespace DeltaDebugging
 							// find the tests that reproduced the original result and pick one
 							std::uniform_int_distribution<signed> dist(0, (int32_t)rinputs.size() - 1);
 							// choose new base _input
-							_input = rinputs[dist(randan)];
+							int idx = dist(randan);
+							_input = rinputs[idx];
 							// adjust level
 							if (!_input->GetParentSplitComplement())
 								_level = 2;
@@ -1458,8 +1459,25 @@ namespace DeltaDebugging
 							if (_params->budget != 0 && _params->budget <= _totaltests) {
 								_finished = true;
 								Finish();
-							} else
+							} else {
 								StandardGenerateNextLevel_Async();
+								// free passing inputs we don't need anymore
+								for (size_t i = 0; i < rinputs.size(); i++) {
+									if (i = idx)
+										continue;
+									rinputs[i]->UnsetFlag(Form::FormFlags::DoNotFree);
+									rinputs[i]->test->UnsetFlag(Form::FormFlags::DoNotFree);
+									rinputs[i]->derive->UnsetFlag(Form::FormFlags::DoNotFree);
+									// free memory to save reclaim time
+									rinputs[i]->FreeMemory();
+									if (rinputs[i]->GetGenerated() == false && rinputs[i]->test && rinputs[i]->test->IsValid() == false) {
+										if (rinputs[i]->derive)
+											rinputs[i]->derive->FreeMemory();
+										if (rinputs[i]->test)
+											rinputs[i]->test->FreeMemory();
+									}
+								}
+							}
 						}
 						break;
 					case DDGoal::MaximizeBothScores:
@@ -1488,8 +1506,23 @@ namespace DeltaDebugging
 							if (_params->budget != 0 && _params->budget <= _totaltests) {
 								_finished = true;
 								Finish();
-							} else
+							} else {
 								StandardGenerateNextLevel_Async();
+								// free passing inputs we don't need anymore
+								for (size_t i = 1; i < rinputs.size(); i++) {
+									rinputs[i]->UnsetFlag(Form::FormFlags::DoNotFree);
+									rinputs[i]->test->UnsetFlag(Form::FormFlags::DoNotFree);
+									rinputs[i]->derive->UnsetFlag(Form::FormFlags::DoNotFree);
+									// free memory to save reclaim time
+									rinputs[i]->FreeMemory();
+									if (rinputs[i]->GetGenerated() == false && rinputs[i]->test && rinputs[i]->test->IsValid() == false) {
+										if (rinputs[i]->derive)
+											rinputs[i]->derive->FreeMemory();
+										if (rinputs[i]->test)
+											rinputs[i]->test->FreeMemory();
+									}
+								}
+							}
 						}
 						break;
 					case DDGoal::MaximizeSecondaryScore:
@@ -1517,8 +1550,23 @@ namespace DeltaDebugging
 							if (_params->budget != 0 && _params->budget <= _totaltests) {
 								_finished = true;
 								Finish();
-							} else
+							} else {
 								StandardGenerateNextLevel_Async();
+								// free passing inputs we don't need anymore
+								for (size_t i = 1; i < rinputs.size(); i++) {
+									rinputs[i]->UnsetFlag(Form::FormFlags::DoNotFree);
+									rinputs[i]->test->UnsetFlag(Form::FormFlags::DoNotFree);
+									rinputs[i]->derive->UnsetFlag(Form::FormFlags::DoNotFree);
+									// free memory to save reclaim time
+									rinputs[i]->FreeMemory();
+									if (rinputs[i]->GetGenerated() == false && rinputs[i]->test && rinputs[i]->test->IsValid() == false) {
+										if (rinputs[i]->derive)
+											rinputs[i]->derive->FreeMemory();
+										if (rinputs[i]->test)
+											rinputs[i]->test->FreeMemory();
+									}
+								}
+							}
 						}
 						break;
 					}
@@ -1600,8 +1648,23 @@ namespace DeltaDebugging
 					if (_params->budget != 0 && _params->budget <= _totaltests) {
 						_finished = true;
 						Finish();
-					} else
+					} else {
 						StandardGenerateNextLevel_Async();
+						// free passing inputs we don't need anymore
+						for (size_t i = 1; i < passing.size(); i++) {
+							passing[i]->UnsetFlag(Form::FormFlags::DoNotFree);
+							passing[i]->test->UnsetFlag(Form::FormFlags::DoNotFree);
+							passing[i]->derive->UnsetFlag(Form::FormFlags::DoNotFree);
+							// free memory to save reclaim time
+							passing[i]->FreeMemory();
+							if (passing[i]->GetGenerated() == false && passing[i]->test && passing[i]->test->IsValid() == false) {
+								if (passing[i]->derive)
+									passing[i]->derive->FreeMemory();
+								if (passing[i]->test)
+									passing[i]->test->FreeMemory();
+							}
+						}
+					}
 				}
 			}
 			break;
@@ -1681,8 +1744,23 @@ namespace DeltaDebugging
 					if (_params->budget != 0 && _params->budget <= _totaltests) {
 						_finished = true;
 						Finish();
-					} else
+					} else {
 						StandardGenerateNextLevel_Async();
+						// free passing inputs we don't need anymore
+						for (size_t i = 1; i < passing.size(); i++) {
+							passing[i]->UnsetFlag(Form::FormFlags::DoNotFree);
+							passing[i]->test->UnsetFlag(Form::FormFlags::DoNotFree);
+							passing[i]->derive->UnsetFlag(Form::FormFlags::DoNotFree);
+							// free memory to save reclaim time
+							passing[i]->FreeMemory();
+							if (passing[i]->GetGenerated() == false && passing[i]->test && passing[i]->test->IsValid() == false) {
+								if (passing[i]->derive)
+									passing[i]->derive->FreeMemory();
+								if (passing[i]->test)
+									passing[i]->test->FreeMemory();
+							}
+						}
+					}
 				}
 			}
 			break;
@@ -1765,8 +1843,23 @@ namespace DeltaDebugging
 					if (_params->budget != 0 && _params->budget <= _totaltests) {
 						_finished = true;
 						Finish();
-					} else
+					} else {
 						StandardGenerateNextLevel_Async();
+						// free passing inputs we don't need anymore
+						for (size_t i = 1; i < passing.size(); i++) {
+							passing[i]->UnsetFlag(Form::FormFlags::DoNotFree);
+							passing[i]->test->UnsetFlag(Form::FormFlags::DoNotFree);
+							passing[i]->derive->UnsetFlag(Form::FormFlags::DoNotFree);
+							// free memory to save reclaim time
+							passing[i]->FreeMemory();
+							if (passing[i]->GetGenerated() == false && passing[i]->test && passing[i]->test->IsValid() == false) {
+								if (passing[i]->derive)
+									passing[i]->derive->FreeMemory();
+								if (passing[i]->test)
+									passing[i]->test->FreeMemory();
+							}
+						}
+					}
 				}
 			}
 			break;
@@ -2340,8 +2433,24 @@ namespace DeltaDebugging
 			if (_params->budget != 0 && _params->budget <= _totaltests) {
 				_finished = true;
 				Finish();
-			} else
+			} else {
 				ScoreProgressGenerateNextLevel_Async();
+				// free passing inputs we don't need anymore
+				for (size_t i = 1; i < passing.size(); i++)
+				{
+					passing[i]->UnsetFlag(Form::FormFlags::DoNotFree);
+					passing[i]->test->UnsetFlag(Form::FormFlags::DoNotFree);
+					passing[i]->derive->UnsetFlag(Form::FormFlags::DoNotFree);
+					// free memory to save reclaim time
+					passing[i]->FreeMemory();
+					if (passing[i]->GetGenerated() == false && passing[i]->test && passing[i]->test->IsValid() == false) {
+						if (passing[i]->derive)
+							passing[i]->derive->FreeMemory();
+						if (passing[i]->test)
+							passing[i]->test->FreeMemory();
+					}
+				}
+			}
 		}
 	}
 
@@ -2372,12 +2481,15 @@ namespace DeltaDebugging
 		}
 
 		for (auto [ptr, pair] : _results) {
-			ptr->UnsetFlag(Form::FormFlags::DoNotFree);
-			if (ptr->derive)
+			if (ptr->HasFlag(Form::FormFlags::DoNotFree))
+				ptr->UnsetFlag(Form::FormFlags::DoNotFree);
+			if (ptr->derive &&  ptr->derive->HasFlag(Form::FormFlags::DoNotFree))
 				ptr->derive->UnsetFlag(Form::FormFlags::DoNotFree);
 			// unset flags and free
-			ptr->UnsetFlag(Form::FormFlags::DoNotFree);
-			ptr->test->UnsetFlag(Form::FormFlags::DoNotFree);
+			//if (ptr->HasFlag(Form::FormFlags::DoNotFree))
+			//	ptr->UnsetFlag(Form::FormFlags::DoNotFree);
+			if (ptr->test && ptr->test->HasFlag(Form::FormFlags::DoNotFree))
+				ptr->test->UnsetFlag(Form::FormFlags::DoNotFree);
 			// free memory to save reclaim time
 			ptr->FreeMemory();
 			if (ptr->GetGenerated() == false && ptr->test && ptr->test->IsValid() == false) {
