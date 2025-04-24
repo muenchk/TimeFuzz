@@ -164,7 +164,7 @@ public:
 	}
 #define profileWDebug(...)                                     \
 	if (Logging::EnableDebug) {                               \
-		static_cast<void>(prof(__func__, false, __VA_ARGS__)); \
+		void();   \ /* static_cast<void>(prof(__func__, false, __VA_ARGS__));*/ \
 	}
 
 #define StartProfiling \
@@ -187,6 +187,10 @@ public:
 #define logdebug(...)                                   \
 	if (Logging::EnableDebug) {                          \
 		static_cast<void>(debug(__func__, __VA_ARGS__)); \
+	}
+#define logdebug2(...)                                    \
+	if (Logging::EnableDebug) {                          \
+		void();  /* static_cast<void>(debug(__func__, __VA_ARGS__));*/ \
 	}
 #define logtest(...)                                      \
 	if (Logging::EnableDebug) {                             \

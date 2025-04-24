@@ -691,7 +691,7 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 	int32_t newtests = 0;
 	while (_stopHandler == false || _finishtests || stoken->stop_requested() == false) {
 		StartProfiling;
-		logdebug("find new tests");
+		logdebug2("find new tests");
 		_lastExec = std::chrono::steady_clock::now();
 		_tstatus = ExecHandlerStatus::MainLoop;
 		if (_freeze)
@@ -712,7 +712,7 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 		lasttime = time;
 		time = std::chrono::steady_clock::now();  // record the enter time
 		diff = std::chrono::duration_cast<std::chrono::nanoseconds>(time - lasttime);
-		logdebug("time diff: {}ns", diff.count());
+		logdebug2("time diff: {}ns", diff.count());
 		// when applying timeouts we must take the timedifference between cycles into account
 		// if we are simply slower in computation
 
@@ -748,7 +748,7 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 		// check if we are running tests, if not wait until we are given one to run
 		// if we found some above it was started and this should be above 0
 		if (!_settings->fixes.disableExecHandlerSleep && _currentTests == 0 && tohandle == 0) {
-			logdebug("no tests active -> wait for new tests");
+			logdebug2("no tests active -> wait for new tests");
 			std::unique_lock<std::mutex> guard(_lockqueue);
 			_tstatus = ExecHandlerStatus::Waiting;
 			_waitforjob.wait_for(guard, std::chrono::milliseconds(200), [this] { return !_runningTests.empty() || !_waitingTests.empty() || !_waitingTestsExec.empty() || _stopHandler; });
@@ -760,7 +760,7 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 				continue;
 			}
 		}
-		logdebug("Handling running tests: {}", _currentTests.load());
+		logdebug2("Handling running tests: {}", _currentTests.load());
 
 		for (int32_t i = 0; i < tohandle; i++) {
 			if (stoken->stop_requested()) {
@@ -768,7 +768,7 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 			}
 			_tstatus = ExecHandlerStatus::HandlingTests;
 			auto ptr = _handleTests[i];
-			logdebug("Handling test {}", ptr->_identifier);
+			logdebug2("Handling test {}", ptr->_identifier);
 			if (ptr->PipeError())
 			{
 				ptr->KillProcess();
@@ -779,7 +779,7 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 			// read _output accumulated in the mean-time
 			// if process has ended there still may be something left over to read anyway
 			ptr->_output += ptr->ReadOutput();
-			logdebug("Read Output {}", ptr->_identifier);
+			logdebug2("Read Output {}", ptr->_identifier);
 			// check for running
 			if (ptr->IsRunning() == false) {
 				// test has finished. Get exit code and check end conditions
@@ -817,7 +817,7 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 			if (stoken->stop_requested()) {
 				return;
 			}
-			logdebug("Checked Input {}", ptr->_identifier);
+			logdebug2("Checked Input {}", ptr->_identifier);
 			// compute timeouts
 			if (_enableFragments && _settings->tests.use_fragmenttimeout) {
 				difffrag = std::chrono::duration_cast<std::chrono::microseconds>(time - ptr->_lasttime);
@@ -846,7 +846,7 @@ TestFinished:
 			{
 				_tstatus = ExecHandlerStatus::StoppingTest;
 				ptr->_running = false;
-				logdebug("Test {} has ended", ptr->_identifier);
+				logdebug2("Test {} has ended", ptr->_identifier);
 				// if not frozen, or if it is frozen but we are waiting for test completion, stop test
 				if (!_frozen || _frozen && _freeze_waitfortestcompletion)
 					StopTest(ptr);

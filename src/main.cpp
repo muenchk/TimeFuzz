@@ -607,7 +607,7 @@ std::string Snapshot(bool full)
 	}
 	snap << "\n\n";
 
-	profile(TimeProfiling, "Snap");
+	//profile(TimeProfiling, "Snap");
 
 	return snap.str();
 }

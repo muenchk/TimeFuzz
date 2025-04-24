@@ -210,13 +210,21 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 	FlagHolder<DerivationTree> deriveflag(input->derive, Form::FormFlags::DoNotFree);
 	std::vector<std::unique_ptr<FlagHolder<Input>>> parentflags;
 	std::vector<std::unique_ptr<FlagHolder<DerivationTree>>> parenttreeflags;
-	std::vector<std::shared_ptr<Form>> locklist;
+	std::deque<std::shared_ptr<Form>> locklist;
 	std::vector<std::shared_ptr<Form>> flaglist;
 	auto unlock = [&locklist]() {
 		for (auto form : locklist) {
 			form->Unlock();
 		}
 		locklist.clear();
+	};
+	auto unlockMax = [&locklist](int max ) {
+		while ((int)locklist.size() > max)
+		{
+			auto form = locklist.front();
+			locklist.pop_front();
+			form->Unlock();
+		}
 	};
 	auto freeflags = [&flaglist]() {
 		for (auto form : flaglist) {
@@ -499,7 +507,7 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 				return false;
 			}
 		}
-		//unlock();
+		unlockMax(4);
 	}
 	profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
 	unlock();
