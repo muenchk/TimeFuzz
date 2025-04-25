@@ -1463,7 +1463,7 @@ namespace DeltaDebugging
 								StandardGenerateNextLevel_Async();
 								// free passing inputs we don't need anymore
 								for (size_t i = 0; i < rinputs.size(); i++) {
-									if (i = idx)
+									if (i == idx)
 										continue;
 									rinputs[i]->UnsetFlag(Form::FormFlags::DoNotFree);
 									rinputs[i]->test->UnsetFlag(Form::FormFlags::DoNotFree);
