@@ -87,7 +87,7 @@ private:
 	/// <summary>
 	/// the exit code of the associated test
 	/// </summary>
-	int32_t _exitcode = 0;
+	int32_t _exitcode = -1;
 	/// <summary>
 	/// the primary score of the input
 	/// </summary>

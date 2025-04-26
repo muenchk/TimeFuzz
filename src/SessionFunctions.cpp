@@ -1034,7 +1034,7 @@ namespace Functions
 		// get id of sessiondata and resolve link
 		uint64_t sessid = Buffer::ReadUInt64(buffer, offset);
 		resolver->AddTask([this, sessid, resolver]() {
-			this->_sessiondata = resolver->ResolveFormID<SessionData>(sessid);
+			this->_sessiondata = resolver->_data->CreateForm<SessionData>();
 		});
 		return true;
 	}
@@ -1053,7 +1053,8 @@ namespace Functions
 
 	void MasterGenerationCallback::Dispose()
 	{
-		_sessiondata->_active_generation_callbacks--;
+		if (_sessiondata)
+			_sessiondata->_active_generation_callbacks--;
 		_sessiondata.reset();
 	}
 

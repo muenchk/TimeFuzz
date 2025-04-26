@@ -229,7 +229,7 @@ bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRe
 			_primaryScoreIndividual = Buffer::DequeBasic::ReadDeque<double>(buffer, offset);
 			_secondaryScoreIndividual = Buffer::DequeBasic::ReadDeque<double>(buffer, offset);
 			_derivedFails = Buffer::ReadUInt64(buffer, offset);
-			if (HasFlag(Form::FormFlags::DoNotFree))
+			if (HasFlag(Form::FormFlags::DoNotFree) && CmdArgs::_clearTasks == false)
 			{
 				resolver->AddLateTask([this, resolver]() {
 					if (GetGenerated() == false || GetSequenceLength() == 0) {

@@ -596,9 +596,10 @@ void Session::SessionControl()
 	// run master control and kick stuff of
 	// generates inputs, etc.
 	Lua::RegisterThread(_sessiondata);
-	SessionFunctions::MasterControl(_sessiondata);
-	if (CmdArgs::_clearTasks == false)
+	if (CmdArgs::_clearTasks == false) {
+		SessionFunctions::MasterControl(_sessiondata);
 		SessionFunctions::GenerateTests(_sessiondata);
+	}
 	Lua::UnregisterThread();
 
 	logmessage("Kicked session off.");
@@ -637,7 +638,7 @@ void Session::SessionControl()
 			// check whether dd is running ans has decided to hang itself
 			auto gen = _sessiondata->GetCurrentGeneration();
 			loginfo("Check for dd");
-			if (gen && gen->IsDeltaDebuggingActive())
+			if (gen && gen->IsDeltaDebuggingActive() && CmdArgs::_clearTasks == false)
 			{
 				auto visitor = [sessiondata = _sessiondata](std::shared_ptr<DeltaDebugging::DeltaController> controller) {
 					if (controller && controller->GetBatchTasks())
