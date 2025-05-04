@@ -2461,6 +2461,11 @@ namespace DeltaDebugging
 
 		if (_params->mode != DDMode::Standard && _sessiondata->_settings->dd.runReproduceResultsAfterScoreApproxOnPositive && _params->GetGoal() == DDGoal::ReproduceResult) {
 			// start normal delat debugging for test purposes
+			if (_origInput == _input)
+			{
+				// couldn't reduce in ScoreProgress. Reset DD flag
+				_input->UnsetFlag(Input::Flags::DeltaDebugged);
+			}
 			DeltaDebugging::DDParameters* params = nullptr;
 			DeltaDebugging::ReproduceResult* par = new DeltaDebugging::ReproduceResult;
 			par->secondarygoal = DDGoal::ReproduceResult;
