@@ -264,7 +264,7 @@ public:
 	/// <param name="input"></param>
 	/// <param name="test"></param>
 	/// <returns>If true is returned the test is repeated, so cease all actions in calling callback</returns>
-	static bool TestEnd(std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> input, bool replay = false);
+	static bool TestEnd(std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> input, bool replay = false, std::shared_ptr<DeltaDebugging::DeltaController> producer = {});
 
 	/// <summary>
 	/// Updates test exit statistics

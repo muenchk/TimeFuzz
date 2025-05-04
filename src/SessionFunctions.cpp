@@ -509,7 +509,7 @@ void SessionFunctions::MasterControl(std::shared_ptr<SessionData> sessiondata, b
 	return;
 }
 
-bool SessionFunctions::TestEnd(std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> input, bool replay)
+bool SessionFunctions::TestEnd(std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> input, bool replay, std::shared_ptr<DeltaDebugging::DeltaController> producer)
 {
 	logdebug("calculating test end");
 	if (replay == true)
@@ -626,7 +626,7 @@ bool SessionFunctions::TestEnd(std::shared_ptr<SessionData> sessiondata, std::sh
 	case OracleResult::Passing:
 		{
 			// only begin delta debugging if the input has been generated ligitimately and not as a result of delta debugging
-			if (!input->HasFlag(Input::Flags::GeneratedDeltaDebugging)) {
+			if (!input->HasFlag(Input::Flags::GeneratedDeltaDebugging) || producer->GetGoal() != DeltaDebugging::DDGoal::ReproduceResult) {
 				// -----Begin Delta Debugging the test with ReproduceResults-----
 				BeginDeltaDebugging(sessiondata, input, {}, true, DeltaDebugging::DDGoal::ReproduceResult);
 			}

@@ -57,7 +57,7 @@ namespace Functions
 				_input = input;
 			}
 		} else {
-			if (SessionFunctions::TestEnd(_sessiondata, _input))
+			if (SessionFunctions::TestEnd(_sessiondata, _input, false, _DDcontroller))
 			{
 				// test has to be repeated, don't do anything yet
 				return;

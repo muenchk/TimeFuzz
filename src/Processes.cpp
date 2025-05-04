@@ -310,8 +310,8 @@ namespace Processes
 			if (WIFEXITED(_status) == true) // normal exit -> retrieve exit code
 			{
 				*exitcode = WEXITSTATUS(_status);
-			} else // set exitcode as -1
-				*exitcode = -1;
+			} else if (*exitcode == -1) // set exitcode as -1
+				*exitcode = 256;
 			result =  false;
 		}
 		else

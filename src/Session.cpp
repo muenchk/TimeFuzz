@@ -967,7 +967,7 @@ void Session::UI_GetPositiveInputs(std::vector<UI::UIInput>& vector, size_t k)
 		} else
 			return false;
 	};
-	_sessiondata->VisitPositiveInputs(visitor);
+	_sessiondata->VisitPositiveInputs(visitor, vector.size());
 	delete c;
 }
 

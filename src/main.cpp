@@ -443,6 +443,29 @@ std::string Snapshot(bool full)
 	}
 	snap << "\n\n";
 
+	// last generated
+	snap << "### POSITIVE \n";
+	{
+		static std::vector<UI::UIInput> elements;
+
+		// GET ITEMS FROM SESSION
+		session->UI_GetPositiveInputs(elements, 0);
+
+		snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15}", "ID", "Length", "Primary Score", "Secondary Score", "Result", "Flags", "Generation", "Derived Inputs", "ExecTime") << "\n";
+
+		int32_t max = 10;
+		if (full || elements.size() < max)
+			max = (int32_t)elements.size();
+		for (int32_t i = 0; i < max; i++) {
+			auto item = &elements[i];
+			if (item->id != 0) {
+				snap << fmt::format("{:<10} {:<10} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:>15} ns", Utility::GetHex(item->id), item->length, item->primaryScore, item->secondaryScore, res(item->result), Utility::GetHexFill(item->flags), item->generationNumber, item->derivedInputs, item->exectime.count()) << "\n";
+			}
+		}
+	}
+
+	snap << "\n\n";
+
 	// profiling
 	snap << "### PROFILING\n";
 	{
@@ -612,10 +635,10 @@ std::string Snapshot(bool full)
 	return snap.str();
 }
 
-void SaveStatus()
+void SaveStatus(bool force = false)
 {
 	static auto time = std::chrono::system_clock::now();
-	if (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - time).count() >= (long long)CmdArgs::_saveStatusSeconds) {
+	if (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - time).count() >= (long long)CmdArgs::_saveStatusSeconds || force) {
 		time = std::chrono::system_clock::now();
 		std::string snap = Snapshot(true);
 		if (!std::filesystem::exists(std::filesystem::path(CmdArgs::workdir / statuspath)))
@@ -2531,6 +2554,9 @@ int32_t main(int32_t argc, char** argv)
 		glfwDestroyWindow(window);
 		glfwTerminate();
 
+		if (CmdArgs::_saveStatus)
+			SaveStatus(true);
+
 		session->Wait();
 		session->DestroySession();
 		session.reset();
@@ -2588,6 +2614,8 @@ Responsive:
 				stop = true;
 			}
 		}
+		if (CmdArgs::_saveStatus)
+			SaveStatus(true);
 		if (failedLoad)
 			exit(0);
 		session->Wait();
@@ -2614,7 +2642,8 @@ Responsive:
 			if (CmdArgs::_saveStatus)
 				SaveStatus();
 		}
-
+		if (CmdArgs::_saveStatus)
+			SaveStatus(true);
 		if (failedLoad)
 			exit(0);
 		restoreConsole();
@@ -2642,6 +2671,8 @@ Responsive:
 			if (CmdArgs::_saveStatus)
 				SaveStatus();
 		}
+		if (CmdArgs::_saveStatus)
+			SaveStatus(true);
 		if (failedLoad)
 			exit(0);
 		std::cout << Snapshot(true);

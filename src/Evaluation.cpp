@@ -277,7 +277,74 @@ Evaluation::CSV Evaluation::Evaluate()
 	}
 	// ### DDs
 	{
+		std::string header;
+		std::string avline;
+		std::string lines;
 
+		header = "ID;";
+		int64_t size = 0,	 skipped = 0,	 prefix = 0,	approx = 0,    reducsteps = 0,	  avsizereducperstep = 0,    batchcount = 0,    totaltests = 0, level = 0;
+		int64_t size_av = 0, skipped_av = 0, prefix_av = 0, approx_av = 0, reducsteps_av = 0, avsizereducperstep_av = 0, batchcount_av = 0, totaltests_av = 0, level_av = 0;
+		int64_t size_to = 0, skipped_to = 0, prefix_to = 0, approx_to = 0, reducsteps_to = 0, avsizereducperstep_to = 0, batchcount_to = 0, totaltests_to = 0, level_to = 0;
+
+		double totalreduction_l = 0.f, totalreduction_p = 0.f, totalreduction_s = 0.f;
+		double totalreduction_l_av = 0.f, totalreduction_p_av = 0.f, totalreduction_s_av = 0.f;
+		double totalreduction_l_to = 0.f, totalreduction_p_to = 0.f, totalreduction_s_to = 0.f;
+
+		std::chrono::nanoseconds runtime = std::chrono::nanoseconds(0), avtestruntime = std::chrono::nanoseconds(0);
+		std::chrono::nanoseconds runtime_av = std::chrono::nanoseconds(0), avtestruntime_av = std::chrono::nanoseconds(0);
+		std::chrono::nanoseconds runtime_to = std::chrono::nanoseconds(0), avtestruntime_to = std::chrono::nanoseconds(0);
+
+		
+		for (int i = 0; i < (int)dds.size(); i++)
+		{
+			std::string line = "";
+			size = dds[i]->GetTestsTotal();
+			size_av += dds[i]->GetTestsTotal();
+			size_to += dds[i]->GetTestsTotal();
+			totaltests = dds[i]->GetTestsTotal();
+			totaltests_av += dds[i]->GetTestsTotal();
+			totaltests_to += dds[i]->GetTestsTotal();
+			skipped = dds[i]->GetSkippedTests();
+			skipped_av += dds[i]->GetSkippedTests();
+			skipped_to += dds[i]->GetSkippedTests();
+			prefix = dds[i]->GetPrefixTests();
+			prefix_av += dds[i]->GetPrefixTests();
+			prefix_to += dds[i]->GetPrefixTests();
+			approx = dds[i]->GetApproxTests();
+			approx_av += dds[i]->GetApproxTests();
+			approx_to += dds[i]->GetApproxTests();
+			batchcount = dds[i]->GetBatchIdent();
+			batchcount_av += dds[i]->GetBatchIdent();
+			batchcount_to += dds[i]->GetBatchIdent();
+			level = dds[i]->GetLevel();
+			level_av += dds[i]->GetLevel();
+			level_to += dds[i]->GetLevel();
+			totalreduction_l = (double)dds[i]->GetInput()->EffectiveLength() / (double)dds[i]->GetOriginalInput()->EffectiveLength();
+			totalreduction_l_av += (double)dds[i]->GetInput()->EffectiveLength() / (double)dds[i]->GetOriginalInput()->EffectiveLength();
+			totalreduction_l_to += (double)dds[i]->GetInput()->EffectiveLength() / (double)dds[i]->GetOriginalInput()->EffectiveLength();
+			totalreduction_p = dds[i]->GetInput()->GetPrimaryScore() / dds[i]->GetInput()->GetPrimaryScore();
+			totalreduction_p_av += dds[i]->GetInput()->GetPrimaryScore() / dds[i]->GetInput()->GetPrimaryScore();
+			totalreduction_p_to += dds[i]->GetInput()->GetPrimaryScore() / dds[i]->GetInput()->GetPrimaryScore();
+			totalreduction_s = dds[i]->GetInput()->GetSecondaryScore() / dds[i]->GetInput()->GetSecondaryScore();
+			totalreduction_s_av += dds[i]->GetInput()->GetSecondaryScore() / dds[i]->GetInput()->GetSecondaryScore();
+			totalreduction_s_to += dds[i]->GetInput()->GetSecondaryScore() / dds[i]->GetInput()->GetSecondaryScore();
+			runtime = dds[i]->GetRunTime();
+			runtime_av += dds[i]->GetRunTime();
+			runtime_to += dds[i]->GetRunTime();
+			avtestruntime = std::chrono::nanoseconds(0);
+			auto inputVisitor = [&avtestruntime](std::shared_ptr<Input> form) {
+				avtestruntime = avtestruntime + form->GetExecutionTime();
+				return false;
+			};
+			for (auto [inp, _] : *(dds[i]->GetResults()))
+			{
+				inputVisitor(inp);
+			}
+			avtestruntime_av += avtestruntime;
+			avtestruntime_to += avtestruntime;
+
+		}
+		
 	}
 	// ### Inputs
 	{

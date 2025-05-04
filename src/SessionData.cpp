@@ -15,19 +15,19 @@ void SessionData::Init()
 	case Settings::GenerationSourcesType::FilterLength:
 		_negativeInputs.set_ordering(std::SetOrdering::Length);
 		_unfinishedInputs.set_ordering(std::SetOrdering::Length);
-		_positiveInputs.set_ordering(std::SetOrdering::Length);
+		//_positiveInputs.set_ordering(std::SetOrdering::Length);
 		break;
 	case Settings::GenerationSourcesType::FilterPrimaryScore:
 	case Settings::GenerationSourcesType::FilterPrimaryScoreRelative:
 		_negativeInputs.set_ordering(std::SetOrdering::Primary);
 		_unfinishedInputs.set_ordering(std::SetOrdering::Primary);
-		_positiveInputs.set_ordering(std::SetOrdering::Primary);
+		//_positiveInputs.set_ordering(std::SetOrdering::Primary);
 		break;
 	case Settings::GenerationSourcesType::FilterSecondaryScore:
 	case Settings::GenerationSourcesType::FilterSecondaryScoreRelative:
 		_negativeInputs.set_ordering(std::SetOrdering::Secondary);
 		_unfinishedInputs.set_ordering(std::SetOrdering::Secondary);
-		_positiveInputs.set_ordering(std::SetOrdering::Secondary);
+		//_positiveInputs.set_ordering(std::SetOrdering::Secondary);
 		break;
 	}
 	_defaultGen = data->CreateForm<Generation>();
@@ -81,7 +81,8 @@ void SessionData::AddInput(std::shared_ptr<Input>& input, EnumType list, double 
 	case OracleResult::Passing:
 		{
 			std::unique_lock<std::shared_mutex> guard(_positiveInputsLock);
-			_positiveInputs.insert(input);
+			//_positiveInputs.insert(input);
+			_positiveInputs.push_back(input);
 		}
 		break;
 	case OracleResult::Undefined:
@@ -336,16 +337,20 @@ void SessionData::GetPositiveInputs(int32_t k, std::vector<std::shared_ptr<Input
 	}
 }
 
-void SessionData::VisitPositiveInputs(std::function<bool(std::shared_ptr<Input>)> visitor)
+void SessionData::VisitPositiveInputs(std::function<bool(std::shared_ptr<Input>)> visitor, size_t begin)
 {
 	std::shared_lock<std::shared_mutex> guard(_positiveInputsLock);
-	auto itr = _positiveInputs.begin();
+	for (int64_t i = (int64_t)begin; i < (int64_t)_positiveInputs.size(); i++) {
+		if (visitor(_positiveInputs[i]) == false)
+			break;
+	}
+	/* auto itr = _positiveInputs.begin();
 	while (itr != _positiveInputs.end())
 	{
 		if (visitor(*itr) == false)
 			break;
 		itr++;
-	}
+	}*/
 }
 
 void SessionData::VisitLastRun(std::function<bool(std::shared_ptr<Input>)> visitor)
@@ -776,7 +781,8 @@ bool SessionData::ReadData0x1(std::istream* buffer, size_t& offset, size_t /*len
 		for (int64_t i = 0; i < (int64_t)posInp.size(); i++) {
 			auto shared = resolver->ResolveFormID<Input>(posInp[i]);
 			if (shared)
-				_positiveInputs.insert(shared);
+				_positiveInputs.push_back(shared);
+				//_positiveInputs.insert(shared);
 		}
 	});
 	// unfinished inputs
@@ -863,19 +869,19 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 				case Settings::GenerationSourcesType::FilterLength:
 					_negativeInputs.set_ordering(std::SetOrdering::Length);
 					_unfinishedInputs.set_ordering(std::SetOrdering::Length);
-					_positiveInputs.set_ordering(std::SetOrdering::Length);
+					//_positiveInputs.set_ordering(std::SetOrdering::Length);
 					break;
 				case Settings::GenerationSourcesType::FilterPrimaryScore:
 				case Settings::GenerationSourcesType::FilterPrimaryScoreRelative:
 					_negativeInputs.set_ordering(std::SetOrdering::Primary);
 					_unfinishedInputs.set_ordering(std::SetOrdering::Primary);
-					_positiveInputs.set_ordering(std::SetOrdering::Primary);
+					//_positiveInputs.set_ordering(std::SetOrdering::Primary);
 					break;
 				case Settings::GenerationSourcesType::FilterSecondaryScore:
 				case Settings::GenerationSourcesType::FilterSecondaryScoreRelative:
 					_negativeInputs.set_ordering(std::SetOrdering::Secondary);
 					_unfinishedInputs.set_ordering(std::SetOrdering::Secondary);
-					_positiveInputs.set_ordering(std::SetOrdering::Secondary);
+					//_positiveInputs.set_ordering(std::SetOrdering::Secondary);
 					break;
 				}
 				if (this->GetGen())
@@ -931,7 +937,8 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 				for (int64_t i = 0; i < (int64_t)posInp.size(); i++) {
 					auto shared = resolver->ResolveFormID<Input>(posInp[i]);
 					if (shared)
-						_positiveInputs.insert(shared);
+						_positiveInputs.push_back(shared);
+						//_positiveInputs.insert(shared);
 				}
 			});
 			// unfinished inputs
@@ -1017,19 +1024,19 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 				case Settings::GenerationSourcesType::FilterLength:
 					_negativeInputs.set_ordering(std::SetOrdering::Length);
 					_unfinishedInputs.set_ordering(std::SetOrdering::Length);
-					_positiveInputs.set_ordering(std::SetOrdering::Length);
+					//_positiveInputs.set_ordering(std::SetOrdering::Length);
 					break;
 				case Settings::GenerationSourcesType::FilterPrimaryScore:
 				case Settings::GenerationSourcesType::FilterPrimaryScoreRelative:
 					_negativeInputs.set_ordering(std::SetOrdering::Primary);
 					_unfinishedInputs.set_ordering(std::SetOrdering::Primary);
-					_positiveInputs.set_ordering(std::SetOrdering::Primary);
+					//_positiveInputs.set_ordering(std::SetOrdering::Primary);
 					break;
 				case Settings::GenerationSourcesType::FilterSecondaryScore:
 				case Settings::GenerationSourcesType::FilterSecondaryScoreRelative:
 					_negativeInputs.set_ordering(std::SetOrdering::Secondary);
 					_unfinishedInputs.set_ordering(std::SetOrdering::Secondary);
-					_positiveInputs.set_ordering(std::SetOrdering::Secondary);
+					//_positiveInputs.set_ordering(std::SetOrdering::Secondary);
 					break;
 				}
 				if (this->GetGen())

@@ -127,6 +127,8 @@ private:
 	/// </summary>
 	bool _pythonconverted = false;
 
+	String _stringString = "";
+
 	/// <summary>
 	/// whether the sequence has been generated
 	/// </summary>
@@ -217,6 +219,7 @@ public:
 	~Input();
 
 	static int lua_ConvertToPython(lua_State* L);
+	static int lua_ConvertToString(lua_State* L);
 	static int lua_IsTrimmed(lua_State* L);
 	static int lua_TrimInput(lua_State* L);
 	static int lua_GetExecutionTime(lua_State* L);

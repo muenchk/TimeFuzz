@@ -135,7 +135,8 @@ class SessionData : public Form
 	/// <summary>
 	/// list of input formids that have positive test results
 	/// </summary>
-	std::ordered_multiset<std::shared_ptr<Input>> _positiveInputs;
+	std::vector<std::shared_ptr<Input>> _positiveInputs;
+	//std::ordered_multiset<std::shared_ptr<Input>> _positiveInputs;
 	/// <summary>
 	/// shared lock for the list of positive input formids
 	/// </summary>
@@ -520,7 +521,7 @@ public:
 	/// Visits all positive inputs
 	/// </summary>
 	/// <param name="visitor">return value indicates whether the next input should be visited next</param>
-	void VisitPositiveInputs(std::function<bool(std::shared_ptr<Input>)> visitor);
+	void VisitPositiveInputs(std::function<bool(std::shared_ptr<Input>)> visitor, size_t begin = 0);
 
 	/// <summary>
 	/// Visits last run inputs

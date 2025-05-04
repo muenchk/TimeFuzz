@@ -639,6 +639,7 @@ void Input::FreeMemory()
 		_pythonconverted = false;
 		_pythonstring.reset();
 		_stringrep.reset();
+		_stringString = "";
 
 		if (!derive)
 			logcritical("Input is missing dev tree now");
@@ -930,6 +931,7 @@ void Input::RegisterLuaFunctions(lua_State* L)
 {
 	// register lua functions
 	lua_register(L, "Input_ConvertToPython", Input::lua_ConvertToPython);
+	lua_register(L, "Input_ConvertToString", Input::lua_ConvertToString);
 	lua_register(L, "Input_IsTrimmed", Input::lua_IsTrimmed);
 	lua_register(L, "Input_Trim", Input::lua_TrimInput);
 	lua_register(L, "Input_GetExecutionTime", Input::lua_GetExecutionTime);
@@ -972,6 +974,23 @@ int Input::lua_ConvertToPython(lua_State* L)
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
 	input->ConvertToPython();
 	lua_pushstring(L, input->_pythonstring.c_str());
+	return 1;
+}
+
+int Input::lua_ConvertToString(lua_State* L)
+{
+	Input* input = (Input*)lua_touserdata(L, 1);
+	luaL_argcheck(L, input != nullptr, 1, "input expected");
+	if (input->_stringString.empty())
+	{
+		// calc stringString
+		input->_stringString.reset();
+		for (size_t i = 0; i < input->_sequence.size(); i++)
+		{
+			input->_stringString += input->_sequence[i];
+		}
+	} // else just return the existing one
+	lua_pushstring(L, input->_stringString.c_str());
 	return 1;
 }
 
