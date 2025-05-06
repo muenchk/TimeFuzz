@@ -179,7 +179,12 @@ void SessionFunctions::SaveCheck(std::shared_ptr<SessionData> sessiondata, bool 
 			callback->_generation = sessiondata->GetCurrentGeneration();
 			callback->_afterSave = true;
 			if (sessiondata->_settings->saves.saveAfterEachGeneration) {
-				std::thread(SaveSession_Async, sessiondata, callback, generationEnd).detach();
+				try {
+					std::thread(SaveSession_Async, sessiondata, callback, generationEnd).detach();
+				} catch (std::system_error& e) {
+					std::cerr
+						<< e.what() << "\n";
+				}
 			} else
 				sessiondata->_controller->AddTask(callback);
 			return;

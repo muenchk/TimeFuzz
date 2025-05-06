@@ -194,7 +194,7 @@ namespace Processes
 
 	bool StartPUTProcess(std::shared_ptr<Test> test, std::string app, std::string args)
 	{
-		StartProfilingDebug;
+		/* StartProfilingDebug;
 
 		// split the arguments
 		std::vector<std::string> command = SplitArguments(args);
@@ -229,6 +229,35 @@ namespace Processes
 		}
 
 		test->processid = pid;
+
+		profileDebug(TimeProfilingDebug, "");
+		return true;*/
+		StartProfilingDebug;
+		pid_t pid = fork();
+		if (pid == -1) {
+			return false;
+		}
+		if (pid == 0) {
+			// running on child process
+
+			// redirect _input and _output
+			//close(test->red_input[1]);
+			//close(test->red_output[0]);
+
+			dup2(test->red_input[0], STDIN_FILENO);
+			dup2(test->red_output[1], STDOUT_FILENO);
+			dup2(test->red_output[1], STDERR_FILENO);
+
+			// split the arguments
+			std::vector<std::string> command = SplitArguments(args);
+
+			// change program
+			Processes::execvp_cpp(app, command);
+			return false;
+		}
+
+		test->processid = pid;
+		//close(test->red_output[1]);
 
 		profileDebug(TimeProfilingDebug, "");
 		return true;
