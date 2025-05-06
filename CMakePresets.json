@@ -453,8 +453,7 @@
         "vcpkg-linux",
         "x64",
         "gnu",
-        "generator-ninja-fixedpath",
-        "build-tests"
+        "generator-ninja-fixedpath"
       ],
       "displayName": "Linux",
       "description": "Optimized release build.",
