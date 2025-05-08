@@ -688,6 +688,18 @@ void StartSession()
 			scanf("%s", buffer);
 			exit(ExitCodes::StartupError);
 		}
+	} else if (CmdArgs::_printresults) {
+		args.startSession = false;
+		// load session
+		if (CmdArgs::_num)
+			session = Session::LoadSession(CmdArgs::_loadname, CmdArgs::_number, args, &failedLoad, &status);
+		else
+			session = Session::LoadSession(CmdArgs::_loadname, args, &failedLoad, &status);
+		if (!session) {
+			logcritical("Session cannot be loaded from savefile:\t{}", CmdArgs::_loadname);
+			scanf("%s", buffer);
+			exit(ExitCodes::StartupError);
+		}
 	} else if (CmdArgs::_print) {
 		args.startSession = false;
 		// load session
@@ -767,8 +779,10 @@ int32_t main(int32_t argc, char** argv)
 		"    --load <NAME>                        - load prior safepoint and resume\n"
 		"    --load-num <NAME> <NUM>              - load specific prior safepoint and resume\n"
 		"    --reloadconfig                       - reloads the configuration from config file instead of save\n"
-		"    --print <NAME>                       - print statistics from prior safepoint\n"
-		"    --print-num <NAME> <NUM>             - print statistics from specific prior safepoint\n"
+		"    --print <NAME>                       - load from prior safepoint but do not start\n"
+		"    --print-num <NAME> <NUM>             - load from specific prior safepoint but do not start\n"
+		"    --print-results <NAME>               - print results from prior safepoint\n"
+		"    --print-results-num <NAME> <NUM>     - print results from specific prior safepoint\n"
 		"    --dry                                - just run PUT once, and display output statistics\n"
 		"    --dry-i <INPUT>                      - just run PUT once with the given input\n"
 		"    --responsive                         - Enables resposive console mode accepting inputs from use\n"
@@ -779,14 +793,18 @@ int32_t main(int32_t argc, char** argv)
 		"    --update-grammar                     - Loads a new grammar and sets it as the default grammar for generation\n"
 		"    --no-exclusiontree                   - Skips the loading of data from the exclusion tree\n"
 		"    --debug                              - Enable debug logging\n"
+		"    --resultpath <FOLDER>				  - path to save results\n"
 		"    --clear-tasks                        - clears all tasks and active tests from the session\n"
 		"    --save-status <time/sec> <FOLDER>    - saves the current status every x seconds\n"
+		"	 --results							  - writes results after session has ended"
 		"    --savepath <FOLDER>                  - custom path to savefiles\n";
 
 	std::string logpath = "";
 	bool logtimestamps = false;
 	std::string savepath = "";
 	bool custsavepath = false;
+	bool custresultpath = false;
+	std::string resultpath = "";
 
 	std::filesystem::path execpath = std::filesystem::path(argv[0]).parent_path();
 
@@ -852,6 +870,16 @@ int32_t main(int32_t argc, char** argv)
 				std::cerr << "missing savepath";
 				exit(ExitCodes::ArgumentError);
 			}
+		} else if (option.find("--resultpath") != std::string::npos) {
+			if (i + 1 < argc) {
+				std::cout << "Parameter: --resultpath\n";
+				custresultpath = true;
+				resultpath = argv[i + 1];
+				i++;
+			} else {
+				std::cerr << "missing resultpath";
+				exit(ExitCodes::ArgumentError);
+			}
 		} else if (option.find("--consoleui") != std::string::npos) {
 			std::cout << "Parameter: --consoleui\n";
 			CmdArgs::_consoleUI = true;
@@ -879,6 +907,35 @@ int32_t main(int32_t argc, char** argv)
 				i++;
 			} else {
 				std::cerr << "missing name of save to load";
+				exit(ExitCodes::ArgumentError);
+			}
+		} else if (option.find("--print-results-num") != std::string::npos) {
+			if (i + 2 < argc) {
+				std::cout << "Parameter: --print-num\n";
+				CmdArgs::_num = true;
+				CmdArgs::_loadname = std::string(argv[i + 1]);
+				try {
+					CmdArgs::_number = std::stoi(std::string(argv[i + 2]));
+				} catch (std::exception&) {
+					std::cerr << "missing number of save to load";
+					exit(ExitCodes::ArgumentError);
+				}
+				CmdArgs::_printresults = true;
+				CmdArgs::_results = true;
+				i++;
+			} else {
+				std::cerr << "missing name of save to print";
+				exit(ExitCodes::ArgumentError);
+			}
+		} else if (option.find("--print-results") != std::string::npos) {
+			if (i + 1 < argc) {
+				std::cout << "Parameter: --print-results\n";
+				CmdArgs::_loadname = std::string(argv[i + 1]);
+				CmdArgs::_printresults = true;
+				CmdArgs::_results = true;
+				i++;
+			} else {
+				std::cerr << "missing name of save to print";
 				exit(ExitCodes::ArgumentError);
 			}
 		} else if (option.find("--print-num") != std::string::npos) {
@@ -956,6 +1013,9 @@ int32_t main(int32_t argc, char** argv)
 				std::cerr << "missing configuration file name";
 				exit(ExitCodes::ArgumentError);
 			}
+		} else if (option.find("--results") != std::string::npos) {
+			std::cout << "Parameter: --results\n";
+			CmdArgs::_results = true;
 		} else if (option.find("--test") != std::string::npos) {
 			std::vector<std::pair<size_t, size_t>> vec;
 			vec.push_back({ 1, 3 });
@@ -1000,6 +1060,14 @@ int32_t main(int32_t argc, char** argv)
 		CmdArgs::_customsavepath = custsavepath;
 		std::filesystem::create_directories(CmdArgs::workdir / savepath);
 		CmdArgs::_savepath = std::filesystem::absolute(CmdArgs::workdir / savepath);
+	}
+	if (custresultpath) {
+		CmdArgs::_customresultpath = custresultpath;
+		std::filesystem::create_directories(CmdArgs::workdir / resultpath);
+		CmdArgs::_resultpath = std::filesystem::absolute(CmdArgs::workdir / resultpath);
+	} else {
+		std::filesystem::create_directories(CmdArgs::workdir / "results");
+		CmdArgs::_resultpath = std::filesystem::absolute(CmdArgs::workdir / "results");
 	}
 
 	// init logging engine
@@ -2540,6 +2608,10 @@ int32_t main(int32_t argc, char** argv)
 			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 			glfwSwapBuffers(window);
+
+			if (CmdArgs::_printresults && session->Loaded()) {
+				session->StopSession(false, true);
+			}
 		}
 
 		// Cleanup
@@ -2553,6 +2625,12 @@ int32_t main(int32_t argc, char** argv)
 
 		glfwDestroyWindow(window);
 		glfwTerminate();
+
+		if (CmdArgs::_results)
+		{
+			int64_t total = 0, current = 0;
+			session->WriteResults(CmdArgs::_resultpath, &total, &current);
+		}
 
 		if (CmdArgs::_saveStatus)
 			SaveStatus(true);
@@ -2572,6 +2650,9 @@ Responsive:
 		StartSession();
 		while (session->Loaded() == false && failedLoad == false)
 			std::this_thread::sleep_for(std::chrono::milliseconds(50));
+		if (CmdArgs::_printresults) {
+			session->StopSession(false, true);
+		}
 		session->SetSessionEndCallback(endCallback);
 		// stops loop
 		while (!stop && failedLoad == false) {
@@ -2616,8 +2697,24 @@ Responsive:
 		}
 		if (CmdArgs::_saveStatus)
 			SaveStatus(true);
+
 		if (failedLoad)
 			exit(0);
+
+		if (CmdArgs::_results) {
+			int64_t total = 0, current = 0;
+			std::thread th(std::bind(&Session::WriteResults, session, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), CmdArgs::_resultpath, &total, &current);
+
+			while (total != current && total != 0) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+				clearScreen();
+				moveTo(1, 1);
+				std::cout << "Writing results:\t" << std::to_string(current) + "/" + std::to_string(total) + "\n";
+			}
+
+			th.join();
+		}
+
 		session->Wait();
 		session->DestroySession();
 		session.reset();
@@ -2628,11 +2725,14 @@ Responsive:
 		Logging::StdOutDebug = false;
 		Logging::StdOutLogging = false;
 		StartSession();
-		std::chrono::steady_clock::time_point last = std::chrono::steady_clock::now();
 		//while (session->Loaded() == false) {
 		//	std::this_thread::sleep_for(std::chrono::milliseconds(50));
 		//}
 		while (session->Finished() == false && failedLoad == false) {
+			if (CmdArgs::_printresults && session->Loaded()) {
+				session->StopSession(false, true);
+				break;
+			}
 			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 			auto out = Snapshot(false);
 			clearScreen();
@@ -2646,8 +2746,22 @@ Responsive:
 			SaveStatus(true);
 		if (failedLoad)
 			exit(0);
-		restoreConsole();
 		std::cout << Snapshot(true);
+
+		if (CmdArgs::_results) {
+			int64_t total = 0, current = 0;
+			std::thread th(std::bind(&Session::WriteResults, session, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), CmdArgs::_resultpath, &total, &current);
+
+			while (total != current && total != 0) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+				clearScreen();
+				moveTo(1, 1);
+				std::cout << "Writing results:\t" << std::to_string(current) + "/" + std::to_string(total) + "\n";
+			}
+
+			th.join();
+		}
+		restoreConsole();
 		session->Wait();
 		session->DestroySession();
 		session.reset();
@@ -2659,6 +2773,9 @@ Responsive:
 		std::chrono::steady_clock::time_point last = std::chrono::steady_clock::now();
 		while (session->Loaded() == false && failedLoad == false) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		}
+		if (CmdArgs::_printresults) {
+			session->StopSession(false, true);
 		}
 		std::cout << "Beginning infinite wait for session end\n";
 		while (session->Finished() == false && failedLoad == false) {
@@ -2675,7 +2792,22 @@ Responsive:
 			SaveStatus(true);
 		if (failedLoad)
 			exit(0);
+
 		std::cout << Snapshot(true);
+		if (CmdArgs::_results) {
+			int64_t total = 0, current = 0;
+			std::thread th(std::bind(&Session::WriteResults, session, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), CmdArgs::_resultpath, &total, &current);
+
+			while (total != current && total != 0) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(50));
+				if (std::chrono::steady_clock::now() - last >= std::chrono::seconds(10)) {
+					last = std::chrono::steady_clock::now();
+					std::cout << "Writing results:\t" << std::to_string(current) + "/" + std::to_string(total) + "\n";
+				}
+			}
+
+			th.join();
+		}
 		session->Wait();
 		session->DestroySession();
 		session.reset();

@@ -14,6 +14,7 @@
 #include "SessionData.h"
 #include "ExclusionTree.h"
 #include "Generation.h"
+#include "Evaluation.h"
 
 Session* Session::GetSingleton()
 {
@@ -647,14 +648,13 @@ void Session::SessionControl()
 					{
 						// if not finished check how many tasks are active
 						auto tasks = controller->GetBatchTasks();
-						if (tasks->tasks == 0 && tasks->sendEndEvent == false)
-						{
+						if (tasks && tasks->tasks == 0 && tasks->sendEndEvent == false) {
 							logwarn("DeltaController has tasks at 0, but did not send end event");
 							auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
-								callback->_DDcontroller = controller;
+							callback->_DDcontroller = controller;
 							tasks->sendEndEvent = true;
 							sessiondata->_controller->AddTask(callback);
-						} else if (tasks->tasks == 0 && tasks->processedEndEvent  == false){
+						} else if (tasks && tasks->tasks == 0 && tasks->processedEndEvent == false) {
 							logwarn("DeltaController has tasks at 0, but did not process end event");
 							auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
 							callback->_DDcontroller = controller;
@@ -1315,4 +1315,10 @@ void Session::UI_GetDatabaseObjectStatus()
 	logmessage("Size of SessionData:        {:>10}, {:>10}, {:>15} B, {:2.3f}%%", nums._SessionData, freed._SessionData, stats._SessionData, (double)stats._SessionData * 100 / (double)stats._Fail);
 	logmessage("Size of DeltaController:    {:>10}, {:>10}, {:>15} B, {:2.3f}%%", nums._DeltaController, freed._DeltaController, stats._DeltaController, (double)stats._DeltaController * 100 / (double)stats._Fail);
 	profile(TimeProfiling, "");
+}
+
+void Session::WriteResults(std::filesystem::path resultpath, int64_t* total, int64_t* current)
+{
+	Evaluation eval(data->CreateForm<Session>(), resultpath);
+	eval.Evaluate(*total, *current);
 }

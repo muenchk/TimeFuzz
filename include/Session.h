@@ -291,6 +291,8 @@ public:
 	/// <returns></returns>
 	std::string PrintStats();
 
+	void WriteResults(std::filesystem::path resultpath, int64_t* total, int64_t* current);
+
 	void GetStatus(SessionStatus& status);
 
 	void InitStatus(SessionStatus& status);

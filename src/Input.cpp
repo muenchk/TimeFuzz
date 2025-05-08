@@ -340,6 +340,18 @@ std::string Input::ConvertToPython(bool update)
 	return _pythonstring;
 }
 
+std::string Input::ConvertToString()
+{
+	if (_stringString.empty()) {
+		// calc stringString
+		_stringString.reset();
+		for (size_t i = 0; i < _sequence.size(); i++) {
+			_stringString += _sequence[i];
+		}
+	}  // else just return the existing one
+	return _stringString;
+}
+
 size_t Input::Length()
 {
 	if (_sequence.size() == 0)

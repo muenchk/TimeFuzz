@@ -3,10 +3,21 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <filesystem>
+#include <iostream>
+#include <fstream>
 
 class Session;
 class SessionData;
 class Data;
+
+class File
+{
+public:
+	std::string filename = "";
+	std::string path = "";
+	std::string content = "";
+};
 
 class Evaluation
 {
@@ -27,9 +38,15 @@ private:
 	std::shared_ptr<Session> _session;
 	std::shared_ptr<SessionData> _sessiondata;
 	Data* _data;
+	std::filesystem::path _resultpath;
+
+	void WriteFile(std::string filename, std::string subpath, std::string content);
+	std::string PrintInput(std::shared_ptr<Input> input, std::string& str, std::string& scriptargs, std::string& cmdargs, std::string& dump);
 
 public:
-	Evaluation(std::shared_ptr<Session> session);
+	Evaluation(std::shared_ptr<Session> session,std::filesystem::path resultpath);
 
-	CSV Evaluate();
+	void Evaluate(int64_t& total, int64_t& current);
+
+
 };

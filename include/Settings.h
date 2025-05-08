@@ -25,6 +25,7 @@ public:
 	static inline bool _load = false;
 	static inline std::string _loadname = "";
 	static inline bool _print = false;
+	static inline bool _printresults = false;
 	static inline bool _num = false;
 	static inline int32_t _number;
 	static inline bool _dry = false;
@@ -43,6 +44,9 @@ public:
 	static inline int32_t _saveStatusSeconds = 60;
 	static inline bool _customsavepath = false;
 	static inline std::filesystem::path _savepath;
+	static inline bool _customresultpath = false;
+	static inline std::filesystem::path _resultpath;
+	static inline bool _results = false;
 };
 
 enum class RangeSkipOptions

@@ -253,6 +253,11 @@ public:
 	/// </summary>
 	std::string ConvertToPython(bool update = false);
 	/// <summary>
+	/// converts the input to a single string
+	/// </summary>
+	/// <returns></returns>
+	std::string ConvertToString();
+	/// <summary>
 	/// converts the input to a stream
 	/// </summary>
 	void ConvertToStream();
