@@ -1093,6 +1093,13 @@ bool ExecutionHandler::ReadData(std::istream* buffer, size_t& offset, size_t len
 									ptr->test = test;
 								if (ptr->GetGenerated() == false)
 									SessionFunctions::GenerateInput(ptr, this->_sessiondata);
+								std::shared_ptr<Input> tmp = resolver->ResolveFormID<Input>(ptr->GetParentID());
+								while (tmp) {
+									tmp->FreeMemory();
+									if (tmp->derive)
+										tmp->derive->FreeMemory();
+									tmp = resolver->ResolveFormID<Input>(tmp->GetParentID());
+								}
 							}
 							test->_cmdArgs = Lua::GetCmdArgs(std::bind(&Oracle::GetCmdArgs, _oracle, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), test, stateerror, false);
 							if (_oracle->GetOracletype() == Oracle::PUTType::Script)

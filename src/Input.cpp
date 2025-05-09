@@ -244,6 +244,13 @@ bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRe
 						if (GetGenerated() == false)
 							return false;
 					}
+					std::shared_ptr<Input> tmp = resolver->ResolveFormID<Input>(_parent.parentInput);
+					while (tmp) {
+						tmp->FreeMemory();
+						if (tmp->derive)
+							tmp->derive->FreeMemory();
+						tmp = resolver->ResolveFormID<Input>(tmp->GetParentID());
+					}
 					return true;
 				});
 			}

@@ -115,9 +115,14 @@ std::string Evaluation::PrintInput(std::shared_ptr<Input> input, std::string& st
 		scriptargs = "";
 		dump = "";
 	}
-	input->FreeMemory();
-	if (input->derive)
-		input->derive->FreeMemory();
+	std::shared_ptr<Input> tmp = input;
+	while (tmp)
+	{
+		tmp->FreeMemory();
+		if (tmp->derive)
+			tmp->derive->FreeMemory();
+		tmp = _sessiondata->data->LookupFormID<Input>(tmp->GetParentID());
+	}
 	return str;
 }
 
