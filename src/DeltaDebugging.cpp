@@ -2886,6 +2886,7 @@ namespace DeltaDebugging
 					actI.push_back(Buffer::ReadUInt64(buffer, offset));
 				// resolver
 				resolver->AddTask([this, resolver, origInput, input, res, resloss, reslevel, actI]() {
+					resolver->current = "DeltaDebugging 1";
 					_sessiondata = resolver->ResolveFormID<SessionData>(Data::StaticFormIDs::SessionData);
 					_self = resolver->ResolveFormID<DeltaController>(this->GetFormID());
 					_input = resolver->ResolveFormID<Input>(input);
@@ -2930,6 +2931,7 @@ namespace DeltaDebugging
 				for (size_t i = 0; i < cmpllen; i++)
 					complInp.push_back(Buffer::ReadUInt64(buffer, offset));
 				resolver->AddTask([this, resolver, complInp]() {
+					resolver->current = "DeltaDebugging 2";
 					for (size_t i = 0; i < complInp.size(); i++) {
 						auto ptr = resolver->ResolveFormID<Input>(complInp[i]);
 						if (ptr)
@@ -3030,6 +3032,7 @@ namespace DeltaDebugging
 					actI.push_back(Buffer::ReadUInt64(buffer, offset));
 				// resolver
 				resolver->AddTask([this, resolver, origInput, input, res, reslossprim, reslosssecon, reslevel, actI]() {
+					resolver->current = "DeltaDebugging 1";
 					_sessiondata = resolver->ResolveFormID<SessionData>(Data::StaticFormIDs::SessionData);
 					_self = resolver->ResolveFormID<DeltaController>(this->GetFormID());
 					_input = resolver->ResolveFormID<Input>(input);
@@ -3069,6 +3072,7 @@ namespace DeltaDebugging
 				for (size_t i = 0; i < cmpllen; i++)
 					complInp.push_back(Buffer::ReadUInt64(buffer, offset));
 				resolver->AddTask([this, resolver, complInp]() {
+					resolver->current = "DeltaDebugging 2";
 					for (size_t i = 0; i < complInp.size(); i++) {
 						auto ptr = resolver->ResolveFormID<Input>(complInp[i]);
 						if (ptr)
@@ -3149,6 +3153,7 @@ namespace DeltaDebugging
 				for (size_t i = 0; i < waitlen; i++)
 					waitInp.push_back(Buffer::ReadUInt64(buffer, offset));
 				resolver->AddTask([this, resolver, waitInp]() {
+					resolver->current = "DeltaDebugging 3";
 					for (size_t i = 0; i < waitInp.size(); i++) {
 						auto ptr = resolver->ResolveFormID<Input>(waitInp[i]);
 						if (ptr)
@@ -3157,6 +3162,7 @@ namespace DeltaDebugging
 				});
 				// create _inputRanges, _input, and _origInput
 				resolver->AddLateTask([this, resolver]() {
+					resolver->current = "DeltaDebugging Late 1";
 					if (_input && _params->mode == DeltaDebugging::DDMode::ScoreProgress)
 					{
 						_inputRanges = _input->FindIndividualPrimaryScoreRangesWithoutChanges();
@@ -3196,6 +3202,7 @@ namespace DeltaDebugging
 					for (size_t i = 0; i < complementsize; i++)
 						complementids.push_back(Buffer::ReadUInt64(buffer, offset));
 					resolver->AddTask([this, splitids, complementids, resolver]() {
+						resolver->current = "DeltaDebugging 4";
 						for (size_t i = 0; i < splitids.size(); i++)
 						{
 							genCompData.splits.push_back(resolver->ResolveFormID<Input>(splitids[i]));

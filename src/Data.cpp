@@ -1063,6 +1063,7 @@ void LoadResolver::Resolve(uint64_t& progress)
 {
 	StartProfiling;
 	while (!_tasks.empty()) {
+		current = "";
 		TaskDelegate* del;
 		del = _tasks.front();
 		_tasks.pop();
@@ -1077,6 +1078,7 @@ void LoadResolver::ResolveLate(uint64_t& progress)
 {
 	StartProfiling;
 	while (!_latetasks.empty()) {
+		current = "";
 		TaskDelegate* del;
 		del = _latetasks.front();
 		_latetasks.pop();

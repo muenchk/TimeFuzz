@@ -81,6 +81,7 @@ struct SessionStatus
 
 	std::string status;
 	int32_t record;
+	std::string resolver;
 	bool saveload = false;
 	uint64_t saveload_max = 0;
 	uint64_t saveload_current = 0;

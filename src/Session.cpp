@@ -728,6 +728,7 @@ void Session::InitStatus(SessionStatus* status, std::shared_ptr<Settings> sett)
 	status->goverall = -1.f;
 	status->gtime= -1.f;
 	status->gsaveload = -1.f;
+	status->resolver = "";
 }
 
 void Session::GetStatus(SessionStatus& status)
@@ -789,6 +790,7 @@ void Session::GetStatus(SessionStatus& status)
 		status.saveload = data->_actionloadsave;
 		status.status = data->_status;
 		status.record = data->_record;
+		status.resolver = data->_lresolve->current;
 		status.saveload_max = data->_actionloadsave_max;
 		status.saveload_current = data->_actionloadsave_current;
 		status.saveload_record_len = data->_actionrecord_len;

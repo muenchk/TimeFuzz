@@ -856,6 +856,7 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 			FormID grammarid = Buffer::ReadUInt64(buffer, offset);
 			FormID generationid = Buffer::ReadUInt64(buffer, offset);
 			resolver->AddTask([this, resolver, grammarid, generationid]() {
+				resolver->current = "SessionData 1";
 				this->_oracle = resolver->ResolveFormID<Oracle>(Data::StaticFormIDs::Oracle);
 				this->_controller = resolver->ResolveFormID<TaskController>(Data::StaticFormIDs::TaskController);
 				this->_exechandler = resolver->ResolveFormID<ExecutionHandler>(Data::StaticFormIDs::ExecutionHandler);
@@ -919,6 +920,7 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 				negInp[i] = { tmp, Buffer::ReadDouble(buffer, offset) };
 			}
 			resolver->AddLateTask([this, negInp, posInp, resolver]() {
+				resolver->current = "SessionData 1";
 				for (int64_t i = 0; i < (int64_t)negInp.size(); i++) {
 					auto shared = resolver->ResolveFormID<Input>(negInp[i].first);
 					if (shared && shared->derive && shared->test) {
@@ -950,6 +952,7 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 				unfInp[i] = { tmp, Buffer::ReadDouble(buffer, offset) };
 			}
 			resolver->AddLateTask([this, unfInp, resolver]() {
+				resolver->current = "SessionData 2";
 				for (int64_t i = 0; i < (int64_t)unfInp.size(); i++) {
 					auto shared = resolver->ResolveFormID<Input>(unfInp[i].first);
 					if (shared && shared->derive && shared->test) {
@@ -987,6 +990,7 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 			for (int64_t i = 0; i < (int64_t)size; i++)
 				gens.push_back(Buffer::ReadUInt64(buffer, offset));
 			resolver->AddTask([this, gens, resolver]() {
+				resolver->current = "SessionData 3";
 				for (int64_t i = 0; i < (int64_t)gens.size(); i++) {
 					auto shared = resolver->ResolveFormID<Generation>(gens[i]);
 					if (shared)
@@ -1012,6 +1016,7 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 			FormID grammarid = Buffer::ReadUInt64(buffer, offset);
 			FormID generationid = Buffer::ReadUInt64(buffer, offset);
 			resolver->AddTask([this, resolver, grammarid, generationid]() {
+				resolver->current = "SessionData 4";
 				this->_oracle = resolver->ResolveFormID<Oracle>(Data::StaticFormIDs::Oracle);
 				this->_controller = resolver->ResolveFormID<TaskController>(Data::StaticFormIDs::TaskController);
 				this->_exechandler = resolver->ResolveFormID<ExecutionHandler>(Data::StaticFormIDs::ExecutionHandler);

@@ -1072,6 +1072,7 @@ bool ExecutionHandler::ReadData(std::istream* buffer, size_t& offset, size_t len
 			for (int32_t i = 0; i < (int32_t)len; i++)
 				ids.push_back(Buffer::ReadUInt64(buffer, offset));
 			resolver->AddLateTask([this, ids, resolver]() {
+				resolver->current = "ExecutionHandler Late";
 				bool stateerror = false;
 				_sessiondata = resolver->_data->CreateForm<SessionData>();
 				_session = resolver->_data->CreateForm<Session>();

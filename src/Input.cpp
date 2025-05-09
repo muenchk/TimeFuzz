@@ -232,6 +232,7 @@ bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRe
 			if (HasFlag(Form::FormFlags::DoNotFree) && CmdArgs::_clearTasks == false)
 			{
 				resolver->AddLateTask([this, resolver]() {
+					resolver->current = "Input Late";
 					if (GetGenerated() == false || GetSequenceLength() == 0) {
 						SetGenerated(false);
 						// we are trying to add an _input that hasn't been generated or regenerated

@@ -588,34 +588,38 @@ bool Generation::ReadData(std::istream* buffer, size_t& offset, size_t length, L
 		std::vector<FormID> sc;
 		for (int64_t i = 0; i < (int64_t)size; i++)
 			sc.push_back(Buffer::ReadUInt64(buffer, offset));
-		resolver->AddTask([this, genInp, ddInp, ddCon, sc, resolver]() {
-			for (int64_t i = 0; i < (int64_t)genInp.size(); i++)
-			{
-				auto shared = resolver->ResolveFormID<Input>(genInp[i]);
-				if (shared)
-					_generatedInputs.insert_or_assign(shared->GetFormID(), shared);
-			}
-			for (int64_t i = 0; i < (int64_t)ddInp.size(); i++) {
-				auto shared = resolver->ResolveFormID<Input>(ddInp[i]);
-				if (shared)
-					_ddInputs.insert_or_assign(shared->GetFormID(), shared);
-			}
-			for (int64_t i = 0; i < (int64_t)ddCon.size(); i++) {
-				auto shared = resolver->ResolveFormID<DeltaDebugging::DeltaController>(ddCon[i]);
-				if (shared)
-					_ddControllers.insert_or_assign(shared->GetFormID(), shared);
-			}
-			for (int64_t i = 0; i < (int64_t)sc.size(); i++)
-			{
-				auto shared = resolver->ResolveFormID<Input>(sc[i]);
-				if (shared)
-					_sources.push_back(shared);
-			}
-			if (_sources.size() > 0)
-				_sourcesDistr = std::uniform_int_distribution<signed>(0, (uint32_t)_sources.size() - 1);
-			//_sourcesIter = _sources.begin();
-			_sourcesIter = 0;
-		});
+		if (_generationNumber != 0)
+			resolver->AddTask([this, genInp, ddInp, ddCon, sc, resolver]() {
+				resolver->current = "Generation generated " + std::to_string(genInp.size());
+				for (int64_t i = 0; i < (int64_t)genInp.size(); i++) {
+					resolver->current = "Generation generated " + std::to_string(i) + "/" + std::to_string(genInp.size()) + "    " + std::to_string(_generatedInputs.size());
+					auto shared = resolver->ResolveFormID<Input>(genInp[i]);
+					if (shared)
+						_generatedInputs.insert_or_assign(shared->GetFormID(), shared);
+				}
+				resolver->current = "Generation dd " + std::to_string(ddInp.size());
+				for (int64_t i = 0; i < (int64_t)ddInp.size(); i++) {
+					auto shared = resolver->ResolveFormID<Input>(ddInp[i]);
+					if (shared)
+						_ddInputs.insert_or_assign(shared->GetFormID(), shared);
+				}
+				resolver->current = "Generation controllers " + std::to_string(ddCon.size());
+				for (int64_t i = 0; i < (int64_t)ddCon.size(); i++) {
+					auto shared = resolver->ResolveFormID<DeltaDebugging::DeltaController>(ddCon[i]);
+					if (shared)
+						_ddControllers.insert_or_assign(shared->GetFormID(), shared);
+				}
+				resolver->current = "Generation sources " + std::to_string(sc.size());
+				for (int64_t i = 0; i < (int64_t)sc.size(); i++) {
+					auto shared = resolver->ResolveFormID<Input>(sc[i]);
+					if (shared)
+						_sources.push_back(shared);
+				}
+				if (_sources.size() > 0)
+					_sourcesDistr = std::uniform_int_distribution<signed>(0, (uint32_t)_sources.size() - 1);
+				//_sourcesIter = _sources.begin();
+				_sourcesIter = 0;
+			});
 		if (version == 0x2) {
 			_maxDerivedFailingInputs = Buffer::ReadUInt64(buffer, offset);
 			_maxDerivedInputs = Buffer::ReadUInt64(buffer, offset);

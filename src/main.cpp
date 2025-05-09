@@ -131,6 +131,7 @@ std::string Snapshot(bool full)
 		if (status.saveload) {
 			snap << fmt::format("Save / Load Progress:                            {}/{}", status.saveload_current, status.saveload_max) << "\n";
 			snap << fmt::format("Record: {:20}                 {}/{}", FormType::ToString(status.record).c_str(), status.saveload_record_current, status.saveload_record_len) << "\n";
+			snap << fmt::format("Resolver Status: {:20}", status.resolver) << "\n";
 		} else {
 			if (status.goverall >= 0.f) {
 				snap << fmt::format("Progress towards overall generated tests:    {}%", status.goverall * 100) << "\n";
@@ -2705,8 +2706,8 @@ Responsive:
 			int64_t total = 0, current = 0;
 			std::thread th(std::bind(&Session::WriteResults, session, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), CmdArgs::_resultpath, &total, &current);
 
-			while (total != current && total != 0) {
-				std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+			while (total != current || total == 0) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
 				clearScreen();
 				moveTo(1, 1);
 				std::cout << "Writing results:\t" << std::to_string(current) + "/" + std::to_string(total) + "\n";
@@ -2752,8 +2753,8 @@ Responsive:
 			int64_t total = 0, current = 0;
 			std::thread th(std::bind(&Session::WriteResults, session, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), CmdArgs::_resultpath, &total, &current);
 
-			while (total != current && total != 0) {
-				std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+			while (total != current || total == 0) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
 				clearScreen();
 				moveTo(1, 1);
 				std::cout << "Writing results:\t" << std::to_string(current) + "/" + std::to_string(total) + "\n";
@@ -2798,8 +2799,8 @@ Responsive:
 			int64_t total = 0, current = 0;
 			std::thread th(std::bind(&Session::WriteResults, session, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), CmdArgs::_resultpath, &total, &current);
 
-			while (total != current && total != 0) {
-				std::this_thread::sleep_for(std::chrono::milliseconds(50));
+			while (total != current || total == 0) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
 				if (std::chrono::steady_clock::now() - last >= std::chrono::seconds(10)) {
 					last = std::chrono::steady_clock::now();
 					std::cout << "Writing results:\t" << std::to_string(current) + "/" + std::to_string(total) + "\n";

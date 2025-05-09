@@ -142,11 +142,14 @@ private:
 	/// whether session has ended
 	/// </summary>
 	bool _endedSession = false;
+
+public:
 	/// <summary>
 	/// load resolver, used to resolve forms after loading has been completed
 	/// </summary>
 	LoadResolver* _lresolve;
 
+private:
 	/// <summary>
 	/// base form id for dynamic forms
 	/// </summary>
@@ -477,6 +480,10 @@ public:
 	/// ptr to oracle
 	/// </summary>
 	std::shared_ptr<Oracle> _oracle;
+	/// <summary>
+	/// current task if available
+	/// </summary>
+	std::string current = "";
 
 	/// <summary>
 	/// adds task to queue
