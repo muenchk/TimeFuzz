@@ -51,6 +51,7 @@ void Session::LoadSession_Async(Data* dat, std::string name, int32_t number, boo
 	auto session = dat->CreateForm<Session>();
 	session->_self = session;
 	session->_loaded = true;
+	session->SetupResults(CmdArgs::_resultpath);
 	if (args && args->loadNewGrammar)
 	{
 		auto sessdata = dat->CreateForm<SessionData>();
@@ -107,6 +108,7 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, LoadSessionArgs&
 	session->_sessiondata = dat->CreateForm<SessionData>();
 	session->_sessiondata->_settings = sett;
 	session->data = dat;
+	session->SetupResults(CmdArgs::_resultpath);
 	if (loadargs.customsavepath)
 		dat->SetSavePath(loadargs.savepath);
 	else
@@ -262,6 +264,11 @@ std::vector<std::shared_ptr<Input>> Session::GenerateNegatives(int32_t /*negativ
 	return {};
 }
 
+void Session::SetupResults(std::filesystem::path resultpath)
+{
+	Evaluation::GetSingleton()->SetResultPath(resultpath);
+}
+
 void Session::StopSession(bool savesession, bool stopHandler)
 {
 	if (_abort == true)
@@ -358,6 +365,7 @@ void Session::StartLoadedSession(bool& error, bool reloadsettings, std::wstring 
 		error = true;
 		return;
 	}
+	Evaluation::GetSingleton()->SetSession(data->CreateForm<Session>());
 	logmessage("Starting loaded session");
 	// as Session itself is a Form and saved with the rest of the session, all internal variables are already set when we
 	// resume the session, so we only have to set the runtime stuff, and potentially reload the settings and verify the oracle
@@ -453,6 +461,7 @@ void Session::StartSession(bool& error, bool disableexclusiontree, bool globalTa
 	// disable exclusion tree if set
 	if (disableexclusiontree)
 		_sessiondata->_settings->runtime.enableExclusionTree = false;
+	SetupResults(CmdArgs::_resultpath);
 	// start session
 	StartSessionIntern(error);
 }
@@ -461,6 +470,7 @@ void Session::StartSessionIntern(bool &error)
 {
 	try {
 		StartProfiling;
+		Evaluation::GetSingleton()->SetSession(data->CreateForm<Session>());
 		// populate the oracle
 		if (_sessiondata->_settings->oracle.oracle == Oracle::PUTType::Undefined) {
 			logcritical("The oracle type could not be identified");

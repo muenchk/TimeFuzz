@@ -249,6 +249,10 @@ public:
 		_endedSession = true;
 		_runtime += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - _sessionBegin);
 	}
+	void StopClock()
+	{
+		_runtime += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - _sessionBegin);
+	}
 	/// <summary>
 	/// Returns the overall session runtime
 	/// </summary>

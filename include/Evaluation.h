@@ -11,13 +11,10 @@ class Session;
 class SessionData;
 class Data;
 
-class File
+namespace DeltaDebugging
 {
-public:
-	std::string filename = "";
-	std::string path = "";
-	std::string content = "";
-};
+	class DeltaController;
+}
 
 class Evaluation
 {
@@ -45,8 +42,27 @@ private:
 
 public:
 	Evaluation(std::shared_ptr<Session> session,std::filesystem::path resultpath);
+	Evaluation() {}
 
 	void Evaluate(int64_t& total, int64_t& current);
+	void Evaluate(std::shared_ptr<Generation> generation);
+	void Evaluate(std::shared_ptr<DeltaDebugging::DeltaController> ddcontroller);
+	void EvaluateTopK();
+	void EvaluatePositive();
+	void EvaluateGeneral();
 
+	static Evaluation* GetSingleton();
+
+	void SetSession(std::shared_ptr<Session> session)
+	{
+		_session = session;
+		_sessiondata = session->_sessiondata;
+		_data = _sessiondata->data;
+	}
+
+	void SetResultPath(std::filesystem::path resultpath)
+	{
+		_resultpath = resultpath;
+	}
 
 };

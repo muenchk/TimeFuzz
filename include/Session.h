@@ -169,6 +169,8 @@ public:
 	/// <param name="returnpositives">returns the generated positives as well as the negatives</param>
 	std::vector<std::shared_ptr<Input>> GenerateNegatives(int32_t negatives, bool& error, int32_t maxiterations = 0, int32_t timeout = 0, bool returnpositives = false);
 
+	void SetupResults(std::filesystem::path resultpath);
+
 	/// <summary>
 	/// stops the ongoing session.
 	/// </summary>

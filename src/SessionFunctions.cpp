@@ -8,6 +8,7 @@
 #include "Processes.h"
 #include "DeltaDebugging.h"
 #include "Form.h"
+#include "Evaluation.h"
 
 #include <mutex>
 #include <boost/circular_buffer.hpp>
@@ -1277,6 +1278,21 @@ namespace Functions
 			if (_sessiondata->GetCurrentGeneration()->IsDeltaDebuggingActive() == false && 
 				_sessiondata->_generationFinishing.compare_exchange_strong(exp, true) /*if there are multiple callbacks for the same generation, make sure that only one gets executed, i.e. the fastest*/) {
 				WaitForGen(generation, _sessiondata, std::chrono::milliseconds(10000));
+				generation->SetEndTime(_sessiondata->data->GetRuntime());
+				if (CmdArgs::_results) {
+					_sessiondata->data->StopClock();
+					auto eval = Evaluation::GetSingleton();
+					eval->EvaluateGeneral();
+					eval->Evaluate(generation);
+					std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> controllers;
+					generation->GetDDControllers(controllers);
+					for (auto dd : controllers) {
+						eval->Evaluate(dd);
+					}
+					eval->EvaluateTopK();
+					eval->EvaluatePositive();
+					_sessiondata->data->StartClock();
+				}
 				if (SessionFunctions::EndCheck(_sessiondata, true)) {
 					// we are ending the session, so the callback is gonna be saved and we don't need to do anything else
 					return;

@@ -22,6 +22,12 @@ Evaluation::Evaluation(std::shared_ptr<Session> session, std::filesystem::path r
 	_resultpath = resultpath;
 }
 
+Evaluation* Evaluation::GetSingleton()
+{
+	static Evaluation object;
+	return std::addressof(object);
+}
+
 void InputVisitor(std::shared_ptr<Input>)
 {
 
@@ -600,4 +606,447 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 
 	if (reg)
 		Lua::UnregisterThread();
+}
+
+
+void Evaluation::Evaluate(std::shared_ptr<Generation> generation)
+{
+	bool reg = Lua::RegisterThread(_sessiondata);
+	std::string header;
+	std::string avline;
+	static std::string lines;
+	header = "ID;Generation Number;Generation Size;DD Size;Number of DD;Runtime;Tests per Minute;Average Test Execution Time;Average DD Runtime;Total primary score increase;Total secondary increase\n";
+	int64_t gennumber = 0, gensize = 0, ddsize = 0, numberofdd = 0;
+	static int64_t avgensize = 0, avddsize = 0, avnumberofdd = 0;
+	double testsperminute = 0.f, totalprimaryscoreinc = 0.f, totalsecondaryscoreinc = 0.f;
+	static double avtestsperminute = 0.f, avtotalprimaryscoreinc = 0.f, avtotalsecondaryscoreinc = 0.f;
+	std::chrono::nanoseconds averageddruntime, averagetestexectime, runtime;
+	static std::chrono::nanoseconds avaverageddruntime, avaveragetestexectime, avruntime;
+	if (generation->GetGenerationNumber() == 0)
+		return;
+
+	std::string inputHeader = "ID;Parent ID;Generation ID;Derived Inputs;Derived Fails;Flags;Generation Time;Generation Length;Trimmed Length;Execution Time;Primary Score;Relative Primary Score;Secondary Score;Relative Secondary Score;Exit Code;Exit Reason;Result;Individual Primary;Individual Secondary;Retries\n";
+	auto printInput = [](std::shared_ptr<Input> input) {
+		std::string str = "";
+		// ID
+		str += Utility::GetHex(input->GetFormID());
+		// Parent ID
+		str += ";" + Utility::GetHex(input->GetParentID());
+		// Generation ID
+		str += ";" + Utility::GetHex(input->GetGenerationID());
+		// Derived Inputs
+		str += ";" + std::to_string(input->GetDerivedInputs());
+		// Derived Fails
+		str += ";" + std::to_string(input->GetDerivedFails());
+		// Flags
+		str += ";" + Utility::GetHexFill(input->GetFlags());
+		// Generation Time
+		str += ";" + Logging::FormatTimeNS(input->GetGenerationTime().count());
+		// Generation Length
+		str += ";" + std::to_string(input->GetTargetLength());
+		// Trimmed Length
+		str += ";" + std::to_string(input->GetTrimmedLength());
+		// Execution Time
+		str += ";" + Logging::FormatTimeNS(input->GetExecutionTime().count());
+		// Primary Score
+		str += ";" + std::to_string(input->GetPrimaryScore());
+		// Relative Primary Score
+		int64_t lng = input->GetTrimmedLength();
+		if (lng == -1)
+			lng = input->GetTargetLength();
+		str += ";" + std::to_string(lng / input->GetPrimaryScore());
+		// Secondary Score
+		str += ";" + std::to_string(input->GetSecondaryScore());
+		// Relative Secondary Score
+		str += ";" + std::to_string(lng / input->GetSecondaryScore());
+		// Exit code
+		str += ";" + std::to_string(input->GetExitCode());
+		// Exit reason
+		if (input->test)
+			str += ";" + Utility::GetHex(input->test->_exitreason);
+		else
+			str += ";";
+		// Result
+		if (input->GetOracleResult() == OracleResult::Failing)
+			str += ";Failing";
+		else if (input->GetOracleResult() == OracleResult::Passing)
+			str += ";Passing";
+		else if (input->GetOracleResult() == OracleResult::Running)
+			str += ";Running";
+		else
+			str += ";Unfinished";
+		str += ";";
+		// Individual Primary
+		if (input->GetIndividualPrimaryScoresLength() > 0) {
+			str += std::to_string(input->GetIndividualPrimaryScore(0));
+			for (long c = 1; c < (long)input->GetIndividualPrimaryScoresLength(); c++) {
+				str += "," + std::to_string(input->GetIndividualPrimaryScore(c));
+			}
+		}
+		str += ";";
+		// Individual Secondary
+		if (input->GetIndividualSecondaryScoresLength() > 0) {
+			str += std::to_string(input->GetIndividualSecondaryScore(0));
+			for (long c = 1; c < (long)input->GetIndividualSecondaryScoresLength(); c++) {
+				str += "," + std::to_string(input->GetIndividualSecondaryScore(c));
+			}
+		}
+		str += ";";
+		// Retries
+		str += std::to_string(input->GetRetries());
+
+		return str;
+	};
+
+	std::string line = "";
+
+	gennumber = generation->GetGenerationNumber();
+	gensize = generation->GetTrueGeneratedSize();
+	avgensize += generation->GetTrueGeneratedSize();
+	ddsize = generation->GetDDSize();
+	avddsize += generation->GetDDSize();
+	numberofdd = generation->GetNumberOfDDControllers();
+	avnumberofdd += generation->GetNumberOfDDControllers();
+	testsperminute = ((double)(gensize + ddsize) / (generation->GetRunTime().count() / 1000000000)) * 60;
+	//testsperminute = (double)(gensize + ddsize) / std::chrono::duration_cast<std::chrono::seconds>(generation->GetRunTime()).count()* 60;
+	avtestsperminute += ((double)(gensize + ddsize) / (generation->GetRunTime().count() / 1000000000)) * 60;
+	//avtestsperminute += (double)(gensize + ddsize) / std::chrono::duration_cast<std::chrono::seconds>(generation->GetRunTime()).count() *60;
+	totalprimaryscoreinc = 0.f;
+	totalsecondaryscoreinc = 0.f;
+	auto sources = generation->GetSources();
+	for (int c = 0; c < (int)sources.size(); c++) {
+		if (totalprimaryscoreinc < sources[c]->GetPrimaryScore())
+			totalprimaryscoreinc = sources[c]->GetPrimaryScore();
+		if (totalsecondaryscoreinc < sources[c]->GetSecondaryScore())
+			totalsecondaryscoreinc = sources[c]->GetSecondaryScore();
+	}
+	avtotalprimaryscoreinc += totalprimaryscoreinc;
+	avtotalsecondaryscoreinc += totalsecondaryscoreinc;
+	std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> ddcontrollers;
+	averageddruntime = std::chrono::nanoseconds(0);
+	generation->GetDDControllers(ddcontrollers);
+	for (int c = 0; c < (int)ddcontrollers.size(); c++)
+		averageddruntime += ddcontrollers[c]->GetRunTime();
+	if (ddcontrollers.size() > 0)
+		averageddruntime = averageddruntime / ddcontrollers.size();
+	avaverageddruntime = averageddruntime;
+	averagetestexectime = std::chrono::nanoseconds(0);
+	auto inputVisitor = [&averagetestexectime](std::shared_ptr<Input> form) {
+		averagetestexectime = averagetestexectime + form->GetExecutionTime();
+		return false;
+	};
+	generation->VisitGeneratedInputs(inputVisitor);
+	generation->VisitDDInputs(inputVisitor);
+	if (gensize + ddsize > 0)
+		averagetestexectime = averagetestexectime / (gensize + ddsize);
+	avaveragetestexectime += averagetestexectime;
+	runtime = generation->GetRunTime();
+	avruntime += runtime;
+
+	line += std::to_string(gennumber) + ";" + Utility::GetHex(generation->GetFormID()) + ";" + std::to_string(gensize) + ";" + std::to_string(ddsize) + ";" + std::to_string(numberofdd) + ";" + Logging::FormatTimeNS(runtime.count()) + ";" + std::to_string(testsperminute) + ";" + Logging::FormatTimeNS(averagetestexectime.count()) + ";" + Logging::FormatTimeNS(averageddruntime.count()) + ";" + std::to_string(totalprimaryscoreinc) + ";" + std::to_string(totalsecondaryscoreinc) + "\n";
+	lines += line;
+
+	std::string inputs;
+	inputs += inputHeader;
+
+	switch (_sessiondata->_settings->generation.sourcesType) {
+	case Settings::GenerationSourcesType::FilterLength:
+		{
+			std::set<std::shared_ptr<Input>, InputLengthGreater> inps;
+			generation->GetAllInputs(inps, false, true, 0, 0);
+			auto itr = inps.begin();
+			while (itr != inps.end()) {
+				inputs += printInput(*itr) + "\n";
+				itr++;
+			}
+		}
+		break;
+	case Settings::GenerationSourcesType::FilterPrimaryScoreRelative:
+		{
+			std::set<std::shared_ptr<Input>, InputGainGreaterPrimary> inps;
+			generation->GetAllInputs(inps, false, true, 0, 0);
+			auto itr = inps.begin();
+			while (itr != inps.end()) {
+				inputs += printInput(*itr) + "\n";
+				itr++;
+			}
+		}
+		break;
+	case Settings::GenerationSourcesType::FilterPrimaryScore:
+		{
+			std::set<std::shared_ptr<Input>, InputGreaterPrimary> inps;
+			generation->GetAllInputs(inps, false, true, 0, 0);
+			auto itr = inps.begin();
+			while (itr != inps.end()) {
+				inputs += printInput(*itr) + "\n";
+				itr++;
+			}
+		}
+		break;
+	case Settings::GenerationSourcesType::FilterSecondaryScoreRelative:
+		{
+			std::set<std::shared_ptr<Input>, InputGainGreaterSecondary> inps;
+			generation->GetAllInputs(inps, false, true, 0, 0);
+			auto itr = inps.begin();
+			while (itr != inps.end()) {
+				inputs += printInput(*itr) + "\n";
+				itr++;
+			}
+		}
+		break;
+	case Settings::GenerationSourcesType::FilterSecondaryScore:
+		{
+			std::set<std::shared_ptr<Input>, InputGreaterSecondary> inps;
+			generation->GetAllInputs(inps, false, true, 0, 0);
+			auto itr = inps.begin();
+			while (itr != inps.end()) {
+				inputs += printInput(*itr) + "\n";
+				itr++;
+			}
+		}
+		break;
+	}
+
+	WriteFile("Generation_" + std::to_string(generation->GetGenerationNumber()) + ".csv", "", inputs);
+	int64_t num = _sessiondata->GetCurrentGeneration()->GetGenerationNumber();
+	avline = "NONE;NONE;" + std::to_string(avgensize / num) + ";" + std::to_string(avddsize / num) + ";" + std::to_string(avnumberofdd / num) + ";" + Logging::FormatTimeNS(avruntime.count() / num) + ";" + std::to_string(avtestsperminute / num) + ";" + Logging::FormatTimeNS(avaveragetestexectime.count() / num) + ";" + Logging::FormatTimeNS(avaverageddruntime.count() / num) + ";" + std::to_string(avtotalprimaryscoreinc / num) + ";" + std::to_string(avtotalsecondaryscoreinc / num) + "\n";
+
+	WriteFile("Generations_Average.csv", "", header + avline);
+	WriteFile("Generations.csv", "", header + lines);
+	if (reg)
+		Lua::UnregisterThread();
+}
+void Evaluation::Evaluate(std::shared_ptr<DeltaDebugging::DeltaController> ddcontroller)
+{
+	bool reg = Lua::RegisterThread(_sessiondata);
+	std::string ddheader;
+	static std::string lines;
+	auto dds = _data->GetFormArray<DeltaDebugging::DeltaController>();
+
+	ddheader = "ID;TotalTests;Skipped;Prefix;Approx;BatchCount;Level;Total Reduction %: Length;Total Reduction %: Primary;Total Reduction %: Secondary;Runtime;Average Test Runtime\n";
+	std::string ddheaderind = "ID;TotalTests;Skipped;Prefix;Approx;BatchCount;Level;Original: Length;Reduced: Length;Total Reduction %: Length;Original: Primary;Reduced: Primary;Total Reduction %: Primary;Original: Secondary;Reduced: Secondary;Total Reduction %: Secondary;Runtime;Average Test Runtime\n";
+	int64_t size = 0, skipped = 0, prefix = 0, approx = 0, reducsteps = 0, avsizereducperstep = 0, batchcount = 0, totaltests = 0, level = 0;
+	static int64_t size_av = 0, skipped_av = 0, prefix_av = 0, approx_av = 0, reducsteps_av = 0, avsizereducperstep_av = 0, batchcount_av = 0, totaltests_av = 0, level_av = 0;
+	static int64_t size_to = 0, skipped_to = 0, prefix_to = 0, approx_to = 0, reducsteps_to = 0, avsizereducperstep_to = 0, batchcount_to = 0, totaltests_to = 0, level_to = 0;
+
+	double relativereduction_l = 0.f, relativereduction_p = 0.f, relativereduction_s = 0.f;
+	static double relativereduction_l_av = 0.f, relativereduction_p_av = 0.f, relativereduction_s_av = 0.f;
+	static double relativereduction_l_to = 0.f, relativereduction_p_to = 0.f, relativereduction_s_to = 0.f;
+	double orig_l = 0.f, new_l = 0.f;
+	double orig_p = 0.f, new_p = 0.f;
+	double orig_s = 0.f, new_s = 0.f;
+
+	std::chrono::nanoseconds runtime = std::chrono::nanoseconds(0), avtestruntime = std::chrono::nanoseconds(0);
+	static std::chrono::nanoseconds runtime_av = std::chrono::nanoseconds(0), avtestruntime_av = std::chrono::nanoseconds(0);
+	static std::chrono::nanoseconds runtime_to = std::chrono::nanoseconds(0), avtestruntime_to = std::chrono::nanoseconds(0);
+
+	std::string line = "";
+	size = ddcontroller->GetTestsTotal();
+	size_av += ddcontroller->GetTestsTotal();
+	size_to += ddcontroller->GetTestsTotal();
+	totaltests = ddcontroller->GetTestsTotal();
+	totaltests_av += ddcontroller->GetTestsTotal();
+	totaltests_to += ddcontroller->GetTestsTotal();
+	skipped = ddcontroller->GetSkippedTests();
+	skipped_av += ddcontroller->GetSkippedTests();
+	skipped_to += ddcontroller->GetSkippedTests();
+	prefix = ddcontroller->GetPrefixTests();
+	prefix_av += ddcontroller->GetPrefixTests();
+	prefix_to += ddcontroller->GetPrefixTests();
+	approx = ddcontroller->GetApproxTests();
+	approx_av += ddcontroller->GetApproxTests();
+	approx_to += ddcontroller->GetApproxTests();
+	batchcount = ddcontroller->GetBatchIdent();
+	batchcount_av += ddcontroller->GetBatchIdent();
+	batchcount_to += ddcontroller->GetBatchIdent();
+	level = ddcontroller->GetLevel();
+	level_av += ddcontroller->GetLevel();
+	level_to += ddcontroller->GetLevel();
+	orig_l = (double)ddcontroller->GetOriginalInput()->EffectiveLength();
+	new_l = (double)ddcontroller->GetInput()->EffectiveLength();
+	relativereduction_l = (double)ddcontroller->GetInput()->EffectiveLength() / (double)ddcontroller->GetOriginalInput()->EffectiveLength() * 100;
+	relativereduction_l_av += (double)ddcontroller->GetInput()->EffectiveLength() / (double)ddcontroller->GetOriginalInput()->EffectiveLength() * 100;
+	relativereduction_l_to += (double)ddcontroller->GetInput()->EffectiveLength() / (double)ddcontroller->GetOriginalInput()->EffectiveLength() * 100;
+	orig_p = ddcontroller->GetInput()->GetPrimaryScore();
+	new_p = ddcontroller->GetInput()->GetPrimaryScore();
+	relativereduction_p = ddcontroller->GetInput()->GetPrimaryScore() / ddcontroller->GetOriginalInput()->GetPrimaryScore() * 100;
+	relativereduction_p_av += ddcontroller->GetInput()->GetPrimaryScore() / ddcontroller->GetOriginalInput()->GetPrimaryScore() * 100;
+	relativereduction_p_to += ddcontroller->GetInput()->GetPrimaryScore() / ddcontroller->GetOriginalInput()->GetPrimaryScore() * 100;
+	orig_s = ddcontroller->GetInput()->GetSecondaryScore();
+	new_s = ddcontroller->GetInput()->GetSecondaryScore();
+	relativereduction_s = ddcontroller->GetInput()->GetSecondaryScore() / ddcontroller->GetOriginalInput()->GetSecondaryScore() * 100;
+	relativereduction_s_av += ddcontroller->GetInput()->GetSecondaryScore() / ddcontroller->GetOriginalInput()->GetSecondaryScore() * 100;
+	relativereduction_s_to += ddcontroller->GetInput()->GetSecondaryScore() / ddcontroller->GetOriginalInput()->GetSecondaryScore() * 100;
+	runtime = ddcontroller->GetRunTime();
+	runtime_av += ddcontroller->GetRunTime();
+	runtime_to += ddcontroller->GetRunTime();
+	avtestruntime = std::chrono::nanoseconds(0);
+	auto inputVisitor = [&avtestruntime](std::shared_ptr<Input> form) {
+		avtestruntime = avtestruntime + form->GetExecutionTime();
+		return false;
+	};
+	if (totaltests > 0)
+		avtestruntime = avtestruntime / totaltests;
+	for (auto [inp, _] : *(ddcontroller->GetResults())) {
+		inputVisitor(inp);
+	}
+	avtestruntime_av += avtestruntime;
+	avtestruntime_to += avtestruntime;
+
+	line = Utility::GetHex(ddcontroller->GetFormID()) + ";" + std::to_string(totaltests) + ";" + std::to_string(skipped) + ";" + std::to_string(prefix) + ";" + std::to_string(approx) + ";" + std::to_string(batchcount) + ";" + std::to_string(level) + ";" + std::to_string(orig_l) + ";" + std::to_string(new_l) + ";" + std::to_string(relativereduction_l) + ";" + std::to_string(orig_p) + ";" + std::to_string(new_p) + ";" + std::to_string(relativereduction_p) + ";" + std::to_string(orig_s) + ";" + std::to_string(new_s) + ";" + std::to_string(relativereduction_s) + ";" + Logging::FormatTimeNS(runtime.count()) + ";" + Logging::FormatTimeNS(avtestruntime.count()) + "\n";
+	lines += line;
+
+	std::string avline = "-;" + std::to_string(totaltests_av / dds.size()) + ";" + std::to_string(skipped_av / dds.size()) + ";" + std::to_string(prefix_av / dds.size()) + ";" + std::to_string(approx_av / dds.size()) + ";" + std::to_string(batchcount_av / dds.size()) + ";" + std::to_string(level_av / dds.size()) + ";" + std::to_string(relativereduction_l_av / dds.size()) + ";" + std::to_string(relativereduction_p_av / dds.size()) + ";" + std::to_string(relativereduction_s_av / dds.size()) + ";" + Logging::FormatTimeNS(runtime_av.count() / dds.size()) + ";" + Logging::FormatTimeNS(avtestruntime_av.count() / dds.size()) + "\n";
+	;
+	std::string toline = "-;" + std::to_string(totaltests_to) + ";" + std::to_string(skipped_to) + ";" + std::to_string(prefix_to) + ";" + std::to_string(approx_to) + ";" + std::to_string(batchcount_to) + ";" + std::to_string(level_to) + ";" + std::to_string(relativereduction_l_to) + ";" + std::to_string(relativereduction_p_to) + ";" + std::to_string(relativereduction_s_to) + ";" + Logging::FormatTimeNS(runtime_to.count()) + ";" + Logging::FormatTimeNS(avtestruntime_to.count()) + "\n";
+
+	WriteFile("DeltaDebugging_AV+TO.csv", "", ddheader + avline + toline);
+	WriteFile("DeltaDebugging.csv", "", ddheaderind + lines);
+
+	if (reg)
+		Lua::UnregisterThread();
+}
+void Evaluation::EvaluateTopK()
+{
+	bool reg = Lua::RegisterThread(_sessiondata);
+
+	auto topk_p = _sessiondata->GetTopK(INT_MAX);
+	auto topk_l = _sessiondata->GetTopK_Length(INT_MAX);
+	auto topk_s = _sessiondata->GetTopK_Secondary(INT_MAX);
+	std::string scriptargs;
+	std::string cmdargs;
+	std::string dump;
+	std::string content;
+
+	std::string lines_topk_p;
+	std::string lines_topk_l;
+	std::string lines_topk_s;
+	std::string positive;
+
+	std::string inputHeader = "ID;Parent ID;Generation ID;Derived Inputs;Derived Fails;Flags;Generation Time;Generation Length;Trimmed Length;Execution Time;Primary Score;Relative Primary Score;Secondary Score;Relative Secondary Score;Exit Code;Exit Reason;Result;Individual Primary;Individual Secondary;Retries\n";
+
+	// topK primary
+	std::filesystem::remove_all(_resultpath / "topk_primary");
+	for (int64_t i = 0; i < (int64_t)topk_p.size(); i++) {
+		PrintInput(topk_p[i], content, scriptargs, cmdargs, dump);
+		lines_topk_p += content + "\n";
+		WriteFile(Utility::GetHex(topk_p[i]->GetFormID()) + ".scriptargs.txt", "topk_primary", scriptargs);
+		WriteFile(Utility::GetHex(topk_p[i]->GetFormID()) + ".cmdargs.txt", "topk_primary", cmdargs);
+		WriteFile(Utility::GetHex(topk_p[i]->GetFormID()) + ".dump.txt", "topk_primary", dump);
+	}
+	WriteFile("topk_primary.csv", "", inputHeader + lines_topk_p);
+	// topK length
+	std::filesystem::remove_all(_resultpath / "topk_length");
+	for (int64_t i = 0; i < (int64_t)topk_l.size(); i++) {
+		PrintInput(topk_l[i], content, scriptargs, cmdargs, dump);
+		lines_topk_l += content + "\n";
+		WriteFile(Utility::GetHex(topk_l[i]->GetFormID()) + ".scriptargs.txt", "topk_length", scriptargs);
+		WriteFile(Utility::GetHex(topk_l[i]->GetFormID()) + ".cmdargs.txt", "topk_length", cmdargs);
+		WriteFile(Utility::GetHex(topk_l[i]->GetFormID()) + ".dump.txt", "topk_length", dump);
+	}
+	WriteFile("topk_length.csv", "", inputHeader + lines_topk_l);
+	// topk secondary
+	std::filesystem::remove_all(_resultpath / "topk_secondary");
+	for (int64_t i = 0; i < (int64_t)topk_s.size(); i++) {
+		PrintInput(topk_s[i], content, scriptargs, cmdargs, dump);
+		lines_topk_s += content + "\n";
+		WriteFile(Utility::GetHex(topk_s[i]->GetFormID()) + ".scriptargs.txt", "topk_secondary", scriptargs);
+		WriteFile(Utility::GetHex(topk_s[i]->GetFormID()) + ".cmdargs.txt", "topk_secondary", cmdargs);
+		WriteFile(Utility::GetHex(topk_s[i]->GetFormID()) + ".dump.txt", "topk_secondary", dump);
+	}
+	WriteFile("topk_secondary.csv", "", inputHeader + lines_topk_s);
+	if (reg)
+		Lua::UnregisterThread();
+}
+void Evaluation::EvaluatePositive()
+{
+	bool reg = Lua::RegisterThread(_sessiondata);
+
+	std::vector<std::shared_ptr<Input>> pos_inputs;
+	_sessiondata->GetPositiveInputs(0, pos_inputs);
+	std::string scriptargs;
+	std::string cmdargs;
+	std::string dump;
+	std::string content;
+
+	std::string lines_topk_p;
+	std::string lines_topk_l;
+	std::string lines_topk_s;
+	std::string positive;
+
+	std::string inputHeader = "ID;Parent ID;Generation ID;Derived Inputs;Derived Fails;Flags;Generation Time;Generation Length;Trimmed Length;Execution Time;Primary Score;Relative Primary Score;Secondary Score;Relative Secondary Score;Exit Code;Exit Reason;Result;Individual Primary;Individual Secondary;Retries\n";
+
+	// positive
+	std::filesystem::remove_all(_resultpath / "positive");
+	for (int64_t i = 0; i < (int64_t)pos_inputs.size(); i++) {
+		if (std::filesystem::exists(_resultpath / "positive" / (Utility::GetHex(pos_inputs[i]->GetFormID()) + ".scriptargs.txt")))
+			continue;
+		PrintInput(pos_inputs[i], content, scriptargs, cmdargs, dump);
+		positive += content + "\n";
+		WriteFile(Utility::GetHex(pos_inputs[i]->GetFormID()) + ".scriptargs.txt", "positive", scriptargs);
+		WriteFile(Utility::GetHex(pos_inputs[i]->GetFormID()) + ".cmdargs.txt", "positive", cmdargs);
+		WriteFile(Utility::GetHex(pos_inputs[i]->GetFormID()) + ".dump.txt", "positive", dump);
+	}
+	WriteFile("positive.csv", "", inputHeader + positive);
+	if (reg)
+		Lua::UnregisterThread();
+}
+void Evaluation::EvaluateGeneral()
+{
+	auto generations = _data->GetFormArray<Generation>();
+	auto dds = _data->GetFormArray<DeltaDebugging::DeltaController>();
+	// ### General
+	{
+		std::string header;
+		std::string line;
+		// number of gens
+		header += "Number of Generations;";
+		line += std::to_string(generations.size()) + ";";
+		// Number of DDs
+		header += "Number of DeltaDebugging";
+		line += std::to_string(dds.size());
+		// Number of generated Tests
+		header += ";Generated Tests";
+		int64_t generated = std::accumulate(generations.begin(), generations.end(), (int64_t)0, [](int64_t init, std::shared_ptr<Generation> gen) {
+			return init += gen->GetTrueGeneratedSize();
+		});
+		line += ";" + std::to_string(generated);
+		// Number of delta debugging tests
+		header += ";DD Tests";
+		line += ";" + std::to_string(SessionStatistics::TestsExecuted(_sessiondata) - generated);
+		// Number of prefix excluded Tests
+		header += ";Prefix Excluded Tests";
+		line += ";" + std::to_string(_sessiondata->GetGeneratedPrefix());
+		// Number of approximation excluded Tests
+		header += ";Approximation Excluded Tests";
+		line += ";" + std::to_string(_sessiondata->GetExcludedApproximation());
+		// total tests
+		header += ";Total Tests";
+		line += ";" + std::to_string(SessionStatistics::TestsExecuted(_sessiondata));
+		// failed tests
+		header += ";Negative Tests";
+		line += ";" + std::to_string(SessionStatistics::NegativeTestsGenerated(_sessiondata));
+		// positive tests
+		header += ";Positive Tests";
+		line += ";" + std::to_string(SessionStatistics::PositiveTestsGenerated(_sessiondata));
+		// unfinished tests
+		header += ";Unfinished Tests";
+		line += ";" + std::to_string(SessionStatistics::UnfinishedTestsGenerated(_sessiondata));
+		// undefined tests
+		header += ";Undefined Tests";
+		line += ";" + std::to_string(SessionStatistics::UndefinedTestsGenerated(_sessiondata));
+		// runtime
+		header += ";Runtime";
+		line += ";" + Logging::FormatTimeNS(SessionStatistics::Runtime(_sessiondata).count());
+		// average tests per minute
+		header += ";Average Tests per Minute";
+		line += ";" + std::to_string(((double)SessionStatistics::TestsExecuted(_sessiondata) / (SessionStatistics::Runtime(_sessiondata).count() / 1000000000)) * 60);
+
+		// test exit stats
+		auto stats = _sessiondata->GetTestExitStats();
+		header += ";Natural Exit;LastInput Exit;Terminated Exit;Timeout Exit;FragmentTimeout Exit;Memory Exit;Pipe Exit;InitError Exit;Repeat Exit";
+		line += ";" + std::to_string(stats.natural) + ";" + std::to_string(stats.lastinput) + ";" + std::to_string(stats.terminated) + ";" + std::to_string(stats.timeout) + ";" + std::to_string(stats.fragmenttimeout) + ";" + std::to_string(stats.memory) + ";" + std::to_string(stats.pipe) + ";" + std::to_string(stats.initerror) + ";" + std::to_string(stats.repeat);
+
+		WriteFile("General.csv", "", header + "\n" + line + "\n");
+	}
 }
