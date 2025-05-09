@@ -798,6 +798,7 @@ int32_t main(int32_t argc, char** argv)
 		"    --clear-tasks                        - clears all tasks and active tests from the session\n"
 		"    --save-status <time/sec> <FOLDER>    - saves the current status every x seconds\n"
 		"	 --results							  - writes results after session has ended"
+		"	 --disable-logging					  - disables all logging"
 		"    --savepath <FOLDER>                  - custom path to savefiles\n";
 
 	std::string logpath = "";
@@ -836,6 +837,9 @@ int32_t main(int32_t argc, char** argv)
 		} else if (option.find("--clear-tasks") != std::string::npos) {
 			std::cout << "Parameter: --clear-tasks\n";
 			CmdArgs::_clearTasks = true;
+		} else if (option.find("--disable-logging") != std::string::npos) {
+			std::cout << "Parameter: --disable-logging\n";
+			CmdArgs::_disablelogging = true;
 		} else if (option.find("--no-exclusiontree") != std::string::npos) {
 			std::cout << "Parameter: --no-exclusiontree\n";
 			CmdArgs::_doNotLoadExclusionTree = true;
@@ -1131,6 +1135,12 @@ int32_t main(int32_t argc, char** argv)
 
 	// set debugging
 	Logging::EnableDebug = CmdArgs::_debug;
+	if (CmdArgs::_disablelogging)
+	{
+		Logging::EnableLog = false;
+		Logging::EnableProfile = false;
+		Logging::EnableDebug = false;
+	}
 
 	std::cout << "EnableDebug:    " << std::to_string(Logging::EnableDebug) << "\n";
 	std::cout << "CmdArgs::debug: " << std::to_string(CmdArgs::_debug) << "\n";

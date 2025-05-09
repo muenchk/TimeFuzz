@@ -116,6 +116,8 @@ std::string Evaluation::PrintInput(std::shared_ptr<Input> input, std::string& st
 		dump = "";
 	}
 	input->FreeMemory();
+	if (input->derive)
+		input->derive->FreeMemory();
 	return str;
 }
 
