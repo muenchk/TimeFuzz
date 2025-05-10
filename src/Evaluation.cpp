@@ -311,8 +311,6 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 		for (int i = 0; i < (int)generations.size(); i++)
 		{
 			current++;
-			if (generations[i]->GetGenerationNumber() == 0)
-				continue;
 
 			std::string line = "";
 
@@ -622,8 +620,6 @@ void Evaluation::Evaluate(std::shared_ptr<Generation> generation)
 	static double avtestsperminute = 0.f, avtotalprimaryscoreinc = 0.f, avtotalsecondaryscoreinc = 0.f;
 	std::chrono::nanoseconds averageddruntime, averagetestexectime, runtime;
 	static std::chrono::nanoseconds avaverageddruntime, avaveragetestexectime, avruntime;
-	if (generation->GetGenerationNumber() == 0)
-		return;
 
 	std::string inputHeader = "ID;Parent ID;Generation ID;Derived Inputs;Derived Fails;Flags;Generation Time;Generation Length;Trimmed Length;Execution Time;Primary Score;Relative Primary Score;Secondary Score;Relative Secondary Score;Exit Code;Exit Reason;Result;Individual Primary;Individual Secondary;Retries\n";
 	auto printInput = [](std::shared_ptr<Input> input) {

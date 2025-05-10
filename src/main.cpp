@@ -2638,7 +2638,7 @@ int32_t main(int32_t argc, char** argv)
 		glfwDestroyWindow(window);
 		glfwTerminate();
 
-		if (CmdArgs::_printresults)
+		if (CmdArgs::_results)
 		{
 			int64_t total = 0, current = 0;
 			session->WriteResults(CmdArgs::_resultpath, &total, &current);
@@ -2713,7 +2713,7 @@ Responsive:
 		if (failedLoad)
 			exit(0);
 
-		if (CmdArgs::_printresults) {
+		if (CmdArgs::_results) {
 			int64_t total = 0, current = 0;
 			std::thread th(std::bind(&Session::WriteResults, session, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), CmdArgs::_resultpath, &total, &current);
 
@@ -2760,7 +2760,7 @@ Responsive:
 			exit(0);
 		std::cout << Snapshot(true);
 
-		if (CmdArgs::_printresults) {
+		if (CmdArgs::_results) {
 			int64_t total = 0, current = 0;
 			std::thread th(std::bind(&Session::WriteResults, session, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), CmdArgs::_resultpath, &total, &current);
 
@@ -2806,7 +2806,7 @@ Responsive:
 			exit(0);
 
 		std::cout << Snapshot(true);
-		if (CmdArgs::_printresults) {
+		if (CmdArgs::_results) {
 			int64_t total = 0, current = 0;
 			std::thread th(std::bind(&Session::WriteResults, session, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), CmdArgs::_resultpath, &total, &current);
 
