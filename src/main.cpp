@@ -800,6 +800,7 @@ int32_t main(int32_t argc, char** argv)
 		"    --save-status <time/sec> <FOLDER>    - saves the current status every x seconds\n"
 		"	 --results							  - writes results after session has ended"
 		"	 --disable-logging					  - disables all logging"
+		"	 --fork								  - [Linux only] Uses fork instead of posix_spawn"
 		"    --savepath <FOLDER>                  - custom path to savefiles\n";
 
 	std::string logpath = "";
@@ -1022,6 +1023,9 @@ int32_t main(int32_t argc, char** argv)
 		} else if (option.find("--results") != std::string::npos) {
 			std::cout << "Parameter: --results\n";
 			CmdArgs::_results = true;
+		} else if (option.find("--fork") != std::string::npos) {
+			std::cout << "Parameter: --fork\n";
+			CmdArgs::_fork = true;
 		} else if (option.find("--test") != std::string::npos) {
 			std::vector<std::pair<size_t, size_t>> vec;
 			vec.push_back({ 1, 3 });

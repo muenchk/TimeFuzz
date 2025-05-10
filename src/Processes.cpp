@@ -4,6 +4,7 @@
 #include <optional>
 #include <string_view>
 #include "Logging.h"
+#include "Settings.h"
 
 
 
@@ -194,44 +195,76 @@ namespace Processes
 
 	bool StartPUTProcess(std::shared_ptr<Test> test, std::string app, std::string args)
 	{
-		StartProfilingDebug;
+		if (CmdArgs::_fork == false) {
+			StartProfilingDebug;
 
-		// split the arguments
-		std::vector<std::string> command = SplitArguments(args);
+			// split the arguments
+			std::vector<std::string> command = SplitArguments(args);
 
-		posix_spawn_file_actions_t action;
+			posix_spawn_file_actions_t action;
 
-		posix_spawn_file_actions_init(&action);
-		posix_spawn_file_actions_adddup2(&action, test->red_input[0], STDIN_FILENO);
-		posix_spawn_file_actions_adddup2(&action, test->red_output[1], STDOUT_FILENO);
-		posix_spawn_file_actions_adddup2(&action, test->red_output[1], STDERR_FILENO);
+			posix_spawn_file_actions_init(&action);
+			posix_spawn_file_actions_adddup2(&action, test->red_input[0], STDIN_FILENO);
+			posix_spawn_file_actions_adddup2(&action, test->red_output[1], STDOUT_FILENO);
+			posix_spawn_file_actions_adddup2(&action, test->red_output[1], STDERR_FILENO);
 
-		std::vector<const char*> pargs;
-		pargs.reserve(command.size() + 1);
-		pargs.push_back(app.c_str());
-		for (auto const& a : command) {
-			pargs.push_back(a.c_str() + '\0');
-		}
-		pargs.push_back(NULL);
+			std::vector<const char*> pargs;
+			pargs.reserve(command.size() + 1);
+			pargs.push_back(app.c_str());
+			for (auto const& a : command) {
+				pargs.push_back(a.c_str() + '\0');
+			}
+			pargs.push_back(NULL);
 
-		if (Logging::EnableDebug) {
-			logtest("{}: {}", Utility::PrintForm(test), Utility::AccString(pargs));
-		}
-		pid_t pid;
-		int32_t _status = posix_spawnp(&pid, app.c_str(), &action, NULL, (char* const*)pargs.data(), NULL);
-		if (_status != 0) {
+			if (Logging::EnableDebug) {
+				logtest("{}: {}", Utility::PrintForm(test), Utility::AccString(pargs));
+			}
+			pid_t pid;
+			int32_t _status = posix_spawnp(&pid, app.c_str(), &action, NULL, (char* const*)pargs.data(), NULL);
+			if (_status != 0) {
 #	ifdef INCLLIBEXPLAIN
-			logcritical("Cannot start process: Error: {}, EXPL: {}", errno, std::string(explain_errno_execvp(errno, app.c_str(), (char* const*)pargs.data())));
+				logcritical("Cannot start process: Error: {}, EXPL: {}", errno, std::string(explain_errno_execvp(errno, app.c_str(), (char* const*)pargs.data())));
 #	else
-			logcritical("Cannot start process: Error: {}, EXPL: {}", errno, std::string(app.c_str()));
+				logcritical("Cannot start process: Error: {}, EXPL: {}", errno, std::string(app.c_str()));
 #	endif
-			throw std::runtime_error("Error: failed to launch process");
+				throw std::runtime_error("Error: failed to launch process");
+			}
+
+			test->processid = pid;
+
+			profileDebug(TimeProfilingDebug, "");
+			return true;
+		} else {
+			StartProfilingDebug;
+			pid_t pid = fork();
+			if (pid == -1) {
+				return false;
+			}
+			if (pid == 0) {
+				// running on child process
+
+				// redirect _input and _output
+				//close(test->red_input[1]);
+				//close(test->red_output[0]);
+
+				dup2(test->red_input[0], STDIN_FILENO);
+				dup2(test->red_output[1], STDOUT_FILENO);
+				dup2(test->red_output[1], STDERR_FILENO);
+
+				// split the arguments
+				std::vector<std::string> command = SplitArguments(args);
+
+				// change program
+				Processes::execvp_cpp(app, command);
+				return false;
+			}
+
+			test->processid = pid;
+			//close(test->red_output[1]);
+
+			profileDebug(TimeProfilingDebug, "");
+			return true;
 		}
-
-		test->processid = pid;
-
-		profileDebug(TimeProfilingDebug, "");
-		return true;
 	}
 
 	#pragma region externalcodde

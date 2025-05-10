@@ -48,6 +48,7 @@ public:
 	static inline std::filesystem::path _resultpath;
 	static inline bool _results = false;
 	static inline bool _disablelogging = false;
+	static inline bool _fork = false;
 };
 
 enum class RangeSkipOptions
