@@ -174,17 +174,31 @@ namespace std
 	private:
 		std::multiset<Key, Compare, Allocator> _set;
 		int32_t _maxsize = 0;
+		std::function<void(Key)> _insert = nullptr;
+		std::function<void(Key)> _remove = nullptr;
 
 		void trunc()
 		{
 			// while set size is larger than max, cut off smallest element
-			while (_set.size() > _maxsize)
+			while (_set.size() > _maxsize) {
+				if (_remove)
+					_remove(*(std::prev(_set.end())));
 				_set.erase(std::prev(_set.end()));
+			}
 		}
 
 		stable_multiset() {}
 
 	public:
+		void SetInsertFunction(std::function<void(Key)> func)
+		{
+			_insert = func;
+		}
+		void SetRemoveFunction(std::function<void(Key)> func)
+		{
+			_remove = func;
+		}
+		
 		void setMaxSize(int32_t maxsize)
 		{
 			_maxsize = maxsize;
@@ -223,6 +237,7 @@ namespace std
 		stable_multiset(int32_t maxsize, _Iter _First, _Iter _Last, const Compare& _Pred, const Allocator& _Al)
 		{
 			_maxsize = maxsize;
+			auto itr = _First;
 			_set->insert(_First, _Last, _Pred, _Al);
 			trunc();
 		}
@@ -300,28 +315,40 @@ namespace std
 
 		void clear()
 		{
+			if (_remove) {
+				for (auto key : _set)
+					_remove(key);
+			}
 			_set.clear();
 		}
 
 		void insert(const Key& value)
 		{
+			if (_insert)
+				_insert(value);
 			_set.insert(value);
 			trunc();
 		}
 
 		void insert(Key&& value)
 		{
+			if (_insert)
+				_insert(value);
 			_set.insert(value);
 			trunc();
 		}
 
 		void insert(std::multiset<Key, Compare, Allocator>::const_iterator pos, const Key& value)
 		{
+			if (_insert)
+				_insert(value);
 			_set.insert(pos, value);
 			trunc();
 		}
 		void insert(std::multiset<Key, Compare, Allocator>::const_iterator pos, Key&& value)
 		{
+			if (_insert)
+				_insert(value);
 			_set.insert(pos, value);
 			trunc();
 		}

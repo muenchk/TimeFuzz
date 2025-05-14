@@ -33,7 +33,7 @@ void InputVisitor(std::shared_ptr<Input>)
 
 }
 
-std::string Evaluation::PrintInput(std::shared_ptr<Input> input, std::string& str, std::string& scriptargs, std::string& cmdargs, std::string& dump)
+std::string Evaluation::PrintInput(std::shared_ptr<Input> input, std::string& str, std::string& scriptargs, std::string& cmdargs, std::string& dump, bool skipargs)
 {
 	str = "";
 	// ID
@@ -102,32 +102,40 @@ std::string Evaluation::PrintInput(std::shared_ptr<Input> input, std::string& st
 	str += ";";
 	// Retries
 	str += std::to_string(input->GetRetries());
-
-	if (input->GetGenerated() == false) {
-		// we are trying to add an _input that hasn't been generated or regenerated
-		// try the generate it and if it succeeds add the test
-		SessionFunctions::GenerateInput(input, _sessiondata);
+	str += ";";
+	// Test Number
+	if (input->_olderinputs != -1)
+		str += std::to_string(input->_olderinputs);
+	else {
+		input->_olderinputs = _sessiondata->data->CountOlderObjects<Input>(input);
+		str += std::to_string(input->_olderinputs);
 	}
-	if (input->GetGenerated()) {
-		dump = input->ConvertToString();
-		bool stateerror = false;
-		cmdargs = Lua::GetCmdArgs(std::bind(&Oracle::GetCmdArgs, _sessiondata->_oracle, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), input->test, stateerror, false);
-		if (_sessiondata->_oracle->GetOracletype() == Oracle::PUTType::Script)
-			scriptargs = Lua::GetScriptArgs(std::bind(&Oracle::GetScriptArgs, _sessiondata->_oracle, std::placeholders::_1, std::placeholders::_2), input->test, stateerror);
-		else
+	if (!skipargs) {
+		if (input->GetGenerated() == false) {
+			// we are trying to add an _input that hasn't been generated or regenerated
+			// try the generate it and if it succeeds add the test
+			SessionFunctions::GenerateInput(input, _sessiondata);
+		}
+		if (input->GetGenerated()) {
+			dump = input->ConvertToString();
+			bool stateerror = false;
+			cmdargs = Lua::GetCmdArgs(std::bind(&Oracle::GetCmdArgs, _sessiondata->_oracle, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), input->test, stateerror, false);
+			if (_sessiondata->_oracle->GetOracletype() == Oracle::PUTType::Script)
+				scriptargs = Lua::GetScriptArgs(std::bind(&Oracle::GetScriptArgs, _sessiondata->_oracle, std::placeholders::_1, std::placeholders::_2), input->test, stateerror);
+			else
+				scriptargs = "";
+		} else {
+			cmdargs = "";
 			scriptargs = "";
-	} else {
-		cmdargs = "";
-		scriptargs = "";
-		dump = "";
-	}
-	std::shared_ptr<Input> tmp = input;
-	while (tmp)
-	{
-		tmp->FreeMemory();
-		if (tmp->derive)
-			tmp->derive->FreeMemory();
-		tmp = _sessiondata->data->LookupFormID<Input>(tmp->GetParentID());
+			dump = "";
+		}
+		std::shared_ptr<Input> tmp = input;
+		while (tmp) {
+			tmp->FreeMemory();
+			if (tmp->derive)
+				tmp->derive->FreeMemory();
+			tmp = _sessiondata->data->LookupFormID<Input>(tmp->GetParentID());
+		}
 	}
 	return str;
 }
@@ -227,77 +235,8 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 
 		WriteFile("General.csv", "", header + "\n" + line + "\n");
 	}
-	std::string inputHeader = "ID;Parent ID;Generation ID;Derived Inputs;Derived Fails;Flags;Generation Time;Generation Length;Trimmed Length;Execution Time;Primary Score;Relative Primary Score;Secondary Score;Relative Secondary Score;Exit Code;Exit Reason;Result;Individual Primary;Individual Secondary;Retries\n";
-	auto printInput = [](std::shared_ptr<Input> input) {
-		std::string str = "";
-		// ID
-		str += Utility::GetHex(input->GetFormID());
-		// Parent ID
-		str += ";" + Utility::GetHex(input->GetParentID());
-		// Generation ID
-		str += ";" + Utility::GetHex(input->GetGenerationID());
-		// Derived Inputs
-		str += ";" + std::to_string(input->GetDerivedInputs());
-		// Derived Fails
-		str += ";" + std::to_string(input->GetDerivedFails());
-		// Flags
-		str += ";" + Utility::GetHexFill(input->GetFlags());
-		// Generation Time
-		str += ";" + Logging::FormatTimeNS(input->GetGenerationTime().count());
-		// Generation Length
-		str += ";" + std::to_string(input->GetTargetLength());
-		// Trimmed Length
-		str += ";" + std::to_string(input->GetTrimmedLength());
-		// Execution Time
-		str += ";" + Logging::FormatTimeNS(input->GetExecutionTime().count());
-		// Primary Score
-		str += ";" + std::to_string(input->GetPrimaryScore());
-		// Relative Primary Score
-		int64_t lng = input->GetTrimmedLength();
-		if (lng == -1)
-			lng = input->GetTargetLength();
-		str += ";" + std::to_string(lng / input->GetPrimaryScore());
-		// Secondary Score
-		str += ";" + std::to_string(input->GetSecondaryScore());
-		// Relative Secondary Score
-		str += ";" + std::to_string(lng / input->GetSecondaryScore());
-		// Exit code
-		str += ";" + std::to_string(input->GetExitCode());
-		// Exit reason
-		if (input->test)
-			str += ";" + Utility::GetHex(input->test->_exitreason);
-		else
-			str += ";";
-		// Result
-		if (input->GetOracleResult() == OracleResult::Failing)
-			str += ";Failing";
-		else if (input->GetOracleResult() == OracleResult::Passing)
-			str += ";Passing";
-		else if (input->GetOracleResult() == OracleResult::Running)
-			str += ";Running";
-		else str += ";Unfinished";
-		str += ";";
-		// Individual Primary
-		if (input->GetIndividualPrimaryScoresLength() > 0) {
-			str += std::to_string(input->GetIndividualPrimaryScore(0));
-			for (long c = 1; c < (long)input->GetIndividualPrimaryScoresLength(); c++) {
-				str += "," + std::to_string(input->GetIndividualPrimaryScore(c));
-			}
-		}
-		str += ";";
-		// Individual Secondary
-		if (input->GetIndividualSecondaryScoresLength() > 0) {
-			str += std::to_string(input->GetIndividualSecondaryScore(0));
-			for (long c = 1; c < (long)input->GetIndividualSecondaryScoresLength(); c++) {
-				str += "," + std::to_string(input->GetIndividualSecondaryScore(c));
-			}
-		}
-		str += ";";
-		// Retries
-		str += std::to_string(input->GetRetries());
-
-		return str;
-	};
+	std::string inputHeader = "ID;Parent ID;Generation ID;Derived Inputs;Derived Fails;Flags;Generation Time;Generation Length;Trimmed Length;Execution Time;Primary Score;Relative Primary Score;Secondary Score;Relative Secondary Score;Exit Code;Exit Reason;Result;Individual Primary;Individual Secondary;Retries;Test Number\n";
+	
 
 	// ### Generations
 	{
@@ -362,38 +301,39 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 
 			std::string inputs;
 			inputs += inputHeader;
+			std::string args1, args2, arg3, tmp;
 
 			switch (_sessiondata->_settings->generation.sourcesType) {
 			case Settings::GenerationSourcesType::FilterLength:
 				{
-					std::set<std::shared_ptr<Input>, InputLengthGreater> inps;
+					std::multiset<std::shared_ptr<Input>, InputLengthGreater> inps;
 					generations[i]->GetAllInputs(inps, false, true, 0, 0);
 					auto itr = inps.begin();
 					while (itr != inps.end())
 					{
-						inputs += printInput(*itr) + "\n";
+						inputs += PrintInput(*itr, tmp, args1,args2,arg3,true) + "\n";
 						itr++;
 					}
 				}
 				break;
 			case Settings::GenerationSourcesType::FilterPrimaryScoreRelative:
 				{
-					std::set<std::shared_ptr<Input>, InputGainGreaterPrimary> inps;
+					std::multiset<std::shared_ptr<Input>, InputGainGreaterPrimary> inps;
 					generations[i]->GetAllInputs(inps, false, true, 0, 0);
 					auto itr = inps.begin();
 					while (itr != inps.end()) {
-						inputs += printInput(*itr) + "\n";
+						inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
 						itr++;
 					}
 				}
 				break;
 			case Settings::GenerationSourcesType::FilterPrimaryScore:
 				{
-					std::set<std::shared_ptr<Input>, InputGreaterPrimary> inps;
+					std::multiset<std::shared_ptr<Input>, InputGreaterPrimary> inps;
 					generations[i]->GetAllInputs(inps, false, true, 0, 0);
 					auto itr = inps.begin();
 					while (itr != inps.end()) {
-						inputs += printInput(*itr) + "\n";
+						inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
 						itr++;
 					}
 
@@ -401,22 +341,22 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 				break;
 			case Settings::GenerationSourcesType::FilterSecondaryScoreRelative:
 				{
-					std::set<std::shared_ptr<Input>, InputGainGreaterSecondary> inps;
+					std::multiset<std::shared_ptr<Input>, InputGainGreaterSecondary> inps;
 					generations[i]->GetAllInputs(inps, false, true, 0, 0);
 					auto itr = inps.begin();
 					while (itr != inps.end()) {
-						inputs += printInput(*itr) + "\n";
+						inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
 						itr++;
 					}
 				}
 				break;
 			case Settings::GenerationSourcesType::FilterSecondaryScore:
 				{
-					std::set<std::shared_ptr<Input>, InputGreaterSecondary> inps;
+					std::multiset<std::shared_ptr<Input>, InputGreaterSecondary> inps;
 					generations[i]->GetAllInputs(inps, false, true, 0, 0);
 					auto itr = inps.begin();
 					while (itr != inps.end()) {
-						inputs += printInput(*itr) + "\n";
+						inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
 						itr++;
 					}
 				}
@@ -621,78 +561,7 @@ void Evaluation::Evaluate(std::shared_ptr<Generation> generation)
 	std::chrono::nanoseconds averageddruntime, averagetestexectime, runtime;
 	static std::chrono::nanoseconds avaverageddruntime, avaveragetestexectime, avruntime;
 
-	std::string inputHeader = "ID;Parent ID;Generation ID;Derived Inputs;Derived Fails;Flags;Generation Time;Generation Length;Trimmed Length;Execution Time;Primary Score;Relative Primary Score;Secondary Score;Relative Secondary Score;Exit Code;Exit Reason;Result;Individual Primary;Individual Secondary;Retries\n";
-	auto printInput = [](std::shared_ptr<Input> input) {
-		std::string str = "";
-		// ID
-		str += Utility::GetHex(input->GetFormID());
-		// Parent ID
-		str += ";" + Utility::GetHex(input->GetParentID());
-		// Generation ID
-		str += ";" + Utility::GetHex(input->GetGenerationID());
-		// Derived Inputs
-		str += ";" + std::to_string(input->GetDerivedInputs());
-		// Derived Fails
-		str += ";" + std::to_string(input->GetDerivedFails());
-		// Flags
-		str += ";" + Utility::GetHexFill(input->GetFlags());
-		// Generation Time
-		str += ";" + Logging::FormatTimeNS(input->GetGenerationTime().count());
-		// Generation Length
-		str += ";" + std::to_string(input->GetTargetLength());
-		// Trimmed Length
-		str += ";" + std::to_string(input->GetTrimmedLength());
-		// Execution Time
-		str += ";" + Logging::FormatTimeNS(input->GetExecutionTime().count());
-		// Primary Score
-		str += ";" + std::to_string(input->GetPrimaryScore());
-		// Relative Primary Score
-		int64_t lng = input->GetTrimmedLength();
-		if (lng == -1)
-			lng = input->GetTargetLength();
-		str += ";" + std::to_string(lng / input->GetPrimaryScore());
-		// Secondary Score
-		str += ";" + std::to_string(input->GetSecondaryScore());
-		// Relative Secondary Score
-		str += ";" + std::to_string(lng / input->GetSecondaryScore());
-		// Exit code
-		str += ";" + std::to_string(input->GetExitCode());
-		// Exit reason
-		if (input->test)
-			str += ";" + Utility::GetHex(input->test->_exitreason);
-		else
-			str += ";";
-		// Result
-		if (input->GetOracleResult() == OracleResult::Failing)
-			str += ";Failing";
-		else if (input->GetOracleResult() == OracleResult::Passing)
-			str += ";Passing";
-		else if (input->GetOracleResult() == OracleResult::Running)
-			str += ";Running";
-		else
-			str += ";Unfinished";
-		str += ";";
-		// Individual Primary
-		if (input->GetIndividualPrimaryScoresLength() > 0) {
-			str += std::to_string(input->GetIndividualPrimaryScore(0));
-			for (long c = 1; c < (long)input->GetIndividualPrimaryScoresLength(); c++) {
-				str += "," + std::to_string(input->GetIndividualPrimaryScore(c));
-			}
-		}
-		str += ";";
-		// Individual Secondary
-		if (input->GetIndividualSecondaryScoresLength() > 0) {
-			str += std::to_string(input->GetIndividualSecondaryScore(0));
-			for (long c = 1; c < (long)input->GetIndividualSecondaryScoresLength(); c++) {
-				str += "," + std::to_string(input->GetIndividualSecondaryScore(c));
-			}
-		}
-		str += ";";
-		// Retries
-		str += std::to_string(input->GetRetries());
-
-		return str;
-	};
+	std::string inputHeader = "ID;Parent ID;Generation ID;Derived Inputs;Derived Fails;Flags;Generation Time;Generation Length;Trimmed Length;Execution Time;Primary Score;Relative Primary Score;Secondary Score;Relative Secondary Score;Exit Code;Exit Reason;Result;Individual Primary;Individual Secondary;Retries;Test Number\n";
 
 	std::string line = "";
 
@@ -744,59 +613,60 @@ void Evaluation::Evaluate(std::shared_ptr<Generation> generation)
 
 	std::string inputs;
 	inputs += inputHeader;
+	std::string args1, args2, arg3, tmp;
 
 	switch (_sessiondata->_settings->generation.sourcesType) {
 	case Settings::GenerationSourcesType::FilterLength:
 		{
-			std::set<std::shared_ptr<Input>, InputLengthGreater> inps;
+			std::multiset<std::shared_ptr<Input>, InputLengthGreater> inps;
 			generation->GetAllInputs(inps, false, true, 0, 0);
 			auto itr = inps.begin();
 			while (itr != inps.end()) {
-				inputs += printInput(*itr) + "\n";
+				inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
 				itr++;
 			}
 		}
 		break;
 	case Settings::GenerationSourcesType::FilterPrimaryScoreRelative:
 		{
-			std::set<std::shared_ptr<Input>, InputGainGreaterPrimary> inps;
+			std::multiset<std::shared_ptr<Input>, InputGainGreaterPrimary> inps;
 			generation->GetAllInputs(inps, false, true, 0, 0);
 			auto itr = inps.begin();
 			while (itr != inps.end()) {
-				inputs += printInput(*itr) + "\n";
+				inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
 				itr++;
 			}
 		}
 		break;
 	case Settings::GenerationSourcesType::FilterPrimaryScore:
 		{
-			std::set<std::shared_ptr<Input>, InputGreaterPrimary> inps;
+			std::multiset<std::shared_ptr<Input>, InputGreaterPrimary> inps;
 			generation->GetAllInputs(inps, false, true, 0, 0);
 			auto itr = inps.begin();
 			while (itr != inps.end()) {
-				inputs += printInput(*itr) + "\n";
+				inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
 				itr++;
 			}
 		}
 		break;
 	case Settings::GenerationSourcesType::FilterSecondaryScoreRelative:
 		{
-			std::set<std::shared_ptr<Input>, InputGainGreaterSecondary> inps;
+			std::multiset<std::shared_ptr<Input>, InputGainGreaterSecondary> inps;
 			generation->GetAllInputs(inps, false, true, 0, 0);
 			auto itr = inps.begin();
 			while (itr != inps.end()) {
-				inputs += printInput(*itr) + "\n";
+				inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
 				itr++;
 			}
 		}
 		break;
 	case Settings::GenerationSourcesType::FilterSecondaryScore:
 		{
-			std::set<std::shared_ptr<Input>, InputGreaterSecondary> inps;
+			std::multiset<std::shared_ptr<Input>, InputGreaterSecondary> inps;
 			generation->GetAllInputs(inps, false, true, 0, 0);
 			auto itr = inps.begin();
 			while (itr != inps.end()) {
-				inputs += printInput(*itr) + "\n";
+				inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
 				itr++;
 			}
 		}
@@ -919,7 +789,7 @@ void Evaluation::EvaluateTopK()
 	std::string lines_topk_s;
 	std::string positive;
 
-	std::string inputHeader = "ID;Parent ID;Generation ID;Derived Inputs;Derived Fails;Flags;Generation Time;Generation Length;Trimmed Length;Execution Time;Primary Score;Relative Primary Score;Secondary Score;Relative Secondary Score;Exit Code;Exit Reason;Result;Individual Primary;Individual Secondary;Retries\n";
+	std::string inputHeader = "ID;Parent ID;Generation ID;Derived Inputs;Derived Fails;Flags;Generation Time;Generation Length;Trimmed Length;Execution Time;Primary Score;Relative Primary Score;Secondary Score;Relative Secondary Score;Exit Code;Exit Reason;Result;Individual Primary;Individual Secondary;Retries;Test Number\n";
 
 	// topK primary
 	std::filesystem::remove_all(_resultpath / "topk_primary");
@@ -970,7 +840,7 @@ void Evaluation::EvaluatePositive()
 	std::string lines_topk_s;
 	std::string positive;
 
-	std::string inputHeader = "ID;Parent ID;Generation ID;Derived Inputs;Derived Fails;Flags;Generation Time;Generation Length;Trimmed Length;Execution Time;Primary Score;Relative Primary Score;Secondary Score;Relative Secondary Score;Exit Code;Exit Reason;Result;Individual Primary;Individual Secondary;Retries\n";
+	std::string inputHeader = "ID;Parent ID;Generation ID;Derived Inputs;Derived Fails;Flags;Generation Time;Generation Length;Trimmed Length;Execution Time;Primary Score;Relative Primary Score;Secondary Score;Relative Secondary Score;Exit Code;Exit Reason;Result;Individual Primary;Individual Secondary;Retries;Test Number\n";
 
 	// positive
 	std::filesystem::remove_all(_resultpath / "positive");

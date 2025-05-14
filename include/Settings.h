@@ -47,6 +47,7 @@ public:
 	static inline bool _customresultpath = false;
 	static inline std::filesystem::path _resultpath;
 	static inline bool _results = false;
+	static inline bool _endresults = false;
 	static inline bool _disablelogging = false;
 	static inline bool _fork = false;
 };

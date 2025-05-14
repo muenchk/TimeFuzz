@@ -746,24 +746,24 @@ std::pair<bool, uint64_t> TaskController::IsActive()
 	uint64_t diff = _completedjobs.load() - lasttasks;
 	lasttasks = _completedjobs.load();
 	if (diff != 0) {
-		logmessage("task: completes");
+		//logmessage("task: completes");
 		return { true, diff };
 	}
 	for (auto stat : _status)
 	{
 		if (stat != ThreadStatus::Waiting) {
-			logmessage("task: running");
+			//logmessage("task: running");
 			return { true, diff };
 		}
 	}
 	if (_tasks_light.size() > 0 || _tasks_medium.size() > 0 || _tasks.size() > 0) {
-		logmessage("task: waiting");
+		//logmessage("task: waiting");
 		return { true, diff };
 	}
 	if (lasttasks != _completedjobs.load())
 	{
 		lasttasks = _completedjobs.load();
-		logmessage("task: completex");
+		//logmessage("task: completex");
 		return { true, diff };
 	}
 	return { false, diff };

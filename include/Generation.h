@@ -336,9 +336,47 @@ public:  // templates
 					output.insert(input);
 			}
 	}
+	template <typename Less>
+	void GetAllInputs(std::multiset<std::shared_ptr<Input>, Less>& output, bool includeSources, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0)
+	{
+		for (auto [id, input] : _generatedInputs) {
+			if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing))
+				output.insert(input);
+		}
+		for (auto [id, input] : _ddInputs) {
+			if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing))
+				output.insert(input);
+		}
+		if (includeSources)
+			for (auto input : _sources) {
+				if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing))
+					output.insert(input);
+			}
+	}
 
 	template <typename Less>
 	void GetAllInputs(std::set<std::shared_ptr<Input>, Less>& output, bool includeSources, double minPrimaryScore, double minSecondaryScore, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0)
+	{
+		for (auto [id, input] : _generatedInputs) {
+			if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing) &&
+				input->GetPrimaryScore() >= minPrimaryScore && input->GetSecondaryScore() >= minSecondaryScore)
+				output.insert(input);
+		}
+		for (auto [id, input] : _ddInputs) {
+			if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing) &&
+				input->GetPrimaryScore() >= minPrimaryScore && input->GetSecondaryScore() >= minSecondaryScore)
+				output.insert(input);
+		}
+		if (includeSources)
+			for (auto input : _sources) {
+				if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing) &&
+					input->GetPrimaryScore() >= minPrimaryScore && input->GetSecondaryScore() >= minSecondaryScore)
+					output.insert(input);
+			}
+	}
+
+	template <typename Less>
+	void GetAllInputs(std::multiset<std::shared_ptr<Input>, Less>& output, bool includeSources, double minPrimaryScore, double minSecondaryScore, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0)
 	{
 		for (auto [id, input] : _generatedInputs) {
 			if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing) &&

@@ -798,7 +798,8 @@ int32_t main(int32_t argc, char** argv)
 		"    --resultpath <FOLDER>				  - path to save results\n"
 		"    --clear-tasks                        - clears all tasks and active tests from the session\n"
 		"    --save-status <time/sec> <FOLDER>    - saves the current status every x seconds\n"
-		"	 --results							  - writes results after session has ended\n"
+		"	 --results							  - writes results after each generation\n"
+		"	 --results-end						  - writes results after session has ended\n"
 		"	 --disable-logging					  - disables all logging\n"
 		"	 --fork								  - [Linux only] Uses fork instead of posix_spawn\n"
 		"    --savepath <FOLDER>                  - custom path to savefiles\n";
@@ -928,7 +929,6 @@ int32_t main(int32_t argc, char** argv)
 					exit(ExitCodes::ArgumentError);
 				}
 				CmdArgs::_printresults = true;
-				CmdArgs::_results = true;
 				i++;
 			} else {
 				std::cerr << "missing name of save to print";
@@ -939,7 +939,6 @@ int32_t main(int32_t argc, char** argv)
 				std::cout << "Parameter: --print-results\n";
 				CmdArgs::_loadname = std::string(argv[i + 1]);
 				CmdArgs::_printresults = true;
-				CmdArgs::_results = true;
 				i++;
 			} else {
 				std::cerr << "missing name of save to print";
@@ -1020,6 +1019,9 @@ int32_t main(int32_t argc, char** argv)
 				std::cerr << "missing configuration file name";
 				exit(ExitCodes::ArgumentError);
 			}
+		} else if (option.find("--results-end") != std::string::npos) {
+			std::cout << "Parameter: --results-end\n";
+			CmdArgs::_endresults = true;
 		} else if (option.find("--results") != std::string::npos) {
 			std::cout << "Parameter: --results\n";
 			CmdArgs::_results = true;
@@ -2642,7 +2644,7 @@ int32_t main(int32_t argc, char** argv)
 		glfwDestroyWindow(window);
 		glfwTerminate();
 
-		if (CmdArgs::_results)
+		if (CmdArgs::_results || CmdArgs::_printresults || CmdArgs::_endresults)
 		{
 			int64_t total = 0, current = 0;
 			session->WriteResults(CmdArgs::_resultpath, &total, &current);
@@ -2717,7 +2719,7 @@ Responsive:
 		if (failedLoad)
 			exit(0);
 
-		if (CmdArgs::_results) {
+		if (CmdArgs::_results || CmdArgs::_printresults || CmdArgs::_endresults) {
 			int64_t total = 0, current = 0;
 			std::thread th(std::bind(&Session::WriteResults, session, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), CmdArgs::_resultpath, &total, &current);
 
@@ -2764,7 +2766,7 @@ Responsive:
 			exit(0);
 		std::cout << Snapshot(true);
 
-		if (CmdArgs::_results) {
+		if (CmdArgs::_results || CmdArgs::_printresults || CmdArgs::_endresults) {
 			int64_t total = 0, current = 0;
 			std::thread th(std::bind(&Session::WriteResults, session, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), CmdArgs::_resultpath, &total, &current);
 
@@ -2810,7 +2812,7 @@ Responsive:
 			exit(0);
 
 		std::cout << Snapshot(true);
-		if (CmdArgs::_results) {
+		if (CmdArgs::_results || CmdArgs::_printresults || CmdArgs::_endresults) {
 			int64_t total = 0, current = 0;
 			std::thread th(std::bind(&Session::WriteResults, session, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), CmdArgs::_resultpath, &total, &current);
 

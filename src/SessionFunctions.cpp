@@ -1294,17 +1294,27 @@ namespace Functions
 					WaitForGen(generation, _sessiondata, std::chrono::milliseconds(10000));
 					generation->SetEndTime(_sessiondata->data->GetRuntime());
 					if (CmdArgs::_results) {
+						StartProfiling;
 						_sessiondata->data->StopClock();
 						auto eval = Evaluation::GetSingleton();
 						eval->EvaluateGeneral();
+						profile(TimeProfiling, "Time taking for Evaluation General");
+						ResetProfiling;
 						eval->Evaluate(generation);
+						profile(TimeProfiling, "Time taking for Evaluation Generation");
+						ResetProfiling;
 						std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> controllers;
 						generation->GetDDControllers(controllers);
 						for (auto dd : controllers) {
 							eval->Evaluate(dd);
 						}
+						profile(TimeProfiling, "Time taking for Evaluation DD");
+						ResetProfiling;
 						eval->EvaluateTopK();
+						profile(TimeProfiling, "Time taking for Evaluation TopK");
+						ResetProfiling;
 						eval->EvaluatePositive();
+						profile(TimeProfiling, "Time taking for Evaluation Positive");
 						_sessiondata->data->StartClock();
 					}
 					loginfo("HoHoHo");

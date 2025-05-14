@@ -183,6 +183,9 @@ class SessionData : public Form
 	std::stable_multiset<std::shared_ptr<InputNode>, InputNodeLength> _topK_length{ 100 };
 	std::stable_multiset<std::shared_ptr<InputNode>, InputNodeLength> _topK_length_Unfinished{ 100 };
 
+	static void SetInsert(std::shared_ptr<InputNode>);
+	static void SetRemove(std::shared_ptr<InputNode>);
+
 	std::shared_mutex _multiset_lock;
 
 	void AddInput(std::shared_ptr<Input>& input, EnumType list, double optionalweight = 0.0f);

@@ -386,6 +386,25 @@ public:
 	}
 
 	/// <summary>
+	/// Counts how many objects of the same type existed before
+	/// </summary>
+	/// <typeparam name="T">type to find</typeparam>
+	/// <returns>vector with entries of type T</returns>
+	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+	int64_t CountOlderObjects(std::shared_ptr<T> compare)
+	{
+		std::vector<std::shared_ptr<T>> results;
+		std::shared_lock<std::shared_mutex> guard(_hashmaplock);
+		FormID formid = compare->GetFormID();
+		int64_t count = 0;
+		for (auto& [_, form] : _hashmap) {
+			if (form->GetType() == T::GetTypeStatic() && form->GetFormID() < formid)
+				count++;
+		}
+		return count;
+	}
+
+	/// <summary>
 	/// returns the size of the internal hashmap
 	/// </summary>
 	/// <returns>size of the internal hashmap</returns>

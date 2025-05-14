@@ -9,6 +9,32 @@
 #include <stdexcept>
 #include <memory>
 
+void SessionData::SetInsert(std::shared_ptr<InputNode> node)
+{
+	/* if (auto ptr = node->input.lock(); ptr)
+	{
+		ptr->SetFlag(Form::FormFlags::DoNotFree);
+		if (ptr->derive)
+			ptr->derive->SetFlag(Form::FormFlags::DoNotFree);
+	}*/
+}
+void SessionData::SetRemove(std::shared_ptr<InputNode> node)
+{
+	/* if (auto ptr = node->input.lock(); ptr) {
+		if (ptr->HasFlag(Form::FormFlags::DoNotFree))
+			ptr->UnsetFlag(Form::FormFlags::DoNotFree);
+		if (ptr->derive) {
+			if (ptr->derive->HasFlag(Form::FormFlags::DoNotFree))
+				ptr->derive->SetFlag(Form::FormFlags::DoNotFree);
+		}
+		ptr->FreeMemory();
+		if (ptr->GetGenerated() == false) {
+			if (ptr->derive)
+				ptr->derive->FreeMemory();
+		}
+	}*/
+}
+
 void SessionData::Init()
 {
 	switch (this->_settings->generation.sourcesType) {
@@ -38,6 +64,19 @@ void SessionData::Init()
 	_defaultGen->SetMaxDerivedInput(_settings->generation.maxNumberOfGenerationsPerSource);
 	_defaultGen->SetGenerationNumber(0);
 	_defaultGen->SetStartTime(data->GetRuntime());
+
+	_topK_primary_Unfinished.SetInsertFunction(SetInsert);
+	_topK_primary_Unfinished.SetRemoveFunction(SetRemove);
+	_topK_secondary_Unfinished.SetInsertFunction(SetInsert);
+	_topK_secondary_Unfinished.SetRemoveFunction(SetRemove);
+	_topK_primary.SetInsertFunction(SetInsert);
+	_topK_primary.SetRemoveFunction(SetRemove);
+	_topK_secondary.SetInsertFunction(SetInsert);
+	_topK_secondary.SetRemoveFunction(SetRemove);
+	_topK_length.SetInsertFunction(SetInsert);
+	_topK_length.SetRemoveFunction(SetRemove);
+	_topK_length_Unfinished.SetInsertFunction(SetInsert);
+	_topK_length_Unfinished.SetRemoveFunction(SetRemove);
 }
 
 SessionData::~SessionData()
@@ -898,6 +937,19 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 					this->_generations.insert_or_assign(gen->GetFormID(), gen);
 			});
 			_lastGenerationID = Buffer::ReadUInt64(buffer, offset);
+
+			_topK_primary_Unfinished.SetInsertFunction(SetInsert);
+			_topK_primary_Unfinished.SetRemoveFunction(SetRemove);
+			_topK_secondary_Unfinished.SetInsertFunction(SetInsert);
+			_topK_secondary_Unfinished.SetRemoveFunction(SetRemove);
+			_topK_primary.SetInsertFunction(SetInsert);
+			_topK_primary.SetRemoveFunction(SetRemove);
+			_topK_secondary.SetInsertFunction(SetInsert);
+			_topK_secondary.SetRemoveFunction(SetRemove);
+			_topK_length.SetInsertFunction(SetInsert);
+			_topK_length.SetRemoveFunction(SetRemove);
+			_topK_length_Unfinished.SetInsertFunction(SetInsert);
+			_topK_length_Unfinished.SetRemoveFunction(SetRemove);
 			return true;
 		}
 	case 0x2:
@@ -1063,6 +1115,19 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 			resolver->AddTask([this, resolver, defaultID]() {
 				this->_defaultGen = resolver->ResolveFormID<Generation>(defaultID);
 			});
+
+			_topK_primary_Unfinished.SetInsertFunction(SetInsert);
+			_topK_primary_Unfinished.SetRemoveFunction(SetRemove);
+			_topK_secondary_Unfinished.SetInsertFunction(SetInsert);
+			_topK_secondary_Unfinished.SetRemoveFunction(SetRemove);
+			_topK_primary.SetInsertFunction(SetInsert);
+			_topK_primary.SetRemoveFunction(SetRemove);
+			_topK_secondary.SetInsertFunction(SetInsert);
+			_topK_secondary.SetRemoveFunction(SetRemove);
+			_topK_length.SetInsertFunction(SetInsert);
+			_topK_length.SetRemoveFunction(SetRemove);
+			_topK_length_Unfinished.SetInsertFunction(SetInsert);
+			_topK_length_Unfinished.SetRemoveFunction(SetRemove);
 			return true;
 		}
 		break;

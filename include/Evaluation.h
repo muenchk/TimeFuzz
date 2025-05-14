@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <iostream>
 #include <fstream>
+#include <set>
 
 class Session;
 class SessionData;
@@ -38,7 +39,7 @@ private:
 	std::filesystem::path _resultpath;
 
 	void WriteFile(std::string filename, std::string subpath, std::string content);
-	std::string PrintInput(std::shared_ptr<Input> input, std::string& str, std::string& scriptargs, std::string& cmdargs, std::string& dump);
+	std::string PrintInput(std::shared_ptr<Input> input, std::string& str, std::string& scriptargs, std::string& cmdargs, std::string& dump,bool skipargs = false);
 
 public:
 	Evaluation(std::shared_ptr<Session> session,std::filesystem::path resultpath);

@@ -528,6 +528,8 @@ public:
 		_retries++;
 	}
 
+	int64_t _olderinputs = -1;
+
 private:
 	/// <summary>
 	/// the string representation of the input
