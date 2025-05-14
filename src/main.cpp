@@ -798,9 +798,9 @@ int32_t main(int32_t argc, char** argv)
 		"    --resultpath <FOLDER>				  - path to save results\n"
 		"    --clear-tasks                        - clears all tasks and active tests from the session\n"
 		"    --save-status <time/sec> <FOLDER>    - saves the current status every x seconds\n"
-		"	 --results							  - writes results after session has ended"
-		"	 --disable-logging					  - disables all logging"
-		"	 --fork								  - [Linux only] Uses fork instead of posix_spawn"
+		"	 --results							  - writes results after session has ended\n"
+		"	 --disable-logging					  - disables all logging\n"
+		"	 --fork								  - [Linux only] Uses fork instead of posix_spawn\n"
 		"    --savepath <FOLDER>                  - custom path to savefiles\n";
 
 	std::string logpath = "";

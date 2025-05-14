@@ -512,6 +512,11 @@ bool SessionData::GetGenerationEnding()
 	return _generationEnding.load();
 }
 
+bool SessionData::GetGenerationFinishing()
+{
+	return _generationFinishing.load();
+}
+
 int64_t SessionData::GetNumberInputsToGenerate()
 {
 	if (_settings->generation.generationalMode)

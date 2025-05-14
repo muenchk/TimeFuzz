@@ -6,6 +6,7 @@
 #include <vector>
 #include <mutex>
 #include <condition_variable>
+#include <chrono>
 
 #include "Form.h"
 #include "Function.h"
@@ -149,6 +150,9 @@ private:
 	bool _controlEnableHeavy = true;
 
 	bool _enableCustomAllocators = false;
+	
+	std::chrono::steady_clock::time_point last = std::chrono::steady_clock::now();
+	uint64_t lasttasks = 0;
 
 public:
 
@@ -379,6 +383,9 @@ public:
 	int32_t GetWaitingLightJobs();
 	int32_t GetWaitingMediumJobs();
 	int32_t GetWaitingHeavyJobs();
+
+	std::pair<bool, uint64_t> IsActive();
+	int64_t Working();
 
 	void GetThreadStatus(std::vector<ThreadStatus>& status, std::vector<const char*>& names, std::vector<std::string>& time);
 

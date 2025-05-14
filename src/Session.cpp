@@ -616,6 +616,9 @@ void Session::SessionControl()
 	logmessage("Kicked session off.");
 	std::unique_lock<std::mutex> guard(_sessionControlMutex);
 	logmessage("Entering into Deadlock avoidance mode");
+
+	auto lasttaskcheck = std::chrono::steady_clock::now();
+	bool tried = false;
 	while (_abort == false)
 	{
 		// sometimes shit happens in multithreaded applications where things go wrong, especially under linux 
@@ -645,7 +648,22 @@ void Session::SessionControl()
 				for (int32_t i = 0; i < maxtasks; i++)
 					SessionFunctions::GenerateTests(_sessiondata);
 			}
+			auto [act, diff] = _sessiondata->_controller->IsActive();
 
+			if (act && (!tried || tried && diff != 1))
+				lasttaskcheck = std::chrono::steady_clock::now();
+			else
+				logmessage("TaskController inactive for {}", Logging::FormatTimeNS(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - lasttaskcheck).count()));
+			if (_sessiondata->GetGenerationFinishing() && CmdArgs::_clearTasks == false && std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - lasttaskcheck) > std::chrono::seconds(1))
+			{
+				tried = true;
+				auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
+				callback->_sessiondata = _sessiondata;
+				callback->_generation = _sessiondata->GetCurrentGeneration();
+				callback->_afterSave = true;
+				_sessiondata->_controller->AddTask(callback);
+			}
+				 
 			// check whether dd is running ans has decided to hang itself
 			auto gen = _sessiondata->GetCurrentGeneration();
 			loginfo("Check for dd");

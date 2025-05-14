@@ -176,6 +176,7 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC" OR "${CMAKE_CXX_COMPILER_ID};${CMA
 		)
 	endif()
 else()
+	add_compile_options(-g)
 	if ("${EnableUI}" STREQUAL "ON")
 		target_link_libraries(
 			"${PROJECT_NAME}"

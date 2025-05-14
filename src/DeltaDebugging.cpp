@@ -1104,9 +1104,10 @@ namespace DeltaDebugging
 		StartProfiling;
 
 		// insurance
-		if (_input->GetGenerated() == false) {
+		if (_input->GetGenerated() == false || _input->GetSequenceLength() == 0) {
 			// we are trying to add an _input that hasn't been generated or regenerated
 			// try the generate it and if it succeeds add the test
+			_input->SetGenerated(false);
 			SessionFunctions::GenerateInput(_input, _sessiondata);
 			if (_input->GetGenerated() == false)
 				Finish();
@@ -1147,16 +1148,19 @@ namespace DeltaDebugging
 		}
 		__NextGenTime = std::chrono::steady_clock::now();
 		// insurance
-		if (_input->GetGenerated() == false) {
+		if (_input->GetGenerated() == false || _input->GetSequenceLength() == 0) {
 			// we are trying to add an _input that hasn't been generated or regenerated
 			// try the generate it and if it succeeds add the test
+			_input->SetGenerated(false);
 			SessionFunctions::GenerateInput(_input, _sessiondata);
 			if (_input->GetGenerated() == false)
 				Finish();
 		}
+		_input->LockRead();
 
 		std::vector<DeltaInformation> splitinfo;
 		GenerateSplits_Async(_level);
+		_input->UnlockRead();
 	}
 
 	void DeltaController::StandardGenerateNextLevel_Inter()
@@ -1937,9 +1941,10 @@ namespace DeltaDebugging
 		StartProfiling;
 
 		// insurance
-		if (_input->GetGenerated() == false) {
+		if (_input->GetGenerated() == false || _input->GetSequenceLength() == 0) {
 			// we are trying to add an _input that hasn't been generated or regenerated
 			// try the generate it and if it succeeds add the test
+			_input->SetGenerated(false);
 			SessionFunctions::GenerateInput(_input, _sessiondata);
 			if (_input->GetGenerated() == false)
 				Finish();
@@ -1979,9 +1984,10 @@ namespace DeltaDebugging
 		__NextGenTime = std::chrono::steady_clock::now();
 
 		// insurance
-		if (_input->GetGenerated() == false) {
+		if (_input->GetGenerated() == false || _input->GetSequenceLength() == 0) {
 			// we are trying to add an _input that hasn't been generated or regenerated
 			// try the generate it and if it succeeds add the test
+			_input->SetGenerated(false);
 			SessionFunctions::GenerateInput(_input, _sessiondata);
 			if (_input->GetGenerated() == false)
 				Finish();
@@ -3174,9 +3180,10 @@ namespace DeltaDebugging
 						if (_origInput->GetGenerated() == false)
 							logcritical("DeltaDebugging original input could not be reconstructed");
 					}
-					if (_input->GetGenerated() == false) {
+					if (_input->GetGenerated() == false || _input->GetSequenceLength() == 0) {
 						// we are trying to add an _input that hasn't been generated or regenerated
 						// try the generate it and if it succeeds add the test
+						_input->SetGenerated(false);
 						SessionFunctions::GenerateInput(_input, _sessiondata);
 						if (_input->GetGenerated() == false)
 							logcritical("DeltaDebugging input could not be reconstructed");

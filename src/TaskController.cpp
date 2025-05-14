@@ -740,3 +740,42 @@ void TaskController::GetThreadStatus(std::vector<ThreadStatus>& status, std::vec
 		time[i] = Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(now - _statusTime[i]).count());
 	}
 }
+
+std::pair<bool, uint64_t> TaskController::IsActive()
+{
+	uint64_t diff = _completedjobs.load() - lasttasks;
+	lasttasks = _completedjobs.load();
+	if (diff != 0) {
+		logmessage("task: completes");
+		return { true, diff };
+	}
+	for (auto stat : _status)
+	{
+		if (stat != ThreadStatus::Waiting) {
+			logmessage("task: running");
+			return { true, diff };
+		}
+	}
+	if (_tasks_light.size() > 0 || _tasks_medium.size() > 0 || _tasks.size() > 0) {
+		logmessage("task: waiting");
+		return { true, diff };
+	}
+	if (lasttasks != _completedjobs.load())
+	{
+		lasttasks = _completedjobs.load();
+		logmessage("task: completex");
+		return { true, diff };
+	}
+	return { false, diff };
+}
+
+int64_t TaskController::Working()
+{
+	int64_t sum = 0;
+	for (auto stat : _status) {
+		if (stat != ThreadStatus::Waiting) {
+			sum++;
+		}
+	}
+	return sum;
+}

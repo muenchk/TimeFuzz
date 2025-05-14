@@ -65,6 +65,16 @@ void ExecutionHandler::SetEnableFragments(bool enable)
 
 void ExecutionHandler::Clear()
 {
+	if (_threadStopToken)
+		_threadStopToken->request_stop();
+	if (_thread.joinable())
+		_thread.detach();
+	_thread = {};
+	if (_threadTSStopToken)
+		_threadTSStopToken->request_stop();
+	if (_threadTS.joinable())
+		_threadTS.detach();
+	_threadTS = {};
 	Form::ClearForm();
 	_cleared = true;
 	while (!_waitingTests.empty())
@@ -106,16 +116,6 @@ void ExecutionHandler::Clear()
 	_enableFragments = false;
 	_stopHandler = true;
 	_finishtests = false;
-	if (_threadStopToken)
-		_threadStopToken->request_stop();
-	if (_thread.joinable())
-		_thread.detach();
-	_thread = {};
-	if (_threadTSStopToken)
-		_threadTSStopToken->request_stop();
-	if (_threadTS.joinable())
-		_threadTS.detach();
-	_threadTS = {};
 }
 
 void ExecutionHandler::RegisterFactories()

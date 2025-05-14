@@ -164,8 +164,17 @@ void SessionFunctions::SaveCheck(std::shared_ptr<SessionData> sessiondata, bool 
 {
 	loginfo("whether to save or not to save");
 	// check whether to save at all
-	if (!sessiondata->_settings->saves.enablesaves)
+	if (!sessiondata->_settings->saves.enablesaves) {
+		if (generationEnd) {
+			auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
+			callback->_sessiondata = sessiondata;
+			callback->_generation = sessiondata->GetCurrentGeneration();
+			callback->_afterSave = true;
+			loginfo("Adding session end task");
+			sessiondata->_controller->AddTask(callback);
+		}
 		return;
+	}
 	static auto autosavetime = std::chrono::steady_clock::now();
 	static uint64_t testnum = SessionStatistics::TestsExecuted(sessiondata);
 	static std::mutex savelock;
@@ -180,9 +189,12 @@ void SessionFunctions::SaveCheck(std::shared_ptr<SessionData> sessiondata, bool 
 			callback->_generation = sessiondata->GetCurrentGeneration();
 			callback->_afterSave = true;
 			if (sessiondata->_settings->saves.saveAfterEachGeneration) {
+				logmessage("Save session async");
 				std::thread(SaveSession_Async, sessiondata, callback, generationEnd).detach();
-			} else
+			} else {
+				loginfo("Adding session end task");
 				sessiondata->_controller->AddTask(callback);
+			}
 			return;
 		}
 		// check whether we should save now
@@ -224,6 +236,7 @@ void SessionFunctions::SaveSession_Async(std::shared_ptr<SessionData> sessiondat
 
 bool SessionFunctions::EndCheck(std::shared_ptr<SessionData> sessiondata, bool generationEnded)
 {
+	auto sessdat = sessiondata;
 	loginfo("whether to end or not to end");
 	// check whether end conditions are met
 	bool end = false;
@@ -261,7 +274,7 @@ bool SessionFunctions::EndCheck(std::shared_ptr<SessionData> sessiondata, bool g
 				for (auto ptr : controllers) {
 					if (ptr->Finished() == false) {
 						auto callback = dynamic_pointer_cast<Functions::FinishSessionCallback>(Functions::FinishSessionCallback::Create());
-						callback->_sessiondata = sessiondata;
+						callback->_sessiondata = sessdat;
 						ptr->AddCallback(callback);
 					}
 				}
@@ -1064,7 +1077,7 @@ namespace Functions
 		loginfo("wait for generation to end");
 		int64_t lastactive = 0, active = generation->GetActiveInputs();
 	StartWait:
-		while (sessiondata->_exechandler->WaitingTasks() > 0 || sessiondata->_controller->GetWaitingLightJobs() > 0 || sessiondata->_controller->GetWaitingHeavyJobs() > 0 || sessiondata->_controller->GetWaitingMediumJobs() > 0) {
+		while (sessiondata->_exechandler->WaitingTasks() > 0 || sessiondata->_controller->GetWaitingLightJobs() > 0 || sessiondata->_controller->GetWaitingHeavyJobs() > 0 || sessiondata->_controller->GetWaitingMediumJobs() > 0 || sessiondata->_controller->Working() > 1) {
 				loginfo("WaitingTests: {}, LightTasks: {}", sessiondata->_exechandler->WaitingTasks(), sessiondata->_controller->GetWaitingLightJobs());
 			std::this_thread::sleep_for(std::chrono::milliseconds(10));
 		}
@@ -1074,7 +1087,7 @@ namespace Functions
 			if (lastactive != generation->GetActiveInputs())
 				time = std::chrono::steady_clock::now();
 			loginfo("Active Tasks: {}", generation->GetActiveInputs());
-			if (sessiondata->_exechandler->WaitingTasks() > 0 || sessiondata->_controller->GetWaitingLightJobs() > 0 || sessiondata->_controller->GetWaitingHeavyJobs() > 0 || sessiondata->_controller->GetWaitingMediumJobs() > 0)
+			if (sessiondata->_exechandler->WaitingTasks() > 0 || sessiondata->_controller->GetWaitingLightJobs() > 0 || sessiondata->_controller->GetWaitingHeavyJobs() > 0 || sessiondata->_controller->GetWaitingMediumJobs() > 0 || sessiondata->_controller->Working() > 1)
 				goto StartWait;
 			std::this_thread::sleep_for(std::chrono::milliseconds(10));
 		}
@@ -1270,47 +1283,50 @@ namespace Functions
 	{
 		bool exp = false;
 		if (_afterSave == false) {
-			loginfo("Stats:\tGenerated: {}\tDD Controllers: {}\tDDSize: {}",
+			loginfo("Stats:\tGenerated: {}\tDD Controllers: {}\tDDSize: {}\tDDActive: {}",
 				_sessiondata->GetCurrentGeneration()->GetGeneratedSize(),
 				_sessiondata->GetCurrentGeneration()->GetNumberOfDDControllers(),
-				_sessiondata->GetCurrentGeneration()->GetDDSize());
+				_sessiondata->GetCurrentGeneration()->GetDDSize(), _sessiondata->GetCurrentGeneration()->IsDeltaDebuggingActive());
 			auto generation = _sessiondata->GetCurrentGeneration();
-			if (_sessiondata->GetCurrentGeneration()->IsDeltaDebuggingActive() == false && 
-				_sessiondata->_generationFinishing.compare_exchange_strong(exp, true) /*if there are multiple callbacks for the same generation, make sure that only one gets executed, i.e. the fastest*/) {
+			if (_sessiondata->_generationFinishing.compare_exchange_strong(exp, true)) {
 				WaitForGen(generation, _sessiondata, std::chrono::milliseconds(10000));
-				generation->SetEndTime(_sessiondata->data->GetRuntime());
-				if (CmdArgs::_results) {
-					_sessiondata->data->StopClock();
-					auto eval = Evaluation::GetSingleton();
-					eval->EvaluateGeneral();
-					eval->Evaluate(generation);
-					std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> controllers;
-					generation->GetDDControllers(controllers);
-					for (auto dd : controllers) {
-						eval->Evaluate(dd);
+				if (_sessiondata->GetCurrentGeneration()->IsDeltaDebuggingActive() == false /*if there are multiple callbacks for the same generation, make sure that only one gets executed, i.e. the fastest*/) {
+					WaitForGen(generation, _sessiondata, std::chrono::milliseconds(10000));
+					generation->SetEndTime(_sessiondata->data->GetRuntime());
+					if (CmdArgs::_results) {
+						_sessiondata->data->StopClock();
+						auto eval = Evaluation::GetSingleton();
+						eval->EvaluateGeneral();
+						eval->Evaluate(generation);
+						std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> controllers;
+						generation->GetDDControllers(controllers);
+						for (auto dd : controllers) {
+							eval->Evaluate(dd);
+						}
+						eval->EvaluateTopK();
+						eval->EvaluatePositive();
+						_sessiondata->data->StartClock();
 					}
-					eval->EvaluateTopK();
-					eval->EvaluatePositive();
-					_sessiondata->data->StartClock();
-				}
-				if (SessionFunctions::EndCheck(_sessiondata, true)) {
-					// we are ending the session, so the callback is gonna be saved and we don't need to do anything else
-					return;
-				}
-				SessionFunctions::SaveCheck(_sessiondata, true);
-				SessionFunctions::MasterControl(_sessiondata);
-			}
-			else
-			{
-				// delta debugging is active 
-				std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> controllers;
-				_sessiondata->GetCurrentGeneration()->GetDDControllers(controllers);
-				for (auto ptr : controllers) {
-					if (ptr->Finished() == false && ptr->HasCallback(Functions::GenerationFinishedCallback::GetTypeStatic()) == false) {
-						auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
-						callback->_sessiondata = _sessiondata;
-						callback->_generation = _sessiondata->GetCurrentGeneration();
-						ptr->AddCallback(callback);
+					loginfo("HoHoHo");
+					if (SessionFunctions::EndCheck(_sessiondata, true)) {
+						loginfo("End Check ending");
+						// we are ending the session, so the callback is gonna be saved and we don't need to do anything else
+						return;
+					}
+					SessionFunctions::SaveCheck(_sessiondata, true);
+					SessionFunctions::MasterControl(_sessiondata);
+				} else {
+					loginfo("HaHaHa");
+					// delta debugging is active
+					std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> controllers;
+					_sessiondata->GetCurrentGeneration()->GetDDControllers(controllers);
+					for (auto ptr : controllers) {
+						if (ptr->Finished() == false && ptr->HasCallback(Functions::GenerationFinishedCallback::GetTypeStatic()) == false) {
+							auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
+							callback->_sessiondata = _sessiondata;
+							callback->_generation = _sessiondata->GetCurrentGeneration();
+							ptr->AddCallback(callback);
+						}
 					}
 				}
 			}
