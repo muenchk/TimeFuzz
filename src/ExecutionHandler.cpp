@@ -687,6 +687,8 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 	_handleTests.resize(_maxConcurrentTests);
 	int32_t tohandle = 0;
 
+	auto settings = _settings;
+
 	logdebug("Entering loop");
 	int32_t newtests = 0;
 	while (_stopHandler == false || _finishtests || stoken->stop_requested() == false) {
@@ -747,7 +749,7 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 
 		// check if we are running tests, if not wait until we are given one to run
 		// if we found some above it was started and this should be above 0
-		if (!_settings->fixes.disableExecHandlerSleep && _currentTests == 0 && tohandle == 0) {
+		if (!settings->fixes.disableExecHandlerSleep && _currentTests == 0 && tohandle == 0) {
 			logdebug2("no tests active -> wait for new tests");
 			std::unique_lock<std::mutex> guard(_lockqueue);
 			_tstatus = ExecHandlerStatus::Waiting;
@@ -788,10 +790,10 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 				goto TestFinished;
 			}
 			// check for memory consumption
-			if (_settings->tests.maxUsedMemory != 0) {
+			if (settings->tests.maxUsedMemory != 0) {
 				// memory limitation enabled
 
-				if (ptr->GetMemoryConsumption() > _settings->tests.maxUsedMemory) {
+				if (ptr->GetMemoryConsumption() > settings->tests.maxUsedMemory) {
 					_tstatus = ExecHandlerStatus::KillingProcessMemory;
 					ptr->KillProcess();
 					// process killed, now set flags for oracle
@@ -807,7 +809,7 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 				bool error = false; 
 				// iff writenext and error flag are false the last fragment has been completed
 				// otherwise it just couldn't be written
-				if (ptr->WriteNext(error) == false && error == false && _settings->tests.use_fragmenttimeout && std::chrono::duration_cast<std::chrono::microseconds>(time - ptr->_lasttime).count() > _settings->tests.fragmenttimeout) {
+				if (ptr->WriteNext(error) == false && error == false && settings->tests.use_fragmenttimeout && std::chrono::duration_cast<std::chrono::microseconds>(time - ptr->_lasttime).count() > settings->tests.fragmenttimeout) {
 					ptr->_exitreason = Test::ExitReason::Natural | Test::ExitReason::LastInput;
 					SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::Natural);
 					SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::LastInput);
@@ -819,9 +821,9 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 			}
 			logdebug2("Checked Input {}", ptr->_identifier);
 			// compute timeouts
-			if (_enableFragments && _settings->tests.use_fragmenttimeout) {
+			if (_enableFragments && settings->tests.use_fragmenttimeout) {
 				difffrag = std::chrono::duration_cast<std::chrono::microseconds>(time - ptr->_lasttime);
-				if (difffrag.count() > _settings->tests.fragmenttimeout) {
+				if (difffrag.count() > settings->tests.fragmenttimeout) {
 					_tstatus = ExecHandlerStatus::KillingProcessTimeout;
 					ptr->KillProcess();
 					ptr->_exitreason = Test::ExitReason::FragmentTimeout;
@@ -829,9 +831,9 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 					goto TestFinished;
 				}
 			}
-			if (_settings->tests.use_testtimeout) {
+			if (settings->tests.use_testtimeout) {
 				difffrag = std::chrono::duration_cast<std::chrono::microseconds>(time - ptr->_starttime);
-				if (difffrag.count() > _settings->tests.testtimeout) {
+				if (difffrag.count() > settings->tests.testtimeout) {
 					_tstatus = ExecHandlerStatus::KillingProcessTimeout;
 					ptr->KillProcess();
 					ptr->_exitreason = Test::ExitReason::Timeout;
