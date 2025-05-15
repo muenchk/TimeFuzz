@@ -684,7 +684,7 @@ namespace DeltaDebugging
 			if (tmp < 1)
 				tmp = 1;
 
-			_input->LockRead();
+			ReadLockHolder<Input> holder(_input);
 
 			// this value is rounded so the actual length our inputs get is different from
 			// the naive caluclation we need to recalculate [number] and can then calculate
@@ -739,7 +739,6 @@ namespace DeltaDebugging
 				genCompData.testqueue.push_back(callback);
 			}
 		}
-		_input->UnlockRead();
 		StandardGenerateNextLevel_Inter();
 	}
 	void DeltaController::GenerateSplits_Async_Callback(std::shared_ptr<Input> input, double approxthreshold, uint64_t batchident, std::shared_ptr<DeltaDebugging::Tasks> tasks)
@@ -1157,11 +1156,10 @@ namespace DeltaDebugging
 			if (_input->GetGenerated() == false)
 				Finish();
 		}
-		_input->LockRead();
+		ReadLockHolder<Input> holder(_input);
 
 		std::vector<DeltaInformation> splitinfo;
 		GenerateSplits_Async(_level);
-		_input->UnlockRead();
 	}
 
 	void DeltaController::StandardGenerateNextLevel_Inter()
