@@ -1657,6 +1657,10 @@ void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<Der
 		while (stacks.size() > 0) {
 			tmp = stacks.top();
 			stacks.pop();
+			if (tmp == nullptr) {
+				logcritical("stree has become empty");
+				return;
+			}
 			if (tmp->Type() == DerivationTree::NodeType::Sequence)
 				seqnodes.push_back((DerivationTree::SequenceNode*)tmp);
 			// push children in reverse order to stack: We explore from left to right
