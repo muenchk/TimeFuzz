@@ -320,79 +320,119 @@ private:
 
 public:  // templates
 	template <typename Less>
-	void GetAllInputs(std::set<std::shared_ptr<Input>, Less>& output, bool includeSources, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0)
+	void GetAllInputs(std::set<std::shared_ptr<Input>, Less>& output, bool includeSources, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0, int64_t max = INT64_MAX)
 	{
+		int64_t count = 0;
 		for (auto [id, input] : _generatedInputs) {
+			if (count == max)
+				return;
 			if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing))
 				output.insert(input);
+			count++;
 		}
 		for (auto [id, input] : _ddInputs) {
+			if (count == max)
+				return;
 			if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing))
 				output.insert(input);
+			count++;
 		}
 		if (includeSources)
 			for (auto input : _sources) {
+				if (count == max)
+					return;
 				if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing))
 					output.insert(input);
+				count++;
 			}
 	}
 	template <typename Less>
-	void GetAllInputs(std::multiset<std::shared_ptr<Input>, Less>& output, bool includeSources, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0)
+	void GetAllInputs(std::multiset<std::shared_ptr<Input>, Less>& output, bool includeSources, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0, int64_t max = INT64_MAX)
 	{
+		int64_t count = 0;
 		for (auto [id, input] : _generatedInputs) {
+			if (count == max)
+				return;
 			if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing))
 				output.insert(input);
+			count++;
 		}
 		for (auto [id, input] : _ddInputs) {
+			if (count == max)
+				return;
 			if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing))
 				output.insert(input);
+			count++;
 		}
 		if (includeSources)
 			for (auto input : _sources) {
+				if (count == max)
+					return;
 				if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing))
 					output.insert(input);
+				count++;
 			}
 	}
 
 	template <typename Less>
-	void GetAllInputs(std::set<std::shared_ptr<Input>, Less>& output, bool includeSources, double minPrimaryScore, double minSecondaryScore, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0)
+	void GetAllInputs(std::set<std::shared_ptr<Input>, Less>& output, bool includeSources, double minPrimaryScore, double minSecondaryScore, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0, int64_t max = INT64_MAX)
 	{
+		int64_t count = 0;
 		for (auto [id, input] : _generatedInputs) {
+			if (count == max)
+				return;
 			if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing) &&
 				input->GetPrimaryScore() >= minPrimaryScore && input->GetSecondaryScore() >= minSecondaryScore)
 				output.insert(input);
+			count++;
 		}
 		for (auto [id, input] : _ddInputs) {
+			if (count == max)
+				return;
 			if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing) &&
 				input->GetPrimaryScore() >= minPrimaryScore && input->GetSecondaryScore() >= minSecondaryScore)
 				output.insert(input);
+			count++;
 		}
 		if (includeSources)
 			for (auto input : _sources) {
+				if (count == max)
+					return;
 				if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing) &&
 					input->GetPrimaryScore() >= minPrimaryScore && input->GetSecondaryScore() >= minSecondaryScore)
 					output.insert(input);
+				count++;
 			}
 	}
 
 	template <typename Less>
-	void GetAllInputs(std::multiset<std::shared_ptr<Input>, Less>& output, bool includeSources, double minPrimaryScore, double minSecondaryScore, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0)
+	void GetAllInputs(std::multiset<std::shared_ptr<Input>, Less>& output, bool includeSources, double minPrimaryScore, double minSecondaryScore, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0, int64_t max = INT64_MAX)
 	{
+		int64_t count = 0;
 		for (auto [id, input] : _generatedInputs) {
+			if (count == max)
+				return;
 			if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing) &&
 				input->GetPrimaryScore() >= minPrimaryScore && input->GetSecondaryScore() >= minSecondaryScore)
 				output.insert(input);
+			count++;
 		}
 		for (auto [id, input] : _ddInputs) {
+			if (count == max)
+				return;
 			if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing) &&
 				input->GetPrimaryScore() >= minPrimaryScore && input->GetSecondaryScore() >= minSecondaryScore)
 				output.insert(input);
+			count++;
 		}
 		if (includeSources)
 			for (auto input : _sources) {
+				if (count == max)
+					return;
 				if (CheckOracleResultAndLength(input, allowFailing, min_length_unfinished, min_length_failing) &&
 					input->GetPrimaryScore() >= minPrimaryScore && input->GetSecondaryScore() >= minSecondaryScore)
 					output.insert(input);
+				count++;
 			}
 	}
 

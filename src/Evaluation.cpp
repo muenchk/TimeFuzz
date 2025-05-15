@@ -307,7 +307,7 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 			case Settings::GenerationSourcesType::FilterLength:
 				{
 					std::multiset<std::shared_ptr<Input>, InputLengthGreater> inps;
-					generations[i]->GetAllInputs(inps, false, true, 0, 0);
+					generations[i]->GetAllInputs(inps, false, true, 0, 0, 1000);
 					auto itr = inps.begin();
 					while (itr != inps.end())
 					{
@@ -319,7 +319,7 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 			case Settings::GenerationSourcesType::FilterPrimaryScoreRelative:
 				{
 					std::multiset<std::shared_ptr<Input>, InputGainGreaterPrimary> inps;
-					generations[i]->GetAllInputs(inps, false, true, 0, 0);
+					generations[i]->GetAllInputs(inps, false, true, 0, 0, 1000);
 					auto itr = inps.begin();
 					while (itr != inps.end()) {
 						inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
@@ -330,7 +330,7 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 			case Settings::GenerationSourcesType::FilterPrimaryScore:
 				{
 					std::multiset<std::shared_ptr<Input>, InputGreaterPrimary> inps;
-					generations[i]->GetAllInputs(inps, false, true, 0, 0);
+					generations[i]->GetAllInputs(inps, false, true, 0, 0, 1000);
 					auto itr = inps.begin();
 					while (itr != inps.end()) {
 						inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
@@ -342,7 +342,7 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 			case Settings::GenerationSourcesType::FilterSecondaryScoreRelative:
 				{
 					std::multiset<std::shared_ptr<Input>, InputGainGreaterSecondary> inps;
-					generations[i]->GetAllInputs(inps, false, true, 0, 0);
+					generations[i]->GetAllInputs(inps, false, true, 0, 0, 1000);
 					auto itr = inps.begin();
 					while (itr != inps.end()) {
 						inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
@@ -353,7 +353,7 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 			case Settings::GenerationSourcesType::FilterSecondaryScore:
 				{
 					std::multiset<std::shared_ptr<Input>, InputGreaterSecondary> inps;
-					generations[i]->GetAllInputs(inps, false, true, 0, 0);
+					generations[i]->GetAllInputs(inps, false, true, 0, 0, 1000);
 					auto itr = inps.begin();
 					while (itr != inps.end()) {
 						inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
@@ -619,7 +619,7 @@ void Evaluation::Evaluate(std::shared_ptr<Generation> generation)
 	case Settings::GenerationSourcesType::FilterLength:
 		{
 			std::multiset<std::shared_ptr<Input>, InputLengthGreater> inps;
-			generation->GetAllInputs(inps, false, true, 0, 0);
+			generation->GetAllInputs(inps, false, true, 0, 0, 1000);
 			auto itr = inps.begin();
 			while (itr != inps.end()) {
 				inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
@@ -630,7 +630,7 @@ void Evaluation::Evaluate(std::shared_ptr<Generation> generation)
 	case Settings::GenerationSourcesType::FilterPrimaryScoreRelative:
 		{
 			std::multiset<std::shared_ptr<Input>, InputGainGreaterPrimary> inps;
-			generation->GetAllInputs(inps, false, true, 0, 0);
+			generation->GetAllInputs(inps, false, true, 0, 0, 1000);
 			auto itr = inps.begin();
 			while (itr != inps.end()) {
 				inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
@@ -641,7 +641,7 @@ void Evaluation::Evaluate(std::shared_ptr<Generation> generation)
 	case Settings::GenerationSourcesType::FilterPrimaryScore:
 		{
 			std::multiset<std::shared_ptr<Input>, InputGreaterPrimary> inps;
-			generation->GetAllInputs(inps, false, true, 0, 0);
+			generation->GetAllInputs(inps, false, true, 0, 0, 1000);
 			auto itr = inps.begin();
 			while (itr != inps.end()) {
 				inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
@@ -652,7 +652,7 @@ void Evaluation::Evaluate(std::shared_ptr<Generation> generation)
 	case Settings::GenerationSourcesType::FilterSecondaryScoreRelative:
 		{
 			std::multiset<std::shared_ptr<Input>, InputGainGreaterSecondary> inps;
-			generation->GetAllInputs(inps, false, true, 0, 0);
+			generation->GetAllInputs(inps, false, true, 0, 0, 1000);
 			auto itr = inps.begin();
 			while (itr != inps.end()) {
 				inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
@@ -663,7 +663,7 @@ void Evaluation::Evaluate(std::shared_ptr<Generation> generation)
 	case Settings::GenerationSourcesType::FilterSecondaryScore:
 		{
 			std::multiset<std::shared_ptr<Input>, InputGreaterSecondary> inps;
-			generation->GetAllInputs(inps, false, true, 0, 0);
+			generation->GetAllInputs(inps, false, true, 0, 0, 1000);
 			auto itr = inps.begin();
 			while (itr != inps.end()) {
 				inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
