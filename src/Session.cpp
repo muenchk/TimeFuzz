@@ -660,10 +660,11 @@ void Session::SessionControl()
 			if (_sessiondata->GetGenerationFinishing() && CmdArgs::_clearTasks == false && std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - lasttaskcheck) > std::chrono::seconds(1))
 			{
 				tried = true;
+				_sessiondata->_generationFinishing = false;
 				auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
 				callback->_sessiondata = _sessiondata;
 				callback->_generation = _sessiondata->GetCurrentGeneration();
-				callback->_afterSave = true;
+				callback->_afterSave = false;
 				_sessiondata->_controller->AddTask(callback);
 			}
 				 
