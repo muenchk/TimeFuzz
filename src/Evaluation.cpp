@@ -424,6 +424,8 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 			for (int i = 0; i < (int)dds.size(); i++) {
 				StartProfiling;
 				current++;
+				if (!dds[i]->GetOriginalInput() || !dds[i]->GetInput())
+					continue;
 				std::string line = "";
 				size = dds[i]->GetTestsTotal();
 				size_av += dds[i]->GetTestsTotal();
