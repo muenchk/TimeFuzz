@@ -214,7 +214,7 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 	std::vector<std::shared_ptr<Form>> flaglist;
 	auto unlock = [&locklist]() {
 		for (auto form : locklist) {
-			form->Unlock();
+			form->UnlockRead();
 		}
 		locklist.clear();
 	};
@@ -223,7 +223,7 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 		{
 			auto form = locklist.front();
 			locklist.pop_front();
-			form->Unlock();
+			form->UnlockRead();
 		}
 	};
 	auto freeflags = [&flaglist]() {
@@ -239,11 +239,11 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 	if (!gram)
 		return false;
 	if (!input->HasFlag(Input::Flags::GeneratedDeltaDebugging) && !input->HasFlag(Input::Flags::GeneratedGrammarParent)) {
-		input->Lock();
-		input->derive->Lock();
+		input->LockRead();
+		input->derive->LockRead();
 		bool ret = GenerateInputGrammar(input, gram, sessiondata);
-		input->Unlock();
-		input->derive->Unlock();
+		input->UnlockRead();
+		input->derive->UnlockRead();
 		return ret;
 	}
 
@@ -251,8 +251,8 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 
 	if (input->GetGenerated() == false && input->derive && input->derive->_valid)
 	{
-		input->Lock();
-		input->derive->Lock();
+		input->LockRead();
+		input->derive->LockRead();
 		locklist.push_back(input);
 		locklist.push_back(input->derive);
 		if (input->derive->_valid)
@@ -276,8 +276,8 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 		actions++;
 		auto [inp, par] = forward.top();
 		forward.pop();
-		inp->Lock();
-		inp->derive->Lock();
+		inp->LockRead();
+		inp->derive->LockRead();
 		locklist.push_back(inp);
 		locklist.push_back(inp->derive);
 		if (!inp->HasFlag(Input::Flags::GeneratedDeltaDebugging)) {
@@ -402,8 +402,8 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 		actions++;
 		auto [inp, par] = backward.top();
 		backward.pop();
-		inp->Lock();
-		inp->derive->Lock();
+		inp->LockRead();
+		inp->derive->LockRead();
 		locklist.push_back(inp);
 		locklist.push_back(inp->derive);
 		/* if (par) {
