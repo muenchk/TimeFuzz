@@ -516,13 +516,14 @@ namespace DeltaDebugging
 				_sessiondata->_controller->AddTask(job);
 			}
 			// if there is no more task to start check whether the active inputs are 0 and then end the level
-			if (genCompData.tasks.load()->tasks.load() == 0 /*&& _activetests == 0 */) {
+			auto genCtask = genCompData.tasks.load();
+			if (genCtask->tasks.load() == 0 /*&& _activetests == 0 */) {
 				genCompData.active = false;
 				// the current stage has finished
 				// get out of light callback so we aren't blocking vital tasks
 				auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
 				callback->_DDcontroller = _self;
-				genCompData.tasks.load()->sendEndEvent = true;
+				genCtask->sendEndEvent = true;
 				_sessiondata->_controller->AddTask(callback);
 				return;
 			}
