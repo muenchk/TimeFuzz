@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <chrono>
 #include <lua.hpp>
+#include <memory>
 
 #include "DerivationTree.h"
 #include "TaskController.h"
@@ -164,6 +165,8 @@ private:
 	/// </summary>
 	short _retries = 0;
 
+	std::mutex _generationLock;
+
 public:
 	struct Flags
 	{
@@ -247,6 +250,20 @@ public:
 
 	static int lua_IsOSWindows(lua_State* L);
 	static void RegisterLuaFunctions(lua_State* L);
+
+	void LockGeneration()
+	{
+		_generationLock.lock();
+	}
+	void UnlockGeneration()
+	{
+		_generationLock.unlock();
+	}
+
+	bool TryLockGeneration()
+	{
+		return _generationLock.try_lock();
+	}
 
 	/// <summary>
 	/// converts the input to python code

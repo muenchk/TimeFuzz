@@ -324,6 +324,39 @@ public:
 		}
 	}
 };
+
+
+template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+class GenerationLockHolder
+{
+	std::shared_ptr<T> _form;
+
+	GenerationLockHolder(LockHolder<T>&) = delete;
+	GenerationLockHolder(LockHolder<T>&&) = delete;
+	GenerationLockHolder<T>& operator=(const GenerationLockHolder<T>&) = delete;
+	GenerationLockHolder<T>& operator=(const GenerationLockHolder<T>&&) = delete;
+
+public:
+	GenerationLockHolder()
+	{
+	}
+
+	GenerationLockHolder(std::shared_ptr<T> form)
+	{
+		if (form) {
+			_form = form;
+			_form->LockGeneration();
+		}
+	}
+
+	~GenerationLockHolder()
+	{
+		if (_form) {
+			_form->UnlockGeneration();
+			_form.reset();
+		}
+	}
+};
  
 struct FormType
 {

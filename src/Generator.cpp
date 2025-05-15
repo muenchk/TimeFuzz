@@ -239,6 +239,7 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 	if (!gram)
 		return false;
 	if (!input->HasFlag(Input::Flags::GeneratedDeltaDebugging) && !input->HasFlag(Input::Flags::GeneratedGrammarParent)) {
+		GenerationLockHolder<Input> glock(input);
 		input->LockRead();
 		input->derive->LockRead();
 		bool ret = GenerateInputGrammar(input, gram, sessiondata);
@@ -249,8 +250,8 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 
 	int32_t actions = 0;
 
-	if (input->GetGenerated() == false && input->derive && input->derive->_valid)
-	{
+	if (input->GetGenerated() == false && input->derive && input->derive->_valid) {
+		GenerationLockHolder<Input> glock(input);
 		input->LockRead();
 		input->derive->LockRead();
 		locklist.push_back(input);
@@ -276,6 +277,7 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 		actions++;
 		auto [inp, par] = forward.top();
 		forward.pop();
+		GenerationLockHolder<Input> glock(input);
 		inp->LockRead();
 		inp->derive->LockRead();
 		locklist.push_back(inp);
@@ -402,6 +404,7 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 		actions++;
 		auto [inp, par] = backward.top();
 		backward.pop();
+		GenerationLockHolder<Input> glock(input);
 		inp->LockRead();
 		inp->derive->LockRead();
 		locklist.push_back(inp);
