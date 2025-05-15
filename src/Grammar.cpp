@@ -1616,8 +1616,8 @@ Grammar::~Grammar()
 
 void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<DerivationTree> dtree, std::vector<std::pair<int64_t, int64_t>>& segments, int64_t stop, bool complement)
 {
-	if (segments.empty()) {
-		logcritical("Are you stupid the segments are empty");
+	if (segments.empty() || !stree || !dtree) {
+		logcritical("Are you stupid the segments are empty or the trees don't exist");
 		return;
 	}
 	if (_tree->_simpleGrammar == false)
