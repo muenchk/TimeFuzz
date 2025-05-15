@@ -119,9 +119,8 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, LoadSessionArgs&
 	else
 		dat->SetSavePath(sett->saves.savepath);
 	logdebug("Set save path");
-	LoadSessionArgs* asyncargs = nullptr;
-	if (loadargs.startSession) {
-		asyncargs = new LoadSessionArgs;
+	LoadSessionArgs* asyncargs = new LoadSessionArgs;
+	//if (loadargs.startSession) {
 		asyncargs->startSession = loadargs.startSession;
 		asyncargs->reloadSettings = loadargs.reloadSettings;
 		asyncargs->settingsPath = loadargs.settingsPath;
@@ -130,7 +129,7 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, LoadSessionArgs&
 		asyncargs->skipExclusionTree = loadargs.skipExclusionTree;
 		asyncargs->customsavepath = loadargs.customsavepath;
 		asyncargs->savepath = loadargs.savepath;
-	}
+	//}
 	std::thread th(LoadSession_Async, dat, name, -1, error, asyncargs);
 	th.detach();
 	logdebug("Started async loader");
@@ -157,9 +156,8 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, 
 	else
 		dat->SetSavePath(sett->saves.savepath);
 	logdebug("Set save path");
-	LoadSessionArgs* asyncargs = nullptr;
-	if (loadargs.startSession) {
-		asyncargs = new LoadSessionArgs;
+	LoadSessionArgs* asyncargs = new LoadSessionArgs;
+	//if (loadargs.startSession) {
 		asyncargs->startSession = loadargs.startSession;
 		asyncargs->reloadSettings = loadargs.reloadSettings;
 		asyncargs->settingsPath = loadargs.settingsPath;
@@ -168,7 +166,7 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, 
 		asyncargs->skipExclusionTree = loadargs.skipExclusionTree;
 		asyncargs->customsavepath = loadargs.customsavepath;
 		asyncargs->savepath = loadargs.savepath;
-	}
+	//}
 	std::thread th(LoadSession_Async, dat, name, number, error, asyncargs);
 	th.detach();
 	logdebug("Started async loader");
