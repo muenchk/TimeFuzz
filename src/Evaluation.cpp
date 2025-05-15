@@ -247,8 +247,8 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 		int64_t gennumber = 0, gensize = 0, avgensize = 0, ddsize = 0, avddsize = 0, numberofdd = 0, avnumberofdd = 0;
 		double testsperminute = 0.f, avtestsperminute = 0.f, totalprimaryscoreinc = 0.f, avtotalprimaryscoreinc = 0.f, totalsecondaryscoreinc = 0.f, avtotalsecondaryscoreinc = 0.f;
 		std::chrono::nanoseconds averageddruntime, avaverageddruntime, averagetestexectime, avaveragetestexectime,runtime, avruntime;
-		for (int i = 0; i < (int)generations.size(); i++)
-		{
+		for (int i = 0; i < (int)generations.size(); i++) {
+			StartProfiling;
 			current++;
 
 			std::string line = "";
@@ -308,10 +308,13 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 				{
 					std::multiset<std::shared_ptr<Input>, InputLengthGreater> inps;
 					generations[i]->GetAllInputs(inps, false, true, 0, 0, 1000);
+					int count = 0;
 					auto itr = inps.begin();
 					while (itr != inps.end())
 					{
+						count++;
 						inputs += PrintInput(*itr, tmp, args1,args2,arg3,true) + "\n";
+						logmessage("Input {}", count);
 						itr++;
 					}
 				}
@@ -321,8 +324,11 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 					std::multiset<std::shared_ptr<Input>, InputGainGreaterPrimary> inps;
 					generations[i]->GetAllInputs(inps, false, true, 0, 0, 1000);
 					auto itr = inps.begin();
+					int count = 0;
 					while (itr != inps.end()) {
+						count++;
 						inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
+						logmessage("Input {}", count);
 						itr++;
 					}
 				}
@@ -332,8 +338,11 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 					std::multiset<std::shared_ptr<Input>, InputGreaterPrimary> inps;
 					generations[i]->GetAllInputs(inps, false, true, 0, 0, 1000);
 					auto itr = inps.begin();
+					int count = 0;
 					while (itr != inps.end()) {
+						count++;
 						inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
+						logmessage("Input {}", count);
 						itr++;
 					}
 
@@ -344,8 +353,11 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 					std::multiset<std::shared_ptr<Input>, InputGainGreaterSecondary> inps;
 					generations[i]->GetAllInputs(inps, false, true, 0, 0, 1000);
 					auto itr = inps.begin();
+					int count = 0;
 					while (itr != inps.end()) {
+						count++;
 						inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
+						logmessage("Input {}", count);
 						itr++;
 					}
 				}
@@ -355,8 +367,11 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 					std::multiset<std::shared_ptr<Input>, InputGreaterSecondary> inps;
 					generations[i]->GetAllInputs(inps, false, true, 0, 0, 1000);
 					auto itr = inps.begin();
+					int count = 0;
 					while (itr != inps.end()) {
+						count++;
 						inputs += PrintInput(*itr, tmp, args1, args2, arg3, true) + "\n";
+						logmessage("Input {}", count);
 						itr++;
 					}
 				}
@@ -364,6 +379,7 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 			}
 
 			WriteFile("Generation_" + std::to_string(generations[i]->GetGenerationNumber()) + ".csv", "", inputs);
+			profile(TimeProfiling, "Time taken for generation {}", generations[i]->GetGenerationNumber());
 
 		}
 
@@ -406,6 +422,7 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 			std::chrono::nanoseconds runtime_to = std::chrono::nanoseconds(0), avtestruntime_to = std::chrono::nanoseconds(0);
 
 			for (int i = 0; i < (int)dds.size(); i++) {
+				StartProfiling;
 				current++;
 				std::string line = "";
 				size = dds[i]->GetTestsTotal();
@@ -462,6 +479,7 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 
 				line = Utility::GetHex(dds[i]->GetFormID()) + ";" + std::to_string(totaltests) + ";" + std::to_string(skipped) + ";" + std::to_string(prefix) + ";" + std::to_string(approx) + ";" + std::to_string(batchcount) + ";" + std::to_string(level) + ";" + std::to_string(orig_l) + ";" + std::to_string(new_l) + ";" + std::to_string(relativereduction_l) + ";" + std::to_string(orig_p) + ";" + std::to_string(new_p) + ";" + std::to_string(relativereduction_p) + ";" + std::to_string(orig_s) + ";" + std::to_string(new_s) + ";" + std::to_string(relativereduction_s) + ";" + Logging::FormatTimeNS(runtime.count()) + ";" + Logging::FormatTimeNS(avtestruntime.count()) + "\n";
 				lines += line;
+				profile(TimeProfiling, "Time taken for dd {}", dds[i]->GetFormID());
 			}
 			size_av /= dds.size();
 			skipped_av /= dds.size();
@@ -488,6 +506,7 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 	// ### Inputs
 	{
 		// collect top 100 and print their outputs and the inputs itself
+		StartProfiling;
 
 		std::string scriptargs;
 		std::string cmdargs;
@@ -540,6 +559,7 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 			WriteFile(Utility::GetHex(pos_inputs[i]->GetFormID()) + ".dump.txt", "positive", dump);
 		}
 		WriteFile("positive.csv", "", inputHeader + positive);
+		profile(TimeProfiling, "Time taken for top k");
 	}
 
 	if (reg)

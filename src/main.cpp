@@ -2771,7 +2771,7 @@ Responsive:
 			std::thread th(std::bind(&Session::WriteResults, session, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), CmdArgs::_resultpath, &total, &current);
 
 			while (total != current || total == 0) {
-				std::this_thread::sleep_for(std::chrono::milliseconds(100));
+				std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 				clearScreen();
 				moveTo(1, 1);
 				std::cout << "Writing results:\t" << std::to_string(current) + "/" + std::to_string(total) + "\n";

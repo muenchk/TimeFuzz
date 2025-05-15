@@ -87,6 +87,11 @@ void Session::LoadSession_Async(Data* dat, std::string name, int32_t number, boo
 		// clear tests
 		sessdata->_exechandler->ClearTests();
 	}
+	if (args->skipExclusionTree)
+	{
+		auto sett = dat->CreateForm<Settings>();
+		sett->runtime.enableExclusionTree = args->skipExclusionTree;
+	}
 	if (args && args->startSession == true)
 		session->StartLoadedSession(*error, args->reloadSettings, args->settingsPath);
 	if (args)
