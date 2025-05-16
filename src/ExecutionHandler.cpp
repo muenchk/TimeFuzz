@@ -559,6 +559,7 @@ void ExecutionHandler::StopTest(std::shared_ptr<Test> test)
 		ptr->_hasfinished = true;
 		ptr->_executiontime = std::chrono::duration_cast<std::chrono::nanoseconds>(test->_endtime - test->_starttime);
 		ptr->_exitcode = test->GetExitCode();
+		ptr->_olderinputs = SessionStatistics::TestsExecuted(_sessiondata);
 		// give _input access to test information
 		ptr->test = test;
 		// inform generation that an inut has finished if applicable

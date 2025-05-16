@@ -22,7 +22,7 @@ class Input : public Form
 {
 	friend class SessionFunctions;
 
-	const int32_t classversion = 0x2;
+	const int32_t classversion = 0x3;
 
 	std::atomic_flag _derivedFlag = ATOMIC_FLAG_INIT;
 

@@ -51,6 +51,8 @@ size_t Input::GetStaticSize(int32_t version)
 	                        + 1                 // enablePrimaryScoreIndividual
 	                        + 1                 // enableSecondaryScoreIndividual
 	                        + 8;                // derivedFails
+	static size_t size0x3 = size0x2             // old version
+	                        + 8;                // _olderinputs
 
 	switch (version)
 	{
@@ -58,6 +60,8 @@ size_t Input::GetStaticSize(int32_t version)
 		return size0x1;
 	case 0x2:
 		return size0x2;
+	case 0x3:
+		return size0x3;
 	default:
 		return 0;
 	}
@@ -118,6 +122,7 @@ bool Input::WriteData(std::ostream* buffer, size_t& offset)
 	Buffer::DequeBasic::WriteDeque(_primaryScoreIndividual, buffer, offset);
 	Buffer::DequeBasic::WriteDeque(_secondaryScoreIndividual, buffer, offset);
 	Buffer::Write(_derivedFails, buffer, offset);
+	Buffer::Write(_olderinputs,buffer, offset);
 	return true;
 }
 
@@ -172,6 +177,7 @@ bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRe
 		}
 		return true;
 	case 0x2:
+	case 0x3:
 		{
 			if (length < GetStaticSize(version))
 				return false;
@@ -253,6 +259,10 @@ bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRe
 					}
 					return true;
 				});
+			}
+			if (version == 0x3)
+			{
+				_olderinputs = Buffer::ReadInt64(buffer, offset);
 			}
 		}
 		return true;
