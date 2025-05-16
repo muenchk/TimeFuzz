@@ -1047,9 +1047,10 @@ namespace Functions
 	{
 		// get id of sessiondata and resolve link
 		uint64_t sessid = Buffer::ReadUInt64(buffer, offset);
-		resolver->AddTask([this, sessid, resolver]() {
-			this->_sessiondata = resolver->_data->CreateForm<SessionData>();
-		});
+		if (!CmdArgs::_clearTasks)
+			resolver->AddTask([this, sessid, resolver]() {
+				this->_sessiondata = resolver->_data->CreateForm<SessionData>();
+			});
 		return true;
 	}
 
