@@ -198,9 +198,11 @@ public:
 	}
 
 #define profile(...)                          \
-	 static_cast<void>(prof(__func__, true, __VA_ARGS__));  // we check for enabled in the function itself, so we can save the exectimes itself
+	if (Logging::EnableProfile) \
+		static_cast<void>(prof(__func__, true, __VA_ARGS__));  // we check for enabled in the function itself, so we can save the exectimes itself
 #define profileW(...) \
-	static_cast<void>(prof(__func__, false, __VA_ARGS__));  // we check for enabled in the function itself, so we can save the exectimes itself
+	if (Logging::EnableProfile) \
+		static_cast<void>(prof(__func__, false, __VA_ARGS__));  // we check for enabled in the function itself, so we can save the exectimes itself
 
 #define logmessage(...) \
 	static_cast<void>(logmes(__func__, __VA_ARGS__)); \

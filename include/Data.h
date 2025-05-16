@@ -10,6 +10,7 @@
 #include <string>
 #include <queue>
 #include <unordered_map>
+#include <unordered_set>
 #include <mutex>
 #include <atomic>
 #include <chrono>
@@ -530,6 +531,8 @@ public:
 	/// <param name="a_task">task to add to late queue</param>
 	void AddLateTask(TaskDelegate* a_task);
 
+	void AddRegeneration(FormID formid);
+
 	/// <summary>
 	/// returns a form matching the given type and form id
 	/// </summary>
@@ -558,6 +561,12 @@ public:
 	/// <param name="progress">variable incremented and overwritten for each resolved task</param>
 	void ResolveLate(uint64_t& progress);
 
+	void Regenerate(uint64_t& progress, uint64_t& max, std::shared_ptr<SessionData> sessiondata, int32_t numthreads);
+
+	void Regenrate_Intern(std::shared_ptr<SessionData> sessiondata, uint64_t* progress);
+
+	void Regenerate_Free(std::shared_ptr<SessionData> sessiondata, uint64_t* progress);
+
 	/// <summary>
 	/// returns the total number of tasks waiting in queue
 	/// </summary>
@@ -577,6 +586,10 @@ private:
 	/// mutex for access to task queues
 	/// </summary>
 	std::mutex _lock;
+
+	std::unordered_set<FormID> _regeneration;
+	std::deque<std::shared_ptr<Input>> _regenqueue;
+	std::mutex _regenlock;
 	
 	class Task : public TaskDelegate
 	{

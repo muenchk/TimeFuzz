@@ -8,6 +8,7 @@
 #include "DeltaDebugging.h"
 #include "Generation.h"
 #include "BufferOperations.h"
+#include "SessionFunctions.h"
 
 #include <memory>
 #include <iostream>
@@ -985,6 +986,28 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 		sessdata->_oracle = CreateForm<Oracle>();
 		bool registeredLua = Lua::RegisterThread(sessdata);  // session is already fully loaded for the most part, so we can use the command
 		_lresolve->ResolveLate(_actionloadsave_current);
+
+		/*int32_t threads = sessdata->_settings->general.concurrenttests;
+		int32_t taskthreads = sessdata->_settings->general.numcomputingthreads;
+		if (sessdata->_settings->general.usehardwarethreads) {
+			// don't overshoot over actually available hardware threads
+			int32_t max = (int)std::thread::hardware_concurrency();
+			if (taskthreads + sessdata->_settings->general.concurrenttests > max) {
+				taskthreads = (int)((((double)taskthreads) / ((double)sessdata->_settings->general.concurrenttests)) * std::thread::hardware_concurrency());
+			}
+		}
+		if (taskthreads == 0)
+			taskthreads = 1;
+		if (sessdata->_settings->controller.activateSettings)
+			if (sessdata->_settings->controller.numAllThreads > 0)
+				threads += sessdata->_settings->controller.numAllThreads;
+			else
+				threads += sessdata->_settings->controller.numLightThreads + sessdata->_settings->controller.numMediumThreads + sessdata->_settings->controller.numHeavyThreads;
+		else
+			threads += taskthreads;*/
+
+		_lresolve->Regenerate(_actionloadsave_current, _actionloadsave_max, sessdata, sessdata->_settings->general.numthreads);
+
 		// unregister ourselves from the lua wrapper if we registered ourselves above
 		if (registeredLua)
 			Lua::UnregisterThread();
@@ -1088,6 +1111,120 @@ void LoadResolver::ResolveLate(uint64_t& progress)
 		progress++;
 	}
 	profile(TimeProfiling, "Performing Post-load operations");
+}
+
+void LoadResolver::AddRegeneration(FormID formid)
+{
+	_regeneration.insert(formid);
+}
+
+void LoadResolver::Regenrate_Intern(std::shared_ptr<SessionData> sessiondata, uint64_t* progress)
+{
+	std::shared_ptr<Input> form;
+	while (_regenqueue.size() > 0) {
+		{
+			std::unique_lock<std::mutex> guard(_regenlock);
+			if (_regenqueue.empty())
+				return;
+			form = _regenqueue.front();
+			_regenqueue.pop_front();
+			*progress += 1;
+		}
+		if (form->GetGenerated() == false || form->GetSequenceLength() == 0) {
+			form->SetGenerated(false);
+			// we are trying to add an _input that hasn't been generated or regenerated
+			// try the generate it and if it succeeds add the test
+			if (form && sessiondata)
+				SessionFunctions::GenerateInput(form, sessiondata);
+		}
+		auto tmp = _data->LookupFormID<Input>(form->GetParentID());
+		while (tmp) {
+			tmp->FreeMemory();
+			if (tmp->derive)
+				tmp->derive->FreeMemory();
+			tmp = _data->LookupFormID<Input>(tmp->GetParentID());
+		}
+	}
+}
+
+void LoadResolver::Regenerate_Free(std::shared_ptr<SessionData> sessiondata, uint64_t* progress)
+{
+	std::shared_ptr<Input> form;
+	FormID formid;
+	while (_regeneration.size() > 0) {
+		{
+			std::unique_lock<std::mutex> guard(_regenlock);
+			if (_regenqueue.empty())
+				return;
+			formid = *_regeneration.begin();
+			_regeneration.erase(formid);
+			*progress += 1;
+		}
+		form = _data->LookupFormID<Input>(formid);
+
+		form->FreeMemory();
+		if (form->derive)
+			form->derive->FreeMemory();
+	}
+}
+
+void LoadResolver::Regenerate(uint64_t& progress, uint64_t& max, std::shared_ptr<SessionData> sessiondata, int32_t numthreads)
+{
+	logmessage("Starting {} threads", numthreads);
+	std::vector<std::thread> threads;
+	std::vector<std::shared_ptr<Input>> back;
+	current = "Gather Inputs to regenerate";
+	for (auto formid : _regeneration)
+	{
+		back.clear();
+		std::shared_ptr<Input> form = _data->LookupFormID<Input>(formid);
+		back.push_back(form);
+		/*std::shared_ptr<Input> tmp = _data->LookupFormID<Input>(form->GetParentID());
+		while (tmp) {
+			if (!_regeneration.contains(tmp->GetFormID())) {
+				back.push_back(tmp);
+				_regeneration.insert(tmp->GetFormID());
+			}
+			tmp =_data->LookupFormID<Input>(tmp->GetParentID());
+		}*/
+		for (int i = (int)back.size() - 1; i >= 0; i--)
+			_regenqueue.push_back(back[i]);
+	}
+	back.clear();
+	max += _regeneration.size() + _regenqueue.size();
+
+	if (numthreads <= 1) {
+		loginfo("dumb?")
+		for (auto form : _regenqueue)
+		{
+			current = "Input Regenerate";
+			if (form->GetGenerated() == false || form->GetSequenceLength() == 0) {
+				form->SetGenerated(false);
+				// we are trying to add an _input that hasn't been generated or regenerated
+				// try the generate it and if it succeeds add the test
+				if (form && sessiondata)
+					SessionFunctions::GenerateInput(form, sessiondata);
+			}
+		}
+	}
+	else
+	{
+		for (int i = 0; i < numthreads; i++) {
+			threads.emplace_back(std::thread(&LoadResolver::Regenrate_Intern, this, sessiondata, &progress));
+		}
+		for (int i = 0; i < numthreads; i++) {
+			if (threads[i].joinable())
+				threads[i].join();
+		}
+		threads.clear();
+		for (int i = 0; i < numthreads; i++) {
+			threads.emplace_back(std::thread(&LoadResolver::Regenerate_Free, this, sessiondata, &progress));
+		}
+		for (int i = 0; i < numthreads; i++) {
+			if (threads[i].joinable())
+				threads[i].join();
+		}
+	}
 }
 
 LoadResolver::Task::Task(TaskFn&& a_fn) :

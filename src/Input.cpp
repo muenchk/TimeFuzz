@@ -193,20 +193,23 @@ bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRe
 			_oracleResult = Buffer::ReadUInt64(buffer, offset);
 			FormID testid = Buffer::ReadUInt64(buffer, offset);
 			if (testid == 0) {
-				logwarn("Test ID invalid");
+				//logwarn("Test ID invalid");
 			} else {
 				resolver->AddTask([this, resolver, testid]() {
 					this->test = resolver->ResolveFormID<Test>(testid);
-					if (!this->test)
-						logwarn("Test not found");
+					//if (!this->test)
+						//logwarn("Test not found");
 				});
 			}
 			FormID deriveid = Buffer::ReadUInt64(buffer, offset);
-			resolver->AddTask([this, resolver, deriveid]() {
-				this->derive = resolver->ResolveFormID<DerivationTree>(deriveid);
-				if (!derive)
-					logwarn("Cannot find DerivationTree: {}", deriveid);
-			});
+			if (deriveid == 0) {
+			} else {
+				resolver->AddTask([this, resolver, deriveid]() {
+					this->derive = resolver->ResolveFormID<DerivationTree>(deriveid);
+					//if (!derive)
+					//logwarn("Cannot find DerivationTree: {}", deriveid);
+				});
+			}
 			//logdebug("ReadData string rep");
 			// get _stringrep
 			//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
@@ -237,28 +240,7 @@ bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRe
 			_derivedFails = Buffer::ReadUInt64(buffer, offset);
 			if (HasFlag(Form::FormFlags::DoNotFree) && CmdArgs::_clearTasks == false)
 			{
-				resolver->AddLateTask([this, resolver]() {
-					resolver->current = "Input Late";
-					if (GetGenerated() == false || GetSequenceLength() == 0) {
-						SetGenerated(false);
-						// we are trying to add an _input that hasn't been generated or regenerated
-						// try the generate it and if it succeeds add the test
-						auto input = resolver->ResolveFormID<Input>(_formid);
-						auto sessdata = resolver->_data->CreateForm<SessionData>();
-						if (input && sessdata)
-							SessionFunctions::GenerateInput(input, sessdata);
-						if (GetGenerated() == false)
-							return false;
-					}
-					std::shared_ptr<Input> tmp = resolver->ResolveFormID<Input>(_parent.parentInput);
-					while (tmp) {
-						tmp->FreeMemory();
-						if (tmp->derive)
-							tmp->derive->FreeMemory();
-						tmp = resolver->ResolveFormID<Input>(tmp->GetParentID());
-					}
-					return true;
-				});
+				resolver->AddRegeneration(_formid);
 			}
 			if (version == 0x3)
 			{

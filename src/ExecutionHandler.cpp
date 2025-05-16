@@ -1092,7 +1092,8 @@ bool ExecutionHandler::ReadData(std::istream* buffer, size_t& offset, size_t len
 							// since we found a test we still need to execute, we need to make sure that our _input contains a valid _input sequence
 							// and regenerate it if not
 							if (auto ptr = test->_input.lock(); ptr) {
-								if (!ptr->test)
+								resolver->AddRegeneration(ptr->GetFormID());
+								/*if (!ptr->test)
 									ptr->test = test;
 								if (ptr->GetGenerated() == false)
 									SessionFunctions::GenerateInput(ptr, this->_sessiondata);
@@ -1102,7 +1103,7 @@ bool ExecutionHandler::ReadData(std::istream* buffer, size_t& offset, size_t len
 									if (tmp->derive)
 										tmp->derive->FreeMemory();
 									tmp = resolver->ResolveFormID<Input>(tmp->GetParentID());
-								}
+								}*/
 							}
 							test->_cmdArgs = Lua::GetCmdArgs(std::bind(&Oracle::GetCmdArgs, _oracle, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), test, stateerror, false);
 							if (_oracle->GetOracletype() == Oracle::PUTType::Script)

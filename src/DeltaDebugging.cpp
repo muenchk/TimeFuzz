@@ -3188,28 +3188,31 @@ namespace DeltaDebugging
 					}
 				});
 				// create _inputRanges, _input, and _origInput
-				resolver->AddLateTask([this, resolver]() {
-					resolver->current = "DeltaDebugging Late 1";
-					if (_input && _params->mode == DeltaDebugging::DDMode::ScoreProgress)
-					{
-						_inputRanges = _input->FindIndividualPrimaryScoreRangesWithoutChanges();
-					}
-					if (_origInput->GetGenerated() == false) {
+				if (_finished == false) {
+					resolver->AddLateTask([this, resolver]() {
+						resolver->current = "DeltaDebugging Late 1";
+						if (_input && _params->mode == DeltaDebugging::DDMode::ScoreProgress) {
+							_inputRanges = _input->FindIndividualPrimaryScoreRangesWithoutChanges();
+						}
+						resolver->AddRegeneration(_origInput->GetFormID());
+						/*if (_origInput->GetGenerated() == false) {
 						// we are trying to add an _input that hasn't been generated or regenerated
 						// try the generate it and if it succeeds add the test
 						SessionFunctions::GenerateInput(_origInput, _sessiondata);
 						if (_origInput->GetGenerated() == false)
 							logcritical("DeltaDebugging original input could not be reconstructed");
-					}
-					if (_input->GetGenerated() == false || _input->GetSequenceLength() == 0) {
+					}*/
+						resolver->AddRegeneration(_input->GetFormID());
+						/*if (_input->GetGenerated() == false || _input->GetSequenceLength() == 0) {
 						// we are trying to add an _input that hasn't been generated or regenerated
 						// try the generate it and if it succeeds add the test
 						_input->SetGenerated(false);
 						SessionFunctions::GenerateInput(_input, _sessiondata);
 						if (_input->GetGenerated() == false)
 							logcritical("DeltaDebugging input could not be reconstructed");
-					}
-				});
+					}*/
+					});
+				}
 
 				if (version >= 0x3)
 				{

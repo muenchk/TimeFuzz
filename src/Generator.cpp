@@ -277,7 +277,7 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 		actions++;
 		auto [inp, par] = forward.top();
 		forward.pop();
-		GenerationLockHolder<Input> glock(input);
+		GenerationLockHolder<Input> glock(inp);
 		inp->LockRead();
 		inp->derive->LockRead();
 		locklist.push_back(inp);
@@ -404,7 +404,7 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 		actions++;
 		auto [inp, par] = backward.top();
 		backward.pop();
-		GenerationLockHolder<Input> glock(input);
+		GenerationLockHolder<Input> glock(inp);
 		inp->LockRead();
 		inp->derive->LockRead();
 		locklist.push_back(inp);
@@ -490,6 +490,7 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 			// extract the corresponding derivation tree
 			if (inp->derive->_valid == false)
 			{
+				GenerationLockHolder<Input> gplock(par);
 				auto segments = inp->GetParentSplits();
 				gram->Extract(par->derive, inp->derive, segments, par->GetSequenceLength(), inp->GetParentSplitComplement());
 				if (inp->derive->_valid == false) {
