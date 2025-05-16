@@ -491,6 +491,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 	_actionloadsave_max = 0;
 	_actionrecord_len = 0;
 	_actionrecord_offset = 0;
+	_lresolve->_data = this;
 	// callback after load
 	std::shared_ptr<Functions::BaseFunction> callback;
 	StartProfiling;
