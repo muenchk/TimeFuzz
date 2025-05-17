@@ -67,14 +67,25 @@ void ExecutionHandler::Clear()
 {
 	if (_threadStopToken)
 		_threadStopToken->request_stop();
+
 	if (_thread.joinable())
 		_thread.detach();
+	_waitforjob.notify_all();
 	_thread = {};
 	if (_threadTSStopToken)
 		_threadTSStopToken->request_stop();
 	if (_threadTS.joinable())
 		_threadTS.detach();
+	_startingLockCond.notify_all();
 	_threadTS = {};
+	if (_threadTestStopToken)
+		_threadTestStopToken->request_stop();
+	if (_threadTest.joinable())
+		_threadTest.detach();
+#if defined(unix) || defined(__unix__) || defined(__unix)
+	_waitCond.notify_all();
+#endif
+	_threadTest = {};
 	Form::ClearForm();
 	_cleared = true;
 	while (!_waitingTests.empty())
@@ -158,7 +169,11 @@ void ExecutionHandler::StartHandlerAsIs()
 	_threadStopToken = std::make_shared<stop_token>();
 	_threadTSStopToken = std::make_shared<stop_token>();
 	_thread = std::thread(std::bind(&ExecutionHandler::InternalLoop, this, std::placeholders::_1), _threadStopToken);
-	_threadTS = std::thread(std::bind(&ExecutionHandler::TestStarter, this, std::placeholders::_1), _threadStopToken);
+	_threadTS = std::thread(std::bind(&ExecutionHandler::TestStarter, this, std::placeholders::_1), _threadTSStopToken);
+	_threadTestStopToken = std::make_shared<stop_token>();
+#if defined(unix) || defined(__unix__) || defined(__unix)
+	_threadTest = std::thread(std::bind(&ExecutionHandler::TestWaiter, this, std::placeholders::_1), _threadTestStopToken);
+#endif
 }
 
 void ExecutionHandler::StartHandler()
@@ -252,7 +267,11 @@ void ExecutionHandler::StartHandler()
 	_threadStopToken = std::make_shared<stop_token>();
 	_threadTSStopToken = std::make_shared<stop_token>();
 	_thread = std::thread(std::bind(&ExecutionHandler::InternalLoop, this, std::placeholders::_1), _threadStopToken);
-	_threadTS = std::thread(std::bind(&ExecutionHandler::TestStarter, this, std::placeholders::_1), _threadStopToken);
+	_threadTS = std::thread(std::bind(&ExecutionHandler::TestStarter, this, std::placeholders::_1), _threadTSStopToken);
+	_threadTestStopToken = std::make_shared<stop_token>();
+#if defined(unix) || defined(__unix__) || defined(__unix)
+	_threadTest = std::thread(std::bind(&ExecutionHandler::TestWaiter, this, std::placeholders::_1), _threadTestStopToken);
+#endif
 }
 
 void ExecutionHandler::ReinitHandler()
@@ -571,6 +590,14 @@ void ExecutionHandler::StopTest(std::shared_ptr<Test> test)
 	} else {
 		logwarn("ptr invalid");
 	}
+	if (!test->WaitAndKillProcess()) {
+#if defined(unix) || defined(__unix__) || defined(__unix)
+		std::unique_lock<std::mutex> guards(_waitQueueLock);
+		_waitQueue.push_back(test->processid);
+		//logmessage("Waiting Process, Queue: {}", _waitQueue.size());
+		_waitCond.notify_one();
+#endif
+	}
 	// invalidate so no more functions can be called on the test
 	test->InValidate();
 	// call _callback if test has finished
@@ -646,6 +673,60 @@ void ExecutionHandler::TestStarter(std::shared_ptr<stop_token> stoken)
 
 		_startingLockCond.wait_for(guard, waittime, [this] { return _stopHandler || (!_waitingTests.empty() || !_waitingTestsExec.empty()) && _currentTests < _maxConcurrentTests; });
 	}
+}
+
+void ExecutionHandler::TestWaiter(std::shared_ptr<stop_token> stoken)
+{
+	logmessage("Starting Test Waiter");
+	if (stoken->stop_requested())
+		return;
+#if defined(unix) || defined(__unix__) || defined(__unix)
+	logmessage("Starting Test Waiter Unix");
+	pid_t pid;
+	while (_stopHandler == false || stoken->stop_requested() == false) {
+		std::unique_lock<std::mutex> guard(_waitLock);
+		_waitCond.wait_for(guard, std::chrono::milliseconds(100), [this] { return _stopHandler || !_waitQueue.empty(); });
+		bool fail = false;
+		/*
+		bool fail = false;
+		{
+			std::unique_lock<std::mutex> guards(_waitQueueLock);
+			try {
+				pid = _waitQueue.ts_front();
+				fail = false;
+			} catch (std::exception&) {
+				fail = true;
+			}
+		}
+		if (!fail) {
+			logmessage("Waiting for process");
+			Processes::WaitProcess(pid, true);
+		}*/
+		/*
+		{
+			std::unique_lock<std::mutex> guards(_waitQueueLock);
+			if (!_waitQueue.empty()) {
+				pid = _waitQueue.front();
+				_waitQueue.pop_front();
+				fail = false;
+
+			} else
+				fail = true;
+		}
+		if (!fail) {
+			logmessage("Waiting for process");
+			//Processes::WaitProcess(pid, true);
+		}*/
+		{
+			std::unique_lock<std::mutex> guards(_waitQueueLock);
+			for (size_t i = 0; i < _waitQueue.size(); i++)
+			{
+				Processes::WaitProcess(_waitQueue[i], false);
+			}
+		}
+	}
+#endif
+	logmessage("Ending Test Waiter");
 }
 
 void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
@@ -1163,9 +1244,11 @@ namespace Functions
 	bool ExecInitTestsCallback::ReadData(std::istream*, size_t&, size_t, LoadResolver* resolver)
 	{
 		// get id of saved controller and resolve link
-		resolver->AddTask([this, resolver]() {
-			this->_sessiondata = resolver->_data->CreateForm<SessionData>();
-		});
+		if (CmdArgs::_clearTasks == false) {
+			resolver->AddTask([this, resolver]() {
+				this->_sessiondata = resolver->_data->CreateForm<SessionData>();
+			});
+		}
 		return true;
 	}
 

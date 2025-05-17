@@ -47,6 +47,8 @@ namespace Processes
 
 	int32_t GetExitCode(pid_t);
 
+	bool WaitProcess(pid_t, bool wait = false);
+
 #	elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 
 	bool StartPUTProcess(std::shared_ptr<Test> test, std::string app, std::string args);

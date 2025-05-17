@@ -325,6 +325,25 @@ namespace Processes
 		}
 	}
 
+	bool WaitProcess(pid_t pid, bool wait)
+	{
+		if (!wait) {
+			pid_t ret = waitpid(pid, NULL, WNOHANG);
+			if (ret == pid) {
+				//logmessage("Child successfully waited on");
+				return true;
+			} else if (ret == 0) {
+				//logmessage("Child not yet exited");
+				return false;
+			} else {
+				//logmessage("Child not found");
+				return true;
+			}
+		} else {
+			pid_t res = waitpid(pid, NULL, 0);
+		}
+	}
+
 	bool GetProcessRunning(pid_t pid, int32_t* exitcode)
 	{
 		StartProfilingDebug;

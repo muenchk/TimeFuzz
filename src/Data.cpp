@@ -987,6 +987,13 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 		bool registeredLua = Lua::RegisterThread(sessdata);  // session is already fully loaded for the most part, so we can use the command
 		_lresolve->ResolveLate(_actionloadsave_current);
 
+		sessdata->_oracle = CreateForm<Oracle>();
+		sessdata->_controller = CreateForm<TaskController>();
+		sessdata->_exechandler = CreateForm<ExecutionHandler>();
+		sessdata->_generator = CreateForm<Generator>();
+		sessdata->_settings = CreateForm<Settings>();
+		sessdata->_excltree = CreateForm<ExclusionTree>();
+
 		/*int32_t threads = sessdata->_settings->general.concurrenttests;
 		int32_t taskthreads = sessdata->_settings->general.numcomputingthreads;
 		if (sessdata->_settings->general.usehardwarethreads) {
@@ -1012,7 +1019,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 		if (registeredLua)
 			Lua::UnregisterThread();
 		// add savecallback to taskcontroller
-		if (callback) {
+		if (callback && CmdArgs::_clearTasks == false) {
 			sessdata->_controller->AddTask(callback);
 		}
 

@@ -246,6 +246,8 @@ public:
 	/// <returns></returns>
 	bool KillProcess();
 
+	bool WaitAndKillProcess();
+
 	/// <summary>
 	/// trims input to the last executed
 	/// </summary>

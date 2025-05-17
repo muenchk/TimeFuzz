@@ -298,7 +298,7 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 					par = sessiondata->data->LookupFormID<Input>(inp->GetParentID());
 				}
 				// check parent
-				if (!par) {
+				if (!par || !par->derive) {
 					profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
 					unlock();
 					freeflags();
@@ -357,7 +357,7 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 			// the input has beeen created by delta debuggging, so reconstruct it
 			// first get parent input
 			par = sessiondata->data->LookupFormID<Input>(inp->GetParentID());
-			if (!par) {
+			if (!par || !par->derive) {
 				profile(TimeProfiling, "Time taken for input Generation, actions: {}", actions);
 				unlock();
 				freeflags();

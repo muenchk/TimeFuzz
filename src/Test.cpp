@@ -560,6 +560,24 @@ bool Test::KillProcess()
 #endif
 }
 
+bool Test::WaitAndKillProcess()
+{
+#if defined(unix) || defined(__unix__) || defined(__unix)
+	if (processid)
+	{
+		if (!Processes::WaitProcess(processid)) {
+			//logmessage("Killing process");
+			Processes::KillProcess(processid);
+			return false;
+		}
+		return true;
+	} else
+		return true;
+#elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+	return true;
+#endif
+}
+
 void Test::TrimInput(int32_t executed)
 {
 	StartProfilingDebug;
@@ -978,14 +996,16 @@ namespace Functions
 	{
 		// get id of session and resolve link
 		uint64_t sessid = Buffer::ReadUInt64(buffer, offset);
-		resolver->AddTask([this, sessid, resolver]() {
-			this->_sessiondata = resolver->ResolveFormID<SessionData>(sessid);
-		});
+		if (CmdArgs::_clearTasks == false)
+			resolver->AddTask([this, sessid, resolver]() {
+				this->_sessiondata = resolver->ResolveFormID<SessionData>(sessid);
+			});
 		// get id of saved _input and resolve link
 		uint64_t inputid = Buffer::ReadUInt64(buffer, offset);
-		resolver->AddTask([this, inputid, resolver]() {
-			this->_input = resolver->ResolveFormID<Input>(inputid);
-		});
+		if (CmdArgs::_clearTasks == false)
+			resolver->AddTask([this, inputid, resolver]() {
+				this->_input = resolver->ResolveFormID<Input>(inputid);
+			});
 		return true;
 	}
 

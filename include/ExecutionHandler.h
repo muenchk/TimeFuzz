@@ -20,6 +20,7 @@
 #include "Form.h"
 #include "Record.h"
 #include "Function.h"
+#include "ThreadSafe.h"
 
 class Settings;
 class TaskController;
@@ -285,6 +286,18 @@ private:
 	/// </summary>
 	ExecHandlerStatus _tstatus;
 
+#	if defined(unix) || defined(__unix__) || defined(__unix)
+
+#		include <unistd.h>
+
+	std::deque<pid_t> _waitQueue;
+	std::condition_variable _waitCond;
+
+	std::mutex _waitLock;
+	std::mutex _waitQueueLock;
+#endif
+
+
 	std::thread _thread;
 
 	std::shared_ptr<stop_token> _threadStopToken;
@@ -293,9 +306,15 @@ private:
 
 	std::shared_ptr<stop_token> _threadTSStopToken;
 
+	std::thread _threadTest;
+
+	std::shared_ptr<stop_token> _threadTestStopToken;
+
 	void InternalLoop(std::shared_ptr<stop_token> stoken);
 
 	void TestStarter(std::shared_ptr<stop_token> stoken);
+
+	void TestWaiter(std::shared_ptr<stop_token> stoken);
 
 	bool StartTest(std::shared_ptr<Test> test);
 
