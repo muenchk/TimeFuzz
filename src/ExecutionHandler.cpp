@@ -683,6 +683,7 @@ void ExecutionHandler::TestWaiter(std::shared_ptr<stop_token> stoken)
 #if defined(unix) || defined(__unix__) || defined(__unix)
 	logmessage("Starting Test Waiter Unix");
 	pid_t pid;
+	std::deque<pid_t> internalQueue;
 	while (_stopHandler == false || stoken->stop_requested() == false) {
 		std::unique_lock<std::mutex> guard(_waitLock);
 		_waitCond.wait_for(guard, std::chrono::milliseconds(100), [this] { return _stopHandler || !_waitQueue.empty(); });
@@ -702,26 +703,27 @@ void ExecutionHandler::TestWaiter(std::shared_ptr<stop_token> stoken)
 			logmessage("Waiting for process");
 			Processes::WaitProcess(pid, true);
 		}*/
-		/*
 		{
 			std::unique_lock<std::mutex> guards(_waitQueueLock);
-			if (!_waitQueue.empty()) {
-				pid = _waitQueue.front();
+			while (!_waitQueue.empty()) {
+				internalQueue.push_back(_waitQueue.front());
 				_waitQueue.pop_front();
-				fail = false;
-
-			} else
-				fail = true;
+			}
 		}
+		/*
 		if (!fail) {
 			logmessage("Waiting for process");
 			//Processes::WaitProcess(pid, true);
 		}*/
 		{
-			std::unique_lock<std::mutex> guards(_waitQueueLock);
-			for (size_t i = 0; i < _waitQueue.size(); i++)
+			//std::unique_lock<std::mutex> guards(_waitQueueLock);
+			auto itr = internalQueue.begin();
+			while (itr != internalQueue.end())
 			{
-				Processes::WaitProcess(_waitQueue[i], false);
+				if (Processes::WaitProcess(*itr, false) == true) {
+					itr = internalQueue.erase(itr);
+				} else
+					itr++;
 			}
 		}
 	}

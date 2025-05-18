@@ -680,13 +680,13 @@ void Session::SessionControl()
 					{
 						// if not finished check how many tasks are active
 						auto tasks = controller->GetBatchTasks();
-						if (tasks && tasks->tasks == 0 && tasks->sendEndEvent == false) {
+						if (tasks&& tasks->tasks <= 0 && tasks->sendEndEvent == false) {
 							logwarn("DeltaController has tasks at 0, but did not send end event");
 							auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
 							callback->_DDcontroller = controller;
 							tasks->sendEndEvent = true;
 							sessiondata->_controller->AddTask(callback);
-						} else if (tasks && tasks->tasks == 0 && tasks->processedEndEvent == false) {
+						} else if (tasks && tasks->tasks <= 0 && tasks->processedEndEvent == false) {
 							logwarn("DeltaController has tasks at 0, but did not process end event");
 							auto callback = dynamic_pointer_cast<Functions::DDEvaluateExplicitCallback>(Functions::DDEvaluateExplicitCallback::Create());
 							callback->_DDcontroller = controller;
