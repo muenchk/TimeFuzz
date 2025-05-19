@@ -687,7 +687,6 @@ void StartSession()
 			session = Session::LoadSession(CmdArgs::_loadname, args, &failedLoad, &status);
 		if (!session) {
 			logcritical("Session cannot be loaded from savefile:\t{}", CmdArgs::_loadname);
-			scanf("%s", buffer);
 			exit(ExitCodes::StartupError);
 		}
 	} else if (CmdArgs::_printresults) {
@@ -699,7 +698,6 @@ void StartSession()
 			session = Session::LoadSession(CmdArgs::_loadname, args, &failedLoad, &status);
 		if (!session) {
 			logcritical("Session cannot be loaded from savefile:\t{}", CmdArgs::_loadname);
-			scanf("%s", buffer);
 			exit(ExitCodes::StartupError);
 		}
 	} else if (CmdArgs::_print) {
@@ -711,7 +709,6 @@ void StartSession()
 			session = Session::LoadSession(CmdArgs::_loadname, args, &failedLoad, &status);
 		if (!session) {
 			logcritical("Session cannot be loaded from savefile:\t{}", CmdArgs::_loadname);
-			scanf("%s", buffer);
 			exit(ExitCodes::StartupError);
 		}
 	} else {
@@ -722,7 +719,6 @@ void StartSession()
 		session->InitStatus(status);
 		if (error == true) {
 			logcritical("Couldn't start the session, exiting...");
-			scanf("%s", buffer);
 			exit(ExitCodes::StartupError);
 		}
 	}
@@ -1045,7 +1041,6 @@ int32_t main(int32_t argc, char** argv)
 	if (CmdArgs::_settings && !std::filesystem::exists(CmdArgs::_settingspath)) {
 		// if the settings/conf file is given but does not exist
 		std::cout << "Configuration file path is invalid: " << std::filesystem::absolute(std::filesystem::path(CmdArgs::_settingspath)).string();
-		scanf("%s", buffer);
 		exit(ExitCodes::ArgumentError);
 	} else if (CmdArgs::_settings) {
 		CmdArgs::_settingspath = std::filesystem::absolute(CmdArgs::_settingspath).wstring();
@@ -1094,14 +1089,12 @@ int32_t main(int32_t argc, char** argv)
 	// check out the load path and print
 	if (CmdArgs::_load && CmdArgs::_print) {
 		logcritical("Load and Print option cannot be active at the same time.");
-		scanf("%s", buffer);
 		exit(ExitCodes::ArgumentError);
 	}
 
 	// check out dry run options
 	if ((CmdArgs::_load || CmdArgs::_print) && CmdArgs::_dry) {
 		logcritical("Dry run is incompatible with load and print options.");
-		scanf("%s", buffer);
 		exit(ExitCodes::ArgumentError);
 	}
 
