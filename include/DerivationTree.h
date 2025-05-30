@@ -216,6 +216,8 @@ public:
 
 	void Parse(std::string);
 
+	void DeepCopy(std::shared_ptr<DerivationTree> other);
+
 	#pragma region InheritedForm
 
 	static std::string PrintForm(std::shared_ptr<DerivationTree> form)

@@ -637,7 +637,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 							rlen = 0;
 							rtype = 0;
 							// read length of record, type of record
-							if (flen - pos >= 12) {
+							//if (flen - pos >= 12) {
 								rlen = Buffer::ReadSize(&save, offset);
 								rtype = Buffer::ReadInt32(&save, offset);
 								if (save.bad())
@@ -648,12 +648,12 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 									continue;
 								}
 								pos += 12;
-							}
-							else
-							{
-								fileerror = true;
-								continue;
-							}
+							//}
+							//else
+							//{
+							//	fileerror = true;
+							//	continue;
+							//}
 							if (rlen > 0) {
 								/*// if the record is small enough to fit into our regular buffer, use that one, else use a new custom buffer we have to delete later
 								if (rlen <= BUFSIZE) {

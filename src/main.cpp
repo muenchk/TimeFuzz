@@ -78,6 +78,11 @@ void endCallback()
 
 std::shared_ptr<Session> session = nullptr;
 
+int extractinputs = -1;
+int extractlength = -1;
+double extractscore = -1;
+bool extract = false;
+
 bool failedLoad = false;
 
 SessionStatus status;
@@ -665,7 +670,7 @@ void StartSession()
 
 	loginfo("Main: Start Session.");
 
-	char buffer[128];
+	//char buffer[128];
 
 	failedLoad = false;
 
@@ -758,7 +763,7 @@ int32_t main(int32_t argc, char** argv)
 		
 
 
-	char buffer[128];
+	//char buffer[128];
 
 	/* command line arguments
 	*	--help, -h				- prints help dialogue
@@ -798,7 +803,11 @@ int32_t main(int32_t argc, char** argv)
 		"	 --results-end						  - writes results after session has ended\n"
 		"	 --disable-logging					  - disables all logging\n"
 		"	 --fork								  - [Linux only] Uses fork instead of posix_spawn\n"
-		"    --savepath <FOLDER>                  - custom path to savefiles\n";
+		"    --savepath <FOLDER>                  - custom path to savefiles\n"
+		"	 --extract-inputs <NUMBER>  		  - Extracts a random number of generated inputs to a new savefile [must be used with a \'print\' option]\n"
+		"	 --extract-length <NUMBER>  		  - Extracts generated inputs with length of at least NUMBER\n"
+		"	 --extract-score <NUMBER>  		      - Extracts generated inputs with score of at least NUMBER\n"
+		"	 --test-dd <FORMID>  				  - Tests delta debugging on the given input\n";
 
 	std::string logpath = "";
 	bool logtimestamps = false;
@@ -816,6 +825,67 @@ int32_t main(int32_t argc, char** argv)
 			// print help dialogue and exit
 			std::cout << cmdargs;
 			exit(0);
+		} else if (option.find("--test-dd") != std::string::npos) {
+			if (i + 1 < argc) {
+				try {
+					CmdArgs::_testddinput = std::stoull(std::string(argv[i + 1]),nullptr, 16);
+				} catch (std::exception&) {
+					std::cerr << "missing formid";
+					exit(ExitCodes::ArgumentError);
+				}
+				std::cout << "Parameter: --test-dd\t" + std::to_string(CmdArgs::_testddinput) + "\n";
+				CmdArgs::_testdd = true;
+				i += 1;
+			} else {
+				std::cerr << "missing formid";
+				exit(ExitCodes::ArgumentError);
+			}
+		} else if (option.find("--extract-inputs") != std::string::npos) {
+			extractinputs = 0;
+			if (i + 1 < argc) {
+				try {
+					extractinputs = std::stoi(std::string(argv[i + 1]));
+				} catch (std::exception&) {
+					std::cerr << "missing number of inputs to export";
+					exit(ExitCodes::ArgumentError);
+				}
+				std::cout << "Parameter: --extract-inputs\t" + std::to_string(extractinputs) + "\n";
+				extract = true;
+				i += 1;
+			} else {
+				std::cerr << "missing number of inputs to export";
+				exit(ExitCodes::ArgumentError);
+			}
+		} else if (option.find("--extract-length") != std::string::npos) {
+			extractlength = 0;
+			if (i + 1 < argc) {
+				try {
+					extractlength = std::stoi(std::string(argv[i + 1]));
+				} catch (std::exception&) {
+					std::cerr << "missing length to export";
+					exit(ExitCodes::ArgumentError);
+				}
+				std::cout << "Parameter: --extract-length\t" + std::to_string(extractlength) + "\n";
+				i += 1;
+			} else {
+				std::cerr << "missing length to export";
+				exit(ExitCodes::ArgumentError);
+			}
+		} else if (option.find("--extract-score") != std::string::npos) {
+			extractscore = 0;
+			if (i + 1 < argc) {
+				try {
+					extractscore = std::stod(std::string(argv[i + 1]));
+				} catch (std::exception&) {
+					std::cerr << "missing score to export";
+					exit(ExitCodes::ArgumentError);
+				}
+				std::cout << "Parameter: --extract-score\t" + std::to_string(extractscore) + "\n";
+				i += 1;
+			} else {
+				std::cerr << "missing score to export";
+				exit(ExitCodes::ArgumentError);
+			}
 		} else if (option.find("--load-num") != std::string::npos) {
 			if (i + 2 < argc) {
 				std::cout << "Parameter: --load-num\n";
@@ -2740,7 +2810,15 @@ Responsive:
 		//	std::this_thread::sleep_for(std::chrono::milliseconds(50));
 		//}
 		while (session->Finished() == false && failedLoad == false) {
-			if (CmdArgs::_printresults && session->Loaded()) {
+			if ((CmdArgs::_print || CmdArgs::_printresults) && session->Loaded() && extract == true) {
+				session->StopSession(false, true);
+				session->ExtractInputs(extractinputs, extractlength, extractscore);
+				session->Wait();
+				session->DestroySession();
+				session.reset();
+				return 0;
+			}
+			else if (CmdArgs::_printresults && session->Loaded()) {
 				session->StopSession(false, true);
 				break;
 			}
@@ -2790,6 +2868,16 @@ Responsive:
 		}
 		std::cout << "Beginning infinite wait for session end\n";
 		while (session->Finished() == false && failedLoad == false) {
+
+			if ((CmdArgs::_print || CmdArgs::_printresults) && session->Loaded() && extract == true) {
+				session->StopSession(false, true);
+				session->ExtractInputs(extractinputs, extractlength, extractscore);
+				session->Wait();
+				session->DestroySession();
+				session.reset();
+				return 0;
+			}
+
 			std::this_thread::sleep_for(std::chrono::milliseconds(50));
 			if (std::chrono::steady_clock::now() - last >= std::chrono::seconds(10)) {
 				last = std::chrono::steady_clock::now();

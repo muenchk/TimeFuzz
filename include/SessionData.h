@@ -249,6 +249,7 @@ class SessionData : public Form
 
 	std::atomic<bool> _blockInputGeneration = false;
 
+	friend class Session;
 	friend class SessionFunctions;
 	friend class SessionStatistics;
 	friend class Functions::MasterGenerationCallback;

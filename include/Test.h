@@ -309,7 +309,6 @@ public:
 	bool Freed() override;
 	size_t MemorySize() override;
 
-
 private:
 	inline static bool _registeredFactories = false;
 	bool _valid = true;

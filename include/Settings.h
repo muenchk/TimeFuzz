@@ -50,6 +50,8 @@ public:
 	static inline bool _endresults = false;
 	static inline bool _disablelogging = false;
 	static inline bool _fork = false;
+	static inline bool _testdd = false;
+	static inline FormID _testddinput = 0;
 };
 
 enum class RangeSkipOptions

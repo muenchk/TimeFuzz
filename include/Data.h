@@ -17,6 +17,8 @@
 #include <boost/bimap.hpp>
 #include <boost/bimap/unordered_set_of.hpp>
 #include <boost/unordered_map.hpp>
+#include <algorithm>
+#include <functional>
 
 #include "TaskController.h"
 #include "Form.h"
@@ -472,6 +474,27 @@ public:
 	/// <param name="name">name of the save to load</param>
 	/// <param name="number">the number of the save to load</param>
 	void Load(std::string name, int32_t number, LoadSaveArgs& loadArgs);
+
+	
+	/// <summary>
+	/// Counts how many objects of the same type existed before
+	/// </summary>
+	/// <typeparam name="T">type to find</typeparam>
+	/// <returns>vector with entries of type T</returns>
+	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+	std::shared_ptr<T> FindRandomObject(EnumType matchflags, EnumType excludeflags, std::set<FormID>& excluded,std::function<bool(std::shared_ptr<Form>)> pred)
+	{
+		std::shared_lock<std::shared_mutex> guard(_hashmaplock);
+		FormID formid = Utility::RandomInt(_baseformid, _nextformid - 1);
+		std::shared_ptr<T> result;
+		for (auto& [_, form] : _hashmap) {
+			if (form->GetType() == T::GetTypeStatic() && excluded.contains(form->GetFormID()) == false && form->GetFormID() >= formid && (form->GetFlags() & matchflags) > 0 && (form->GetFlags() & excludeflags) == 0 && pred(form)) {
+				result = dynamic_pointer_cast<T>(form);
+				break;
+			}
+		}
+		return result;
+	}
 };
 
 class LoadResolver

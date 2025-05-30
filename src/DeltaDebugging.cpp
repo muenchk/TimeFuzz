@@ -77,7 +77,7 @@ namespace Functions
 		// tests completely out of the execution queue, which may result in no more new tests being generated
 		// after delta debugging has finished.
 		// To counteract this we make sure to push for new generations when the queue is too empty
-		if (_sessiondata->_settings->generation.generationsize - (int64_t)_sessiondata->_exechandler->WaitingTasks() > 0)
+		if (!CmdArgs::_testdd && _sessiondata->_settings->generation.generationsize - (int64_t)_sessiondata->_exechandler->WaitingTasks() > 0)
 			SessionFunctions::GenerateTests(_sessiondata);
 	}
 
@@ -3063,11 +3063,11 @@ namespace DeltaDebugging
 					_sessiondata = resolver->ResolveFormID<SessionData>(Data::StaticFormIDs::SessionData);
 					_self = resolver->ResolveFormID<DeltaController>(this->GetFormID());
 					_input = resolver->ResolveFormID<Input>(input);
-					if (_input->HasFlag(Form::FormFlags::DoNotFree) == false) {
+					if (_input && _input->HasFlag(Form::FormFlags::DoNotFree) == false) {
 						_input->SetFlag(Form::FormFlags::DoNotFree);
 					}
 					_origInput = resolver->ResolveFormID<Input>(origInput);
-					if (_origInput->HasFlag(Form::FormFlags::DoNotFree) == false) {
+					if (_origInput && _origInput->HasFlag(Form::FormFlags::DoNotFree) == false) {
 						_origInput->SetFlag(Form::FormFlags::DoNotFree);
 					}
 					// results

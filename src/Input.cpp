@@ -609,10 +609,15 @@ void Input::DeepCopy(std::shared_ptr<Input> other)
 	other->_sequence = _sequence;
 	other->_oracleResult = _oracleResult;
 	other->_stringrep = _stringrep;
+	other->_generationTime = _generationTime;
 	other->_generationID = _generationID;
 	other->_parent = _parent;
 	other->_pythonconverted = _pythonconverted;
 	other->_pythonstring = _pythonstring;
+	other->_enablePrimaryScoreIndividual = _enablePrimaryScoreIndividual;
+	other->_enableSecondaryScoreIndividual = _enableSecondaryScoreIndividual;
+	other->_primaryScoreIndividual = _primaryScoreIndividual;
+	other->_secondaryScoreIndividual = _secondaryScoreIndividual;
 	other->_secondaryScore = _secondaryScore;
 	other->_primaryScore = _primaryScore;
 	other->_exitcode = _exitcode;
@@ -621,6 +626,7 @@ void Input::DeepCopy(std::shared_ptr<Input> other)
 	other->_trimmed = _trimmed;
 	other->_hasfinished = _hasfinished;
 	other->_flags = _flags;
+	other->_flagsAlloc = _flagsAlloc;
 }
 
 void Input::FreeMemory()

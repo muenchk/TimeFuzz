@@ -250,7 +250,7 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 
 	int32_t actions = 0;
 
-	if (input->GetGenerated() == false && input->derive && input->derive->_valid) {
+	if ((input->GetGenerated() == false || input->GetSequenceLength() == 0) && input->derive && input->derive->_valid) {
 		GenerationLockHolder<Input> glock(input);
 		input->LockRead();
 		input->derive->LockRead();
@@ -307,7 +307,7 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 					parentflags.push_back(std::make_unique<FlagHolder<Input>>(par, Form::FormFlags::DoNotFree));
 					parenttreeflags.push_back(std::make_unique<FlagHolder<DerivationTree>>(par->derive, Form::FormFlags::DoNotFree));
 				}
-				if (par->GetGenerated() == false) {
+				if (par->GetGenerated() == false || par->GetSequenceLength() == 0) {
 					// we need to regenerate the parent, so push it onto the stack please
 					forward.push({ par, {} });
 					// continue the loop until everything has been generated
@@ -365,7 +365,7 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 			} else {
 				parentflags.push_back(std::make_unique<FlagHolder<Input>>(par, Form::FormFlags::DoNotFree));
 			}
-			if (par->GetGenerated() == false) {
+			if (par->GetGenerated() == false || par->GetSequenceLength() == 0) {
 				// we need to regenerate the parent, so push it onto the stack please
 				forward.push({ par, {} });
 				// continue the loop until everything has been generated

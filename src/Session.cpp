@@ -561,6 +561,21 @@ void Session::StartSessionIntern(bool &error)
 	}
 }
 
+bool Functions::SessionDDTestCallback::ReadData(std::istream* , size_t& , size_t , LoadResolver* resolver)
+{
+	// get id of sessiondata and resolve link
+	if (!CmdArgs::_clearTasks)
+		resolver->AddTask([this, resolver]() {
+			this->_sessiondata = resolver->_data->CreateForm<SessionData>();
+		});
+	return true;
+}
+void Functions::SessionDDTestCallback::Run()
+{
+	auto sess = _sessiondata->data->CreateForm<Session>();
+	std::thread(std::bind(&Session::StopSession, sess, true, true)).detach();
+}
+
 void Session::SessionControl()
 {
 	// this function controlls the session start. This could be easily done in a synchronous function but
@@ -610,9 +625,23 @@ void Session::SessionControl()
 	// run master control and kick stuff of
 	// generates inputs, etc.
 	Lua::RegisterThread(_sessiondata);
-	if (CmdArgs::_clearTasks == false) {
+	if (CmdArgs::_clearTasks == false && CmdArgs::_testdd == false) {
 		SessionFunctions::MasterControl(_sessiondata);
 		SessionFunctions::GenerateTests(_sessiondata);
+	}
+	if (CmdArgs::_testdd)
+	{
+		auto inp = data->LookupFormID<Input>(CmdArgs::_testddinput);
+		if (inp->HasFlag(Input::Flags::DeltaDebugged))
+			inp->UnsetFlag(Input::Flags::DeltaDebugged);
+		if (!inp) {
+			logcritical("Input to Test Delta Debugging not found");
+			StopSession(false, true);
+			return;
+		}
+		auto callback = std::dynamic_pointer_cast<Functions::SessionDDTestCallback>(Functions::SessionDDTestCallback::Create());
+		callback->_sessiondata = _sessiondata;
+		SessionFunctions::BeginDeltaDebugging(_sessiondata, inp, callback, false, DeltaDebugging::DDGoal::MaximizePrimaryScore, DeltaDebugging::DDGoal::None, 0);
 	}
 	Lua::UnregisterThread();
 
@@ -640,7 +669,7 @@ void Session::SessionControl()
 		{
 			//logwarn("Work you lazy bastards.");
 			// check wether the generation should end
-			if (_sessiondata->CheckGenerationEnd() == false && CmdArgs::_clearTasks == false)
+			if (_sessiondata->CheckGenerationEnd() == false && CmdArgs::_clearTasks == false && CmdArgs::_testdd == false)
 			{
 				// if it isn't ending give generation a little push
 				int32_t maxtasks = std::min((int32_t)(_sessiondata->_controller->GetHeavyThreadCount() * 0.8), _sessiondata->_settings->generation.activeGeneratedInputs / _sessiondata->_settings->generation.generationstep);
@@ -657,7 +686,7 @@ void Session::SessionControl()
 				lasttaskcheck = std::chrono::steady_clock::now();
 			else
 				logmessage("TaskController inactive for {}", Logging::FormatTimeNS(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - lasttaskcheck).count()));
-			if (_sessiondata->GetGenerationFinishing() && CmdArgs::_clearTasks == false && std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - lasttaskcheck) > std::chrono::seconds(1))
+			if (_sessiondata->GetGenerationFinishing() && CmdArgs::_clearTasks == false && CmdArgs::_testdd == false && std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - lasttaskcheck) > std::chrono::seconds(1))
 			{
 				tried = true;
 				_sessiondata->_generationFinishing = false;
@@ -1355,4 +1384,187 @@ void Session::WriteResults(std::filesystem::path resultpath, int64_t* total, int
 {
 	Evaluation eval(data->CreateForm<Session>(), resultpath);
 	eval.Evaluate(*total, *current);
+}
+
+void Session::ExtractInputs(int number, int length, double score)
+{
+	Data* dat = new Data();
+	auto sess = dat->CreateForm<Session>();
+	sess->data = dat;
+	auto sessdata = dat->CreateForm<SessionData>();
+	sess->_sessiondata = sessdata;
+	sessdata->data = dat;
+	sessdata->_settings = dat->CreateForm<Settings>();
+	sessdata->_settings->Load(CmdArgs::_settingspath);
+	sessdata->Init();
+	sessdata->_controller = dat->CreateForm<TaskController>();
+	sessdata->_exechandler = dat->CreateForm<ExecutionHandler>();
+	dat->SetSavePath("extractsaves");
+	dat->SetSaveName("save");
+	if (sessdata->_settings->oracle.oracle == Oracle::PUTType::Undefined) {
+		logcritical("The oracle type could not be identified");
+		return;
+	}
+	sessdata->_oracle = dat->CreateForm<Oracle>();
+	sessdata->_oracle->Set(sessdata->_settings->oracle.oracle, sessdata->_settings->GetOraclePath());
+	// set lua cmdargs scripts
+	auto path = std::filesystem::path(sessdata->_settings->oracle.lua_path_cmd);
+	if (!std::filesystem::exists(path)) {
+		logcritical("Lua CmdArgs script cannot be found.");
+		return;
+	}
+	sessdata->_oracle->SetLuaCmdArgs(path);
+	if (sessdata->_oracle->GetOracletype() == Oracle::PUTType::Script) {
+		// set lua scriptargs scripts
+		path = std::filesystem::path(sessdata->_settings->oracle.lua_path_script);
+		if (!std::filesystem::exists(path)) {
+			logcritical("Lua ScriptArgs script cannot be found.");
+			return;
+		}
+		sessdata->_oracle->SetLuaScriptArgs(path);
+	}
+	// set lua oracle script
+	path = std::filesystem::path(sessdata->_settings->oracle.lua_path_oracle);
+	if (!std::filesystem::exists(path)) {
+		logcritical("Lua Oracle script cannot be found.");
+		return;
+	}
+	sessdata->_oracle->SetLuaOracle(path);
+	// set lua cmd args replay
+	path = std::filesystem::path(sessdata->_settings->oracle.lua_path_cmd_replay);
+	if (std::filesystem::exists(path)) {
+		sessdata->_oracle->SetLuaCmdArgsReplay(path);
+	}
+	// set lua oracle script
+	// check the oracle for validity
+	if (sessdata->_oracle->Validate() == false) {
+		logcritical("Oracle isn't valid.");
+		return;
+	}
+
+	// load grammar
+	sessdata->_grammar = dat->CreateForm<Grammar>();
+	sessdata->_grammar->SetGenerationParameters(
+		sessdata->_settings->methods.IterativeConstruction_Extension_Backtrack_min,
+		sessdata->_settings->methods.IterativeConstruction_Extension_Backtrack_max,
+		sessdata->_settings->methods.IterativeConstruction_Backtrack_Backtrack_min,
+		sessdata->_settings->methods.IterativeConstruction_Backtrack_Backtrack_max);
+	sessdata->_grammar->ParseScala(sessdata->_settings->oracle.grammar_path);
+	if (!sessdata->_grammar->IsValid()) {
+		logcritical("Grammar isn't valid.");
+		return;
+	}
+
+	// init generation
+	sessdata->SetNewGeneration(true);
+
+	// ------------ SESSIONCONTROL -----------
+
+	int32_t taskthreads = sessdata->_settings->general.numcomputingthreads;
+	int32_t execthreads = sessdata->_settings->general.concurrenttests;
+	if (sessdata->_settings->general.usehardwarethreads) {
+		// don't overshoot over actually available hardware threads
+		int32_t max = (int)std::thread::hardware_concurrency();
+		if (taskthreads + execthreads > max) {
+			taskthreads = (int)((((double)taskthreads) / ((double)execthreads)) * std::thread::hardware_concurrency());
+			execthreads = std::thread::hardware_concurrency() - taskthreads;
+		}
+	}
+	if (taskthreads == 0)
+		taskthreads = 1;
+	if (execthreads == 0)
+		execthreads = 1;
+	sess->_self = dat->CreateForm<Session>();
+	if (sessdata->_settings->controller.activateSettings)
+		sessdata->_controller->Start(sessdata, sessdata->_settings->controller.numLightThreads, sessdata->_settings->controller.numMediumThreads, sessdata->_settings->controller.numHeavyThreads, sessdata->_settings->controller.numAllThreads);
+	else
+		sessdata->_controller->Start(sessdata, taskthreads);
+	sessdata->_exechandler->Init(_self, sessdata, sessdata->_settings, sessdata->_controller, sessdata->_settings->general.concurrenttests, sessdata->_oracle);
+	sessdata->_exechandler->SetEnableFragments(sessdata->_settings->tests.executeFragments);
+	sessdata->_exechandler->SetPeriod(sessdata->_settings->general.testEnginePeriod());
+	sessdata->_exechandler->StartHandlerAsIs();
+	sessdata->_excltree = dat->CreateForm<ExclusionTree>();
+	sessdata->_excltree->Init(sessdata);
+
+	// set generator
+	sessdata->_generator = dat->CreateForm<Generator>();
+	sessdata->_generator->Init();
+	sessdata->_generator->SetGrammar(sessdata->_grammar);
+
+	sessdata->SetMaxGenerationCallbacks(sessdata->_controller->GetNumThreads() * 5);
+
+	std::function<bool(std::shared_ptr<Form>)> pred = [&length, &score](std::shared_ptr<Form> form) {
+		if (auto inp = form->As<Input>(); inp != nullptr)
+			if (inp->EffectiveLength() >= length && inp->GetPrimaryScore() >= score)
+				return true;
+		return false;
+	};
+
+	// extract random generated inputs from savefile
+	int count = 0;
+	int iters = 0;
+	std::set<FormID> done;
+	while (count < number) {
+		iters++;
+		logmessage("Run Extract Attempt {}. Found {}.", iters, count);
+		std::shared_ptr<Input> inp = data->FindRandomObject<Input>(Input::Flags::GeneratedGrammar, Input::Flags::GeneratedGrammarParent, done, pred);
+		if (inp && (inp->derive && inp->HasFlag(Input::Flags::GeneratedGrammar) && (inp->GetOracleResult() == OracleResult::Failing || inp->GetOracleResult() == OracleResult::Passing || inp->GetOracleResult() == OracleResult::Unfinished) && inp->EffectiveLength() >= length && inp->GetPrimaryScore() >= score)) {
+			done.insert(inp->GetFormID());
+			auto newinp = dat->CreateForm<Input>();
+			inp->DeepCopy(newinp);
+			if (newinp->HasFlag(Input::Flags::DeltaDebugged))
+				newinp->UnsetFlag(Input::Flags::DeltaDebugged);
+			auto newdev = dat->CreateForm<DerivationTree>();
+			inp->derive->DeepCopy(newdev);
+			newinp->derive = newdev;
+			// adjust to new session
+			newdev->_grammarID = sessdata->_grammar->GetFormID();
+			newdev->_inputID = newinp->GetFormID();
+			if (inp->test) {
+				auto newtest = dat->CreateForm<Test>();
+				inp->test->DeepCopy(newtest);
+				newinp->test = newtest;
+			}
+			switch (inp->GetOracleResult()) {
+			case OracleResult::Failing:
+				{
+					sessdata->_negativeInputNumbers++;
+					sessdata->AddInput(newinp, OracleResult::Failing, 0);
+					sessdata->_excltree->AddInput(newinp, OracleResult::Failing);
+				}
+				break;
+			case OracleResult::Passing:
+				{
+					sessdata->_positiveInputNumbers++;
+					sessdata->AddInput(newinp, OracleResult::Passing);
+					sessdata->_excltree->AddInput(newinp, OracleResult::Passing);
+				}
+				break;
+			case OracleResult::Unfinished:
+				{
+					sessdata->_unfinishedInputNumbers++;
+					sessdata->AddInput(newinp, OracleResult::Unfinished, 0);
+					sessdata->_excltree->AddInput(newinp, OracleResult::Unfinished);
+				}
+				break;
+			}
+			count++;
+		} else if (inp && inp->EffectiveLength() < length)
+			done.insert(inp->GetFormID());
+		else if (inp && inp->GetPrimaryScore() < score)
+			done.insert(inp->GetFormID());
+	}
+
+	dat->Save({});
+	sessdata->_controller->Stop(false);
+	sessdata->_exechandler->StopHandler();
+	sess->StopSession(false, true);
+
+	// extract information
+
+	Evaluation::GetSingleton()->SetSession(sess);
+	Evaluation::GetSingleton()->SetResultPath("extractinfo");
+	Evaluation::GetSingleton()->EvaluateTopK();
+
+	sess->DestroySession();
 }

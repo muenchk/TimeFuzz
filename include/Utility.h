@@ -12,6 +12,7 @@
 #include <cstring>
 #include <optional>
 #include <atomic>
+#include <random>
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
@@ -19,6 +20,8 @@
 #endif
 
 typedef uint64_t EnumType;
+
+class Input;
 
 #include "Form.h"
 
@@ -329,5 +332,14 @@ public:
 #endif
 		}
 	};
+
+
+	template<class T>
+	static uint64_t RandomInt(T min = 0, T max = UINT64_MAX)
+	{
+		std::mt19937 randan((unsigned int)std::chrono::steady_clock::now().time_since_epoch().count());
+		std::uniform_int_distribution<T> dist(min, max);
+		return dist(randan);
+	}
 };
 

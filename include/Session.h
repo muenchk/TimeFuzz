@@ -12,6 +12,7 @@
 #include "TaskController.h"
 #include "Form.h"
 #include "UIClasses.h"
+#include "Function.h"
 
 class Data;
 class SessionFunctions;
@@ -20,6 +21,7 @@ class ExclusionTree;
 struct Records;
 class Lua;
 class Evaluation;
+class LoadResolver;
 
 struct LoadSessionArgs
 {
@@ -302,6 +304,8 @@ public:
 
 	inline uint64_t GetLastError() { return _lastError; }
 
+	void ExtractInputs(int number, int length, double score);
+
 	Data* data = nullptr;
 
 private:
@@ -475,4 +479,51 @@ private:
 	/// conditional variable that makes waiting for session end possible
 	/// </summary>
 	std::condition_variable _waitSessionCond;
+
+	void SessionDDTestCallback();
 };
+
+
+namespace Functions
+{
+	class SessionDDTestCallback : public BaseFunction
+	{
+	public:
+		std::shared_ptr<SessionData> _sessiondata;
+
+		void Run() override;
+		static uint64_t GetTypeStatic() { return 'SEDD'; }
+		uint64_t GetType() override { return 'SEDD'; }
+
+		FunctionType GetFunctionType() override { return FunctionType::Medium; }
+
+		virtual std::shared_ptr<BaseFunction> DeepCopy() override
+		{
+			auto ptr = std::make_shared<SessionDDTestCallback>();
+			ptr->_sessiondata = _sessiondata;
+			return dynamic_pointer_cast<BaseFunction>(ptr);
+		}
+
+		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool WriteData(std::ostream* buffer, size_t& offset) override
+		{
+			BaseFunction::WriteData(buffer, offset);
+			return true;
+		}
+
+		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<SessionDDTestCallback>()); }
+		void Dispose() override
+		{
+			_sessiondata.reset();
+		}
+		size_t GetLength() override
+		{
+			return BaseFunction::GetLength();
+		}
+
+		virtual const char* GetName() override
+		{
+			return "SessionDDTestCallback";
+		}
+	};
+}

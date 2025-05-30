@@ -1678,6 +1678,12 @@ void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<Der
 		profile(TimeProfiling, "{}: gathered sequence nodes", Utility::PrintForm(dtree));
 		// sequence nodes are in order
 
+		
+		if (!stree) {
+			logcritical("stree has become empty");
+			return;
+		}
+
 		std::vector<DerivationTree::SequenceNode*> targetnodes;
 		targetnodes.reserve(stree->_sequenceNodes);
 		std::vector<std::vector<DerivationTree::Node*>> targetnodesvec;
@@ -1708,6 +1714,11 @@ void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<Der
 		} else {
 			for (size_t i = 0; i < segments.size(); i++)
 			{
+				if (segments[i].first + segments[i].second > (int64_t)seqnodes.size())
+				{
+					logcritical("trying to read past end of dev tree");
+					return;
+				}
 				for (int64_t c = segments[i].first; c < segments[i].first + segments[i].second; c++)
 				{
 					//auto [cnode, cnodes] = seqnodes[c]->CopyRecursive();

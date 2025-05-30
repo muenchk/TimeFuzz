@@ -347,3 +347,20 @@ size_t DerivationTree::MemorySize()
 		logdebug("haha");
 	return sizeof(DerivationTree) + sizeof(std::pair<int64_t, int64_t>) * _parent.segments.size() + (8 + 8 + sizeof(NonTerminalNode)) * _nodes;
 }
+
+void DerivationTree::DeepCopy(std::shared_ptr<DerivationTree> other)
+{
+	other->_inputID = _inputID;
+	other->_parent = _parent;
+	other->_sequenceNodes = _sequenceNodes;
+	other->_nodes = _nodes;
+	other->_seed = _seed;
+	other->_targetlen = _targetlen;
+	other->_valid = _valid;
+	other->_grammarID = _grammarID;
+	if (_root != nullptr) {
+		other->_root = _root->CopyRecursive().first;
+	} else
+		other->_root = nullptr;
+	other->_regenerate = _regenerate;
+}
