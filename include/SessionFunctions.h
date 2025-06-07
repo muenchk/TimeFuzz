@@ -129,7 +129,7 @@ namespace Functions
 		static uint64_t GetTypeStatic() { return 'SESE'; }
 		uint64_t GetType() override { return 'SESE'; }
 
-		FunctionType GetFunctionType() override { return FunctionType::Medium; }
+		FunctionType GetFunctionType() override { return FunctionType::Heavy; }
 
 		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
 
@@ -160,7 +160,7 @@ namespace Functions
 		static uint64_t GetTypeStatic() { return 'SEFI'; }
 		uint64_t GetType() override { return 'SEFI'; }
 
-		FunctionType GetFunctionType() override { return FunctionType::Medium; }
+		FunctionType GetFunctionType() override { return FunctionType::Heavy; }
 
 		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
 

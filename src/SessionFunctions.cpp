@@ -1104,7 +1104,7 @@ namespace Functions
 			// give the taskhandler a chance to execute the waiting light tasks first
 			auto callback = dynamic_pointer_cast<Functions::GenerationEndCallback>(Functions::GenerationEndCallback::Create());
 			callback->_sessiondata = _sessiondata;
-			_sessiondata->_controller->AddTask(callback, true);
+			_sessiondata->_controller->AddTask(callback, false);
 			return;
 		}
 		loginfo("wait for gen to end");
@@ -1290,6 +1290,15 @@ namespace Functions
 				_sessiondata->GetCurrentGeneration()->GetDDSize(), _sessiondata->GetCurrentGeneration()->IsDeltaDebuggingActive());
 			auto generation = _sessiondata->GetCurrentGeneration();
 			if (_sessiondata->_generationFinishing.compare_exchange_strong(exp, true)) {
+				if (_sessiondata->_controller->GetNumThreads() == 1 && (_sessiondata->_exechandler->WaitingTasks() > 0 || _sessiondata->_controller->GetWaitingLightJobs() > 0 || _sessiondata->_controller->GetWaitingHeavyJobs() > 0 || _sessiondata->_controller->GetWaitingMediumJobs() > 0 || _sessiondata->_controller->Working() > 1)) {
+					// if we only have one thread running, put ourselves back into waiting queue and
+					// give the taskhandler a chance to execute the waiting light tasks first
+					auto callback = dynamic_pointer_cast<Functions::GenerationFinishedCallback>(Functions::GenerationFinishedCallback::Create());
+					callback->_sessiondata = _sessiondata;
+					callback->_afterSave = false;
+					_sessiondata->_controller->AddTask(callback, false);
+					return;
+				}
 				WaitForGen(generation, _sessiondata, std::chrono::milliseconds(10000));
 				if (_sessiondata->GetCurrentGeneration()->IsDeltaDebuggingActive() == false /*if there are multiple callbacks for the same generation, make sure that only one gets executed, i.e. the fastest*/) {
 					WaitForGen(generation, _sessiondata, std::chrono::milliseconds(10000));
