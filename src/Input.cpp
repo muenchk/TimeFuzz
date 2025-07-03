@@ -716,6 +716,10 @@ void Input::SetParentGenerationInformation(FormID parentInput)
 	_parent.parentInput = parentInput;
 	_parent.segments.clear();
 }
+void Input::SetParentID(FormID parentInput)
+{
+	_parent.parentInput = parentInput;
+}
 
 void Input::SetGenerationInformation()
 {

@@ -1099,7 +1099,7 @@ namespace Functions
 		loginfo("Generation ended.");
 
 		auto generation = _sessiondata->GetCurrentGeneration();
-		if (/*_sessiondata->_controller->GetNumThreads() == 1 && */ (_sessiondata->_controller->GetWaitingLightJobs() > 0 || _sessiondata->_controller->GetWaitingHeavyJobs() > 0 || _sessiondata->_controller->GetWaitingMediumJobs() > 0)) {
+		if (_sessiondata->_controller->GetNumThreads() == 1 && (_sessiondata->_exechandler->WaitingTasks() > 0 || _sessiondata->_controller->GetWaitingLightJobs() > 0 || _sessiondata->_controller->GetWaitingHeavyJobs() > 0 || _sessiondata->_controller->GetWaitingMediumJobs() > 0 || _sessiondata->_controller->Working() > 1)) {
 			// if we only have one thread running, put ourselves back into waiting queue and
 			// give the taskhandler a chance to execute the waiting light tasks first
 			auto callback = dynamic_pointer_cast<Functions::GenerationEndCallback>(Functions::GenerationEndCallback::Create());

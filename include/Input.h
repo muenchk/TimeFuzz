@@ -428,6 +428,11 @@ public:
 	/// <param name="parentInput"></param>
 	void SetParentGenerationInformation(FormID parentInput);
 	/// <summary>
+	/// [DEBUG] sets parent ID manually, do not use in normal operation
+	/// </summary>
+	/// <param name="parentInput"></param>
+	void SetParentID(FormID parentInput);
+	/// <summary>
 	/// Sets the input as generated from a grammatic
 	/// </summary>
 	/// <param name="parentInput"></param>

@@ -1504,51 +1504,75 @@ void Session::ExtractInputs(int number, int length, double score)
 	int count = 0;
 	int iters = 0;
 	std::set<FormID> done;
+
+	auto getNew = [&done, &dat, &sessdata](std::shared_ptr<Input> inp) {
+		done.insert(inp->GetFormID());
+		auto newinp = dat->CreateForm<Input>();
+		inp->DeepCopy(newinp);
+		if (newinp->HasFlag(Input::Flags::DeltaDebugged))
+			newinp->UnsetFlag(Input::Flags::DeltaDebugged);
+		auto newdev = dat->CreateForm<DerivationTree>();
+		inp->derive->DeepCopy(newdev);
+		newinp->derive = newdev;
+		// adjust to new session
+		newdev->_grammarID = sessdata->_grammar->GetFormID();
+		newdev->_inputID = newinp->GetFormID();
+		if (inp->test) {
+			auto newtest = dat->CreateForm<Test>();
+			inp->test->DeepCopy(newtest);
+			newinp->test = newtest;
+		}
+		switch (inp->GetOracleResult()) {
+		case OracleResult::Failing:
+			{
+				sessdata->_negativeInputNumbers++;
+				sessdata->AddInput(newinp, OracleResult::Failing, 0);
+				sessdata->_excltree->AddInput(newinp, OracleResult::Failing);
+			}
+			break;
+		case OracleResult::Passing:
+			{
+				sessdata->_positiveInputNumbers++;
+				sessdata->AddInput(newinp, OracleResult::Passing);
+				sessdata->_excltree->AddInput(newinp, OracleResult::Passing);
+			}
+			break;
+		case OracleResult::Unfinished:
+			{
+				sessdata->_unfinishedInputNumbers++;
+				sessdata->AddInput(newinp, OracleResult::Unfinished, 0);
+				sessdata->_excltree->AddInput(newinp, OracleResult::Unfinished);
+			}
+			break;
+		}
+		return newinp;
+	};
+
 	while (count < number) {
 		iters++;
 		logmessage("Run Extract Attempt {}. Found {}.", iters, count);
 		std::shared_ptr<Input> inp = data->FindRandomObject<Input>(Input::Flags::GeneratedGrammar, Input::Flags::GeneratedGrammarParent, done, pred);
 		if (inp && (inp->derive && inp->HasFlag(Input::Flags::GeneratedGrammar) && (inp->GetOracleResult() == OracleResult::Failing || inp->GetOracleResult() == OracleResult::Passing || inp->GetOracleResult() == OracleResult::Unfinished) && inp->EffectiveLength() >= length && inp->GetPrimaryScore() >= score)) {
-			done.insert(inp->GetFormID());
-			auto newinp = dat->CreateForm<Input>();
-			inp->DeepCopy(newinp);
-			if (newinp->HasFlag(Input::Flags::DeltaDebugged))
-				newinp->UnsetFlag(Input::Flags::DeltaDebugged);
-			auto newdev = dat->CreateForm<DerivationTree>();
-			inp->derive->DeepCopy(newdev);
-			newinp->derive = newdev;
-			// adjust to new session
-			newdev->_grammarID = sessdata->_grammar->GetFormID();
-			newdev->_inputID = newinp->GetFormID();
-			if (inp->test) {
-				auto newtest = dat->CreateForm<Test>();
-				inp->test->DeepCopy(newtest);
-				newinp->test = newtest;
+			if (inp->HasFlag(Input::Flags::GeneratedGrammarParent)) {
+				auto input = inp;
+				auto newinp = getNew(input);
+				count++;
+				auto parent = data->LookupFormID<Input>(input->GetParentID());
+				std::shared_ptr<Input> newpar; 
+				while (parent)
+				{
+					newpar = getNew(parent);
+					newinp->SetParentID(newpar->GetFormID());
+					newinp->derive->_parent._parentID = newpar->derive->GetFormID();
+					input = parent;
+					parent = data->LookupFormID<Input>(input->GetParentID());
+					newinp = newpar;
+					count++;
+				}
+			} else {
+				auto newinp = getNew(inp);
+				count++;
 			}
-			switch (inp->GetOracleResult()) {
-			case OracleResult::Failing:
-				{
-					sessdata->_negativeInputNumbers++;
-					sessdata->AddInput(newinp, OracleResult::Failing, 0);
-					sessdata->_excltree->AddInput(newinp, OracleResult::Failing);
-				}
-				break;
-			case OracleResult::Passing:
-				{
-					sessdata->_positiveInputNumbers++;
-					sessdata->AddInput(newinp, OracleResult::Passing);
-					sessdata->_excltree->AddInput(newinp, OracleResult::Passing);
-				}
-				break;
-			case OracleResult::Unfinished:
-				{
-					sessdata->_unfinishedInputNumbers++;
-					sessdata->AddInput(newinp, OracleResult::Unfinished, 0);
-					sessdata->_excltree->AddInput(newinp, OracleResult::Unfinished);
-				}
-				break;
-			}
-			count++;
 		} else if (inp && inp->EffectiveLength() < length)
 			done.insert(inp->GetFormID());
 		else if (inp && inp->GetPrimaryScore() < score)
