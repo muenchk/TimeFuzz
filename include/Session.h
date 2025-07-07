@@ -419,7 +419,7 @@ private:
 	/// <param name="buffer"></param>
 	/// <param name="offset"></param>
 	/// <returns></returns>
-	bool WriteData(std::ostream* buffer, size_t& offset) override;
+	bool WriteData(std::ostream* buffer, size_t& offset, size_t length) override;
 	/// <summary>
 	/// Reads the class data from the buffer
 	/// </summary>
@@ -505,11 +505,13 @@ namespace Functions
 		}
 
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool WriteData(std::ostream* buffer, size_t& offset) override
 		{
 			BaseFunction::WriteData(buffer, offset);
 			return true;
 		}
+		unsigned char* GetData(size_t& size) override;
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<SessionDDTestCallback>()); }
 		void Dispose() override

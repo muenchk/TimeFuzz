@@ -262,7 +262,7 @@ namespace DeltaDebugging
 		/// </summary>
 		/// <param name="buffer"></param>
 		/// <returns></returns>
-		bool WriteData(std::ostream* buffer, size_t& offset) override;
+		bool WriteData(std::ostream* buffer, size_t& offset, size_t length) override;
 		/// <summary>
 		/// reads all relevant information of this instance from the buffer
 		/// </summary>
@@ -776,6 +776,8 @@ namespace Functions
 {
 	class DDTestCallback : public BaseFunction
 	{
+	private:
+		void Init(LoadResolver* resolver, FormID sessid, FormID controlid, FormID inputid);
 	public:
 		std::shared_ptr<SessionData> _sessiondata;
 		std::shared_ptr<DeltaDebugging::DeltaController> _DDcontroller;
@@ -793,7 +795,9 @@ namespace Functions
 		FunctionType GetFunctionType() override { return FunctionType::Light; }
 
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool WriteData(std::ostream* buffer, size_t& offset) override;
+		unsigned char* GetData(size_t& size) override;
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDTestCallback>()); }
 		void Dispose() override;
@@ -819,7 +823,9 @@ namespace Functions
 		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
 
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool WriteData(std::ostream* buffer, size_t& offset) override;
+		unsigned char* GetData(size_t& size) override;
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDEvaluateExplicitCallback>()); }
 		void Dispose() override;
@@ -851,7 +857,9 @@ namespace Functions
 		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
 
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool WriteData(std::ostream* buffer, size_t& offset) override;
+		unsigned char* GetData(size_t& size) override;
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDGenerateComplementCallback>()); }
 		void Dispose() override;
@@ -881,7 +889,9 @@ namespace Functions
 		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
 
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool WriteData(std::ostream* buffer, size_t& offset) override;
+		unsigned char* GetData(size_t& size) override;
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDGenerateCheckSplit>()); }
 		void Dispose() override;

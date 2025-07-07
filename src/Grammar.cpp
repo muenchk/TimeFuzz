@@ -2718,10 +2718,10 @@ size_t Grammar::GetDynamicSize()
 	return sz;
 }
 
-bool Grammar::WriteData(std::ostream* buffer, size_t& offset)
+bool Grammar::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 {
 	Buffer::Write(classversion, buffer, offset);
-	Form::WriteData(buffer, offset);
+	Form::WriteData(buffer, offset, length);
 	Buffer::Write(_tree->_nextid, buffer, offset);
 	Buffer::Write(_tree->_numcycles, buffer, offset);
 	Buffer::Write(_tree->_valid, buffer, offset);

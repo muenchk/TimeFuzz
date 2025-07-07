@@ -484,10 +484,10 @@ size_t TaskController::GetDynamicSize()
 	       + GetStaticSize(classversion) + sz;
 }
 
-bool TaskController::WriteData(std::ostream* buffer, size_t& offset)
+bool TaskController::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 {
 	Buffer::Write(classversion, buffer, offset);
-	Form::WriteData(buffer, offset);
+	Form::WriteData(buffer, offset, length);
 	Buffer::Write(_terminate, buffer, offset);
 	Buffer::Write(_wait, buffer, offset);
 	Buffer::Write(_threads.size() > 0, buffer, offset);

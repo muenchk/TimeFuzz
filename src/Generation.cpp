@@ -514,10 +514,10 @@ size_t Generation::GetDynamicSize()
 	       + 8 + 8 * _sources.size();         // sizeof() + formids in _sources
 }
 
-bool Generation::WriteData(std::ostream* buffer, size_t& offset)
+bool Generation::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 {
 	Buffer::Write(classversion, buffer, offset);
-	Form::WriteData(buffer, offset);
+	Form::WriteData(buffer, offset, length);
 	Buffer::Write(_size, buffer, offset);
 	Buffer::Write(_generatedSize, buffer, offset);
 	Buffer::Write(_ddSize, buffer, offset);

@@ -7,8 +7,433 @@
 #include <string>
 #include <iostream>
 #include <deque>
+#include <iterator>
 #include "Form.h"
 #include "Types.h"
+
+namespace Buffer
+{
+
+	template <class T>
+	int64_t _sizeof(T&)
+	{
+		return sizeof(T);
+	}
+	template <>
+	int64_t _sizeof(std::string& value);
+	template <>
+	int64_t _sizeof(String& value);
+	template <>
+	int64_t _sizeof(size_t& value);
+
+
+	class ArrayBuffer
+	{
+	private:
+		unsigned char* _buffer = nullptr;
+		int64_t _size = 0;
+		int64_t _offset = 0;
+
+		bool __copied = false;
+
+	private:
+		bool WriteIntern(unsigned char* value, int64_t count)
+		{
+			if (count + (int64_t)sizeof(int64_t) > Free() || count >= (int64_t)UINT32_MAX)
+				return false;
+			memcpy(_buffer + _offset, value, (size_t)count);
+			_offset += count;
+			return true;
+		}
+
+		bool WriteIntern(char* value, int64_t count)
+		{
+			if (count + (int64_t)sizeof(int64_t) > Free() || count >= (int64_t)UINT32_MAX)
+				return false;
+			memcpy(_buffer + _offset, value, (size_t)count);
+			_offset += count;
+			return true;
+		}
+
+		bool WriteIntern(const char* value, int64_t count)
+		{
+			if (count + (int64_t)sizeof(int64_t) > Free() || count >= (int64_t)UINT32_MAX)
+				return false;
+			memcpy(_buffer + _offset, value, (size_t)count);
+			_offset += count;
+			return true;
+		}
+
+	public:
+
+		ArrayBuffer(unsigned char* data, int64_t offset, int64_t length)
+		{
+			_buffer = data;
+			__copied = true;
+			_offset = offset;
+			_size = length;
+			if (_offset < 0 || _offset >= _size)
+				throw std::out_of_range("Offset is less than 0 or larger than size");
+			if (_size <= 0)
+				throw std::out_of_range("Size is less equal 0");
+		}
+
+		ArrayBuffer(std::istream* data, int64_t length)
+		{
+			_size = length;
+			_offset = 0;
+			_buffer = new unsigned char[length];
+			data->read((char*)_buffer, length);
+			int64_t rd = data->gcount();
+			if (rd == 0)
+				throw std::out_of_range("Stream is empty");
+			if (rd <= length)
+				_size = rd;
+		}
+
+		ArrayBuffer(int64_t length)
+		{
+			_offset = 0;
+			_size = length;
+			_buffer = new unsigned char[length];
+		}
+
+		~ArrayBuffer()
+		{
+			if (__copied)
+				return;
+			else
+				delete _buffer;
+		}
+
+		int64_t Size()
+		{
+			return _size;
+		}
+
+		int64_t Free()
+		{
+			return _size - _offset;
+		}
+
+		std::pair<unsigned char*, int64_t> GetBuffer()
+		{
+			return { _buffer, _size };
+		}
+
+		template <class T>
+		bool Write(T&& value)
+		{
+			if (_sizeof(value) > Free())
+				return false;
+			T* ptr = (T*)(_buffer + _offset);
+			*ptr = value;
+			_offset += _sizeof(value);
+			return true;
+		}
+
+		template <class T>
+		bool Write(const T& value)
+		{
+			if (_sizeof(value) > Free())
+				return false;
+			T* ptr = (T*)(_buffer + _offset);
+			*ptr = value;
+			_offset += _sizeof(value);
+			return true;
+		}
+
+		bool Write(unsigned char* value, int64_t count)
+		{
+			if (count + (int64_t)sizeof(int64_t) > Free() || count >= (int64_t)UINT32_MAX)
+				return false;
+			Write<int64_t>(count);
+			memcpy(_buffer + _offset, value, (size_t)count);
+			_offset += count;
+			return true;
+		}
+
+		bool Write(char* value, int64_t count)
+		{
+			if (count + (int64_t)sizeof(int64_t) > Free() || count >= (int64_t)UINT32_MAX)
+				return false;
+			Write<int64_t>(count);
+			memcpy(_buffer + _offset, value, (size_t)count);
+			_offset += count;
+			return true;
+		}
+
+		bool Write(const char* value, int64_t count)
+		{
+			if (count + (int64_t)sizeof(int64_t) > Free() || count >= (int64_t)UINT32_MAX)
+				return false;
+			Write<int64_t>(count);
+			memcpy(_buffer + _offset, value, (size_t)count);
+			_offset += count;
+			return true;
+		}
+
+		template <class T>
+		bool WriteList(std::list<T>& list)
+		{
+			static auto t = T();
+			if (8 + (int64_t)list.size() * _sizeof(t) > Free())
+				return false;
+			Write<size_t>(list.size());
+			auto itr = list.begin();
+			while (itr != list.end()) {
+				Write<T>(*itr);
+				itr++;
+			}
+			return true;
+		}
+
+		template <class T>
+		bool WriteVector(std::vector<T>& vector)
+		{
+			static auto t = T();
+			if (8 + (int64_t)vector.size() * _sizeof(t) > Free())
+				return false;
+			Write<size_t>(vector.size());
+			for (int64_t i = 0; i < (int64_t)vector.size(); i++)
+				Write<T>(vector[i]);
+			return true;
+		}
+
+		template <class T>
+		bool WriteDeque(std::deque<T>& deque)
+		{
+			static auto t = T();
+			if (8 + (int64_t)deque.size() * _sizeof(t) > Free())
+				return false;
+			Write<size_t>(deque.size());
+			for (int64_t i = 0; i < (int64_t)deque.size(); i++)
+				Write<T>(deque[i]);
+			return true;
+		}
+
+		template <class T>
+		bool WriteDeque(Deque<T>& deque)
+		{
+			static auto t = T();
+			if (8 + (int64_t)deque.size() * _sizeof(t) > Free())
+				return false;
+			Write<size_t>(deque.size());
+			for (int64_t i = 0; i < (int64_t)deque.size(); i++)
+				Write<T>(deque[i]);
+			return true;
+		}
+
+		template <class T>
+		T Read()
+		{
+			if (sizeof(T) > Free())
+				throw std::out_of_range("Tried to read after the end of the buffer");
+			T value = *((T*)(_buffer + _offset));
+			_offset += sizeof(T);
+			return value;
+		}
+
+		int64_t Read(unsigned char* out, int64_t maxlength)
+		{
+			if (8 > Free())
+				throw std::out_of_range("Tried to read after the end of the buffer");
+			int64_t len = Read<int64_t>();
+			if (len > Free())
+				throw std::out_of_range("Tried to read after the end of the buffer");
+			if (len > maxlength)
+				throw std::out_of_range("Tried to write after the end of the buffer");
+			memcpy(out, _buffer + _offset, len);
+			_offset += len;
+			return len;
+		}
+
+		int64_t Read(char* out, int64_t maxlength)
+		{
+			if (8 > Free())
+				throw std::out_of_range("Tried to read after the end of the buffer");
+			int64_t len = Read<int64_t>();
+			if (len > Free())
+				throw std::out_of_range("Tried to read after the end of the buffer");
+			if (len > maxlength)
+				throw std::out_of_range("Tried to write after the end of the buffer");
+			memcpy(out, _buffer + _offset, len);
+			_offset += len;
+			return len;
+		}
+
+		unsigned char* Read(int64_t* read)
+		{
+			if (8 > Free())
+				throw std::out_of_range("Tried to read after the end of the buffer");
+			int64_t len = Read<int64_t>();
+			if (len > Free())
+				throw std::out_of_range("Tried to read after the end of the buffer");
+			if (len > 1073741824)
+				throw std::out_of_range("Tried to read buffer greater 1 GB");
+			unsigned char* buffer = new unsigned char[len];
+			memcpy(buffer, _buffer + _offset, len);
+			_offset += len;
+			*read = len;
+			return buffer;
+		}
+
+		template <class T>
+		std::list<T> ReadList()
+		{
+			if (8 > Free())
+				throw std::out_of_range("Tried to read after the end of the buffer");
+			std::list<T> list;
+			size_t len = Read<size_t>();
+			if ((int64_t)len * (int64_t)sizeof(T) > Free())
+				throw std::out_of_range("Tried to read after the end of the buffer");
+			for (int64_t i = 0; i < (int64_t)len; i++)
+				list.push_back(Read<T>());
+
+			return list;
+		}
+		template <class T>
+		std::vector<T> ReadVector()
+		{
+			if (8 > Free())
+				throw std::out_of_range("Tried to read after the end of the buffer");
+			std::vector<T> vector;
+			size_t len = Read<size_t>();
+			if ((int64_t)len * (int64_t)sizeof(T) > Free())
+				throw std::out_of_range("Tried to read after the end of the buffer");
+			for (int64_t i = 0; i < (int64_t)len; i++)
+				vector.push_back(Read<T>());
+
+			return vector;
+		}
+		template <class T>
+		std::deque<T> ReadDeque()
+		{
+			if (8 > Free())
+				throw std::out_of_range("Tried to read after the end of the buffer");
+			std::deque<T> deque;
+			size_t len = Read<size_t>();
+			if ((int64_t)len * (int64_t)sizeof(T) > Free())
+				throw std::out_of_range("Tried to read after the end of the buffer");
+			for (int64_t i = 0; i < (int64_t)len; i++)
+				deque.push_back(Read<T>());
+			return deque;
+		}
+
+		template <class T>
+		static size_t GetContainerSize(std::list<T>& list)
+		{
+			static auto t = T();
+			return 8 + list.size() * _sizeof(t);
+		}
+		template <class T>
+		static size_t GetContainerSize(std::vector<T>& vector)
+		{
+			static auto t = T();
+			return 8 + vector.size() * _sizeof(t);
+		}
+		template <class T>
+		static size_t GetContainerSize(std::deque<T>& deque)
+		{
+			static auto t = T();
+			return 8 + deque.size() * _sizeof(t);
+		}
+		template <class T>
+		static size_t GetContainerSize(Deque<T>& deque)
+		{
+			static auto t = T();
+			return 8 + deque.size() * _sizeof(t);
+		}
+	};
+
+	template <>
+	bool ArrayBuffer::WriteList(std::list<std::string>& list);
+	template <>
+	bool ArrayBuffer::WriteVector(std::vector<std::string>& vector);
+	template <>
+	bool ArrayBuffer::WriteDeque(std::deque<std::string>& deque);
+	template <>
+	bool ArrayBuffer::WriteDeque(Deque<std::string>& deque);
+
+	template <>
+	bool ArrayBuffer::WriteList(std::list<String>& list);
+	template <>
+	bool ArrayBuffer::WriteVector(std::vector<String>& vector);
+	template <>
+	bool ArrayBuffer::WriteDeque(std::deque<String>& deque);
+	template <>
+	bool ArrayBuffer::WriteDeque(Deque<String>& deque);
+	
+	template <>
+	bool ArrayBuffer::Write(bool& value);
+	template <>
+	bool ArrayBuffer::Write(size_t& value);
+	template <>
+	bool ArrayBuffer::Write(std::chrono::steady_clock::time_point& value);
+	template <>
+	bool ArrayBuffer::Write(std::chrono::seconds& value);
+	template <>
+	bool ArrayBuffer::Write(std::chrono::microseconds& value);
+	template <>
+	bool ArrayBuffer::Write(std::chrono::milliseconds& value);
+	template <>
+	bool ArrayBuffer::Write(std::chrono::nanoseconds& value);
+	template <>
+	bool ArrayBuffer::Write(std::string& value);
+	template <>
+	bool ArrayBuffer::Write(String& value);
+	template <>
+	bool ArrayBuffer::Write(bool&& value);
+	template <>
+	bool ArrayBuffer::Write(size_t&& value);
+	template <>
+	bool ArrayBuffer::Write(std::chrono::steady_clock::time_point&& value);
+	template <>
+	bool ArrayBuffer::Write(std::chrono::seconds&& value);
+	template <>
+	bool ArrayBuffer::Write(std::chrono::microseconds&& value);
+	template <>
+	bool ArrayBuffer::Write(std::chrono::milliseconds&& value);
+	template <>
+	bool ArrayBuffer::Write(std::chrono::nanoseconds&& value);
+	template <>
+	bool ArrayBuffer::Write(std::string&& value);
+	template <>
+	bool ArrayBuffer::Write(String& value);
+
+	template <>
+	std::list<std::string> ArrayBuffer::ReadList();
+	template <>
+	std::vector<std::string> ArrayBuffer::ReadVector();
+	template <>
+	std::deque<std::string> ArrayBuffer::ReadDeque();
+
+	template <>
+	bool ArrayBuffer::Read();
+	template <>
+	size_t ArrayBuffer::Read();
+	template <>
+	std::chrono::steady_clock::time_point ArrayBuffer::Read();
+	template <>
+	std::chrono::seconds ArrayBuffer::Read();
+	template <>
+	std::chrono::microseconds ArrayBuffer::Read();
+	template <>
+	std::chrono::milliseconds ArrayBuffer::Read();
+	template <>
+	std::chrono::nanoseconds ArrayBuffer::Read();
+	template <>
+	std::string ArrayBuffer::Read();
+	
+	template <>
+	size_t ArrayBuffer::GetContainerSize(std::list<std::string>& list);
+	template <>
+	size_t ArrayBuffer::GetContainerSize(std::vector<std::string>& vector);
+	template <>
+	size_t ArrayBuffer::GetContainerSize(std::deque<std::string>& deque);
+	template <>
+	size_t ArrayBuffer::GetContainerSize(Deque<std::string>& deque);
+}
 
 namespace Buffer
 {

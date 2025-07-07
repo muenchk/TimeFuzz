@@ -1154,7 +1154,7 @@ void LoadResolver::Regenrate_Intern(std::shared_ptr<SessionData> sessiondata, ui
 	}
 }
 
-void LoadResolver::Regenerate_Free(std::shared_ptr<SessionData> sessiondata, uint64_t* progress)
+void LoadResolver::Regenerate_Free(std::shared_ptr<SessionData> /*sessiondata*/, uint64_t* progress)
 {
 	std::shared_ptr<Input> form;
 	FormID formid;

@@ -70,6 +70,10 @@ public:
 		ss << std::setw(12) << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - execstart);
 		return ss.str();
 	}
+	static std::string TimePassedFormatted()
+	{
+		return FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - execstart).count());
+	}
 
 	/// <summary>
 	/// Formats microseconds into a proper time string

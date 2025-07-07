@@ -570,6 +570,25 @@ bool Functions::SessionDDTestCallback::ReadData(std::istream* , size_t& , size_t
 		});
 	return true;
 }
+
+bool Functions::SessionDDTestCallback::ReadData(unsigned char*, size_t&, size_t, LoadResolver* resolver)
+{
+	// get id of sessiondata and resolve link
+	if (!CmdArgs::_clearTasks)
+		resolver->AddTask([this, resolver]() {
+			this->_sessiondata = resolver->_data->CreateForm<SessionData>();
+		});
+	return true;
+}
+
+unsigned char* Functions::SessionDDTestCallback::GetData(size_t& size)
+{
+	unsigned char* buffer = new unsigned char[GetLength()];
+	size_t offset = 0;
+	Buffer::Write(GetType(), buffer, offset);
+	size = GetLength();
+	return buffer;
+}
 void Functions::SessionDDTestCallback::Run()
 {
 	auto sess = _sessiondata->data->CreateForm<Session>();
@@ -908,10 +927,10 @@ size_t Session::GetDynamicSize()
 	       + GetStaticSize(classversion);
 }
 
-bool Session::WriteData(std::ostream* buffer, size_t& offset)
+bool Session::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 {
 	Buffer::Write(classversion, buffer, offset);
-	Form::WriteData(buffer, offset);
+	Form::WriteData(buffer, offset, length);
 	return true;
 }
 

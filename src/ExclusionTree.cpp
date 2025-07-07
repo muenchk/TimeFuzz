@@ -384,10 +384,10 @@ size_t ExclusionTree::GetDynamicSize()
 	return sz;
 }
 
-bool ExclusionTree::WriteData(std::ostream* buffer, size_t &offset)
+bool ExclusionTree::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 {
 	Buffer::Write(classversion, buffer, offset);
-	Form::WriteData(buffer, offset);
+	Form::WriteData(buffer, offset, length);
 	Buffer::Write(nextid, buffer, offset);
 	// root children
 	Buffer::WriteSize(root->_children.size(), buffer, offset);

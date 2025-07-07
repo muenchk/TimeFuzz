@@ -119,24 +119,44 @@ size_t DerivationTree::GetDynamicSize()
 	       + 8 + 16 * _parent.segments.size();  // sizzeof(), content of _parent.segments
 }
 
-bool DerivationTree::WriteData(std::ostream* buffer, size_t& offset)
+#define CHECK(x)                                                                          \
+	if (x == false) {                                                                     \
+		logcritical("Buffer overflow error, len: {}, off: {}", abuf.Size(), abuf.Free()); \
+		throw std::runtime_error("");                                                     \
+	}
+
+bool DerivationTree::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 {
 	Buffer::Write(classversion, buffer, offset);
-	Form::WriteData(buffer, offset);
-	Buffer::Write(_grammarID, buffer, offset);
-	Buffer::Write(_regenerate, buffer, offset);
-	Buffer::Write(_seed, buffer, offset);
-	Buffer::Write(_targetlen, buffer, offset);
-	Buffer::Write(_parent._parentID, buffer, offset);
-	Buffer::WriteSize(_parent.segments.size(), buffer, offset);
-	for (size_t i = 0; i < _parent.segments.size(); i++) {
-		Buffer::Write(_parent.segments[i].first, buffer, offset);
-		Buffer::Write(_parent.segments[i].second, buffer, offset);
+	Form::WriteData(buffer, offset, length);
+
+	Buffer::ArrayBuffer abuf(length - offset);
+	try {
+		CHECK(abuf.Write<FormID>(_grammarID));
+		CHECK(abuf.Write<bool>(_regenerate));
+		CHECK(abuf.Write<uint32_t>(_seed));
+		CHECK(abuf.Write<int32_t>(_targetlen));
+		CHECK(abuf.Write<FormID>(_parent._parentID));
+		CHECK(abuf.Write<size_t>(_parent.segments.size()));
+		for (size_t i = 0; i < _parent.segments.size(); i++) {
+			CHECK(abuf.Write<int64_t>(_parent.segments[i].first));
+			CHECK(abuf.Write<int64_t>(_parent.segments[i].second));
+		}
+		CHECK(abuf.Write<int64_t>(_parent._length));
+		CHECK(abuf.Write<int64_t>(_parent._stop));
+		CHECK(abuf.Write<bool>(_parent._complement));
+		CHECK(abuf.Write<FormID>(_inputID));
 	}
-	Buffer::Write(_parent._length, buffer, offset);
-	Buffer::Write(_parent._stop, buffer, offset);
-	Buffer::Write(_parent._complement, buffer, offset);
-	Buffer::Write(_inputID, buffer, offset);
+	catch (std::exception&) {
+		auto [data, sz] = abuf.GetBuffer();
+		buffer->write((char*)data, sz);
+		offset += sz;
+		return false;
+	}
+
+	auto [data, sz] = abuf.GetBuffer();
+	buffer->write((char*)data, sz);
+	offset += sz;
 	return true;
 }
 
@@ -163,21 +183,28 @@ bool DerivationTree::ReadData(std::istream* buffer, size_t& offset, size_t lengt
 	case 0x2:
 		{
 			Form::ReadData(buffer, offset, length, resolver);
-			_grammarID = Buffer::ReadUInt64(buffer, offset);
-			_regenerate = Buffer::ReadBool(buffer, offset);
-			_seed = Buffer::ReadUInt32(buffer, offset);
-			_targetlen = Buffer::ReadInt32(buffer, offset);
-			_parent._parentID = Buffer::ReadUInt64(buffer, offset);
-			_parent.segments.clear();
-			size_t len = Buffer::ReadSize(buffer, offset);
-			for (size_t i = 0; i < len; i++) {
-				auto _posbegin = Buffer::ReadInt64(buffer, offset);
-				_parent.segments.push_back({ _posbegin, Buffer::ReadInt64(buffer, offset) });
+			try {
+				Buffer::ArrayBuffer data(buffer, length - offset);
+				offset += length - offset;
+
+				_grammarID = data.Read<FormID>();
+				_regenerate = data.Read<bool>();
+				_seed = data.Read<uint32_t>();
+				_targetlen = data.Read<int32_t>();
+				_parent._parentID = data.Read<FormID>();
+				_parent.segments.clear();
+				size_t len = data.Read<size_t>();
+				for (size_t i = 0; i < len; i++) {
+					auto _posbegin = data.Read<int64_t>();
+					_parent.segments.push_back({ _posbegin, data.Read<int64_t>() });
+				}
+				_parent._length = data.Read<FormID>();
+				_parent._stop = data.Read<int64_t>();
+				_parent._complement = data.Read<bool>();
+				_inputID = data.Read<FormID>();
+			} catch (std::exception& e) {
+				logcritical("Exception in read method: {}", e.what());
 			}
-			_parent._length = Buffer::ReadUInt64(buffer, offset);
-			_parent._stop = Buffer::ReadInt64(buffer, offset);
-			_parent._complement = Buffer::ReadBool(buffer, offset);
-			_inputID = Buffer::ReadUInt64(buffer, offset);
 		}
 		return true;
 	default:

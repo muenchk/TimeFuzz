@@ -11,5 +11,5 @@ void Records::CreateRecord(ExecutionHandler* value, std::ostream* buffer, size_t
 	length = sz + 8 + 4;
 	Buffer::WriteSize(sz, buffer, offset);
 	Buffer::Write(ExecutionHandler::GetTypeStatic(), buffer, offset);
-	value->WriteData(buffer, offset);
+	value->WriteData(buffer, offset, length);
 }

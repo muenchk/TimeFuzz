@@ -9,7 +9,7 @@
 #include <stdexcept>
 #include <memory>
 
-void SessionData::SetInsert(std::shared_ptr<InputNode> node)
+void SessionData::SetInsert(std::shared_ptr<InputNode> /*node*/)
 {
 	/* if (auto ptr = node->input.lock(); ptr)
 	{
@@ -18,7 +18,7 @@ void SessionData::SetInsert(std::shared_ptr<InputNode> node)
 			ptr->derive->SetFlag(Form::FormFlags::DoNotFree);
 	}*/
 }
-void SessionData::SetRemove(std::shared_ptr<InputNode> node)
+void SessionData::SetRemove(std::shared_ptr<InputNode> /*node*/)
 {
 	/* if (auto ptr = node->input.lock(); ptr) {
 		if (ptr->HasFlag(Form::FormFlags::DoNotFree))
@@ -686,10 +686,10 @@ size_t SessionData::GetDynamicSize()
 	       + _generations.size() * 8;                // list elements are uint64_t
 }
 
-bool SessionData::WriteData(std::ostream* buffer, size_t& offset)
+bool SessionData::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 {
 	Buffer::Write(classversion, buffer, offset);
-	Form::WriteData(buffer, offset);
+	Form::WriteData(buffer, offset, length);
 
 	Buffer::Write(_positiveInputNumbers, buffer, offset);
 	Buffer::Write(_negativeInputNumbers, buffer, offset);

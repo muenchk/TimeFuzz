@@ -329,7 +329,7 @@ void SessionFunctions::EndSession_Async(std::shared_ptr<SessionData> sessiondata
 
 		// force save
 		if (checkendconditionsskipsaving == false)
-			session->data->Save({});
+			session->data->Save(callback);
 		checkendconditionsskipsaving = false;
 
 		// end the session
@@ -1054,11 +1054,32 @@ namespace Functions
 		return true;
 	}
 
+	bool MasterGenerationCallback::ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	{
+		// get id of sessiondata and resolve link
+		uint64_t sessid = Buffer::ReadUInt64(buffer, offset);
+		if (!CmdArgs::_clearTasks)
+			resolver->AddTask([this, sessid, resolver]() {
+				this->_sessiondata = resolver->_data->CreateForm<SessionData>();
+			});
+		return true;
+	}
+
 	bool MasterGenerationCallback::WriteData(std::ostream* buffer, size_t& offset)
 	{
 		BaseFunction::WriteData(buffer, offset);
 		Buffer::Write(_sessiondata->GetFormID(), buffer, offset);  // +8
 		return true;
+	}
+
+	unsigned char* MasterGenerationCallback::GetData(size_t& size)
+	{
+		unsigned char* buffer = new unsigned char[GetLength()];
+		size_t offset = 0;
+		Buffer::Write(GetType(), buffer, offset);
+		Buffer::Write(_sessiondata->GetFormID(), buffer, offset);  // +8
+		size = GetLength();
+		return buffer;
 	}
 
 	size_t MasterGenerationCallback::GetLength()
@@ -1262,11 +1283,31 @@ namespace Functions
 		return true;
 	}
 
+	bool GenerationEndCallback::ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	{
+		// get id of sessiondata and resolve link
+		uint64_t sessid = Buffer::ReadUInt64(buffer, offset);
+		resolver->AddTask([this, sessid, resolver]() {
+			this->_sessiondata = resolver->ResolveFormID<SessionData>(sessid);
+		});
+		return true;
+	}
+
 	bool GenerationEndCallback::WriteData(std::ostream* buffer, size_t& offset)
 	{
 		BaseFunction::WriteData(buffer, offset);
 		Buffer::Write(_sessiondata->GetFormID(), buffer, offset);  // +8
 		return true;
+	}
+
+	unsigned char* GenerationEndCallback::GetData(size_t& size)
+	{
+		unsigned char* buffer = new unsigned char[GetLength()];
+		size_t offset = 0;
+		Buffer::Write(GetType(), buffer, offset);
+		Buffer::Write(_sessiondata->GetFormID(), buffer, offset);  // +8
+		size = GetLength();
+		return buffer;
 	}
 
 	size_t GenerationEndCallback::GetLength()
@@ -1527,6 +1568,19 @@ namespace Functions
 		return true;
 	}
 
+	bool GenerationFinishedCallback::ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	{
+		// get id of sessiondata and resolve link
+		uint64_t sessid = Buffer::ReadUInt64(buffer, offset);
+		uint64_t genid = Buffer::ReadUInt64(buffer, offset);
+		resolver->AddTask([this, sessid, genid, resolver]() {
+			this->_sessiondata = resolver->ResolveFormID<SessionData>(sessid);
+			this->_generation = resolver->ResolveFormID<Generation>(genid);
+		});
+		_afterSave = Buffer::ReadBool(buffer, offset);
+		return true;
+	}
+
 	bool GenerationFinishedCallback::WriteData(std::ostream* buffer, size_t& offset)
 	{
 		BaseFunction::WriteData(buffer, offset);
@@ -1534,6 +1588,18 @@ namespace Functions
 		Buffer::Write(_generation->GetFormID(), buffer, offset);  // +8
 		Buffer::Write(_afterSave, buffer, offset);                 // +1
 		return true;
+	}
+
+	unsigned char* GenerationFinishedCallback::GetData(size_t& size)
+	{
+		unsigned char* buffer = new unsigned char[GetLength()];
+		size_t offset = 0;
+		Buffer::Write(GetType(), buffer, offset);
+		Buffer::Write(_sessiondata->GetFormID(), buffer, offset);  // +8
+		Buffer::Write(_generation->GetFormID(), buffer, offset);   // +8
+		Buffer::Write(_afterSave, buffer, offset);                 // +1
+		size = GetLength();
+		return buffer;
 	}
 
 	size_t GenerationFinishedCallback::GetLength()
@@ -1570,11 +1636,31 @@ namespace Functions
 		return true;
 	}
 
+	bool FinishSessionCallback::ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	{
+		// get id of sessiondata and resolve link
+		uint64_t sessid = Buffer::ReadUInt64(buffer, offset);
+		resolver->AddTask([this, sessid, resolver]() {
+			this->_sessiondata = resolver->ResolveFormID<SessionData>(sessid);
+		});
+		return true;
+	}
+
 	bool FinishSessionCallback::WriteData(std::ostream* buffer, size_t& offset)
 	{
 		BaseFunction::WriteData(buffer, offset);
 		Buffer::Write(_sessiondata->GetFormID(), buffer, offset);  // +8
 		return true;
+	}
+
+	unsigned char* FinishSessionCallback::GetData(size_t& size)
+	{
+		unsigned char* buffer = new unsigned char[GetLength()];
+		size_t offset = 0;
+		Buffer::Write(GetType(), buffer, offset);
+		Buffer::Write(_sessiondata->GetFormID(), buffer, offset);  // +8
+		size = GetLength();
+		return buffer;
 	}
 
 	size_t FinishSessionCallback::GetLength()

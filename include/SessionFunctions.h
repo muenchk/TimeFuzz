@@ -105,7 +105,9 @@ namespace Functions
 		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
 
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool WriteData(std::ostream* buffer, size_t& offset) override;
+		unsigned char* GetData(size_t& size) override;
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<MasterGenerationCallback>()); }
 		void Dispose() override;
@@ -134,7 +136,9 @@ namespace Functions
 		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
 
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool WriteData(std::ostream* buffer, size_t& offset) override;
+		unsigned char* GetData(size_t& size) override;
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<GenerationEndCallback>()); }
 		void Dispose() override;
@@ -165,7 +169,9 @@ namespace Functions
 		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
 
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool WriteData(std::ostream* buffer, size_t& offset) override;
+		unsigned char* GetData(size_t& size) override;
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<GenerationFinishedCallback>()); }
 		void Dispose() override;
@@ -191,7 +197,9 @@ namespace Functions
 		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
 
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool WriteData(std::ostream* buffer, size_t& offset) override;
+		unsigned char* GetData(size_t& size) override;
 
 		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<GenerationFinishedCallback>()); }
 		void Dispose() override;

@@ -35,7 +35,10 @@ struct Records
 		length = sz + 8 + 4;
 		Buffer::WriteSize(sz, buffer, offset);
 		Buffer::Write(T::GetTypeStatic(), buffer, offset);
-		value->WriteData(buffer, offset);
+		if (value->WriteData(buffer, offset, length) == false)
+		{
+			logwarn("Error writing record, len: {}, off: {}", length, offset);
+		}
 		if (offset > length) {
 			logcritical("Buffer overflow in record: Type: {}, Offset: {}, Length: {}, Flags: {}", value->GetType(), offset, length, Utility::GetHex(value->GetFlags()));
 			auto size = value->GetDynamicSize();

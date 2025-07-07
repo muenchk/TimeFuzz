@@ -36,12 +36,27 @@ namespace Functions
 		/// <returns></returns>
 		virtual bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) = 0;
 		/// <summary>
+		/// Reads the object information from the given buffer
+		/// </summary>
+		/// <param name="buffer"></param>
+		/// <param name="offset"></param>
+		/// <param name="length"></param>
+		/// <returns></returns>
+		virtual bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) = 0;
+		/// <summary>
 		/// Writes the object information to the given buffer
 		/// </summary>
 		/// <param name="buffer"></param>
 		/// <param name="offset"></param>
 		/// <returns></returns>
 		virtual bool WriteData(std::ostream* buffer, size_t& offset);
+		/// <summary>
+		/// Writes the object information to the given buffer
+		/// </summary>
+		/// <param name="buffer"></param>
+		/// <param name="offset"></param>
+		/// <returns></returns>
+		virtual unsigned char* GetData(size_t& size);
 		/// <summary>
 		/// Returns the byte length of this object
 		/// </summary>
@@ -71,6 +86,8 @@ namespace Functions
 		}
 
 		static std::shared_ptr<BaseFunction> Create(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+
+		static std::shared_ptr<BaseFunction> Create(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 
 		virtual const char* GetName() = 0;
 	};

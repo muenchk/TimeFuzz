@@ -91,30 +91,47 @@ namespace Functions
 		return dynamic_pointer_cast<BaseFunction>(ptr);
 	}
 
-	bool DDTestCallback::ReadData(std::istream* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	void DDTestCallback::Init(LoadResolver* resolver, FormID sessid, FormID controlid, FormID inputid)
 	{
-		// get id of session and resolve link
-		uint64_t sessid = Buffer::ReadUInt64(buffer, offset);
 		resolver->AddTask([this, sessid, resolver]() {
 			this->_sessiondata = resolver->ResolveFormID<SessionData>(sessid);
 		});
-		// get id of saved controller and resolve link
-		uint64_t controllerid = Buffer::ReadUInt64(buffer, offset);
-		resolver->AddTask([this, controllerid, resolver]() {
-			this->_DDcontroller = resolver->ResolveFormID<DeltaDebugging::DeltaController>(controllerid);
+		resolver->AddTask([this, controlid, resolver]() {
+			this->_DDcontroller = resolver->ResolveFormID<DeltaDebugging::DeltaController>(controlid);
 		});
-		// get id of saved _input and resolve link
-		uint64_t inputid = Buffer::ReadUInt64(buffer, offset);
 		resolver->AddTask([this, inputid, resolver]() {
 			this->_input = resolver->ResolveFormID<Input>(inputid);
 		});
-		_batchident = Buffer::ReadUInt64(buffer, offset);
 		resolver->AddLateTask([this]() {
 			if (this->_DDcontroller && this->_DDcontroller->GetBatchIdent() == this->_batchident)
 				this->_batchtasks = this->_DDcontroller->GetBatchTasks();
 			else
 				this->_batchtasks = std::make_shared<DeltaDebugging::Tasks>();
 		});
+	}
+
+	bool DDTestCallback::ReadData(std::istream* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	{
+		// get id of session and resolve link
+		uint64_t sessid = Buffer::ReadUInt64(buffer, offset);
+		// get id of saved controller and resolve link
+		uint64_t controllerid = Buffer::ReadUInt64(buffer, offset);
+		// get id of saved _input and resolve link
+		uint64_t inputid = Buffer::ReadUInt64(buffer, offset);
+		_batchident = Buffer::ReadUInt64(buffer, offset);
+		Init(resolver, sessid, controllerid, inputid);
+		return true;
+	}
+	bool DDTestCallback::ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	{
+		// get id of session and resolve link
+		uint64_t sessid = Buffer::ReadUInt64(buffer, offset);
+		// get id of saved controller and resolve link
+		uint64_t controllerid = Buffer::ReadUInt64(buffer, offset);
+		// get id of saved _input and resolve link
+		uint64_t inputid = Buffer::ReadUInt64(buffer, offset);
+		_batchident = Buffer::ReadUInt64(buffer, offset);
+		Init(resolver, sessid, controllerid, inputid);
 		return true;
 	}
 
@@ -126,6 +143,19 @@ namespace Functions
 		Buffer::Write(_input->GetFormID(), buffer, offset);  // +8
 		Buffer::Write(_batchident, buffer, offset);         // +8
 		return true;
+	}
+
+	unsigned char* DDTestCallback::GetData(size_t& size)
+	{
+		unsigned char* buffer = new unsigned char[GetLength()];
+		size_t offset = 0;
+		Buffer::Write(GetType(), buffer, offset);
+		Buffer::Write(_sessiondata->GetFormID(), buffer, offset);   // +8
+		Buffer::Write(_DDcontroller->GetFormID(), buffer, offset);  // +8
+		Buffer::Write(_input->GetFormID(), buffer, offset);         // +8
+		Buffer::Write(_batchident, buffer, offset);                 // +8
+		size = GetLength();
+		return buffer;
 	}
 
 	size_t DDTestCallback::GetLength()
@@ -168,11 +198,31 @@ namespace Functions
 		return true;
 	}
 
+	bool DDEvaluateExplicitCallback::ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	{
+		// get id of saved controller and resolve link
+		uint64_t controllerid = Buffer::ReadUInt64(buffer, offset);
+		resolver->AddTask([this, controllerid, resolver]() {
+			this->_DDcontroller = resolver->ResolveFormID<DeltaDebugging::DeltaController>(controllerid);
+		});
+		return true;
+	}
+
 	bool DDEvaluateExplicitCallback::WriteData(std::ostream* buffer, size_t& offset)
 	{
 		BaseFunction::WriteData(buffer, offset);
 		Buffer::Write(_DDcontroller->GetFormID(), buffer, offset);  // +8
 		return true;
+	}
+
+	unsigned char* DDEvaluateExplicitCallback::GetData(size_t& size)
+	{
+		unsigned char* buffer = new unsigned char[GetLength()];
+		size_t offset = 0;
+		Buffer::Write(GetType(), buffer, offset);
+		Buffer::Write(_DDcontroller->GetFormID(), buffer, offset);  // +8
+		size = GetLength();
+		return buffer;
 	}
 
 	size_t DDEvaluateExplicitCallback::GetLength()
@@ -212,6 +262,28 @@ namespace Functions
 		});
 		return true;
 	}
+	bool DDGenerateComplementCallback::ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	{
+		uint64_t controllerid = Buffer::ReadUInt64(buffer, offset);
+		resolver->AddTask([this, controllerid, resolver]() {
+			this->_DDcontroller = resolver->ResolveFormID<DeltaDebugging::DeltaController>(controllerid);
+		});
+		_begin = Buffer::ReadInt32(buffer, offset);
+		_length = Buffer::ReadInt32(buffer, offset);
+		_approxthreshold = Buffer::ReadDouble(buffer, offset);
+		_batchident = Buffer::ReadUInt64(buffer, offset);
+		uint64_t inputid = Buffer::ReadUInt64(buffer, offset);
+		resolver->AddTask([this, inputid, resolver]() {
+			this->_input = resolver->ResolveFormID<Input>(inputid);
+		});
+		resolver->AddLateTask([this]() {
+			if (this->_DDcontroller && this->_DDcontroller->GetBatchIdent() == this->_batchident)
+				this->_batchtasks = this->_DDcontroller->GetBatchTasks();
+			else
+				this->_batchtasks = std::make_shared<DeltaDebugging::Tasks>();
+		});
+		return true;
+	}
 	bool DDGenerateComplementCallback::WriteData(std::ostream* buffer, size_t& offset)
 	{
 		BaseFunction::WriteData(buffer, offset);
@@ -222,6 +294,21 @@ namespace Functions
 		Buffer::Write(_batchident, buffer, offset);
 		Buffer::Write(_input->GetFormID(), buffer, offset);
 		return true;
+	}
+
+	unsigned char* DDGenerateComplementCallback::GetData(size_t& size)
+	{
+		unsigned char* buffer = new unsigned char[GetLength()];
+		size_t offset = 0;
+		Buffer::Write(GetType(), buffer, offset);
+		Buffer::Write(_DDcontroller->GetFormID(), buffer, offset);
+		Buffer::Write(_begin, buffer, offset);
+		Buffer::Write(_length, buffer, offset);
+		Buffer::Write(_approxthreshold, buffer, offset);
+		Buffer::Write(_batchident, buffer, offset);
+		Buffer::Write(_input->GetFormID(), buffer, offset);
+		size = GetLength();
+		return buffer;
 	}
 
 	std::shared_ptr<BaseFunction> DDGenerateComplementCallback::DeepCopy()
@@ -283,6 +370,24 @@ namespace Functions
 		});
 		return true;
 	}
+	bool DDGenerateCheckSplit::ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	{
+		FormID controllerID = Buffer::ReadUInt64(buffer, offset);
+		FormID inputID = Buffer::ReadUInt64(buffer, offset);
+		resolver->AddTask([this, controllerID, inputID, resolver]() {
+			_DDcontroller = resolver->ResolveFormID<DeltaDebugging::DeltaController>(controllerID);
+			_input = resolver->ResolveFormID<Input>(inputID);
+		});
+		_approxthreshold = Buffer::ReadDouble(buffer, offset);
+		_batchident = Buffer::ReadUInt64(buffer, offset);
+		resolver->AddLateTask([this]() {
+			if (this->_DDcontroller && this->_DDcontroller->GetBatchIdent() == this->_batchident)
+				this->_batchtasks = this->_DDcontroller->GetBatchTasks();
+			else
+				this->_batchtasks = std::make_shared<DeltaDebugging::Tasks>();
+		});
+		return true;
+	}
 	bool DDGenerateCheckSplit::WriteData(std::ostream* buffer, size_t& offset)
 	{
 		BaseFunction::WriteData(buffer, offset);
@@ -292,6 +397,20 @@ namespace Functions
 		Buffer::Write(_batchident, buffer, offset);
 		return true;
 	}
+
+	unsigned char* DDGenerateCheckSplit::GetData(size_t& size)
+	{
+		unsigned char* buffer = new unsigned char[GetLength()];
+		size_t offset = 0;
+		Buffer::Write(GetType(), buffer, offset);
+		Buffer::Write(_DDcontroller->GetFormID(), buffer, offset);
+		Buffer::Write(_input->GetFormID(), buffer, offset);
+		Buffer::Write(_approxthreshold, buffer, offset);
+		Buffer::Write(_batchident, buffer, offset);
+		size = GetLength();
+		return buffer;
+	}
+
 	void DDGenerateCheckSplit::Dispose()
 	{
 		_DDcontroller.reset();
@@ -2706,10 +2825,10 @@ namespace DeltaDebugging
 		return sz;
 	}
 
-	bool DeltaController::WriteData(std::ostream* buffer, size_t& offset)
+	bool DeltaController::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 	{
 		Buffer::Write(classversion, buffer, offset);
-		Form::WriteData(buffer, offset);
+		Form::WriteData(buffer, offset, length);
 		Buffer::Write(_tasks, buffer, offset);
 		Buffer::Write(_remainingtasks, buffer, offset);
 		Buffer::Write(_tests, buffer, offset);

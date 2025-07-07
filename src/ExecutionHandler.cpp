@@ -1101,10 +1101,10 @@ size_t ExecutionHandler::GetDynamicSize()
 		+ GetStaticSize(classversion) + 8 /*len of ids*/ + _stoppingTests.size() * 8 + _runningTests.size() * 8 + _waitingTests.size() * 8 + _waitingTestsExec.size() * 8;
 }
 
-bool ExecutionHandler::WriteData(std::ostream* buffer, size_t& offset)
+bool ExecutionHandler::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 {
 	Buffer::Write(classversion, buffer, offset);
-	Form::WriteData(buffer, offset);
+	Form::WriteData(buffer, offset, length);
 	Buffer::Write(_enableFragments, buffer, offset);
 	Buffer::Write(_waittimeL, buffer, offset);
 	Buffer::Write(_cleared, buffer, offset);
@@ -1254,10 +1254,30 @@ namespace Functions
 		return true;
 	}
 
+	bool ExecInitTestsCallback::ReadData(unsigned char*, size_t&, size_t, LoadResolver* resolver)
+	{
+		// get id of saved controller and resolve link
+		if (CmdArgs::_clearTasks == false) {
+			resolver->AddTask([this, resolver]() {
+				this->_sessiondata = resolver->_data->CreateForm<SessionData>();
+			});
+		}
+		return true;
+	}
+
 	bool ExecInitTestsCallback::WriteData(std::ostream* buffer, size_t& offset)
 	{
 		BaseFunction::WriteData(buffer, offset);
 		return true;
+	}
+
+	unsigned char* ExecInitTestsCallback::GetData(size_t& size)
+	{
+		unsigned char* buffer = new unsigned char[GetLength()];
+		size_t offset = 0;
+		Buffer::Write(GetType(), buffer, offset);
+		size = GetLength();
+		return buffer;
 	}
 
 	size_t ExecInitTestsCallback::GetLength()
@@ -1319,10 +1339,25 @@ namespace Functions
 		return true;
 	}
 
+	bool WriteTestInputCallback::ReadData(unsigned char*, size_t&, size_t, LoadResolver*)
+	{
+		_test = {};
+		return true;
+	}
+
 	bool WriteTestInputCallback::WriteData(std::ostream* buffer, size_t& offset)
 	{
 		BaseFunction::WriteData(buffer, offset);
 		return true;
+	}
+
+	unsigned char* WriteTestInputCallback::GetData(size_t& size)
+	{
+		unsigned char* buffer = new unsigned char[GetLength()];
+		size_t offset = 0;
+		Buffer::Write(GetType(), buffer, offset);
+		size = GetLength();
+		return buffer;
 	}
 
 	size_t WriteTestInputCallback::GetLength()

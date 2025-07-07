@@ -257,9 +257,12 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("Finished loading settings.");
 }
 
+#ifndef NDEBUG
+void Settings::Save(std::wstring)
+{
+#else
 void Settings::Save(std::wstring _path)
 {
-#ifdef NDEBUG
 #if defined(unix) || defined(__unix__) || defined(__unix)
 	constexpr auto defpath = "config.ini";
 	std::string path;
@@ -609,10 +612,10 @@ size_t Settings::GetDynamicSize()
 	       + Buffer::CalcStringLength(oracle.oraclepath_Unix.string());  // Oracle::oraclepath_unix
 }
 
-bool Settings::WriteData(std::ostream* buffer, size_t& offset)
+bool Settings::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 {
 	Buffer::Write(classversion, buffer, offset);
-	Form::WriteData(buffer, offset);
+	Form::WriteData(buffer, offset, length);
 	// oracle
 	Buffer::Write((int32_t)oracle.oracle, buffer, offset);
 	Buffer::Write(oracle.oraclepath.string(), buffer, offset);

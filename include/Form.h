@@ -85,7 +85,7 @@ public:
 	/// </summary>
 	/// <param name="buffer"></param>
 	/// <returns></returns>
-	virtual bool WriteData(std::ostream* buffer, size_t &offset);
+	virtual bool WriteData(std::ostream* buffer, size_t &offset, size_t length);
 	/// <summary>
 	/// reads all relevant information of this instance from the buffer
 	/// </summary>

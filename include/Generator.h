@@ -47,7 +47,7 @@ public:
 
 	size_t GetStaticSize(int32_t version = 0x2) override;
 	size_t GetDynamicSize() override;
-	virtual bool WriteData(std::ostream* buffer, size_t& offset) override;
+	virtual bool WriteData(std::ostream* buffer, size_t& offset, size_t length) override;
 	virtual bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 	int32_t GetType() override
 	{

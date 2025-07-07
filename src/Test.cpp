@@ -707,10 +707,14 @@ size_t Test::GetStaticSize(int32_t version)
 	                        + 1                     // valid
 	                        + 1                     // has _callback
 	                        + 1;                    // _skipOracle
+	static size_t size0x2 = size0x1;
+
 	switch (version)
 	{
 	case 0x1:
 		return size0x1;
+	case 0x2:
+		return size0x2;
 	default:
 		return 0;
 	}
@@ -720,12 +724,13 @@ size_t Test::GetDynamicSize()
 {
 	size_t sz = Form::GetDynamicSize()  // form stuff
 	            + GetStaticSize(classversion);
-	sz += Buffer::CalcStringLength(_lastwritten);
-	sz += Buffer::ListBasic::GetListLength(_reactiontime);
+	sz += Buffer::_sizeof(_lastwritten);
+	sz += Buffer::ArrayBuffer::GetContainerSize(_reactiontime);
 	if (_storeoutput) {
-		sz += Buffer::CalcStringLength(_output);
+		sz += Buffer::_sizeof(_output);
 	} else {
-		sz += Buffer::CalcStringLength(std::string(""));
+		std::string str = std::string("");
+		sz += Buffer::_sizeof(str);
 	}
 	//sz += Buffer::CalcStringLength(_cmdArgs);
 	if (_callback)
@@ -733,10 +738,29 @@ size_t Test::GetDynamicSize()
 	return sz;
 }
 
-bool Test::WriteData(std::ostream* buffer, size_t& offset)
+void Test::PrintLengths()
+{
+	logcritical("Static Size: {}", GetStaticSize(classversion));
+	logcritical("Form Size: {}", Form::GetDynamicSize());
+	logcritical("_lastwritten: {}", Buffer::_sizeof(_lastwritten));
+	logcritical("_reactiontime: {}", Buffer::ArrayBuffer::GetContainerSize(_reactiontime));
+	if (_storeoutput) {
+		logcritical("_output: {}", Buffer::_sizeof(_output));
+	} else {
+		std::string str = std::string("");
+		logcritical("_output: {}", Buffer::_sizeof(str));
+	}
+	if (_callback)
+		logcritical("_callback: {}", _callback->GetLength());
+}
+
+#define CHECK(x) if (x == false) { logcritical("Buffer overflow error, len: {}, off: {}", abuf.Size(), abuf.Free()); PrintLengths(); throw std::runtime_error(""); } 
+
+bool Test::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 {
 	Buffer::Write(classversion, buffer, offset);
-	Form::WriteData(buffer, offset);
+	Form::WriteData(buffer, offset, length);
+	/*
 	Buffer::Write(_running, buffer, offset);
 	Buffer::Write(_starttime, buffer, offset);
 	Buffer::Write(_endtime, buffer, offset);
@@ -759,10 +783,51 @@ bool Test::WriteData(std::ostream* buffer, size_t& offset)
 	Buffer::Write(_callback.operator bool(), buffer, offset);
 	if (_callback)
 		_callback->WriteData(buffer, offset);
-	Buffer::Write(_skipOracle, buffer, offset);
+	Buffer::Write(_skipOracle, buffer, offset);*/
+
+	Buffer::ArrayBuffer abuf(length - offset);
+	try {
+		CHECK(abuf.Write(_running));
+		CHECK(abuf.Write(_starttime));
+		CHECK(abuf.Write(_endtime));
+		if (auto ptr = _input.lock(); ptr) {
+			CHECK(abuf.Write<FormID>(ptr->GetFormID()));
+		} else {
+			CHECK(abuf.Write<FormID>(0));
+		}
+		CHECK(abuf.Write(_lastwritten));
+		CHECK(abuf.Write(_lasttime));
+		CHECK(abuf.WriteList(_reactiontime));
+		if (_storeoutput) {
+			CHECK(abuf.Write(_output));
+		} else {
+			CHECK(abuf.Write<std::string>(""));
+		}
+		CHECK(abuf.Write(_identifier));
+		CHECK(abuf.Write(_exitreason));
+		CHECK(abuf.Write(_valid));
+		CHECK(abuf.Write(_callback.operator bool()));
+		if (_callback) {
+			size_t sz = 0;
+			auto buf = _callback->GetData(sz);
+			CHECK(abuf.Write(buf, sz));
+			delete buf;
+		}
+		CHECK(abuf.Write(_skipOracle));
+	} catch (std::exception&) {
+		auto [data, sz] = abuf.GetBuffer();
+		buffer->write((char*)data, sz);
+		offset += sz;
+		return false;
+	}
+	
+	auto [data, sz] = abuf.GetBuffer();
+	buffer->write((char*)data, sz);
+	offset += sz;
+
 	if (offset - 12 > GetDynamicSize()) {
 		logcritical("Overflow in Test::WriteData");
-		auto sz = GetDynamicSize();
+		//auto sz = GetDynamicSize();
 	}
 	return true;
 }
@@ -804,6 +869,8 @@ bool Test::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRes
 			//if (length < offset - initoff + 8 || length < offset - initoff + Buffer::CalcStringLength(buffer, offset))
 			//	return false;
 			_output = Buffer::ReadString(buffer, offset);
+			if (_output.empty() == false)
+				_storeoutput = true;
 			_identifier = Buffer::ReadUInt64(buffer, offset);
 			_exitreason = Buffer::ReadUInt64(buffer, offset);
 			_valid = Buffer::ReadBool(buffer, offset);
@@ -827,6 +894,52 @@ bool Test::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRes
 				_cmdArgs = "";
 			// do not init here, or we create an insane amount of useless file pointers
 			//Init();
+			return true;
+		}
+	case 0x2:
+		{
+			Form::ReadData(buffer, offset, length, resolver);
+			try {
+				Buffer::ArrayBuffer data(buffer, length - offset);
+				offset += length - offset;
+				_running = data.Read<bool>();
+				_starttime = data.Read<std::chrono::steady_clock::time_point>();
+				_endtime = data.Read<std::chrono::steady_clock::time_point>();
+				FormID formid = data.Read<FormID>();
+				resolver->AddTask([this, resolver, formid]() {
+					auto input = resolver->ResolveFormID<Input>(formid);
+					if (input) {
+						this->_itr = input->begin();
+						this->_itrend = input->end();
+						this->_input = input;
+						if (!input->test) {
+							input->test = resolver->ResolveFormID<Test>(_formid);
+						}
+					}
+				});
+				_lastwritten = data.Read<std::string>();
+				_lasttime = data.Read<std::chrono::steady_clock::time_point>();
+				_reactiontime = data.ReadList<uint64_t>();
+				_output = data.Read<std::string>();
+				if (_output.empty() == false)
+					_storeoutput = true;
+				_identifier = data.Read<FormID>();
+				_exitreason = data.Read<FormID>();
+				_valid = data.Read<bool>();
+				bool hascall = data.Read<bool>();
+				if (hascall) {
+					int64_t len = 0;
+					unsigned char* buf = data.Read(&len);
+					size_t off = 0;
+					_callback = Functions::BaseFunction::Create(buf, off, len, resolver);
+				}
+				_skipOracle = data.Read<bool>();
+				_cmdArgs = "";
+			}
+			catch (std::exception &e){
+				logcritical("Exception in read method: {}", e.what());
+			}
+
 			return true;
 		}
 	default:
@@ -1009,12 +1122,40 @@ namespace Functions
 		return true;
 	}
 
+	bool TestCallback::ReadData(unsigned char* buffer, size_t& offset, size_t, LoadResolver* resolver)
+	{
+		// get id of session and resolve link
+		uint64_t sessid = Buffer::ReadUInt64(buffer, offset);
+		if (CmdArgs::_clearTasks == false)
+			resolver->AddTask([this, sessid, resolver]() {
+				this->_sessiondata = resolver->ResolveFormID<SessionData>(sessid);
+			});
+		// get id of saved _input and resolve link
+		uint64_t inputid = Buffer::ReadUInt64(buffer, offset);
+		if (CmdArgs::_clearTasks == false)
+			resolver->AddTask([this, inputid, resolver]() {
+				this->_input = resolver->ResolveFormID<Input>(inputid);
+			});
+		return true;
+	}
+
 	bool TestCallback::WriteData(std::ostream* buffer, size_t& offset)
 	{
 		BaseFunction::WriteData(buffer, offset);
 		Buffer::Write(_sessiondata->GetFormID(), buffer, offset);  // +8
 		Buffer::Write(_input->GetFormID(), buffer, offset);    // +8
 		return true;
+	}
+
+	unsigned char* TestCallback::GetData(size_t& size)
+	{
+		unsigned char* buffer = new unsigned char[GetLength()];
+		size_t offset = 0;
+		Buffer::Write(GetType(), buffer, offset);
+		Buffer::Write(_sessiondata->GetFormID(), buffer, offset);  // +8
+		Buffer::Write(_input->GetFormID(), buffer, offset);        // +8
+		size = GetLength();
+		return buffer;
 	}
 
 	size_t TestCallback::GetLength()

@@ -82,47 +82,59 @@ size_t Input::GetDynamicSize()
 	return size;
 }
 
-bool Input::WriteData(std::ostream* buffer, size_t& offset)
+#define CHECK(x) if (x == false) { logcritical("Buffer overflow error, len: {}, off: {}", abuf.Size(), abuf.Free()); throw std::runtime_error(""); }
+
+bool Input::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 {
 	Buffer::Write(classversion, buffer, offset);
-	Form::WriteData(buffer, offset);
-	Buffer::Write(_hasfinished, buffer, offset);
-	Buffer::Write(_trimmed, buffer, offset);
-	Buffer::Write(_executiontime, buffer, offset);
-	Buffer::Write(_exitcode, buffer, offset);
-	Buffer::Write((uint64_t)_oracleResult, buffer, offset);
-	if (test) {
-		Buffer::Write(test->GetFormID(), buffer, offset);
-	} else
-		Buffer::Write((FormID)0, buffer, offset);
-	if (derive) {
-		Buffer::Write(derive->GetFormID(), buffer, offset);
-	} else
-		Buffer::Write((FormID)0, buffer, offset);
-	Buffer::Write(_stringrep, buffer, offset);
-	//if (HasFlag(Form::FormFlags::DoNotFree)) {
-	//	Buffer::List::WriteList(_sequence, buffer, offset);
-	//	Buffer::List::WriteList(_orig_sequence, buffer, offset);
-	//}
-	Buffer::Write(_primaryScore, buffer, offset);
-	Buffer::Write(_secondaryScore, buffer, offset);
-	Buffer::Write(_trimmedlength, buffer, offset);
-	Buffer::Write(_parent.parentInput, buffer, offset);
-	Buffer::WriteSize(_parent.segments.size(), buffer, offset);
-	for (auto [begin, length] : _parent.segments) {
-		Buffer::Write(begin, buffer, offset);
-		Buffer::Write(length, buffer, offset);
+	Form::WriteData(buffer, offset, length);
+
+	Buffer::ArrayBuffer abuf(length - offset);
+	try {
+		CHECK(abuf.Write<bool>(_hasfinished));
+		CHECK(abuf.Write<bool>(_trimmed));
+		CHECK(abuf.Write(_executiontime));
+		CHECK(abuf.Write<int32_t>(_exitcode));
+		CHECK(abuf.Write<uint64_t>(_oracleResult));
+		if (test) {
+			CHECK(abuf.Write<FormID>(test->GetFormID()));
+		} else
+			CHECK(abuf.Write<FormID>(0));
+		if (derive) {
+			CHECK(abuf.Write<FormID>(derive->GetFormID()));
+		} else
+			CHECK(abuf.Write<FormID>(0));
+		CHECK(abuf.Write<std::string>(_stringrep));
+		CHECK(abuf.Write<double>(_primaryScore));
+		CHECK(abuf.Write<double>(_secondaryScore));
+		CHECK(abuf.Write<int64_t>(_trimmedlength));
+		CHECK(abuf.Write<FormID>(_parent.parentInput));
+		CHECK(abuf.Write<size_t>(_parent.segments.size()));
+		for (auto [begin, len] : _parent.segments) {
+			CHECK(abuf.Write<int64_t>(begin));
+			CHECK(abuf.Write<int64_t>(len));
+		}
+
+		CHECK(abuf.Write<bool>(_parent.complement));
+		CHECK(abuf.Write<FormID>(_generationID));
+		CHECK(abuf.Write<uint64_t>(_derivedInputs));
+		CHECK(abuf.Write(_generationTime));
+		CHECK(abuf.Write<bool>(_enablePrimaryScoreIndividual));
+		CHECK(abuf.Write<bool>(_enableSecondaryScoreIndividual));
+		CHECK(abuf.WriteDeque(_primaryScoreIndividual));
+		CHECK(abuf.WriteDeque(_secondaryScoreIndividual));
+		CHECK(abuf.Write<uint64_t>(_derivedFails));
+		CHECK(abuf.Write<int64_t>(_olderinputs));
+	} catch (std::exception&) {
+		auto [data, sz] = abuf.GetBuffer();
+		buffer->write((char*)data, sz);
+		offset += sz;
+		return false;
 	}
-	Buffer::Write(_parent.complement, buffer, offset);
-	Buffer::Write(_generationID, buffer, offset);
-	Buffer::Write(_derivedInputs, buffer, offset);
-	Buffer::Write(_generationTime, buffer, offset);
-	Buffer::Write(_enablePrimaryScoreIndividual, buffer, offset);
-	Buffer::Write(_enableSecondaryScoreIndividual, buffer, offset);
-	Buffer::DequeBasic::WriteDeque(_primaryScoreIndividual, buffer, offset);
-	Buffer::DequeBasic::WriteDeque(_secondaryScoreIndividual, buffer, offset);
-	Buffer::Write(_derivedFails, buffer, offset);
-	Buffer::Write(_olderinputs,buffer, offset);
+
+	auto [data, sz] = abuf.GetBuffer();
+	buffer->write((char*)data, sz);
+	offset += sz;
 	return true;
 }
 
@@ -182,69 +194,74 @@ bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRe
 			if (length < GetStaticSize(version))
 				return false;
 			Form::ReadData(buffer, offset, length, resolver);
-			// static init
-			_pythonconverted = false;
-			_pythonstring = "";
-			// end
-			_hasfinished = Buffer::ReadBool(buffer, offset);
-			_trimmed = Buffer::ReadBool(buffer, offset);
-			_executiontime = Buffer::ReadNanoSeconds(buffer, offset);
-			_exitcode = Buffer::ReadInt32(buffer, offset);
-			_oracleResult = Buffer::ReadUInt64(buffer, offset);
-			FormID testid = Buffer::ReadUInt64(buffer, offset);
-			if (testid == 0) {
-				//logwarn("Test ID invalid");
-			} else {
-				resolver->AddTask([this, resolver, testid]() {
-					this->test = resolver->ResolveFormID<Test>(testid);
-					//if (!this->test)
+			try {
+				Buffer::ArrayBuffer data(buffer, length - offset);
+				offset += length - offset;
+
+				// static init
+				_pythonconverted = false;
+				_pythonstring = "";
+				// end
+				_hasfinished = data.Read<bool>();
+				_trimmed = data.Read<bool>();
+				_executiontime = data.Read<std::chrono::nanoseconds>();
+				_exitcode = data.Read<int32_t>();
+				_oracleResult = data.Read<FormID>();
+				FormID testid = data.Read<FormID>();
+				if (testid == 0) {
+					//logwarn("Test ID invalid");
+				} else {
+					resolver->AddTask([this, resolver, testid]() {
+						this->test = resolver->ResolveFormID<Test>(testid);
+						//if (!this->test)
 						//logwarn("Test not found");
-				});
-			}
-			FormID deriveid = Buffer::ReadUInt64(buffer, offset);
-			if (deriveid == 0) {
-			} else {
-				resolver->AddTask([this, resolver, deriveid]() {
-					this->derive = resolver->ResolveFormID<DerivationTree>(deriveid);
-					//if (!derive)
-					//logwarn("Cannot find DerivationTree: {}", deriveid);
-				});
-			}
-			//logdebug("ReadData string rep");
-			// get _stringrep
-			//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
-			//	return false;
-			_stringrep = Buffer::ReadString(buffer, offset);
-			//if (HasFlag(Form::FormFlags::DoNotFree)) {
-			//	Buffer::List::ReadList(_sequence, buffer, offset);
-			//	Buffer::List::ReadList(_orig_sequence, buffer, offset);
-			//}
-			_primaryScore = Buffer::ReadDouble(buffer, offset);
-			_secondaryScore = Buffer::ReadDouble(buffer, offset);
-			_trimmedlength = Buffer::ReadInt64(buffer, offset);
-			_parent.parentInput = Buffer::ReadUInt64(buffer, offset);
-			_parent.segments.clear();
-			size_t len = Buffer::ReadSize(buffer, offset);
-			for (size_t i = 0; i < len; i++) {
-				auto positionBegin = Buffer::ReadInt64(buffer, offset);
-				_parent.segments.push_back({ positionBegin, Buffer::ReadInt64(buffer, offset) });
-			}
-			_parent.complement = Buffer::ReadBool(buffer, offset);
-			_generationID = Buffer::ReadUInt64(buffer, offset);
-			_derivedInputs = Buffer::ReadUInt64(buffer, offset);
-			_generationTime = Buffer::ReadNanoSeconds(buffer, offset);
-			_enablePrimaryScoreIndividual = Buffer::ReadBool(buffer, offset);
-			_enableSecondaryScoreIndividual = Buffer::ReadBool(buffer, offset);
-			_primaryScoreIndividual = Buffer::DequeBasic::ReadDeque<double>(buffer, offset);
-			_secondaryScoreIndividual = Buffer::DequeBasic::ReadDeque<double>(buffer, offset);
-			_derivedFails = Buffer::ReadUInt64(buffer, offset);
-			if (HasFlag(Form::FormFlags::DoNotFree) && CmdArgs::_clearTasks == false)
-			{
-				resolver->AddRegeneration(_formid);
-			}
-			if (version == 0x3)
-			{
-				_olderinputs = Buffer::ReadInt64(buffer, offset);
+					});
+				}
+				FormID deriveid = data.Read<FormID>();
+				if (deriveid == 0) {
+				} else {
+					resolver->AddTask([this, resolver, deriveid]() {
+						this->derive = resolver->ResolveFormID<DerivationTree>(deriveid);
+						//if (!derive)
+						//logwarn("Cannot find DerivationTree: {}", deriveid);
+					});
+				}
+				//logdebug("ReadData string rep");
+				// get _stringrep
+				//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
+				//	return false;
+				_stringrep = data.Read<std::string>();
+				//if (HasFlag(Form::FormFlags::DoNotFree)) {
+				//	Buffer::List::ReadList(_sequence, buffer, offset);
+				//	Buffer::List::ReadList(_orig_sequence, buffer, offset);
+				//}
+				_primaryScore = data.Read<double>();
+				_secondaryScore = data.Read<double>();
+				_trimmedlength = data.Read<int64_t>();
+				_parent.parentInput = data.Read<FormID>();
+				_parent.segments.clear();
+				size_t len = data.Read<size_t>();
+				for (size_t i = 0; i < len; i++) {
+					auto positionBegin = data.Read<int64_t>();
+					_parent.segments.push_back({ positionBegin, data.Read<int64_t>() });
+				}
+				_parent.complement = data.Read<bool>();
+				_generationID = data.Read<FormID>();
+				_derivedInputs = data.Read<uint64_t>();
+				_generationTime = data.Read<std::chrono::nanoseconds>();
+				_enablePrimaryScoreIndividual = data.Read<bool>();
+				_enableSecondaryScoreIndividual = data.Read<bool>();
+				_primaryScoreIndividual = data.ReadDeque<double>();
+				_secondaryScoreIndividual = data.ReadDeque<double>();
+				_derivedFails = data.Read<uint64_t>();
+				if (HasFlag(Form::FormFlags::DoNotFree) && CmdArgs::_clearTasks == false) {
+					resolver->AddRegeneration(_formid);
+				}
+				if (version == 0x3) {
+					_olderinputs = data.Read<int64_t>();
+				}
+			} catch (std::exception& e) {
+				logcritical("Exception in read method: {}", e.what());
 			}
 		}
 		return true;

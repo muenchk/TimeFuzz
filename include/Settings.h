@@ -112,7 +112,7 @@ public:
 
 	size_t GetStaticSize(int32_t version) override;
 	size_t GetDynamicSize() override;
-	bool WriteData(std::ostream* buffer, size_t& offset) override;
+	bool WriteData(std::ostream* buffer, size_t& offset, size_t length) override;
 	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 	void Delete(Data* data);
 	void Clear() override;

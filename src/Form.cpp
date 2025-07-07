@@ -87,7 +87,7 @@ size_t Form::GetDynamicSize()
 	       + 8 + 8 * _flags.size();  // sizeof(), content of _flags
 }
 
-bool Form::WriteData(std::ostream* buffer, size_t& offset)
+bool Form::WriteData(std::ostream* buffer, size_t& offset, size_t)
 {
 	Buffer::Write(formversion, buffer, offset);
 	Buffer::Write(_formid, buffer, offset);

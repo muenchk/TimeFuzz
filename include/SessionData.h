@@ -591,7 +591,7 @@ public:
 	/// <param name="buffer"></param>
 	/// <param name="offset"></param>
 	/// <returns></returns>
-	bool WriteData(std::ostream* buffer, size_t& offset) override;
+	bool WriteData(std::ostream* buffer, size_t& offset, size_t length) override;
 	/// <summary>
 	/// Reads the class data from the buffer
 	/// </summary>

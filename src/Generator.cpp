@@ -49,10 +49,10 @@ size_t Generator::GetDynamicSize()
 	       + GetStaticSize(classversion);
 }
 
-bool Generator::WriteData(std::ostream* buffer, size_t& offset)
+bool Generator::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 {
 	Buffer::Write(classversion, buffer, offset);
-	Form::WriteData(buffer, offset);
+	Form::WriteData(buffer, offset, length);
 	if (_grammar)
 		Buffer::Write(_grammar->GetFormID(), buffer, offset);
 	else
