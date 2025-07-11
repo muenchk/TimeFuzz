@@ -202,14 +202,73 @@ public:
 	~DerivationTree();
 
 	Node* _root;
-	FormID _grammarID;
-	bool _valid = false;
-	uint32_t _seed = 0;
-	int32_t _targetlen = 0;
 	int64_t _nodes;
 	int64_t _sequenceNodes = 0;
+	bool _valid = false;
+
+private:
+	FormID _grammarID;
+	uint32_t _seed = 0;
+	int32_t _targetlen = 0;
 	ParentTree _parent;
 	FormID _inputID = 0;
+
+public:
+	FormID GetGrammarID()
+	{
+		return _grammarID;
+	}
+	void SetGrammarID(FormID id)
+	{
+		CheckChanged(_grammarID, id);
+	}
+	uint32_t GetSeed()
+	{
+		return _seed;
+	}
+	void SetSeed(uint32_t seed)
+	{
+		CheckChanged(_seed, seed);
+	}
+	int32_t GetTargetLength() {
+		return _targetlen;
+	}
+	void SetTargetLength(int32_t len) {
+		CheckChanged(_targetlen, len);
+	}
+	ParentTree& GetParent() {
+		return _parent;
+	}
+	void SetParentID(FormID id)
+	{
+		CheckChanged(_parent._parentID, id);
+	}
+	void SetParentLength(int64_t length)
+	{
+		CheckChanged(_parent._length, length);
+	}
+	void SetParentMethod(ParentTree::Method method)
+	{
+		CheckChanged(_parent.method, method);
+	}
+	void SetParentInformation(FormID parentid, std::vector<std::pair<int64_t, int64_t>> segments, int64_t stop, bool complement, ParentTree::Method method)
+	{
+		CheckChanged(_parent._parentID, parentid);
+		CheckChanged(_parent.segments, segments);
+		CheckChanged(_parent._stop, stop);
+		CheckChanged(_parent._complement, complement);
+		CheckChanged(_parent.method, method);
+	}
+	FormID GetInputID() {
+		return _inputID;
+	}
+	void SetInputID(FormID id)
+	{
+		CheckChanged(_inputID, id);
+	}
+
+
+public:
 
 	void SetRegenerate(bool vaue);
 	bool GetRegenerate();

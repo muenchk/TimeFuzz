@@ -134,37 +134,37 @@ bool Oracle::Validate()
 
 void Oracle::SetLuaCmdArgs(std::string script)
 {
-	_luaCmdArgsStr = script;
+	CheckChanged(_luaCmdArgsStr, script);
 }
 
 void Oracle::SetLuaCmdArgs(std::filesystem::path scriptpath)
 {
-	_luaCmdArgsPath = scriptpath;
+	CheckChanged(_luaCmdArgsPath, scriptpath);
 }
 
 void Oracle::SetLuaCmdArgsReplay(std::filesystem::path scriptpath)
 {
-	_luaCmdArgsPathReplay = scriptpath;
+	CheckChanged(_luaCmdArgsPathReplay, scriptpath);
 }
 
 void Oracle::SetLuaOracle(std::string script)
 {
-	_luaOracleStr = script;
+	CheckChanged(_luaOracleStr, script);
 }
 
 void Oracle::SetLuaOracle(std::filesystem::path scriptpath)
 {
-	_luaOraclePath = scriptpath;
+	CheckChanged(_luaOraclePath, scriptpath);
 }
 
 void Oracle::SetLuaScriptArgs(std::string script)
 {
-	_luaScriptArgsStr = script;
+	CheckChanged(_luaScriptArgsStr, script);
 }
 
 void Oracle::SetLuaScriptArgs(std::filesystem::path scriptpath)
 {
-	_luaScriptArgsPath = scriptpath;
+	CheckChanged(_luaScriptArgsPath, scriptpath);
 }
 
 void Oracle::ApplyLuaCommands(lua_State* L)

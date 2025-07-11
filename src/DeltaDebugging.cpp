@@ -177,8 +177,9 @@ namespace Functions
 
 	void DDEvaluateExplicitCallback::Run()
 	{
-		if (_DDcontroller)
+		if (_DDcontroller) {
 			_DDcontroller->CallbackExplicitEvaluate();
+		}
 	}
 
 	std::shared_ptr<BaseFunction> DDEvaluateExplicitCallback::DeepCopy()
@@ -237,8 +238,9 @@ namespace Functions
 
 	void DDGenerateComplementCallback::Run()
 	{
-		if (_DDcontroller && _input && _batchtasks)
+		if (_DDcontroller && _input && _batchtasks) {
 			_DDcontroller->GenerateComplements_Async_Callback(_begin, _length, _approxthreshold, _batchident, _input, _batchtasks);
+		}
 	}
 	bool DDGenerateComplementCallback::ReadData(std::istream* buffer, size_t& offset, size_t, LoadResolver* resolver)
 	{
@@ -337,8 +339,9 @@ namespace Functions
 
 	void DDGenerateCheckSplit::Run()
 	{
-		if (_DDcontroller && _input && _batchtasks)
-		_DDcontroller->GenerateSplits_Async_Callback(_input, _approxthreshold, _batchident, _batchtasks);
+		if (_DDcontroller && _input && _batchtasks) {
+			_DDcontroller->GenerateSplits_Async_Callback(_input, _approxthreshold, _batchident, _batchtasks);
+		}
 	}
 
 	std::shared_ptr<BaseFunction> DDGenerateCheckSplit::DeepCopy()
@@ -457,6 +460,9 @@ namespace DeltaDebugging
 
 	bool DeltaController::Start(DDParameters* params, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback)
 	{
+		// taint changed
+		SetChanged();
+
 		std::unique_lock<std::shared_mutex> guard(_lock);
 		_params = params;
 		// if the input has already been delta debugged return
@@ -582,6 +588,8 @@ namespace DeltaDebugging
 
 	void DeltaController::CallbackTest(std::shared_ptr<Input> input, uint64_t batchident, std::shared_ptr<DeltaDebugging::Tasks> tasks)
 	{
+		// taint changed
+		SetChanged();
 		// update test status
 		{
 			std::unique_lock<std::mutex> guard(_completedTestsLock);
@@ -716,6 +724,8 @@ namespace DeltaDebugging
 
 	void DeltaController::CallbackExplicitEvaluate()
 	{
+		// taint changed
+		SetChanged();
 		auto tasks = genCompData.tasks.load();
 		if (!tasks || tasks->processedEndEvent)
 		{
@@ -866,6 +876,8 @@ namespace DeltaDebugging
 	}
 	void DeltaController::GenerateSplits_Async_Callback(std::shared_ptr<Input> input, double approxthreshold, uint64_t batchident, std::shared_ptr<DeltaDebugging::Tasks> tasks)
 	{
+		// taint changed
+		SetChanged();
 		if (batchident != genCompData.batchident) {
 			// do nothing if the input we are supposed to handle is from an older batch, just discard
 			_skippedTests++;
@@ -1009,7 +1021,7 @@ namespace DeltaDebugging
 		inp->derive->SetFlag(Form::FormFlags::DoNotFree);
 		LockHolder<DerivationTree> inputdevlock(inp->derive);
 		//inp->derive->SetFlag(Form::FormFlags::DoNotFree);
-		inp->derive->_inputID = inp->GetFormID();
+		inp->derive->SetInputID(inp->GetFormID());
 
 		auto segments = inp->GetParentSplits();
 		_sessiondata->_grammar->Extract(parentinp->derive, inp->derive, segments, parentinp->Length(), inp->GetParentSplitComplement());
@@ -1166,6 +1178,8 @@ namespace DeltaDebugging
 
 	void DeltaController::GenerateComplements_Async_Callback(int32_t begin, int32_t length, double approx, uint64_t batchident, std::shared_ptr<Input> parent, std::shared_ptr<DeltaDebugging::Tasks> tasks)
 	{
+		// taint changed
+		SetChanged();
 		if (batchident != genCompData.batchident) {
 			// do nothing if the input we are supposed to handle is from an older batch, just discard
 			_skippedTests++;
@@ -1363,6 +1377,8 @@ namespace DeltaDebugging
 
 	bool DeltaController::StandardEvaluateInput(std::shared_ptr<Input> input)
 	{
+		// taint changed
+		SetChanged();
 		if (!input)
 			return false;
 		switch (_params->GetGoal()) {
@@ -2307,6 +2323,8 @@ namespace DeltaDebugging
 
 	void DeltaController::ScoreProgressEvaluateLevel()
 	{
+		// taint changed
+		SetChanged();
 		// increase batch ident here to ensure that no inputs that finish after right now are added to our lists
 		genCompData.batchident++;
 		loginfo("{} begin", genCompData.batchident);
@@ -2602,6 +2620,8 @@ namespace DeltaDebugging
 
 	void DeltaController::Finish()
 	{
+		// taint changed
+		SetChanged();
 		// set DD end time
 		_DD_end = _sessiondata->data->GetRuntime();
 
@@ -2680,6 +2700,8 @@ namespace DeltaDebugging
 
 	bool DeltaController::AddCallback(std::shared_ptr<Functions::BaseFunction> callback)
 	{
+		// taint changed
+		SetChanged();
 		std::unique_lock<std::mutex> guard(_callbackLock);
 		if (_finished == false) {
 			_callback.push_back(callback);

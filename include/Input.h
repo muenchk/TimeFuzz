@@ -465,7 +465,7 @@ public:
 
 	void SetParentBacktrack(int32_t backtrack = 0)
 	{
-		_parent.backtrack = backtrack;
+		CheckChanged(_parent.backtrack, backtrack);
 	}
 
 	int32_t GetParentBacktrack()
@@ -548,6 +548,7 @@ public:
 	void IncRetries()
 	{
 		_retries++;
+		SetChanged();
 	}
 
 	int64_t _olderinputs = -1;

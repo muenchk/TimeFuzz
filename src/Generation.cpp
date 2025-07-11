@@ -38,7 +38,7 @@ int64_t Generation::GetTargetSize()
 void Generation::SetTargetSize(int64_t size)
 {
 	std::unique_lock<std::shared_mutex> guard(_lock);
-	_targetSize = size;
+	CheckChanged(_targetSize, size);
 }
 
 std::pair<bool, int64_t> Generation::CanGenerate()
@@ -61,6 +61,7 @@ std::pair<bool, int64_t> Generation::CanGenerate()
 			num = _targetSize - _generatedSize > _maxSimultaneousGeneration ? _maxSimultaneousGeneration : _targetSize - _generatedSize;
 		_activeInputs += num;
 		_generatedSize += num;
+		SetChanged();
 		return { true, num };
 	} else
 		return { false, 0 };
@@ -75,11 +76,13 @@ void Generation::FailGeneration(int64_t fails)
 		_activeInputs = 0;
 		//logwarn("_activeInputs went into the negative");
 	}
+	SetChanged();
 }
 
 void Generation::AddGeneratedInput(std::shared_ptr<Input> input)
 {
 	if (input) {
+		SetChanged();
 		std::unique_lock<std::shared_mutex> guard(_lock);
 		_generatedInputs.insert_or_assign(input->GetFormID(), input);
 		input->SetGenerationID(GetFormID());
@@ -89,6 +92,7 @@ void Generation::AddGeneratedInput(std::shared_ptr<Input> input)
 bool Generation::RemoveGeneratedInput(std::shared_ptr<Input> input)
 {
 	if (input) {
+		SetChanged();
 		std::unique_lock<std::shared_mutex> guard(_lock);
 		// return value is the number of removed elements, i.e. 0 or 1
 		if (_generatedInputs.erase(input->GetFormID()) == 1) {
@@ -107,6 +111,7 @@ void Generation::AddDDInput(std::shared_ptr<Input> input)
 {
 	if (input)
 	{
+		SetChanged();
 		std::unique_lock<std::shared_mutex> guard(_lock);
 		_ddInputs.insert_or_assign(input->GetFormID(), input);
 		input->SetGenerationID(GetFormID());
@@ -117,6 +122,7 @@ void Generation::AddDDInput(std::shared_ptr<Input> input)
 bool Generation::RemoveDDInput(std::shared_ptr<Input> input)
 {
 	if (input) {
+		SetChanged();
 		std::unique_lock<std::shared_mutex> guard(_lock);
 		// return value is the number of removed elements, i.e. 0 or 1
 		if (_ddInputs.erase(input->GetFormID()) == 1) {
@@ -134,6 +140,7 @@ void Generation::AddDDController(std::shared_ptr<DeltaDebugging::DeltaController
 {
 	if (ddcontroller)
 	{
+		SetChanged();
 		std::unique_lock<std::shared_mutex> guard(_lock);
 		_ddControllers.insert_or_assign(ddcontroller->GetFormID(), ddcontroller);
 	}
@@ -143,6 +150,7 @@ void Generation::SetInputCompleted()
 {
 	_activeInputs--;
 	if (_activeInputs < 0) {
+		SetChanged();
 		_activeInputs = 0;
 		//logwarn("_activeInputs went into the negative");
 	}
@@ -150,7 +158,7 @@ void Generation::SetInputCompleted()
 
 void Generation::SetGenerationNumber(int32_t number)
 {
-	_generationNumber = number;
+	CheckChanged(_generationNumber, number);
 }
 
 int32_t Generation::GetGenerationNumber()
@@ -160,7 +168,7 @@ int32_t Generation::GetGenerationNumber()
 
 void Generation::SetMaxActiveInputs(int64_t activeInputs)
 {
-	_maxActiveInputs = activeInputs;
+	CheckChanged(_maxActiveInputs, activeInputs);
 }
 
 int64_t Generation::GetActiveInputs()
@@ -170,7 +178,7 @@ int64_t Generation::GetActiveInputs()
 
 void Generation::SetMaxSimultaneuosGeneration(int64_t generationstep)
 {
-	_maxSimultaneousGeneration = generationstep;
+	CheckChanged(_maxSimultaneousGeneration, generationstep);
 }
 
 bool Generation::IsActive()
@@ -185,7 +193,7 @@ bool Generation::NeedsGeneration()
 
 void Generation::ResetActiveInputs()
 {
-	_activeInputs = 0;
+	CheckChanged(_activeInputs, 0);
 }
 
 bool Generation::IsDeltaDebuggingActive()
@@ -322,6 +330,7 @@ std::shared_ptr<Input> Generation::GetRandomSource()
 void Generation::AddSource(std::shared_ptr<Input> input)
 {
 	if (input) {
+		SetChanged();
 		// see cppreference for this section (source)
 
 		// since the randomness will even out over all inputs due to gleichverteilung, just use an iterator
@@ -442,11 +451,11 @@ bool Generation::CheckOracleResultAndLength(std::shared_ptr<Input>& input, bool 
 
 void Generation::SetMaxDerivedFailingInput(uint64_t maxDerivedFailingInputs)
 {
-	_maxDerivedFailingInputs = maxDerivedFailingInputs;
+	CheckChanged(_maxDerivedFailingInputs, maxDerivedFailingInputs);
 }
 void Generation::SetMaxDerivedInput(uint64_t maxDerivedInputs)
 {
-	_maxDerivedInputs = maxDerivedInputs;
+	CheckChanged(_maxDerivedInputs, maxDerivedInputs);
 }
 
 #pragma region Time
@@ -456,7 +465,7 @@ std::chrono::nanoseconds Generation::GetStartTime()
 }
 void Generation::SetStartTime(std::chrono::nanoseconds begin)
 {
-	_gen_begin = begin;
+	CheckChanged(_gen_begin, begin);
 }
 std::chrono::nanoseconds Generation::GetEndTime()
 {
@@ -464,7 +473,7 @@ std::chrono::nanoseconds Generation::GetEndTime()
 }
 void Generation::SetEndTime(std::chrono::nanoseconds end)
 {
-	_gen_end = end;
+	CheckChanged(_gen_end, end);
 }
 std::chrono::nanoseconds Generation::GetRunTime()
 {

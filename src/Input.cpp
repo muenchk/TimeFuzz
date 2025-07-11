@@ -428,6 +428,7 @@ std::string& Input::operator[](size_t index)
 void Input::AddEntry(std::string entry)
 {
 	_sequence.push_back(entry);
+	SetChanged();
 }
 
 std::string Input::ToString()
@@ -700,6 +701,7 @@ size_t Input::MemorySize()
 void Input::TrimInput(int32_t executed)
 {
 	if (executed != -1 && executed < _sequence.size()) {
+		SetChanged();
 		// we are trimming to a specific length
 		_trimmed = true;
 		int32_t count = 0;
@@ -723,6 +725,7 @@ void Input::SetParentSplitInformation(FormID parentInput, std::vector<std::pair<
 	_parent.parentInput = parentInput;
 	_parent.segments = segments;
 	_parent.complement = complement;
+	SetChanged();
 }
 
 void Input::SetParentGenerationInformation(FormID parentInput)
@@ -730,12 +733,15 @@ void Input::SetParentGenerationInformation(FormID parentInput)
 	UnsetFlag(Input::Flags::GeneratedDeltaDebugging);
 	SetFlag(Input::Flags::GeneratedGrammar);
 	SetFlag(Input::Flags::GeneratedGrammarParent);
-	_parent.parentInput = parentInput;
-	_parent.segments.clear();
+	CheckChanged(_parent.parentInput, parentInput);
+	if (_parent.segments.empty() == false) {
+		_parent.segments.clear();
+		SetChanged();
+	}
 }
 void Input::SetParentID(FormID parentInput)
 {
-	_parent.parentInput = parentInput;
+	CheckChanged(_parent.parentInput, parentInput);
 }
 
 void Input::SetGenerationInformation()
@@ -793,7 +799,7 @@ FormID Input::GetGenerationID()
 void Input::SetGenerationID(FormID genID)
 {
 	std::unique_lock<std::shared_mutex> guard(_lock);
-	_generationID = genID;
+	CheckChanged(_generationID, genID);
 }
 
 std::chrono::nanoseconds Input::GetExecutionTime()
@@ -846,12 +852,14 @@ void Input::IncDerivedInputs()
 {
 	Utility::SpinLock guard(_derivedFlag);
 	_derivedInputs++;
+	SetChanged();
 }
 
 void Input::IncDerivedFails()
 {
 	Utility::SpinLock guard(_derivedFlag);
 	_derivedFails++;
+	SetChanged();
 }
 
 uint64_t Input::GetDerivedInputs()
@@ -869,7 +877,7 @@ uint64_t Input::GetDerivedFails()
 void Input::SetGenerationTime(std::chrono::nanoseconds genTime)
 {
 	std::unique_lock<std::shared_mutex> guard(_lock);
-	_generationTime = genTime;
+	CheckChanged(_generationTime, genTime);
 }
 
 std::chrono::nanoseconds Input::GetGenerationTime()
@@ -1179,12 +1187,18 @@ int Input::lua_GetReactionTimeNext(lua_State* L)
 	return 1;
 }
 
+#define CheckChangedLua(x, y) \
+	if (x != y) {          \
+		input->SetChanged();      \
+		x = y;             \
+	}
+
 int Input::lua_SetPrimaryScore(lua_State* L)
 {
 	Input* input = (Input*)lua_touserdata(L, 1);
 	lua_Number score = lua_tonumber(L, 2);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
-	input->_primaryScore = score;
+	CheckChangedLua(input->_primaryScore, score);
 	return 0;
 }
 
@@ -1193,7 +1207,7 @@ int Input::lua_SetSecondaryScore(lua_State* L)
 	Input* input = (Input*)lua_touserdata(L, 1);
 	lua_Number score = lua_tonumber(L, 2);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
-	input->_secondaryScore = score;
+	CheckChangedLua(input->_secondaryScore, score);
 	return 0;
 }
 
@@ -1201,7 +1215,7 @@ int Input::lua_EnablePrimaryScoreIndividual(lua_State* L)
 {
 	Input* input = (Input*)lua_touserdata(L, 1);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
-	input->_enablePrimaryScoreIndividual = true;
+	CheckChangedLua(input->_enablePrimaryScoreIndividual, true);
 	return 0;
 }
 
@@ -1209,7 +1223,7 @@ int Input::lua_EnableSecondaryScoreIndividual(lua_State* L)
 {
 	Input* input = (Input*)lua_touserdata(L, 1);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
-	input->_enableSecondaryScoreIndividual = true;
+	CheckChangedLua(input->_enableSecondaryScoreIndividual, true);
 	return 0;
 }
 
@@ -1219,6 +1233,7 @@ int Input::lua_AddPrimaryScoreIndividual(lua_State* L)
 	lua_Number score = lua_tonumber(L, 2);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
 	input->_primaryScoreIndividual.push_back(score);
+	input->SetChanged();
 	return 0;
 }
 
@@ -1228,6 +1243,7 @@ int Input::lua_AddSecondaryScoreIndividual(lua_State* L)
 	lua_Number score = lua_tonumber(L, 2);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
 	input->_secondaryScoreIndividual.push_back(score);
+	input->SetChanged();
 	return 0;
 }
 
@@ -1241,14 +1257,15 @@ int Input::lua_ClearScores(lua_State* L)
 	input->_enablePrimaryScoreIndividual = false;
 	input->_primaryScoreIndividual.clear();
 	input->_secondaryScoreIndividual.clear();
+	input->SetChanged();
 	return 0;
 }
 int Input::lua_ClearTrim(lua_State* L)
 {
 	Input* input = (Input*)lua_touserdata(L, 1);
 	luaL_argcheck(L, input != nullptr, 1, "input expected");
-	input->_trimmed = false;
-	input->_trimmedlength = -1;
+	CheckChangedLua(input->_trimmed, false);
+	CheckChangedLua(input->_trimmedlength, -1);
 	return 0;
 }
 

@@ -71,9 +71,9 @@ public:
 	~MemoryStream();
 
 	int64_t gcount();
-	int64_t tellg();
-	void seekg(int64_t position);
-	void seekg(std::streamoff off, std::ios_base::seekdir way);
+	int64_t tell();
+	void seek(int64_t position);
+	void seek(std::streamoff off, std::ios_base::seekdir way);
 
 	int get();
 	void get(char& c);
@@ -89,7 +89,4 @@ public:
 
 	void put(char c);
 	int64_t write(const char* s, int64_t n);
-	int64_t tellp();
-	void seekp(int64_t position);
-	void seekp(std::streamoff off, std::ios_base::seekdir way);
 };

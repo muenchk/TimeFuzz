@@ -90,7 +90,7 @@ void Generator::Init()
 
 void Generator::SetGrammar(std::shared_ptr<Grammar> grammar)
 {
-	_grammar = grammar;
+	CheckChanged(_grammar, grammar);
 }
 
 void DummyGenerate(std::shared_ptr<Input>& input)
@@ -186,8 +186,8 @@ bool Generator::GenerateInputGrammar(std::shared_ptr<Input> input, std::shared_p
 		if (input->derive && input->derive->GetRegenerate() == true) {
 			// we already generated the _input some time ago, so we will reuse the past generation parameters to
 			// regenerate the same derivation tree
-			int32_t sequencelen = input->derive->_targetlen;
-			uint32_t seed = input->derive->_seed;
+			int32_t sequencelen = input->derive->GetTargetLength();
+			uint32_t seed = input->derive->GetSeed();
 			gram->Derive(input->derive, sequencelen, seed);
 		} else {
 			std::uniform_int_distribution<signed> dist(sessiondata->_settings->generation.generationLengthMin, sessiondata->_settings->generation.generationLengthMax);
@@ -426,7 +426,7 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 						// now extend input
 						if (inp->HasFlag(Input::Flags::GeneratedGrammarParentBacktrack)) {
 							int32_t backtrack = 0;
-							gram->Extend(par, inp->derive, true, inp->derive->_targetlen, inp->derive->_seed, backtrack);
+							gram->Extend(par, inp->derive, true, inp->derive->GetTargetLength(), inp->derive->GetSeed(), backtrack);
 							inp->SetParentBacktrack(backtrack);
 							if (inp->derive->_valid == false) {
 								unlock();
@@ -435,7 +435,7 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 							}
 						} else {
 							int32_t backtrack = 0;
-							gram->Extend(par, inp->derive, false, inp->derive->_targetlen, inp->derive->_seed, backtrack);
+							gram->Extend(par, inp->derive, false, inp->derive->GetTargetLength(), inp->derive->GetSeed(), backtrack);
 							inp->SetParentBacktrack(backtrack);
 							if (inp->derive->_valid == false) {
 								unlock();

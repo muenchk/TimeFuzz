@@ -13,49 +13,58 @@ class SessionData;
 
 enum OracleResult : EnumType;
 
+struct ExclusionTreeNode;
+
+namespace Hashing
+{
+	size_t hash(ExclusionTreeNode const& node);
+}
+
+struct ExclusionTreeNode
+{
+	/// <summary>
+	/// identifier of the node
+	/// </summary>
+	FormID _stringID;
+	/// <summary>
+	/// tree-id of the node
+	/// </summary>
+	uint64_t _id;
+	/// <summary>
+	/// (rough) number of visits to node, exclusion wise, may be used to prune the tree if necessary [race condition]
+	/// </summary>
+	//uint64_t _visitcount;
+	/// <summary>
+	/// children of the node
+	/// </summary>
+	std::vector<ExclusionTreeNode*> _children;
+	/// <summary>
+	/// childrens ids
+	/// </summary>
+	//std::vector<uint64_t> _childrenids;
+	/// <summary>
+	/// whether this node is a lead
+	/// </summary>
+	bool _isLeaf = false;
+
+	OracleResult _result;
+	FormID _InputID = 0;
+
+	/// <summary>
+	/// Returns the child with the identifier [str] if there is one
+	/// </summary>
+	/// <param name="str"></param>
+	/// <returns></returns>
+	ExclusionTreeNode* HasChild(FormID stringID);
+
+	friend size_t Hashing::hash(ExclusionTreeNode const& node);
+};
+
 /// <summary>
 /// this class holds information about prefixes that are excluded
 /// </summary>
 class ExclusionTree : public Form
 {
-	struct TreeNode
-	{
-		/// <summary>
-		/// identifier of the node
-		/// </summary>
-		FormID _stringID;
-		/// <summary>
-		/// tree-id of the node
-		/// </summary>
-		uint64_t _id;
-		/// <summary>
-		/// (rough) number of visits to node, exclusion wise, may be used to prune the tree if necessary [race condition]
-		/// </summary>
-		//uint64_t _visitcount;
-		/// <summary>
-		/// children of the node
-		/// </summary>
-		std::vector<TreeNode*> _children;
-		/// <summary>
-		/// childrens ids
-		/// </summary>
-		//std::vector<uint64_t> _childrenids;
-		/// <summary>
-		/// whether this node is a lead
-		/// </summary>
-		bool _isLeaf = false;
-
-		OracleResult _result;
-		FormID _InputID = 0;
-
-		/// <summary>
-		/// Returns the child with the identifier [str] if there is one
-		/// </summary>
-		/// <param name="str"></param>
-		/// <returns></returns>
-		TreeNode* HasChild(FormID stringID);
-	};
-
 public:
 	ExclusionTree();
 
@@ -126,7 +135,7 @@ public:
 	#pragma endregion
 
 private:
-	TreeNode* root;
+	ExclusionTreeNode* root;
 
 	std::shared_mutex _lock;
 
@@ -136,13 +145,13 @@ private:
 
 	uint64_t leafcount = 0;
 
-	std::unordered_map<uint64_t, TreeNode*> hashmap;
+	std::unordered_map<uint64_t, ExclusionTreeNode*> hashmap;
 
 	std::shared_ptr<SessionData> _sessiondata;
 
-	void DeleteChildren(TreeNode* node);
+	void DeleteChildren(ExclusionTreeNode* node);
 
-	void DeleteChildrenIntern(TreeNode* node);
+	void DeleteChildrenIntern(ExclusionTreeNode* node);
 
-	void DeleteNodeIntern(TreeNode* node);
+	void DeleteNodeIntern(ExclusionTreeNode* node);
 };

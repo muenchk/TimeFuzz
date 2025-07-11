@@ -879,6 +879,7 @@ bool SessionData::ReadData0x1(std::istream* buffer, size_t& offset, size_t /*len
 
 bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
+	SetChanged();
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
 	case 0x1:

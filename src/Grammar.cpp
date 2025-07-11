@@ -1455,6 +1455,7 @@ size_t GrammarTree::MemorySize()
 
 void Grammar::ParseScala(std::filesystem::path path)
 {
+	SetChanged();
 	StartProfiling;
 	loginfo("enter");
 	// check whether the path exists and whether its actually a file
@@ -1638,14 +1639,9 @@ void Grammar::Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<Der
 		// just copy tree and check that it fits our regexes
 
 		// set up dtree information
-		dtree->_parent._parentID = stree->GetFormID();
-		dtree->_parent.segments.clear();
-		dtree->_parent.segments = segments;
-		dtree->_parent._stop = stop;
-		dtree->_parent._complement = complement;
+		dtree->SetParentInformation(stree->GetFormID(), segments, stop, complement, DerivationTree::ParentTree::Method::DD);
 		dtree->_sequenceNodes = 0;
-		dtree->_parent.method = DerivationTree::ParentTree::Method::DD;
-		dtree->_grammarID = stree->_grammarID;
+		dtree->SetGrammarID(stree->GetGrammarID());
 
 		// gather the sequence nodes of the source tree
 		std::vector<DerivationTree::SequenceNode*> seqnodes;
@@ -1772,14 +1768,10 @@ void Grammar::ExtractEarley(std::shared_ptr<DerivationTree> stree, std::shared_p
 {
 	StartProfiling;
 	// set up dtree information
-	dtree->_parent._parentID = stree->GetFormID();
-	dtree->_parent.segments.clear();
-	dtree->_parent.segments.push_back({ begin, length });
-	dtree->_parent._stop = stop;
-	dtree->_parent._complement = complement;
+
+	dtree->SetParentInformation(stree->GetFormID(), std::vector<std::pair<int64_t, int64_t>>{ { begin, length } }, stop, complement, DerivationTree::ParentTree::Method::DD);
 	dtree->_sequenceNodes = 0;
-	dtree->_parent.method = DerivationTree::ParentTree::Method::DD;
-	dtree->_grammarID = stree->_grammarID;
+	dtree->SetGrammarID(stree->GetGrammarID());
 
 	// gather the sequence nodes of the source tree
 	std::vector<DerivationTree::SequenceNode*> seqnodes;
@@ -1918,9 +1910,9 @@ void Grammar::Derive(std::shared_ptr<DerivationTree> dtree, int32_t targetlength
 	// until the goal is reached
 	// afterwards all nonterminals are expanded until there are only terinal nodes remaining
 	// at last the terminal nodes are resolved
-	dtree->_grammarID = _formid;
-	dtree->_seed = seed;
-	dtree->_targetlen = targetlength;
+	dtree->SetGrammarID(_formid);
+	dtree->SetSeed(seed);
+	dtree->SetTargetLength(targetlength);
 	DerivationTree::NonTerminalNode* nnode = nullptr;
 	DerivationTree::TerminalNode* ttnode = nullptr;
 	DerivationTree::NonTerminalNode* tnnode = nullptr;
@@ -2029,7 +2021,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 
 	// in the first loop, we will expand the non terminals and sequence non terminals such that we only expand
 	// nodes that can produce new sequence nodes and only apply expansions that produce new sequence nodes
-	while (seq < dtree->_targetlen && qseqnonterminals.size() > 0) {
+	while (seq < dtree->GetTargetLength() && qseqnonterminals.size() > 0) {
 		// expand the current valid sequence nonterminals by applying rules that may produce sequences
 		int32_t nonseq = (int32_t)qseqnonterminals.size();  // number of non terminals that will be handled this iteration
 		for (int c = 0; c < nonseq; c++) {
@@ -2107,7 +2099,7 @@ void Grammar::DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<s
 			gexp = gnode->_expansions[idx];
 			if (gexp->IsRegex()) {
 				auto regex = dynamic_pointer_cast<GrammarExpansionRegex>(gexp);
-				int64_t num = dtree->_targetlen - seq; // generate as much as we can without going over our limit
+				int64_t num = dtree->GetTargetLength() - seq;  // generate as much as we can without going over our limit
 				if (num == 0 && regex->_min == 1)
 					num = 1;
 				for (int64_t i = 0; i < num; i++)
@@ -2358,13 +2350,13 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 	// but we must extract a subtree (hopefully valid) and extend from there
 	auto stree = sinput->derive;
 	// init dtree
-	dtree->_grammarID = _formid;
-	dtree->_seed = seed;
-	dtree->_targetlen = targetlength;
-	dtree->_parent.method = DerivationTree::ParentTree::Method::Extension;
-	dtree->_parent._parentID = stree->GetFormID();
+	dtree->SetGrammarID(_formid);
+	dtree->SetSeed(seed);
+	dtree->SetTargetLength(targetlength);
+	dtree->SetParentMethod(DerivationTree::ParentTree::Method::Extension);
+	dtree->SetParentID(stree->GetFormID());
 	// set this so we can use it for length calculations in inputs that are memory freed
-	dtree->_parent._length = stree->_sequenceNodes;
+	dtree->SetParentLength(stree->_sequenceNodes);
 	dtree->_valid = false;
 
 	// tmp
@@ -2634,7 +2626,7 @@ void Grammar::Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTr
 
 	dtree->_valid = true;
 	dtree->SetRegenerate(true);
-	dtree->_parent.method = DerivationTree::ParentTree::Method::Extension;
+	dtree->SetParentMethod(DerivationTree::ParentTree::Method::Extension);
 
 	profile(TimeProfiling, "Time taken for extension of length: {}", dtree->_sequenceNodes - sinput->Length());
 }

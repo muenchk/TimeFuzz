@@ -66,6 +66,11 @@ void Data::RegisterForms()
 std::string Data::GetSaveName()
 {
 	std::string name = _uniquename + "_" + std::to_string(_savenumber) + _extension;
+	// add last save loaded to prior saves and update the last save to the current number
+	if (_loadedsavenumber > 0) {
+		_priorsaves.push_back(_loadedsavenumber);
+	}
+	_loadedsavenumber = _savenumber;
 	_savenumber++;
 	return name;
 }
@@ -141,6 +146,27 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 				Buffer::Write(settings->saves.compressionExtreme, buffer, offset);
 				fsave.write((char*)buffer, len);
 				delete[] buffer;
+			}
+			// write information about prior saves
+			{
+				size_t len = 8;
+				size_t offset = 0;
+				unsigned char* buffer = new unsigned char[len];
+				Buffer::WriteSize(_priorsaves.size(), buffer, offset);
+				fsave.write((char*)buffer, len);
+				delete[] buffer;
+				if (_priorsaves.size() > 0) {
+					size_t len = 4;
+					size_t offset = 0;
+					unsigned char* buffer = new unsigned char[len];
+					for (int64_t x = 0; x < (int64_t)_priorsaves.size(); x++)
+					{
+						offset = 0;
+						Buffer::Write((int32_t)_priorsaves[x], buffer, offset);
+						fsave.write((char*)buffer, len);
+					}
+					delete[] buffer;
+				}
 			}
 
 			Streambuf* sbuf = nullptr;
@@ -397,7 +423,6 @@ void Data::Load(std::string name, LoadSaveArgs& loadArgs)
 		return;
 	}
 	int32_t number = 0;
-	int32_t num = 0;
 	std::filesystem::path fullname = "";
 	for (int32_t i = 0; i < (int32_t)files.size(); i++)
 	{
@@ -405,15 +430,20 @@ void Data::Load(std::string name, LoadSaveArgs& loadArgs)
 		if (rec.size() == 2)
 		{
 			// rec[0] == name
-			num = 0;
+			int32_t tmpnum = 0;
 			try {
-				num = std::stoi(rec[1]);
+				tmpnum = std::stoi(rec[1]);
 			} catch (std::exception) {}
-			if (num > number)
+			if (tmpnum != 0)
 			{
-				number = num;
-				fullname = files[i];
+				_saves.insert_or_assign(tmpnum, files[i]);
 			}
+		}
+	}
+	for (auto& [num, path] : _saves) {
+		if (num > number) {
+			number = num;
+			fullname = path;
 		}
 	}
 	profile(TimeProfiling, "Pre-Load");
@@ -421,6 +451,7 @@ void Data::Load(std::string name, LoadSaveArgs& loadArgs)
 	{
 		_uniquename = name;
 		_savenumber = number + 1;
+		_loadedsavenumber = number;
 		LoadIntern(fullname, loadArgs);
 	} else {
 		_actionloadsave = false;
@@ -460,21 +491,28 @@ void Data::Load(std::string name, int32_t number, LoadSaveArgs& loadArgs)
 		auto rec = Utility::SplitString(files[i].filename().string(), '_', false);
 		if (rec.size() == 2) {
 			// rec[0] == name
-			num = 0;
+			int32_t tmpnum = 0;
 			try {
-				num = std::stoi(rec[1]);
+				tmpnum = std::stoi(rec[1]);
 			} catch (std::exception) {}
-			if (num == number) {
-				found = true;
-				fullname = files[i];
+			if (tmpnum != 0) {
+				_saves.insert_or_assign(tmpnum, files[i]);
 			}
-			if (num > highest)
-				highest = num;
 		}
+	}
+	for (auto& [num, path] : _saves) {
+		if (num == number) {
+			number = num;
+			fullname = path;
+			found = true;
+		}
+		if (num > highest)
+			highest = num;
 	}
 	profile(TimeProfiling, "Pre-Load");
 	if (found) {
 		_uniquename = name;
+		_loadedsavenumber = number;
 		_savenumber = highest + 1;
 		LoadIntern(fullname, loadArgs);
 	} else {
@@ -485,7 +523,7 @@ void Data::Load(std::string name, int32_t number, LoadSaveArgs& loadArgs)
 	}
 }
 
-void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
+void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool ignorepriorsaves)
 {
 	_status = "Load save file....";
 	_actionloadsave = true;
@@ -565,6 +603,65 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 				{
 					logcritical("Save file does not appear to have the proper format: failed to read compression information");
 					abort = true;
+				}
+			}
+
+			size_t priorsaves = 0;
+			std::vector<int32_t> priorsv;
+			
+			// if save file version is greater than three get dependency information from the file
+			if (version >= 0x3) {
+				if (flen - pos >= 8) {
+					fsave.read((char*)buffer, 8);
+					offset = 0;
+					if (fsave.gcount() == 8) {
+						priorsaves = Buffer::ReadSize(buffer, offset);
+					} else {
+						logcritical("Save file does not appear to have the proper format: failed to read compression information");
+						abort = true;
+					}
+					pos += 8;
+				}
+				if (priorsaves > 0) {
+					if (flen - pos >= 4 * priorsaves) {
+						for (int64_t x = 0; x < (int64_t)priorsaves; x++)
+						fsave.read((char*)buffer, 4);
+						offset = 0;
+						if (fsave.gcount() == 4) {
+							priorsv.push_back(Buffer::ReadInt32(buffer, offset));
+						} else {
+							logcritical("Save file does not appear to have the proper format: failed to read compression information");
+							abort = true;
+						}
+						pos += 4;
+					}
+				}
+			}
+
+			if (ignorepriorsaves == false && priorsaves > 0)
+			{
+				_priorsaves = priorsv;
+				// load all prior saves in order
+				for (int64_t x = 0; x < (int64_t)priorsv.size(); x++)
+				{
+					if (_saves.contains(priorsv[x]) == false)
+					{
+						logcritical("A prior savefile is missing: {}. Due to this the save cannot be loaded", priorsv[x]);
+						abort = true;
+						break;
+					}
+				}
+				if (!abort) {
+					try {
+						for (int64_t x = 0; x < (int64_t)priorsv.size(); x++) {
+							LoadIntern(_saves.at(priorsv[x]), loadArgs, true);
+						}
+					}
+					catch (std::exception&) {
+						logcritical("A prior savefile is missing. Due to this the save cannot be loaded");
+						abort = true;
+					}
+
 				}
 			}
 
@@ -1015,6 +1112,15 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs)
 
 		_lresolve->Regenerate(_actionloadsave_current, _actionloadsave_max, sessdata, sessdata->_settings->general.numthreads);
 
+		auto visitor = [](std::shared_ptr<Form> form) {
+			if (form->HasFlag(Form::FormFlags::Deleted))
+				return Data::VisitAction::DeleteForm;
+			else
+				return Data::VisitAction::None;
+		};
+
+		Visit(visitor);
+
 		// unregister ourselves from the lua wrapper if we registered ourselves above
 		if (registeredLua)
 			Lua::UnregisterThread();
@@ -1270,6 +1376,7 @@ std::shared_ptr<Session> Data::CreateForm()
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 			_hashmap.insert({ formid, dynamic_pointer_cast<Form>(ptr) });
 		}
+		ptr->SetChanged();
 		return ptr;
 	}
 }
@@ -1299,6 +1406,7 @@ std::shared_ptr<TaskController> Data::CreateForm()
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 			_hashmap.insert({ formid, dynamic_pointer_cast<Form>(ptr) });
 		}
+		ptr->SetChanged();
 		return ptr;
 	}
 }
@@ -1323,6 +1431,7 @@ std::shared_ptr<Settings> Data::CreateForm()
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 			_hashmap.insert({ formid, dynamic_pointer_cast<Form>(ptr) });
 		}
+		ptr->SetChanged();
 		return ptr;
 	}
 }
@@ -1347,6 +1456,7 @@ std::shared_ptr<Oracle> Data::CreateForm()
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 			_hashmap.insert({ formid, dynamic_pointer_cast<Form>(ptr) });
 		}
+		ptr->SetChanged();
 		return ptr;
 	}
 }
@@ -1371,6 +1481,7 @@ std::shared_ptr<Generator> Data::CreateForm()
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 			_hashmap.insert({ formid, dynamic_pointer_cast<Form>(ptr) });
 		}
+		ptr->SetChanged();
 		return ptr;
 	}
 }
@@ -1395,6 +1506,7 @@ std::shared_ptr<ExclusionTree> Data::CreateForm()
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 			_hashmap.insert({ formid, dynamic_pointer_cast<Form>(ptr) });
 		}
+		ptr->SetChanged();
 		return ptr;
 	}
 }
@@ -1424,6 +1536,7 @@ std::shared_ptr<ExecutionHandler> Data::CreateForm()
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 			_hashmap.insert({ formid, dynamic_pointer_cast<Form>(ptr) });
 		}
+		ptr->SetChanged();
 		return ptr;
 	}
 }
@@ -1449,6 +1562,7 @@ std::shared_ptr<SessionData> Data::CreateForm()
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 			_hashmap.insert({ formid, dynamic_pointer_cast<Form>(ptr) });
 		}
+		ptr->SetChanged();
 		return ptr;
 	}
 }

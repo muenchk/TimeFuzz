@@ -7,6 +7,7 @@
 #include <set>
 #include <map>
 #include <unordered_map>
+#include <list>
 
 #include <boost/bimap.hpp>
 #include <boost/bimap/multiset_of.hpp>
@@ -19,6 +20,14 @@ class LoadResolver;
 class Data;
 class Form;
 
+typedef uint64_t EnumType;
+
+namespace Hashing
+{
+	size_t hash(std::multiset<EnumType> const& st);
+	size_t hash(std::list<uint64_t> const& st);
+}
+
 template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 struct FormIDLess
 {
@@ -29,8 +38,6 @@ struct FormIDLess
 		return lhs->GetFormID() < rhs->GetFormID();
 	}
 };
-
-typedef uint64_t EnumType;
 
 class Form
 {
@@ -61,6 +68,13 @@ protected:
 	FormID _formid = 0;
 	std::multiset<EnumType> _flags;
 	EnumType _flagsAlloc = FormFlags::None;
+
+	/// <summary>
+	/// there have been changes to the forms values
+	/// </summary>
+	bool __changed = false;
+	bool __saved = false;
+	size_t __flaghash = 0;
 
 	//typedef boost::bimap<boost::bimaps::multiset_of<FormID>, boost::bimaps::multiset_of<EnumType>> FlagMap;
 	//FlagMap _flags;
@@ -189,7 +203,19 @@ public:
 
 	bool HasFlag(EnumType flag);
 
+	bool WasSaved();
+
 	EnumType GetFlags();
+
+#define CheckChanged(x, y) \
+	if (x != y) {          \
+		SetChanged();      \
+		x = y;             \
+	}
+
+	void SetChanged();
+	void ClearChanged();
+	virtual bool HasChanged();
 
 	/* virtual EnumType GetFlags()
 	{

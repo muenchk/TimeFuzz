@@ -31,6 +31,13 @@ class SessionData;
 #define PIPE_SIZE 1048576
 #define PIPE_SIZE_LINUX 65536
 
+class Test;
+
+namespace Hashing
+{
+	size_t hash(Test* node);
+}
+
 class Test : public Form
 {
 	void Init();
@@ -310,12 +317,17 @@ public:
 	bool Freed() override;
 	size_t MemorySize() override;
 
+	virtual bool HasChanged() override;
+
 private:
 	inline static bool _registeredFactories = false;
 	bool _valid = true;
 	bool _pipeinit = false;
 	bool _avail = false;
 	std::atomic_flag _availFlag = ATOMIC_FLAG_INIT;
+
+	size_t __hash = 0;
+	friend size_t Hashing::hash(Test* node);
 };
 
 namespace Functions

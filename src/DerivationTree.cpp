@@ -360,6 +360,8 @@ void DerivationTree::SetRegenerate(bool value)
 {
 	if (value == false)
 		logwarn("warn");
+	// taint changed
+	SetChanged();
 	_regenerate = value;
 }
 

@@ -1534,8 +1534,8 @@ void Session::ExtractInputs(int number, int length, double score)
 		inp->derive->DeepCopy(newdev);
 		newinp->derive = newdev;
 		// adjust to new session
-		newdev->_grammarID = sessdata->_grammar->GetFormID();
-		newdev->_inputID = newinp->GetFormID();
+		newdev->SetGrammarID(sessdata->_grammar->GetFormID());
+		newdev->SetInputID(newinp->GetFormID());
 		if (inp->test) {
 			auto newtest = dat->CreateForm<Test>();
 			inp->test->DeepCopy(newtest);
@@ -1582,7 +1582,7 @@ void Session::ExtractInputs(int number, int length, double score)
 				{
 					newpar = getNew(parent);
 					newinp->SetParentID(newpar->GetFormID());
-					newinp->derive->_parent._parentID = newpar->derive->GetFormID();
+					newinp->derive->SetParentID(newpar->derive->GetFormID());
 					input = parent;
 					parent = data->LookupFormID<Input>(input->GetParentID());
 					newinp = newpar;

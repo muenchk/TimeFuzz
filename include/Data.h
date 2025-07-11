@@ -108,7 +108,7 @@ private:
 
 	const uint64_t guid1 = 0xe30db97c4f1e478f;
 	const uint64_t guid2 = 0x8b03f3d9e946dcf3;
-	const int32_t saveversion = 0x2;
+	const int32_t saveversion = 0x3;
 	/// <summary>
 	/// unique name of the save [i.e. "Testing"]
 	/// </summary>
@@ -126,9 +126,18 @@ private:
 	/// </summary>
 	std::filesystem::path _savepath = std::filesystem::path(".") / "saves";
 	/// <summary>
+	/// Stores all available save files with the given unique name
+	/// </summary>
+	std::map<int32_t, std::filesystem::path> _saves;
+	std::vector<int32_t> _priorsaves;
+	/// <summary>
 	/// number of the next save
 	/// </summary>
 	int32_t _savenumber = 1;
+	/// <summary>
+	/// number of the currently loaded save
+	/// </summary>
+	int32_t _loadedsavenumber = 0;
 	/// <summary>
 	/// lock restricting access to save routine
 	/// </summary>
@@ -209,7 +218,7 @@ private:
 	/// Loads a savefile, where [name] is the fully qualified filename
 	/// </summary>
 	/// <param name="name"></param>
-	void LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs);
+	void LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool ignorepriorsaves = false);
 
 	void RegisterForms();
 
@@ -311,6 +320,7 @@ public:
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 			_hashmap.insert({ formid, dynamic_pointer_cast<Form>(ptr) });
 		}
+		ptr->SetChanged();
 		return ptr;
 	}
 
@@ -342,8 +352,11 @@ public:
 		if (form) {
 			if (form->CanDelete(this) == true) {
 				std::unique_lock<std::shared_mutex> guard(_hashmaplock);
-				_hashmap.erase(form->GetFormID());
 				form->SetFlag(Form::FormFlags::Deleted);
+				// if form was in an earlier save file we don't delete it from the hashmap
+				// such that we can save to a newer savefile that it was deleted
+				if (form->WasSaved() == false)
+					_hashmap.erase(form->GetFormID());
 				//form->Clear();
 				//RecycleObject<T>(form);
 				form.reset();
@@ -366,8 +379,9 @@ public:
 	{
 		std::shared_lock<std::shared_mutex> guard(_hashmaplock);
 		auto itr = _hashmap.find(formid);
-		if (itr != _hashmap.end())
+		if (itr != _hashmap.end() && itr->second->HasFlag(Form::FormFlags::Deleted) == false) {
 			return dynamic_pointer_cast<T>(itr->second);
+		}
 		return {};
 	}
 
@@ -382,7 +396,7 @@ public:
 		std::vector<std::shared_ptr<T>> results;
 		std::shared_lock<std::shared_mutex> guard(_hashmaplock);
 		for (auto& [_, form] : _hashmap) {
-			if (form->GetType() == T::GetTypeStatic())
+			if (form->GetType() == T::GetTypeStatic() && form->HasFlag(Form::FormFlags::Deleted) == false)
 				results.push_back(dynamic_pointer_cast<T>(form));
 		}
 		return results;

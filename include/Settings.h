@@ -65,7 +65,7 @@ class Settings : public Form
 {
 private:
 	bool initialized = false;
-	const int32_t classversion = 0x4;
+	const int32_t classversion = 0x5;
 	/// <summary>
 	/// skip reading from savefile
 	/// </summary>
@@ -330,6 +330,11 @@ public:
 		/// </summary>
 		bool compressionExtreme = false;
 		const char* compressionExtreme_NAME = "CompressionExtreme";
+		/// <summary>
+		/// Save files are created incremental, with each new save only containing new and changed forms
+		/// </summary>
+		bool incrementalSaveFiles = true;
+		const char* incrementalSaveFiles_NAME = "IncrementalSaveFiles";
 	};
 
 	SaveFiles saves;

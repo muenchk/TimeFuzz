@@ -894,6 +894,7 @@ bool Test::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRes
 				_cmdArgs = "";
 			// do not init here, or we create an insane amount of useless file pointers
 			//Init();
+			__hash = Hashing::hash(this);
 			return true;
 		}
 	case 0x2:
@@ -940,6 +941,7 @@ bool Test::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRes
 				logcritical("Exception in read method: {}", e.what());
 			}
 
+			__hash = Hashing::hash(this);
 			return true;
 		}
 	default:
@@ -1020,6 +1022,39 @@ void Test::DeepCopy(std::shared_ptr<Test> other)
 	other->_running = _running;
 }
 
+bool Test::HasChanged()
+{
+	return Form::HasChanged() || __hash != Hashing::hash(this);
+}
+
+namespace Hashing
+{
+	size_t hash(Test* test)
+	{
+		if (!test)
+			return 0;
+		size_t hs = 0;
+
+		hs = std::hash<bool>{}(test->_running);
+		hs = hs ^ (std::hash<uint64_t>{}(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::time_point_cast<std::chrono::nanoseconds>(test->_starttime).time_since_epoch()).count()) << 1);
+		hs = hs ^ (std::hash<uint64_t>{}(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::time_point_cast<std::chrono::nanoseconds>(test->_endtime).time_since_epoch()).count()) << 1);
+		if (auto ptr = test->_input.lock(); ptr)
+			hs = hs ^ (std::hash<FormID>{}(ptr->GetFormID()) << 1);
+		else
+			hs = hs ^ (std::hash<FormID>{}(0) << 1);
+
+		hs = hs ^ (std::hash<std::string>{}(test->_lastwritten) << 1);
+		hs = hs ^ (std::hash<uint64_t>{}(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::time_point_cast<std::chrono::nanoseconds>(test->_lasttime).time_since_epoch()).count()) << 1);
+		hs = hs ^ (Hashing::hash(test->_reactiontime) << 1);
+		hs = hs ^ (std::hash<std::string>{}(test->_output) << 1);
+		hs = hs ^ (std::hash<bool>{}(test->_storeoutput) << 1);
+		hs = hs ^ (std::hash<uint64_t>{}(test->_identifier) << 1);
+		hs = hs ^ (std::hash<uint64_t>{}(test->_exitreason) << 1);
+		hs = hs ^ (std::hash<bool>{}(test->_skipOracle) << 1);
+		hs = hs ^ (std::hash<bool>{}(test->_valid) << 1);
+		return hs;
+	}
+}
 
 
 namespace Functions

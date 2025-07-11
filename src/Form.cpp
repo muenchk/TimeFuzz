@@ -5,6 +5,39 @@
 #include <mutex>
 #include <shared_mutex>
 
+namespace Hashing
+{
+	size_t hash(std::multiset<EnumType> const& st)
+	{
+		auto itr = st.begin();
+		std::size_t hs = 0;
+		if (itr != st.end()) {
+			hs = std::hash<EnumType>{}(*itr);
+			itr++;
+		}
+		while (itr != st.end()) {
+			hs = hs ^ (std::hash<EnumType>{}(*itr) << 1);
+			itr++;
+		}
+		return hs;
+	}
+
+	size_t hash(std::list<uint64_t> const& st)
+	{
+		auto itr = st.begin();
+		std::size_t hs = 0;
+		if (itr != st.end()) {
+			hs = std::hash<uint64_t>{}(*itr);
+			itr++;
+		}
+		while (itr != st.end()) {
+			hs = hs ^ (std::hash<uint64_t>{}(*itr) << 1);
+			itr++;
+		}
+		return hs;
+	}
+}
+
 
 FormID Form::GetFormID()
 {
@@ -107,6 +140,8 @@ bool Form::WriteData(std::ostream* buffer, size_t& offset, size_t)
 
 bool Form::ReadData(std::istream* buffer, size_t& offset, size_t /*length*/, LoadResolver* /*resolver*/)
 {
+	// sets saved to true -> form has been read from save
+	__saved = true;
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version)
 	{
@@ -124,6 +159,7 @@ bool Form::ReadData(std::istream* buffer, size_t& offset, size_t /*length*/, Loa
 			for (size_t i = 0; i < size; i++) {
 				_flags.insert(Buffer::ReadUInt64(buffer, offset));
 			}
+			__flaghash = Hashing::hash(_flags);
 		}
 		return true;
 	default:
@@ -180,6 +216,25 @@ bool Form::HasFlag(EnumType flag)
 EnumType Form::GetFlags()
 {
 	return _flagsAlloc;
+}
+
+void Form::SetChanged()
+{
+	__changed |= 1;
+}
+void Form::ClearChanged()
+{
+	__changed ^= __changed;
+	__flaghash = Hashing::hash(_flags);
+}
+bool Form::HasChanged()
+{
+	return __changed || __flaghash != Hashing::hash(_flags);
+}
+
+bool Form::WasSaved()
+{
+	return __saved;
 }
 
 void Form::ClearForm()

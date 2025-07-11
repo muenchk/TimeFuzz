@@ -1,5 +1,7 @@
-#include "MemoryStream.h"
+#include <cmath>
+#include <cstring>
 
+#include "MemoryStream.h"
 
 MemoryStream::MemoryStream(int64_t maxsize, bool fixedsize, int64_t blocksize)
 {
@@ -128,12 +130,12 @@ int64_t MemoryStream::gcount()
 	_error = ErrorBit::None;
 	return _gcount;
 }
-int64_t MemoryStream::tellg()
+int64_t MemoryStream::tell()
 {
 	_error = ErrorBit::None;
 	return BLOCKSIZE * _part + _pos;
 }
-void MemoryStream::seekg(int64_t position)
+void MemoryStream::seek(int64_t position)
 {
 	_error = ErrorBit::None;
 	if (__fixedsize && position > _size || position > _maxsize) {
@@ -155,7 +157,7 @@ void MemoryStream::seekg(int64_t position)
 			_parts.push_back(new char[BLOCKSIZE]);
 	}
 }
-void MemoryStream::seekg(std::streamoff off, std::ios_base::seekdir way)
+void MemoryStream::seek(std::streamoff off, std::ios_base::seekdir way)
 {
 	_error = ErrorBit::None;
 	switch (way) {
@@ -438,18 +440,4 @@ int64_t MemoryStream::write(const char* s, int64_t n)
 	}
 	_gcount = count;
 	return count;
-}
-
-int64_t MemoryStream::tellp()
-{
-	_error = ErrorBit::None;
-	return BLOCKSIZE * _part + _pos;
-}
-void MemoryStream::seekp(int64_t position)
-{
-	seekg(position);
-}
-void MemoryStream::seekp(std::streamoff off, std::ios_base::seekdir way)
-{
-	seekg(off, way);
 }

@@ -11,6 +11,8 @@
 #include "Form.h"
 #include "Types.h"
 
+#include "MemoryStream.h"
+
 namespace Buffer
 {
 
@@ -25,7 +27,6 @@ namespace Buffer
 	int64_t _sizeof(String& value);
 	template <>
 	int64_t _sizeof(size_t& value);
-
 
 	class ArrayBuffer
 	{

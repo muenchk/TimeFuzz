@@ -483,10 +483,10 @@ public:
 
 	void SetGenerationParameters(int32_t extension_min, int32_t extension_max, int32_t backtrack_min, int32_t backtrack_max)
 	{
-		_extension_min = extension_min;
-		_extension_max = extension_max;
-		_backtrack_min = backtrack_min;
-		_backtrack_max = backtrack_max;
+		CheckChanged(_extension_min, extension_min);
+		CheckChanged(_extension_max, extension_max);
+		CheckChanged(_backtrack_min, backtrack_min);
+		CheckChanged(_backtrack_max, backtrack_max);
 	}
 
 	void Derive(std::shared_ptr<DerivationTree> dtree, int32_t targetlength, uint32_t seed, int32_t maxsteps = 100000);

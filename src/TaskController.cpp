@@ -526,6 +526,7 @@ bool TaskController::WriteData(std::ostream* buffer, size_t& offset, size_t leng
 
 bool TaskController::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
+	SetChanged();
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
 	case 0x1:

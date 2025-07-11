@@ -120,6 +120,8 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "SaveFiles:          ", saves.compressionLevel_NAME, saves.compressionLevel);
 	saves.compressionExtreme = ini.GetBoolValue("SaveFiles", saves.compressionExtreme_NAME, saves.compressionExtreme);
 	loginfo("{}{} {}", "SaveFiles:          ", saves.compressionExtreme_NAME, saves.compressionExtreme);
+	saves.incrementalSaveFiles = ini.GetBoolValue("SaveFiles", saves.incrementalSaveFiles_NAME, saves.incrementalSaveFiles);
+	loginfo("{}{} {}", "SaveFiles:          ", saves.incrementalSaveFiles_NAME, saves.incrementalSaveFiles);
 
 	// optimization
 	optimization.constructinputsiteratively = ini.GetBoolValue("Optimization", optimization.constructinputsiteratively_NAME, optimization.constructinputsiteratively);
@@ -362,6 +364,8 @@ void Settings::Save(std::wstring _path)
 	ini.SetBoolValue("SaveFiles", saves.compressionExtreme_NAME, saves.compressionExtreme,
 		"\\\\ Whether to use the extreme compression preset for LZMA save file compression.\n"
 		"\\\\ Using this reduces save file size but increases the time it takes to save drastically.");
+	ini.SetBoolValue("SaveFiles", saves.incrementalSaveFiles_NAME, saves.incrementalSaveFiles,
+		"\\\\ Save files do not store all objects in the session. They only store new objects created since the last save of changed objects.");
 
 	// optimization
 	ini.SetBoolValue("Optimization", optimization.constructinputsiteratively_NAME, optimization.constructinputsiteratively,
@@ -583,6 +587,8 @@ size_t Settings::GetStaticSize(int32_t version)
 	                 + 8      // DeltaDebugging::optimizationLossAbsolute
 	                 + 1      // EndConditions::use_generations
 	                 + 8;     // EndConditions::generations   
+	size_t size0x5 = size0x4  // prior stuff
+	                 + 1;     // SaveFiles::incrementalSaveFiles
 
 	switch (version) {
 	case 0x1:
@@ -593,6 +599,8 @@ size_t Settings::GetStaticSize(int32_t version)
 		return size0x3;
 	case 0x4:
 		return size0x4;
+	case 0x5:
+		return size0x5;
 	default:
 		return 0;
 	}
@@ -728,17 +736,21 @@ bool Settings::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 	// endconditions
 	Buffer::Write(conditions.use_generations, buffer, offset);
 	Buffer::Write(conditions.generations, buffer, offset);
+	// VERSION 0x5
+	Buffer::Write(saves.incrementalSaveFiles, buffer, offset);
 	return true;
 }
 
 bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
+	SetChanged();
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
 	case 0x1:
 	case 0x2:
 	case 0x3:
 	case 0x4:
+	case 0x5:
 		{
 			Form::ReadData(buffer, offset, length, resolver);
 			// oracle
@@ -859,6 +871,10 @@ bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, Loa
 			// endconditions
 			conditions.use_generations = Buffer::ReadBool(buffer, offset);
 			conditions.generations = Buffer::ReadUInt64(buffer, offset);
+		}
+		if (version >= 0x5) {
+			// saves
+			saves.incrementalSaveFiles = Buffer::ReadBool(buffer, offset);
 		}
 		return true;
 	default:

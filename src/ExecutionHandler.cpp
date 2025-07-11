@@ -1202,6 +1202,8 @@ bool ExecutionHandler::ReadData(std::istream* buffer, size_t& offset, size_t len
 					_active = false;
 				}
 			});
+			// this will always have changed so we can just set to changed from the get go
+			SetChanged();
 		return true;
 		}
 		break;
