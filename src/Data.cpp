@@ -104,7 +104,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 
 		auto sessiondata = CreateForm<SessionData>();
 
-		bool useincrementalsave = settings->saves.incrementalSaveFiles && _savenumber % settings->saves.createFullSaveEvery != 0;
+		bool useincrementalsave = settings->saves.incrementalSaveFiles && (settings->saves.createFullSaveEvery == 0 || _savenumber % settings->saves.createFullSaveEvery != 0);
 
 		// create new file on disc
 		std::string name = GetSaveName();
