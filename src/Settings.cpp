@@ -122,6 +122,8 @@ void Settings::Load(std::wstring path, bool reload)
 	loginfo("{}{} {}", "SaveFiles:          ", saves.compressionExtreme_NAME, saves.compressionExtreme);
 	saves.incrementalSaveFiles = ini.GetBoolValue("SaveFiles", saves.incrementalSaveFiles_NAME, saves.incrementalSaveFiles);
 	loginfo("{}{} {}", "SaveFiles:          ", saves.incrementalSaveFiles_NAME, saves.incrementalSaveFiles);
+	saves.createFullSaveEvery = (int32_t)ini.GetLongValue("SaveFiles", saves.createFullSaveEvery_NAME, saves.createFullSaveEvery);
+	loginfo("{}{} {}", "SaveFiles:          ", saves.createFullSaveEvery_NAME, saves.createFullSaveEvery);
 
 	// optimization
 	optimization.constructinputsiteratively = ini.GetBoolValue("Optimization", optimization.constructinputsiteratively_NAME, optimization.constructinputsiteratively);
@@ -366,6 +368,8 @@ void Settings::Save(std::wstring _path)
 		"\\\\ Using this reduces save file size but increases the time it takes to save drastically.");
 	ini.SetBoolValue("SaveFiles", saves.incrementalSaveFiles_NAME, saves.incrementalSaveFiles,
 		"\\\\ Save files do not store all objects in the session. They only store new objects created since the last save of changed objects.");
+	ini.SetLongValue("SaveFiles", saves.createFullSaveEvery_NAME, saves.createFullSaveEvery,
+		"\\\\ When incremental saves are enabled, the tool will create a full save every x saves.");
 
 	// optimization
 	ini.SetBoolValue("Optimization", optimization.constructinputsiteratively_NAME, optimization.constructinputsiteratively,
@@ -588,7 +592,8 @@ size_t Settings::GetStaticSize(int32_t version)
 	                 + 1      // EndConditions::use_generations
 	                 + 8;     // EndConditions::generations   
 	size_t size0x5 = size0x4  // prior stuff
-	                 + 1;     // SaveFiles::incrementalSaveFiles
+	                 + 1      // SaveFiles::incrementalSaveFiles
+	                 + 4;     // SaveFiles::createFullSaveEvery
 
 	switch (version) {
 	case 0x1:
@@ -738,6 +743,7 @@ bool Settings::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 	Buffer::Write(conditions.generations, buffer, offset);
 	// VERSION 0x5
 	Buffer::Write(saves.incrementalSaveFiles, buffer, offset);
+	Buffer::Write(saves.createFullSaveEvery, buffer, offset);
 	return true;
 }
 
@@ -875,11 +881,20 @@ bool Settings::ReadData(std::istream* buffer, size_t& offset, size_t length, Loa
 		if (version >= 0x5) {
 			// saves
 			saves.incrementalSaveFiles = Buffer::ReadBool(buffer, offset);
+			saves.createFullSaveEvery = Buffer::ReadInt32(buffer, offset);
 		}
 		return true;
 	default:
 		return false;
 	}
+}
+
+void Settings::InitializeEarly(LoadResolver* /*resolver*/)
+{
+}
+
+void Settings::InitializeLate(LoadResolver* /*resolver*/)
+{
 }
 
 void Settings::Delete(Data*)
@@ -891,6 +906,12 @@ void Settings::Clear()
 {
 	Form::ClearForm();
 
+}
+
+void Settings::ClearChanged()
+{
+	Form::ClearChanged();
+	SetChanged();
 }
 
 void Settings::RegisterFactories()

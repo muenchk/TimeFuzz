@@ -1140,9 +1140,13 @@ bool ExecutionHandler::WriteData(std::ostream* buffer, size_t& offset, size_t le
 
 bool ExecutionHandler::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
+	SetChanged();
+	ClearTests();
+	if (_loadData)
+		delete _loadData;
+	_loadData = new LoadData();
 	int32_t version = Buffer::ReadInt32(buffer, offset);
-	switch (version)
-	{
+	switch (version) {
 	case 0x1:
 		{
 			Form::ReadData(buffer, offset, length, resolver);
@@ -1154,57 +1158,10 @@ bool ExecutionHandler::ReadData(std::istream* buffer, size_t& offset, size_t len
 			_active = Buffer::ReadBool(buffer, offset);
 			_maxConcurrentTests = Buffer::ReadInt32(buffer, offset);
 			size_t len = Buffer::ReadSize(buffer, offset);
-			std::vector<FormID> ids;
 			for (int32_t i = 0; i < (int32_t)len; i++)
-				ids.push_back(Buffer::ReadUInt64(buffer, offset));
-			resolver->AddLateTask([this, ids, resolver]() {
-				resolver->current = "ExecutionHandler Late";
-				bool stateerror = false;
-				_sessiondata = resolver->_data->CreateForm<SessionData>();
-				_session = resolver->_data->CreateForm<Session>();
-				_settings = resolver->_data->CreateForm<Settings>();
-				_threadpool = resolver->_data->CreateForm<TaskController>();
-				_oracle = resolver->_data->CreateForm<Oracle>();
-				for (int32_t i = 0; i < (int32_t)ids.size(); i++) {
-					if (!CmdArgs::_clearTasks) {
-						if (ids[i] != 0) {
-							auto test = resolver->ResolveFormID<Test>(ids[i]);
-							if (test->HasFlag(Form::FormFlags::DoNotFree) == false)
-								test->SetFlag(Form::FormFlags::DoNotFree);
-							test->Init(test->_callback, test->_identifier);
-							// since we found a test we still need to execute, we need to make sure that our _input contains a valid _input sequence
-							// and regenerate it if not
-							if (auto ptr = test->_input.lock(); ptr) {
-								resolver->AddRegeneration(ptr->GetFormID());
-								/*if (!ptr->test)
-									ptr->test = test;
-								if (ptr->GetGenerated() == false)
-									SessionFunctions::GenerateInput(ptr, this->_sessiondata);
-								std::shared_ptr<Input> tmp = resolver->ResolveFormID<Input>(ptr->GetParentID());
-								while (tmp) {
-									tmp->FreeMemory();
-									if (tmp->derive)
-										tmp->derive->FreeMemory();
-									tmp = resolver->ResolveFormID<Input>(tmp->GetParentID());
-								}*/
-							}
-							test->_cmdArgs = Lua::GetCmdArgs(std::bind(&Oracle::GetCmdArgs, _oracle, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), test, stateerror, false);
-							if (_oracle->GetOracletype() == Oracle::PUTType::Script)
-								test->_scriptArgs = Lua::GetScriptArgs(std::bind(&Oracle::GetScriptArgs, _oracle, std::placeholders::_1, std::placeholders::_2), test, stateerror);
-							_waitingTests.push_back(test);
-						} else
-							logcritical("ExecutionHandler::Load cannot resolve test");
-					}
-				}
-				// make the first batch of tests ready for execution
-				InitTests();
-				if (_active) {
-					_active = false;
-				}
-			});
+				_loadData->ids.push_back(Buffer::ReadUInt64(buffer, offset));
 			// this will always have changed so we can just set to changed from the get go
-			SetChanged();
-		return true;
+			return true;
 		}
 		break;
 	default:
@@ -1212,10 +1169,73 @@ bool ExecutionHandler::ReadData(std::istream* buffer, size_t& offset, size_t len
 	}
 }
 
+void ExecutionHandler::InitializeEarly(LoadResolver* /*resolver*/)
+{
+}
+
+void ExecutionHandler::InitializeLate(LoadResolver* resolver)
+{
+	if (_loadData) {
+		resolver->current = "ExecutionHandler Late";
+		bool stateerror = false;
+		_sessiondata = resolver->_data->CreateForm<SessionData>();
+		_session = resolver->_data->CreateForm<Session>();
+		_settings = resolver->_data->CreateForm<Settings>();
+		_threadpool = resolver->_data->CreateForm<TaskController>();
+		_oracle = resolver->_data->CreateForm<Oracle>();
+		for (int32_t i = 0; i < (int32_t)_loadData->ids.size(); i++) {
+			if (!CmdArgs::_clearTasks) {
+				if (_loadData->ids[i] != 0) {
+					auto test = resolver->ResolveFormID<Test>(_loadData->ids[i]);
+					if (test->HasFlag(Form::FormFlags::DoNotFree) == false)
+						test->SetFlag(Form::FormFlags::DoNotFree);
+					test->Init(test->_callback, test->_identifier);
+					// since we found a test we still need to execute, we need to make sure that our _input contains a valid _input sequence
+					// and regenerate it if not
+					if (auto ptr = test->_input.lock(); ptr) {
+						resolver->AddRegeneration(ptr->GetFormID());
+						/*if (!ptr->test)
+										ptr->test = test;
+									if (ptr->GetGenerated() == false)
+										SessionFunctions::GenerateInput(ptr, this->_sessiondata);
+									std::shared_ptr<Input> tmp = resolver->ResolveFormID<Input>(ptr->GetParentID());
+									while (tmp) {
+										tmp->FreeMemory();
+										if (tmp->derive)
+											tmp->derive->FreeMemory();
+										tmp = resolver->ResolveFormID<Input>(tmp->GetParentID());
+									}*/
+					}
+					test->_cmdArgs = Lua::GetCmdArgs(std::bind(&Oracle::GetCmdArgs, _oracle, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3), test, stateerror, false);
+					if (_oracle->GetOracletype() == Oracle::PUTType::Script)
+						test->_scriptArgs = Lua::GetScriptArgs(std::bind(&Oracle::GetScriptArgs, _oracle, std::placeholders::_1, std::placeholders::_2), test, stateerror);
+					_waitingTests.push_back(test);
+				} else
+					logcritical("ExecutionHandler::Load cannot resolve test");
+			}
+		}
+		// make the first batch of tests ready for execution
+		InitTests();
+		if (_active) {
+			_active = false;
+		}
+
+		delete _loadData;
+		_loadData = nullptr;
+	}
+}
+
+
 void ExecutionHandler::Delete(Data*)
 {
 	StopHandler();
 	Clear();
+}
+
+void ExecutionHandler::ClearChanged()
+{
+	Form::ClearChanged();
+	SetChanged();
 }
 
 void ExecutionHandler::SetPeriod(std::chrono::nanoseconds period)

@@ -62,19 +62,34 @@ bool Generator::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 
 bool Generator::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
+	if (_loadData)
+		delete _loadData;
+	_loadData = new LoadData();
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
 	case 0x1:
 		{
 			Form::ReadData(buffer, offset, length, resolver);
-			FormID gram = Buffer::ReadUInt64(buffer, offset);
-			resolver->AddTask([this, resolver, gram]() {
-				this->_grammar = resolver->ResolveFormID<Grammar>(gram);
-			});
+			_loadData->gram = Buffer::ReadUInt64(buffer, offset);
 			return true;
 		}
 	default:
 		return false;
+	}
+}
+
+void Generator::InitializeEarly(LoadResolver* resolver)
+{
+	if (_loadData) {
+		this->_grammar = resolver->ResolveFormID<Grammar>(_loadData->gram);
+	}
+}
+
+void Generator::InitializeLate(LoadResolver* /*resolver*/)
+{
+	if (_loadData) {
+		delete _loadData;
+		_loadData = nullptr;
 	}
 }
 

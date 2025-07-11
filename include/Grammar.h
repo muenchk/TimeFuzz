@@ -467,6 +467,16 @@ public:
 	size_t GetDynamicSize() override;
 	bool WriteData(std::ostream* buffer, size_t& offset, size_t length) override;
 	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+	/// <summary>
+	/// Early initialiazation pass [is executed once all forms have been loaded
+	/// </summary>
+	/// <param name="resolver"></param>
+	void InitializeEarly(LoadResolver* resolver) override;
+	/// <summary>
+	/// late initialization pass [is executed once all Initialize Early has been called for all forms]
+	/// </summary>
+	/// <param name="resolver"></param>
+	void InitializeLate(LoadResolver* resolver) override;
 	int32_t GetType() override
 	{
 		return FormType::Grammar;

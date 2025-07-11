@@ -482,6 +482,16 @@ private:
 	const int32_t classversion = 0x2;
 	static inline bool _registeredFactories = false;
 
+	struct LoadData
+	{
+		std::vector<FormID> genInp;
+		std::vector<FormID> ddInp;
+		std::vector<FormID> ddCon;
+		std::vector<FormID> sc;
+	};
+
+	LoadData* _loadData = nullptr;
+
 public:
 	/// <summary>
 	/// returns the total size of the fields with static size
@@ -505,6 +515,16 @@ public:
 	/// <param name="buffer"></param>
 	/// <param name="length"></param>
 	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+	/// <summary>
+	/// Early initialiazation pass [is executed once all forms have been loaded
+	/// </summary>
+	/// <param name="resolver"></param>
+	void InitializeEarly(LoadResolver* resolver) override;
+	/// <summary>
+	/// late initialization pass [is executed once all Initialize Early has been called for all forms]
+	/// </summary>
+	/// <param name="resolver"></param>
+	void InitializeLate(LoadResolver* resolver) override;
 	/// <summary>
 	/// Deletes all relevant for fields
 	/// </summary>

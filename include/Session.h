@@ -429,6 +429,16 @@ private:
 	/// <param name="resolver"></param>
 	/// <returns></returns>
 	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+	/// <summary>
+	/// Early initialiazation pass [is executed once all forms have been loaded
+	/// </summary>
+	/// <param name="resolver"></param>
+	void InitializeEarly(LoadResolver* resolver) override;
+	/// <summary>
+	/// late initialization pass [is executed once all Initialize Early has been called for all forms]
+	/// </summary>
+	/// <param name="resolver"></param>
+	void InitializeLate(LoadResolver* resolver) override;
 
 	/// <summary>
 	/// Returns the class type

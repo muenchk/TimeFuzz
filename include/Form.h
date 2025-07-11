@@ -107,6 +107,16 @@ public:
 	/// <param name="length"></param>
 	virtual bool ReadData(std::istream* buffer, size_t &offset, size_t length, LoadResolver* resolver);
 	/// <summary>
+	/// Early initialiazation pass [is executed once all forms have been loaded
+	/// </summary>
+	/// <param name="resolver"></param>
+	virtual void InitializeEarly(LoadResolver* resolver) = 0;
+	/// <summary>
+	/// late initialization pass [is executed once all Initialize Early has been called for all forms]
+	/// </summary>
+	/// <param name="resolver"></param>
+	virtual void InitializeLate(LoadResolver* resolver) = 0;
+	/// <summary>
 	/// Deletes all relevant for fields
 	/// </summary>
 	virtual void Delete(Data* data) = 0;
@@ -214,7 +224,7 @@ public:
 	}
 
 	void SetChanged();
-	void ClearChanged();
+	virtual void ClearChanged();
 	virtual bool HasChanged();
 
 	/* virtual EnumType GetFlags()

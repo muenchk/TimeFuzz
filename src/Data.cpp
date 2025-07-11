@@ -104,7 +104,8 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 
 		auto sessiondata = CreateForm<SessionData>();
 
-		std::cout << "hashtable size: " << _hashmap.size() << "\n";
+		bool useincrementalsave = settings->saves.incrementalSaveFiles && _savenumber % settings->saves.createFullSaveEvery != 0;
+
 		// create new file on disc
 		std::string name = GetSaveName();
 		if (!std::filesystem::exists(_savepath))
@@ -148,6 +149,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 				delete[] buffer;
 			}
 			// write information about prior saves
+			if (useincrementalsave)
 			{
 				size_t len = 8;
 				size_t offset = 0;
@@ -156,9 +158,9 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 				fsave.write((char*)buffer, len);
 				delete[] buffer;
 				if (_priorsaves.size() > 0) {
-					size_t len = 4;
-					size_t offset = 0;
-					unsigned char* buffer = new unsigned char[len];
+					len = 4;
+					offset = 0;
+					buffer = new unsigned char[len];
 					for (int64_t x = 0; x < (int64_t)_priorsaves.size(); x++)
 					{
 						offset = 0;
@@ -167,6 +169,17 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					}
 					delete[] buffer;
 				}
+			}
+			else
+			{
+				_priorsaves.clear();
+
+				size_t len = 8;
+				size_t offset = 0;
+				unsigned char* buffer = new unsigned char[len];
+				Buffer::WriteSize(0, buffer, offset);
+				fsave.write((char*)buffer, len);
+				delete[] buffer;
 			}
 
 			Streambuf* sbuf = nullptr;
@@ -200,14 +213,27 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 			// write session data
 			{
 				std::shared_lock<std::shared_mutex> guard(_hashmaplock);
-				loginfo("Saving {} records...", _hashmap.size());
-				_actionloadsave_max = _hashmap.size() + 1;
+				size_t recordnum = 0;
+				auto changedcounter = [&recordnum](std::shared_ptr<Form> form) {
+					if (form && form->HasChanged())
+					{
+						recordnum++;
+					}
+					return Data::VisitAction::None;
+				};
+				if (useincrementalsave)
+					Visit(changedcounter);
+				else
+					recordnum = _hashmap.size();
+
+				logmessage("Saving {} records... with hashtable with {}", recordnum, _hashmap.size());
+				_actionloadsave_max = recordnum + 1;
 				_actionloadsave_current = 0;
 				{
 					size_t len = 8;
 					size_t offset = 0;
 					unsigned char* buffer = new unsigned char[len];
-					Buffer::WriteSize(_hashmap.size() + 1 /*string Hashmap*/, buffer, offset);
+					Buffer::WriteSize(recordnum + 1 /*string Hashmap*/, buffer, offset);
 					save.write((char*)buffer, len);
 					delete[] buffer;
 				}
@@ -224,6 +250,10 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 						logcritical("critical error in underlying savefile");
 				}
 				for (auto& [formid, form] : _hashmap) {
+					// if we are writing incremental saves 
+					if (useincrementalsave && form->HasChanged() == false)
+						continue;
+					form->ClearChanged();
 					_actionrecord_len = 0;
 					_actionrecord_offset = 0;
 					//unsigned char* buffer = nullptr;
@@ -485,7 +515,6 @@ void Data::Load(std::string name, int32_t number, LoadSaveArgs& loadArgs)
 	}
 	bool found = false;
 	int32_t highest = 0;
-	int32_t num = 0;
 	std::filesystem::path fullname = "";
 	for (int32_t i = 0; i < (int32_t)files.size(); i++) {
 		auto rec = Utility::SplitString(files[i].filename().string(), '_', false);
@@ -531,6 +560,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 	_actionrecord_len = 0;
 	_actionrecord_offset = 0;
 	_lresolve->_data = this;
+	_lresolve->finalsave = ignorepriorsaves;
 	// callback after load
 	std::shared_ptr<Functions::BaseFunction> callback;
 	StartProfiling;
@@ -624,16 +654,17 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 				}
 				if (priorsaves > 0) {
 					if (flen - pos >= 4 * priorsaves) {
-						for (int64_t x = 0; x < (int64_t)priorsaves; x++)
-						fsave.read((char*)buffer, 4);
-						offset = 0;
-						if (fsave.gcount() == 4) {
-							priorsv.push_back(Buffer::ReadInt32(buffer, offset));
-						} else {
-							logcritical("Save file does not appear to have the proper format: failed to read compression information");
-							abort = true;
+						for (int64_t x = 0; x < (int64_t)priorsaves; x++) {
+							fsave.read((char*)buffer, 4);
+							offset = 0;
+							if (fsave.gcount() == 4) {
+								priorsv.push_back(Buffer::ReadInt32(buffer, offset));
+							} else {
+								logcritical("Save file does not appear to have the proper format: failed to read compression information");
+								abort = true;
+							}
+							pos += 4;
 						}
-						pos += 4;
 					}
 				}
 			}
@@ -683,7 +714,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 					offset = 0;
 					//save.read((char*)buffer, 1);
 					//if (save.gcount() == (std::streamsize)length) {
-						if (Buffer::ReadBool(&save, offset)) {
+						if (Buffer::ReadBool(&save, offset) && ignorepriorsaves == false) {
 							callback = Functions::BaseFunction::Create(&save, offset, length, _lresolve);
 							save.read((char*)buffer, length - 1 - callback->GetLength());
 						} else
@@ -725,7 +756,8 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 					_actionloadsave = false;
 					_status = "Failed...";
 					return;
-				case 0x2:  // save file version 1
+				case 0x2:  // save file version 2
+				case 0x3:  // save file version 3
 					{
 						size_t rlen = 0;
 						int32_t rtype = 0;
@@ -1062,36 +1094,56 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 		delete[] buffer;
 		fsave.close();
 		std::cout << "hashtable size: " << _hashmap.size() << "\n";
-		if (!_lresolve->_oracle)
-		{
-			logcritical("Didn't read oracle, catastrpic fail.");
-			_lresolve->_oracle = CreateForm<Oracle>();
-		}
+		if (ignorepriorsaves == false) {
+			if (!_lresolve->_oracle) {
+				logcritical("Didn't read oracle, catastrpic fail.");
+				_lresolve->_oracle = CreateForm<Oracle>();
+			}
 
-		_status = "Resolving Records...";
-		loginfo("Resolving records.");
-		_actionloadsave_max = _lresolve->TaskCount();
-		_actionloadsave_current = 0;
-		_lresolve->Resolve(_actionloadsave_current);
+			_status = "Initializing Records Early...";
+			_actionloadsave_max = _hashmap.size();
+			_actionloadsave_current = 0;
+			for (auto& [id, form] : _hashmap) {
+				if (form)
+					form->InitializeEarly(_lresolve);
+				_actionloadsave_current++;
+			}
 
-		loginfo("Resolved records.");
-		loginfo("Resolving late records.");
+			_status = "Resolving Records...";
 
-		// before we resolve late tasks, we need to register ourselves to the lua wrapper, if some of the lambda
-		// functions want to use lua scripts
-		auto sessdata = CreateForm<SessionData>();
-		sessdata->_oracle = CreateForm<Oracle>();
-		bool registeredLua = Lua::RegisterThread(sessdata);  // session is already fully loaded for the most part, so we can use the command
-		_lresolve->ResolveLate(_actionloadsave_current);
+			loginfo("Resolving records.");
+			_actionloadsave_max = _lresolve->TaskCount();
+			_actionloadsave_current = 0;
+			_lresolve->Resolve(_actionloadsave_current);
 
-		sessdata->_oracle = CreateForm<Oracle>();
-		sessdata->_controller = CreateForm<TaskController>();
-		sessdata->_exechandler = CreateForm<ExecutionHandler>();
-		sessdata->_generator = CreateForm<Generator>();
-		sessdata->_settings = CreateForm<Settings>();
-		sessdata->_excltree = CreateForm<ExclusionTree>();
+			loginfo("Resolved records.");
+			loginfo("Resolving late records.");
 
-		/*int32_t threads = sessdata->_settings->general.concurrenttests;
+			// before we resolve late tasks, we need to register ourselves to the lua wrapper, if some of the lambda
+			// functions want to use lua scripts
+			auto sessdata = CreateForm<SessionData>();
+			sessdata->_oracle = CreateForm<Oracle>();
+			bool registeredLua = Lua::RegisterThread(sessdata);  // session is already fully loaded for the most part, so we can use the command
+
+			_status = "Initializing Records Late...";
+			_actionloadsave_max = _hashmap.size();
+			_actionloadsave_current = 0;
+			for (auto& [id, form] : _hashmap) {
+				if (form)
+					form->InitializeLate(_lresolve);
+				_actionloadsave_current++;
+			}
+
+			_lresolve->ResolveLate(_actionloadsave_current);
+
+			sessdata->_oracle = CreateForm<Oracle>();
+			sessdata->_controller = CreateForm<TaskController>();
+			sessdata->_exechandler = CreateForm<ExecutionHandler>();
+			sessdata->_generator = CreateForm<Generator>();
+			sessdata->_settings = CreateForm<Settings>();
+			sessdata->_excltree = CreateForm<ExclusionTree>();
+
+			/*int32_t threads = sessdata->_settings->general.concurrenttests;
 		int32_t taskthreads = sessdata->_settings->general.numcomputingthreads;
 		if (sessdata->_settings->general.usehardwarethreads) {
 			// don't overshoot over actually available hardware threads
@@ -1110,27 +1162,28 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 		else
 			threads += taskthreads;*/
 
-		_lresolve->Regenerate(_actionloadsave_current, _actionloadsave_max, sessdata, sessdata->_settings->general.numthreads);
+			_lresolve->Regenerate(_actionloadsave_current, _actionloadsave_max, sessdata, sessdata->_settings->general.numthreads);
 
-		auto visitor = [](std::shared_ptr<Form> form) {
-			if (form->HasFlag(Form::FormFlags::Deleted))
-				return Data::VisitAction::DeleteForm;
-			else
-				return Data::VisitAction::None;
-		};
+			auto visitor = [](std::shared_ptr<Form> form) {
+				if (form->HasFlag(Form::FormFlags::Deleted))
+					return Data::VisitAction::DeleteForm;
+				else
+					return Data::VisitAction::None;
+			};
 
-		Visit(visitor);
+			Visit(visitor);
 
-		// unregister ourselves from the lua wrapper if we registered ourselves above
-		if (registeredLua)
-			Lua::UnregisterThread();
-		// add savecallback to taskcontroller
-		if (callback && CmdArgs::_clearTasks == false) {
-			sessdata->_controller->AddTask(callback);
+			// unregister ourselves from the lua wrapper if we registered ourselves above
+			if (registeredLua)
+				Lua::UnregisterThread();
+			// add savecallback to taskcontroller
+			if (callback && CmdArgs::_clearTasks == false) {
+				sessdata->_controller->AddTask(callback);
+			}
+
+			loginfo("Resolved late records.");
+			loginfo("Loaded session");
 		}
-
-		loginfo("Resolved late records.");
-		loginfo("Loaded session");
 	} else
 		logcritical("Cannot open savefile");
 
@@ -1148,8 +1201,10 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 	loginfo("Oracle: {}", stats._Oracle);
 	loginfo("Fails: {}", stats._Fail);
 
-	_actionloadsave = false;
-	_status = "Running...";
+	if (ignorepriorsaves == false) {
+		_actionloadsave = false;
+		_status = "Running...";
+	}
 	profile(TimeProfiling, "Loading Save");
 }
 

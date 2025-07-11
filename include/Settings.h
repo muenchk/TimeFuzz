@@ -114,11 +114,22 @@ public:
 	size_t GetDynamicSize() override;
 	bool WriteData(std::ostream* buffer, size_t& offset, size_t length) override;
 	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+	/// <summary>
+	/// Early initialiazation pass [is executed once all forms have been loaded
+	/// </summary>
+	/// <param name="resolver"></param>
+	void InitializeEarly(LoadResolver* resolver) override;
+	/// <summary>
+	/// late initialization pass [is executed once all Initialize Early has been called for all forms]
+	/// </summary>
+	/// <param name="resolver"></param>
+	void InitializeLate(LoadResolver* resolver) override;
 	void Delete(Data* data);
 	void Clear() override;
 	inline static bool _registeredFactories = false;
 	static void RegisterFactories();
 	size_t MemorySize() override;
+	virtual void ClearChanged();
 	
 	int32_t GetType() override
 	{
@@ -335,6 +346,11 @@ public:
 		/// </summary>
 		bool incrementalSaveFiles = true;
 		const char* incrementalSaveFiles_NAME = "IncrementalSaveFiles";
+		/// <summary>
+		/// Creates a full save every x saves
+		/// </summary>
+		int32_t createFullSaveEvery = 0;
+		const char* createFullSaveEvery_NAME = "CreateFullSaveEverySaves";
 	};
 
 	SaveFiles saves;

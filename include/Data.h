@@ -545,6 +545,10 @@ public:
 	/// current task if available
 	/// </summary>
 	std::string current = "";
+	/// <summary>
+	/// whether this is the final save to be loaded
+	/// </summary>
+	bool finalsave = false;
 
 	/// <summary>
 	/// adds task to queue

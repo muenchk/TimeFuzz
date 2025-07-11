@@ -1,0 +1,22 @@
+
+Unhandled exception "EXCEPTION_ACCESS_VIOLATION" at 0x7FF6C568C7D8 TimeFuzz.exe+011C7D8	lock xadd [rbx+0x08], eax |  B:\Documents\TimeFuzz\src\SessionFunctions.cpp:1578 ?ReadData@GenerationFinishedCallback@Functions@@UEAA_NPEAV?$basic_istream@DU?$char_traits@D@std@@@std@@AEA_K_KPEAVLoadResolver@@@Z)
+
+SYSTEM SPECS:
+	OS: Microsoft Windows 11 Pro v10.0.26100
+	CPU: GenuineIntel Intel(R) Core(TM) i9-10900K CPU @ 3.70GHz
+	GPU #1: Nvidia GA102 [GeForce RTX 3090]
+	GPU #2: Nvidia GA102 [GeForce RTX 3090]
+	GPU #3: Microsoft Basic Render Driver
+	PHYSICAL MEMORY: 33.17 GB/47.90 GB
+	GPU MEMORY: 0.00/23.01 GB
+
+PROBABLE CALL STACK:
+	[0] 0x7FF6C568C7D8 TimeFuzz.exe+011C7D8	lock xadd [rbx+0x08], eax |  B:\Documents\TimeFuzz\src\SessionFunctions.cpp:1578 ?ReadData@GenerationFinishedCallback@Functions@@UEAA_NPEAV?$basic_istream@DU?$char_traits@D@std@@@std@@AEA_K_KPEAVLoadResolver@@@Z
+	[1] 0x7FF6C56BC6CA TimeFuzz.exe+014C6CA	mov rax, [rsi] |  B:\Documents\TimeFuzz\src\Data.cpp:1258 ?Resolve@LoadResolver@@QEAAXAEA_K@Z
+	[2] 0x7FF6C56BA7C7 TimeFuzz.exe+014A7C7	cmp byte ptr [0x00007FF6C5B014D9], 0x00 |  B:\Documents\TimeFuzz\src\Data.cpp:1116 ?LoadIntern@Data@@AEAAXVpath@filesystem@std@@AEAULoadSaveArgs@1@_N@Z
+	[3] 0x7FF6C56B4F75 TimeFuzz.exe+0144F75	nop |  B:\Documents\TimeFuzz\src\Data.cpp:482 ?Load@Data@@QEAAXV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AEAULoadSaveArgs@1@@Z
+	[4] 0x7FF6C55F55D4 TimeFuzz.exe+00855D4	jmp 0x00007FF6C55F55E2 |  B:\Documents\TimeFuzz\src\Session.cpp:42 ?LoadSession_Async@Session@@CAXPEAVData@@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@HPEA_NPEAULoadSessionArgs@@@Z
+	[5] 0x7FF6C560D22F TimeFuzz.exe+009D22F	call [0x00007FF6C58C85E0] |  D:\Program Files\Microsoft Visual Studio\2022\VC\Tools\MSVC\14.44.35207\include\thread:61 ??$_Invoke@V?$tuple@P6AXPEAVData@@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@HPEA_NPEAULoadSessionArgs@@@ZPEAV1@V23@HPEA_NPEAU4@@std@@$0A@$00$01$02$03$04@thread@std@@CAIPEAX@Z
+	[6] 0x7FFAA60537B0 ucrtbase.dll+00037B0
+	[7] 0x7FFAA6EEE8D7 KERNEL32.DLL+002E8D7
+	[8] 0x7FFAA86FC34C    ntdll.dll+003C34C

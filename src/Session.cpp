@@ -948,6 +948,14 @@ bool Session::ReadData(std::istream* buffer, size_t& offset, size_t length, Load
 	}
 }
 
+void Session::InitializeEarly(LoadResolver* /*resolver*/)
+{
+}
+
+void Session::InitializeLate(LoadResolver* /*resolver*/)
+{
+}
+
 void Session::Delete(Data*)
 {
 	Clear();

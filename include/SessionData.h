@@ -574,6 +574,22 @@ public:
 
 	#pragma region Form
 
+private:
+	struct LoadData
+	{
+		int32_t version;
+		FormID grammarid;
+		FormID generationid;
+		FormID defaultID;
+		std::vector<FormID> posInp;
+		std::vector<std::pair<FormID, double>> negInp;
+		std::vector<std::pair<FormID, double>> unfInp;
+		std::vector<FormID> gens;
+	};
+	LoadData* _loadData = nullptr;
+
+public:
+
 	/// <summary>
 	/// Returns the size of the classes static members
 	/// </summary>
@@ -601,6 +617,16 @@ public:
 	/// <param name="resolver"></param>
 	/// <returns></returns>
 	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+	/// <summary>
+	/// Early initialiazation pass [is executed once all forms have been loaded
+	/// </summary>
+	/// <param name="resolver"></param>
+	void InitializeEarly(LoadResolver* resolver) override;
+	/// <summary>
+	/// late initialization pass [is executed once all Initialize Early has been called for all forms]
+	/// </summary>
+	/// <param name="resolver"></param>
+	void InitializeLate(LoadResolver* resolver) override;
 
 	bool ReadData0x1(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 	int32_t GetType() override
@@ -614,6 +640,7 @@ public:
 	void Delete(Data*) override { Clear(); }
 	static void RegisterFactories();
 	size_t MemorySize() override;
+	void ClearChanged() override;
 
 	#pragma endregion
 

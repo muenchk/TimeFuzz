@@ -734,7 +734,7 @@ size_t Test::GetDynamicSize()
 	}
 	//sz += Buffer::CalcStringLength(_cmdArgs);
 	if (_callback)
-		sz += _callback->GetLength();
+		sz += _callback->GetLength() + 8 /*extra for writing to buffer*/;
 	return sz;
 }
 
@@ -834,6 +834,10 @@ bool Test::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 
 bool Test::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
+	if (_loadData)
+		delete _loadData;
+	_loadData = new LoadData();
+
 	size_t initoff = offset;
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version)
@@ -846,19 +850,7 @@ bool Test::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRes
 			_running = Buffer::ReadBool(buffer, offset);
 			_starttime = Buffer::ReadTime(buffer, offset);
 			_endtime = Buffer::ReadTime(buffer, offset);
-			FormID formid = Buffer::ReadUInt64(buffer, offset);
-			resolver->AddTask([this, resolver, formid]() {
-				auto input = resolver->ResolveFormID<Input>(formid);
-				if (input) {
-					this->_itr = input->begin();
-					this->_itrend = input->end();
-					this->_input = input;
-					if (!input->test)
-					{
-						input->test = resolver->ResolveFormID<Test>(_formid);
-					}
-				}
-			});
+			_loadData->formid = Buffer::ReadUInt64(buffer, offset);
 			//if (length < offset - initoff + 8 || length < offset - initoff + Buffer::CalcStringLength(buffer, offset))
 			//	return false;
 			_lastwritten = Buffer::ReadString(buffer, offset);
@@ -906,18 +898,7 @@ bool Test::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRes
 				_running = data.Read<bool>();
 				_starttime = data.Read<std::chrono::steady_clock::time_point>();
 				_endtime = data.Read<std::chrono::steady_clock::time_point>();
-				FormID formid = data.Read<FormID>();
-				resolver->AddTask([this, resolver, formid]() {
-					auto input = resolver->ResolveFormID<Input>(formid);
-					if (input) {
-						this->_itr = input->begin();
-						this->_itrend = input->end();
-						this->_input = input;
-						if (!input->test) {
-							input->test = resolver->ResolveFormID<Test>(_formid);
-						}
-					}
-				});
+				_loadData->formid = data.Read<FormID>();
 				_lastwritten = data.Read<std::string>();
 				_lasttime = data.Read<std::chrono::steady_clock::time_point>();
 				_reactiontime = data.ReadList<uint64_t>();
@@ -946,6 +927,30 @@ bool Test::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRes
 		}
 	default:
 		return false;
+	}
+}
+
+void Test::InitializeEarly(LoadResolver* resolver)
+{
+	if (_loadData) {
+		auto input = resolver->ResolveFormID<Input>(_loadData->formid);
+		if (input) {
+			this->_itr = input->begin();
+			this->_itrend = input->end();
+			this->_input = input;
+			if (!input->test) {
+				input->test = resolver->ResolveFormID<Test>(_formid);
+			}
+		}
+	}
+}
+
+void Test::InitializeLate(LoadResolver* /*resolver*/)
+{
+	if (_loadData)
+	{
+		delete _loadData;
+		_loadData = nullptr;
 	}
 }
 

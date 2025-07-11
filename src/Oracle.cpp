@@ -412,32 +412,39 @@ bool Oracle::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadR
 			path = Buffer::ReadString(buffer, offset);
 			if (path.empty() == false)
 				SetLuaScriptArgs(std::filesystem::path(path));
-			// init lua from settings to support cross-platform stuff out of the boc
-			resolver->AddTask([this, resolver]() {
-				auto sett = resolver->ResolveFormID<Settings>(Data::StaticFormIDs::Settings);
-				Set(sett->oracle.oracle, sett->GetOraclePath());
-				auto path = std::filesystem::path(sett->oracle.lua_path_cmd);
-				if (!std::filesystem::exists(path)) {
-					logcritical("Lua CmdArgs script cannot be found.");
-				}
-				SetLuaCmdArgs(path);
-				path = std::filesystem::path(sett->oracle.lua_path_oracle);
-				if (!std::filesystem::exists(path)) {
-					logcritical("Lua Oracle script cannot be found.");
-				}
-				SetLuaOracle(path);
-				path = std::filesystem::path(sett->oracle.lua_path_script);
-				if (!std::filesystem::exists(path)) {
-					logcritical("Lua ScriptArgs script cannot be found.");
-				}
-				SetLuaScriptArgs(path);
-			});
 			return true;
 		}
 		break;
 	default:
 		return false;
 	}
+}
+
+void Oracle::InitializeEarly(LoadResolver* resolver)
+{
+	// init lua from settings to support cross-platform stuff out of the boc
+	auto sett = resolver->ResolveFormID<Settings>(Data::StaticFormIDs::Settings);
+	Set(sett->oracle.oracle, sett->GetOraclePath());
+	auto path = std::filesystem::path(sett->oracle.lua_path_cmd);
+	if (!std::filesystem::exists(path)) {
+		logcritical("Lua CmdArgs script cannot be found.");
+	}
+	SetLuaCmdArgs(path);
+	path = std::filesystem::path(sett->oracle.lua_path_oracle);
+	if (!std::filesystem::exists(path)) {
+		logcritical("Lua Oracle script cannot be found.");
+	}
+	SetLuaOracle(path);
+	path = std::filesystem::path(sett->oracle.lua_path_script);
+	if (!std::filesystem::exists(path)) {
+		logcritical("Lua ScriptArgs script cannot be found.");
+	}
+	SetLuaScriptArgs(path);
+}
+
+void Oracle::InitializeLate(LoadResolver* /*resolver*/)
+{
+
 }
 
 void Oracle::Delete(Data*)

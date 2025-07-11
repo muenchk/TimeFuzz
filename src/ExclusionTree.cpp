@@ -441,6 +441,8 @@ bool ExclusionTree::ReadData(std::istream* buffer, size_t& offset, size_t length
 {
 	// get settings
 	auto settings = resolver->_data->CreateForm<Settings>();
+	// clear everything
+	Clear();
 
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
@@ -506,9 +508,6 @@ bool ExclusionTree::ReadData(std::istream* buffer, size_t& offset, size_t length
 				} else
 					logcritical("cannot resolve nodeid {}", rchid[i]);
 			}
-			resolver->AddTask([this, resolver]() {
-				_sessiondata = resolver->_data->CreateForm<SessionData>();
-			});
 			return true;
 		}
 		break;
@@ -574,15 +573,21 @@ bool ExclusionTree::ReadData(std::istream* buffer, size_t& offset, size_t length
 				} else
 					logcritical("cannot resolve nodeid {}", rchid[i]);
 			}
-			resolver->AddTask([this, resolver]() {
-				_sessiondata = resolver->_data->CreateForm<SessionData>();
-			});
 			return true;
 		}
 		break;
 	default:
 		return false;
 	}
+}
+
+void ExclusionTree::InitializeEarly(LoadResolver* /*resolver*/)
+{
+}
+
+void ExclusionTree::InitializeLate(LoadResolver* resolver)
+{
+	_sessiondata = resolver->_data->CreateForm<SessionData>();
 }
 
 void ExclusionTree::Delete(Data*)

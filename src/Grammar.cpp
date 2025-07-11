@@ -2813,12 +2813,6 @@ bool Grammar::ReadData0x1(std::istream* buffer, size_t& offset, size_t length, L
 	delete lresolve;
 
 	// create parse tree for parsing
-	resolver->AddTask([this]() {
-		// now construct tree for parsing
-		_treeParse = std::make_shared<GrammarTree>();
-		_tree->DeepCopy(_treeParse);
-		_treeParse->InsertParseNodes();
-	});
 	return true;
 }
 
@@ -2891,13 +2885,6 @@ bool Grammar::ReadData0x2(std::istream* buffer, size_t& offset, size_t length, L
 	lresolve->Resolve();
 	delete lresolve;
 
-	// create parse tree for parsing
-	resolver->AddTask([this]() {
-		// now construct tree for parsing
-		_treeParse = std::make_shared<GrammarTree>();
-		_tree->DeepCopy(_treeParse);
-		_treeParse->InsertParseNodes();
-	});
 	return true;
 }
 
@@ -2921,6 +2908,18 @@ bool Grammar::ReadData(std::istream* buffer, size_t& offset, size_t length, Load
 	default:
 		return false;
 	}
+}
+
+void Grammar::InitializeEarly(LoadResolver* /*resolver*/)
+{
+	// now construct tree for parsing
+	_treeParse = std::make_shared<GrammarTree>();
+	_tree->DeepCopy(_treeParse);
+	_treeParse->InsertParseNodes();
+}
+
+void Grammar::InitializeLate(LoadResolver* /*resolver*/)
+{
 }
 
 void Grammar::Delete(Data*)

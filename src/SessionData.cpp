@@ -783,7 +783,7 @@ bool SessionData::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 	return true;
 }
 
-bool SessionData::ReadData0x1(std::istream* buffer, size_t& offset, size_t /*length*/, LoadResolver* resolver)
+bool SessionData::ReadData0x1(std::istream* buffer, size_t& offset, size_t /*length*/, LoadResolver* /*resolver*/)
 {
 	_positiveInputNumbers = Buffer::ReadInt64(buffer, offset);
 	_negativeInputNumbers = Buffer::ReadInt64(buffer, offset);
@@ -792,70 +792,27 @@ bool SessionData::ReadData0x1(std::istream* buffer, size_t& offset, size_t /*len
 	// positive inputs
 	_positiveInputs.clear();
 	size_t sizepos = Buffer::ReadSize(buffer, offset);
-	std::vector<FormID> posInp(sizepos);
+	_loadData->posInp.resize(sizepos);
 	for (int64_t i = 0; i < (int64_t)sizepos; i++) {
-		posInp.push_back(Buffer::ReadUInt64(buffer, offset));
+		_loadData->posInp.push_back(Buffer::ReadUInt64(buffer, offset));
 	}
 	// negative inputs
 	_negativeInputs.clear();
 	size_t size = Buffer::ReadSize(buffer, offset);
-	std::vector<std::pair<FormID, double>> negInp(size);
+	_loadData->negInp.resize(size);
 	FormID tmp = 0;
 	for (int64_t i = 0; i < (int64_t)size; i++) {
 		tmp = Buffer::ReadUInt64(buffer, offset);
-		negInp[i] = { tmp, Buffer::ReadDouble(buffer, offset) };
+		_loadData->negInp[i] = { tmp, Buffer::ReadDouble(buffer, offset) };
 	}
-	resolver->AddLateTask([this, negInp, posInp, resolver]() {
-		for (int64_t i = 0; i < (int64_t)negInp.size(); i++) {
-			auto shared = resolver->ResolveFormID<Input>(negInp[i].first);
-			if (shared && shared->derive && shared->test) {
-				auto node = std::make_shared<InputNode>();
-				node->input = shared;
-				node->weight = negInp[i].second;
-				node->primary = shared->GetPrimaryScore();
-				node->secondary = shared->GetSecondaryScore();
-				node->length = shared->Length();
-				_negativeInputs.insert(node);
-				_topK_primary.insert(node);
-				_topK_secondary.insert(node);
-				_topK_length.insert(node);
-			}
-		}
-		for (int64_t i = 0; i < (int64_t)posInp.size(); i++) {
-			auto shared = resolver->ResolveFormID<Input>(posInp[i]);
-			if (shared)
-				_positiveInputs.push_back(shared);
-				//_positiveInputs.insert(shared);
-		}
-	});
 	// unfinished inputs
 	_unfinishedInputs.clear();
 	size = Buffer::ReadSize(buffer, offset);
-	std::vector<std::pair<FormID, double>> unfInp(size);
+	_loadData->unfInp.resize(size);
 	for (int64_t i = 0; i < (int64_t)size; i++) {
 		tmp = Buffer::ReadUInt64(buffer, offset);
-		unfInp[i] = { tmp, Buffer::ReadDouble(buffer, offset) };
+		_loadData->unfInp[i] = { tmp, Buffer::ReadDouble(buffer, offset) };
 	}
-	resolver->AddLateTask([this, unfInp, resolver]() {
-		for (int64_t i = 0; i < (int64_t)unfInp.size(); i++) {
-			auto shared = resolver->ResolveFormID<Input>(unfInp[i].first);
-			if (shared && shared->derive && shared->test) {
-				auto node = std::make_shared<InputNode>();
-				node->input = shared;
-				node->weight = unfInp[i].second;
-				node->primary = shared->GetPrimaryScore();
-				node->secondary = shared->GetSecondaryScore();
-				node->length = shared->Length();
-				_unfinishedInputs.insert(node);
-				_topK_primary.insert(node);
-				_topK_secondary.insert(node);
-				_topK_length.insert(node);
-				_topK_primary_Unfinished.insert(node);
-				_topK_secondary_Unfinished.insert(node);
-				_topK_length_Unfinished.insert(node);
-			}
-		}
-	});
 	// undefined inputs
 	_undefinedInputs.clear();
 	sizepos = Buffer::ReadSize(buffer, offset);
@@ -879,8 +836,13 @@ bool SessionData::ReadData0x1(std::istream* buffer, size_t& offset, size_t /*len
 
 bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
+	if (_loadData)
+		delete _loadData;
+	_loadData = new LoadData();
+
 	SetChanged();
 	int32_t version = Buffer::ReadInt32(buffer, offset);
+	_loadData->version = version;
 	switch (version) {
 	case 0x1:
 		{
@@ -897,46 +859,8 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 			exitstats.initerror = Buffer::ReadUInt64(buffer, offset);
 			_failureRate = Buffer::ReadDouble(buffer, offset);
 			_addtestFails = Buffer::ReadInt64(buffer, offset);
-			FormID grammarid = Buffer::ReadUInt64(buffer, offset);
-			FormID generationid = Buffer::ReadUInt64(buffer, offset);
-			resolver->AddTask([this, resolver, grammarid, generationid]() {
-				resolver->current = "SessionData 1";
-				this->_oracle = resolver->ResolveFormID<Oracle>(Data::StaticFormIDs::Oracle);
-				this->_controller = resolver->ResolveFormID<TaskController>(Data::StaticFormIDs::TaskController);
-				this->_exechandler = resolver->ResolveFormID<ExecutionHandler>(Data::StaticFormIDs::ExecutionHandler);
-				this->_generator = resolver->ResolveFormID<Generator>(Data::StaticFormIDs::Generator);
-				this->_grammar = resolver->ResolveFormID<Grammar>(grammarid);
-				this->_settings = resolver->ResolveFormID<Settings>(Data::StaticFormIDs::Settings);
-				this->_excltree = resolver->ResolveFormID<ExclusionTree>(Data::StaticFormIDs::ExclusionTree);
-				this->SetGen(resolver->ResolveFormID<Generation>(generationid));
-				switch (this->_settings->generation.sourcesType)
-				{
-				case Settings::GenerationSourcesType::FilterLength:
-					_negativeInputs.set_ordering(std::SetOrdering::Length);
-					_unfinishedInputs.set_ordering(std::SetOrdering::Length);
-					//_positiveInputs.set_ordering(std::SetOrdering::Length);
-					break;
-				case Settings::GenerationSourcesType::FilterPrimaryScore:
-				case Settings::GenerationSourcesType::FilterPrimaryScoreRelative:
-					_negativeInputs.set_ordering(std::SetOrdering::Primary);
-					_unfinishedInputs.set_ordering(std::SetOrdering::Primary);
-					//_positiveInputs.set_ordering(std::SetOrdering::Primary);
-					break;
-				case Settings::GenerationSourcesType::FilterSecondaryScore:
-				case Settings::GenerationSourcesType::FilterSecondaryScoreRelative:
-					_negativeInputs.set_ordering(std::SetOrdering::Secondary);
-					_unfinishedInputs.set_ordering(std::SetOrdering::Secondary);
-					//_positiveInputs.set_ordering(std::SetOrdering::Secondary);
-					break;
-				}
-				if (this->GetGen())
-					this->_generationID = GetGen()->GetFormID();
-				// this is redundant and has already been set
-				this->data = resolver->_data;
-				auto gens = resolver->_data->GetFormArray<Generation>();
-				for (auto gen : gens)
-					this->_generations.insert_or_assign(gen->GetFormID(), gen);
-			});
+			_loadData->grammarid = Buffer::ReadUInt64(buffer, offset);
+			_loadData->generationid = Buffer::ReadUInt64(buffer, offset);
 			_lastGenerationID = Buffer::ReadUInt64(buffer, offset);
 
 			_topK_primary_Unfinished.SetInsertFunction(SetInsert);
@@ -963,72 +887,27 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 			// positive inputs
 			_positiveInputs.clear();
 			size_t sizepos = Buffer::ReadSize(buffer, offset);
-			std::vector<FormID> posInp(sizepos);
+			_loadData->negInp.resize(sizepos);
 			for (int64_t i = 0; i < (int64_t)sizepos; i++) {
-				posInp.push_back(Buffer::ReadUInt64(buffer, offset));
+				_loadData->posInp.push_back(Buffer::ReadUInt64(buffer, offset));
 			}
 			// negative inputs
 			_negativeInputs.clear();
 			size_t size = Buffer::ReadSize(buffer, offset);
-			std::vector<std::pair<FormID, double>> negInp(size);
+			_loadData->negInp.resize(size);
 			FormID tmp = 0;
 			for (int64_t i = 0; i < (int64_t)size; i++) {
 				tmp = Buffer::ReadUInt64(buffer, offset);
-				negInp[i] = { tmp, Buffer::ReadDouble(buffer, offset) };
+				_loadData->negInp[i] = { tmp, Buffer::ReadDouble(buffer, offset) };
 			}
-			resolver->AddLateTask([this, negInp, posInp, resolver]() {
-				resolver->current = "SessionData 1";
-				for (int64_t i = 0; i < (int64_t)negInp.size(); i++) {
-					auto shared = resolver->ResolveFormID<Input>(negInp[i].first);
-					if (shared && shared->derive && shared->test) {
-						auto node = std::make_shared<InputNode>();
-						node->input = shared;
-						node->weight = negInp[i].second;
-						node->primary = shared->GetPrimaryScore();
-						node->secondary = shared->GetSecondaryScore();
-						node->length = shared->Length();
-						_negativeInputs.insert(node);
-						_topK_primary.insert(node);
-						_topK_secondary.insert(node);
-						_topK_length.insert(node);
-					}
-				}
-				for (int64_t i = 0; i < (int64_t)posInp.size(); i++) {
-					auto shared = resolver->ResolveFormID<Input>(posInp[i]);
-					if (shared)
-						_positiveInputs.push_back(shared);
-						//_positiveInputs.insert(shared);
-				}
-			});
 			// unfinished inputs
 			_unfinishedInputs.clear();
 			size = Buffer::ReadSize(buffer, offset);
-			std::vector<std::pair<FormID, double>> unfInp(size);
+			_loadData->unfInp.resize(size);
 			for (int64_t i = 0; i < (int64_t)size; i++) {
 				tmp = Buffer::ReadUInt64(buffer, offset);
-				unfInp[i] = { tmp, Buffer::ReadDouble(buffer, offset) };
+				_loadData->unfInp[i] = { tmp, Buffer::ReadDouble(buffer, offset) };
 			}
-			resolver->AddLateTask([this, unfInp, resolver]() {
-				resolver->current = "SessionData 2";
-				for (int64_t i = 0; i < (int64_t)unfInp.size(); i++) {
-					auto shared = resolver->ResolveFormID<Input>(unfInp[i].first);
-					if (shared && shared->derive && shared->test) {
-						auto node = std::make_shared<InputNode>();
-						node->input = shared;
-						node->weight = unfInp[i].second;
-						node->primary = shared->GetPrimaryScore();
-						node->secondary = shared->GetSecondaryScore();
-						node->length = shared->Length();
-						_unfinishedInputs.insert(node);
-						_topK_primary.insert(node);
-						_topK_secondary.insert(node);
-						_topK_length.insert(node);
-						_topK_primary_Unfinished.insert(node);
-						_topK_secondary_Unfinished.insert(node);
-						_topK_length_Unfinished.insert(node);
-					}
-				}
-			});
 			// undefined inputs
 			_undefinedInputs.clear();
 			sizepos = Buffer::ReadSize(buffer, offset);
@@ -1043,17 +922,8 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 			}
 			// _generations
 			size = Buffer::ReadSize(buffer, offset);
-			std::vector<FormID> gens;
 			for (int64_t i = 0; i < (int64_t)size; i++)
-				gens.push_back(Buffer::ReadUInt64(buffer, offset));
-			resolver->AddTask([this, gens, resolver]() {
-				resolver->current = "SessionData 3";
-				for (int64_t i = 0; i < (int64_t)gens.size(); i++) {
-					auto shared = resolver->ResolveFormID<Generation>(gens[i]);
-					if (shared)
-						_generations.insert_or_assign(gens[i], shared);
-				}
-			});
+				_loadData->gens.push_back(Buffer::ReadUInt64(buffer, offset));
 			// rest
 			_generationfails = Buffer::ReadInt64(buffer, offset);
 			_generatedinputs = Buffer::ReadInt64(buffer, offset);
@@ -1070,18 +940,48 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 			exitstats.initerror = Buffer::ReadUInt64(buffer, offset);
 			_failureRate = Buffer::ReadDouble(buffer, offset);
 			_addtestFails = Buffer::ReadInt64(buffer, offset);
-			FormID grammarid = Buffer::ReadUInt64(buffer, offset);
-			FormID generationid = Buffer::ReadUInt64(buffer, offset);
-			resolver->AddTask([this, resolver, grammarid, generationid]() {
-				resolver->current = "SessionData 4";
+			_loadData->grammarid = Buffer::ReadUInt64(buffer, offset);
+			_loadData->generationid = Buffer::ReadUInt64(buffer, offset);
+			_lastGenerationID = Buffer::ReadUInt64(buffer, offset);
+			_generationEnding = Buffer::ReadBool(buffer, offset);
+			_generationFinishing = Buffer::ReadBool(buffer, offset);
+			_loadData->defaultID = Buffer::ReadUInt64(buffer, offset);
+
+			_topK_primary_Unfinished.SetInsertFunction(SetInsert);
+			_topK_primary_Unfinished.SetRemoveFunction(SetRemove);
+			_topK_secondary_Unfinished.SetInsertFunction(SetInsert);
+			_topK_secondary_Unfinished.SetRemoveFunction(SetRemove);
+			_topK_primary.SetInsertFunction(SetInsert);
+			_topK_primary.SetRemoveFunction(SetRemove);
+			_topK_secondary.SetInsertFunction(SetInsert);
+			_topK_secondary.SetRemoveFunction(SetRemove);
+			_topK_length.SetInsertFunction(SetInsert);
+			_topK_length.SetRemoveFunction(SetRemove);
+			_topK_length_Unfinished.SetInsertFunction(SetInsert);
+			_topK_length_Unfinished.SetRemoveFunction(SetRemove);
+			return true;
+		}
+		break;
+	default:
+		return false;
+	}
+}
+
+void SessionData::InitializeEarly(LoadResolver* resolver)
+{
+	if (_loadData) {
+		switch (_loadData->version) {
+		case 0x1:
+			{
+				resolver->current = "SessionData";
 				this->_oracle = resolver->ResolveFormID<Oracle>(Data::StaticFormIDs::Oracle);
 				this->_controller = resolver->ResolveFormID<TaskController>(Data::StaticFormIDs::TaskController);
 				this->_exechandler = resolver->ResolveFormID<ExecutionHandler>(Data::StaticFormIDs::ExecutionHandler);
 				this->_generator = resolver->ResolveFormID<Generator>(Data::StaticFormIDs::Generator);
-				this->_grammar = resolver->ResolveFormID<Grammar>(grammarid);
+				this->_grammar = resolver->ResolveFormID<Grammar>(_loadData->grammarid);
 				this->_settings = resolver->ResolveFormID<Settings>(Data::StaticFormIDs::Settings);
 				this->_excltree = resolver->ResolveFormID<ExclusionTree>(Data::StaticFormIDs::ExclusionTree);
-				this->SetGen(resolver->ResolveFormID<Generation>(generationid));
+				this->SetGen(resolver->ResolveFormID<Generation>(_loadData->generationid));
 				switch (this->_settings->generation.sourcesType) {
 				case Settings::GenerationSourcesType::FilterLength:
 					_negativeInputs.set_ordering(std::SetOrdering::Length);
@@ -1108,35 +1008,157 @@ bool SessionData::ReadData(std::istream* buffer, size_t& offset, size_t length, 
 				auto gens = resolver->_data->GetFormArray<Generation>();
 				for (auto gen : gens)
 					this->_generations.insert_or_assign(gen->GetFormID(), gen);
-			});
-			_lastGenerationID = Buffer::ReadUInt64(buffer, offset);
-			_generationEnding = Buffer::ReadBool(buffer, offset);
-			_generationFinishing = Buffer::ReadBool(buffer, offset);
-			FormID defaultID = Buffer::ReadUInt64(buffer, offset);
-			resolver->AddTask([this, resolver, defaultID]() {
-				this->_defaultGen = resolver->ResolveFormID<Generation>(defaultID);
-			});
-
-			_topK_primary_Unfinished.SetInsertFunction(SetInsert);
-			_topK_primary_Unfinished.SetRemoveFunction(SetRemove);
-			_topK_secondary_Unfinished.SetInsertFunction(SetInsert);
-			_topK_secondary_Unfinished.SetRemoveFunction(SetRemove);
-			_topK_primary.SetInsertFunction(SetInsert);
-			_topK_primary.SetRemoveFunction(SetRemove);
-			_topK_secondary.SetInsertFunction(SetInsert);
-			_topK_secondary.SetRemoveFunction(SetRemove);
-			_topK_length.SetInsertFunction(SetInsert);
-			_topK_length.SetRemoveFunction(SetRemove);
-			_topK_length_Unfinished.SetInsertFunction(SetInsert);
-			_topK_length_Unfinished.SetRemoveFunction(SetRemove);
-			return true;
+			}
+			break;
+		case 0x2:
+			{
+				resolver->current = "SessionData";
+				for (int64_t i = 0; i < (int64_t)_loadData->gens.size(); i++) {
+					auto shared = resolver->ResolveFormID<Generation>(_loadData->gens[i]);
+					if (shared)
+						_generations.insert_or_assign(_loadData->gens[i], shared);
+				}
+				// rest
+				this->_oracle = resolver->ResolveFormID<Oracle>(Data::StaticFormIDs::Oracle);
+				this->_controller = resolver->ResolveFormID<TaskController>(Data::StaticFormIDs::TaskController);
+				this->_exechandler = resolver->ResolveFormID<ExecutionHandler>(Data::StaticFormIDs::ExecutionHandler);
+				this->_generator = resolver->ResolveFormID<Generator>(Data::StaticFormIDs::Generator);
+				this->_grammar = resolver->ResolveFormID<Grammar>(_loadData->grammarid);
+				this->_settings = resolver->ResolveFormID<Settings>(Data::StaticFormIDs::Settings);
+				this->_excltree = resolver->ResolveFormID<ExclusionTree>(Data::StaticFormIDs::ExclusionTree);
+				this->SetGen(resolver->ResolveFormID<Generation>(_loadData->generationid));
+				switch (this->_settings->generation.sourcesType) {
+				case Settings::GenerationSourcesType::FilterLength:
+					_negativeInputs.set_ordering(std::SetOrdering::Length);
+					_unfinishedInputs.set_ordering(std::SetOrdering::Length);
+					//_positiveInputs.set_ordering(std::SetOrdering::Length);
+					break;
+				case Settings::GenerationSourcesType::FilterPrimaryScore:
+				case Settings::GenerationSourcesType::FilterPrimaryScoreRelative:
+					_negativeInputs.set_ordering(std::SetOrdering::Primary);
+					_unfinishedInputs.set_ordering(std::SetOrdering::Primary);
+					//_positiveInputs.set_ordering(std::SetOrdering::Primary);
+					break;
+				case Settings::GenerationSourcesType::FilterSecondaryScore:
+				case Settings::GenerationSourcesType::FilterSecondaryScoreRelative:
+					_negativeInputs.set_ordering(std::SetOrdering::Secondary);
+					_unfinishedInputs.set_ordering(std::SetOrdering::Secondary);
+					//_positiveInputs.set_ordering(std::SetOrdering::Secondary);
+					break;
+				}
+				if (this->GetGen())
+					this->_generationID = GetGen()->GetFormID();
+				// this is redundant and has already been set
+				this->data = resolver->_data;
+				auto gens = resolver->_data->GetFormArray<Generation>();
+				for (auto gen : gens)
+					this->_generations.insert_or_assign(gen->GetFormID(), gen);
+				// defaultgen
+				this->_defaultGen = resolver->ResolveFormID<Generation>(_loadData->defaultID);
+			}
+			break;
 		}
-		break;
-	default:
-		return false;
 	}
 }
 
+void SessionData::InitializeLate(LoadResolver* resolver)
+{
+	if (_loadData) {
+		switch (_loadData->version) {
+		case 0x1:
+			for (int64_t i = 0; i < (int64_t)_loadData->negInp.size(); i++) {
+				auto shared = resolver->ResolveFormID<Input>(_loadData->negInp[i].first);
+				if (shared && shared->derive && shared->test) {
+					auto node = std::make_shared<InputNode>();
+					node->input = shared;
+					node->weight = _loadData->negInp[i].second;
+					node->primary = shared->GetPrimaryScore();
+					node->secondary = shared->GetSecondaryScore();
+					node->length = shared->Length();
+					_negativeInputs.insert(node);
+					_topK_primary.insert(node);
+					_topK_secondary.insert(node);
+					_topK_length.insert(node);
+				}
+			}
+			for (int64_t i = 0; i < (int64_t)_loadData->posInp.size(); i++) {
+				auto shared = resolver->ResolveFormID<Input>(_loadData->posInp[i]);
+				if (shared)
+					_positiveInputs.push_back(shared);
+				//_positiveInputs.insert(shared);
+			}
+			for (int64_t i = 0; i < (int64_t)_loadData->unfInp.size(); i++) {
+				auto shared = resolver->ResolveFormID<Input>(_loadData->unfInp[i].first);
+				if (shared && shared->derive && shared->test) {
+					auto node = std::make_shared<InputNode>();
+					node->input = shared;
+					node->weight = _loadData->unfInp[i].second;
+					node->primary = shared->GetPrimaryScore();
+					node->secondary = shared->GetSecondaryScore();
+					node->length = shared->Length();
+					_unfinishedInputs.insert(node);
+					_topK_primary.insert(node);
+					_topK_secondary.insert(node);
+					_topK_length.insert(node);
+					_topK_primary_Unfinished.insert(node);
+					_topK_secondary_Unfinished.insert(node);
+					_topK_length_Unfinished.insert(node);
+				}
+			}
+			break;
+		case 0x2:
+			resolver->current = "SessionData";
+			for (int64_t i = 0; i < (int64_t)_loadData->negInp.size(); i++) {
+				auto shared = resolver->ResolveFormID<Input>(_loadData->negInp[i].first);
+				if (shared && shared->derive && shared->test) {
+					auto node = std::make_shared<InputNode>();
+					node->input = shared;
+					node->weight = _loadData->negInp[i].second;
+					node->primary = shared->GetPrimaryScore();
+					node->secondary = shared->GetSecondaryScore();
+					node->length = shared->Length();
+					_negativeInputs.insert(node);
+					_topK_primary.insert(node);
+					_topK_secondary.insert(node);
+					_topK_length.insert(node);
+				}
+			}
+			for (int64_t i = 0; i < (int64_t)_loadData->posInp.size(); i++) {
+				auto shared = resolver->ResolveFormID<Input>(_loadData->posInp[i]);
+				if (shared)
+					_positiveInputs.push_back(shared);
+				//_positiveInputs.insert(shared);
+			}
+			for (int64_t i = 0; i < (int64_t)_loadData->unfInp.size(); i++) {
+				auto shared = resolver->ResolveFormID<Input>(_loadData->unfInp[i].first);
+				if (shared && shared->derive && shared->test) {
+					auto node = std::make_shared<InputNode>();
+					node->input = shared;
+					node->weight = _loadData->unfInp[i].second;
+					node->primary = shared->GetPrimaryScore();
+					node->secondary = shared->GetSecondaryScore();
+					node->length = shared->Length();
+					_unfinishedInputs.insert(node);
+					_topK_primary.insert(node);
+					_topK_secondary.insert(node);
+					_topK_length.insert(node);
+					_topK_primary_Unfinished.insert(node);
+					_topK_secondary_Unfinished.insert(node);
+					_topK_length_Unfinished.insert(node);
+				}
+			}
+			break;
+		}
+		delete _loadData;
+		_loadData = nullptr;
+	}
+}
+
+void SessionData::ClearChanged()
+{
+	Form::ClearChanged();
+	SetChanged();
+}
 void SessionData::RegisterFactories()
 {
 	if (!_registeredFactories) {

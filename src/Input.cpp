@@ -140,6 +140,10 @@ bool Input::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 
 bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
+	if (_loadData)
+		delete _loadData;
+	_loadData = new LoadData();
+
 	//logdebug("ReadData");
 	size_t initoff = offset;
 	int32_t version = Buffer::ReadInt32(buffer, offset);
@@ -158,14 +162,8 @@ bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRe
 			_executiontime = Buffer::ReadNanoSeconds(buffer, offset);
 			_exitcode = Buffer::ReadInt32(buffer, offset);
 			_oracleResult = Buffer::ReadUInt64(buffer, offset);
-			FormID testid = Buffer::ReadUInt64(buffer, offset);
-			resolver->AddTask([this, resolver, testid]() {
-				this->test = resolver->ResolveFormID<Test>(testid);
-			});
-			FormID deriveid = Buffer::ReadUInt64(buffer, offset);
-			resolver->AddTask([this, resolver, deriveid]() {
-				this->derive = resolver->ResolveFormID<DerivationTree>(deriveid);
-			});
+			_loadData->testid = Buffer::ReadUInt64(buffer, offset);
+			_loadData->deriveid = Buffer::ReadUInt64(buffer, offset);
 			//logdebug("ReadData string rep");
 			// get _stringrep
 			//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
@@ -207,25 +205,8 @@ bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRe
 				_executiontime = data.Read<std::chrono::nanoseconds>();
 				_exitcode = data.Read<int32_t>();
 				_oracleResult = data.Read<FormID>();
-				FormID testid = data.Read<FormID>();
-				if (testid == 0) {
-					//logwarn("Test ID invalid");
-				} else {
-					resolver->AddTask([this, resolver, testid]() {
-						this->test = resolver->ResolveFormID<Test>(testid);
-						//if (!this->test)
-						//logwarn("Test not found");
-					});
-				}
-				FormID deriveid = data.Read<FormID>();
-				if (deriveid == 0) {
-				} else {
-					resolver->AddTask([this, resolver, deriveid]() {
-						this->derive = resolver->ResolveFormID<DerivationTree>(deriveid);
-						//if (!derive)
-						//logwarn("Cannot find DerivationTree: {}", deriveid);
-					});
-				}
+				_loadData->testid = data.Read<FormID>();
+				_loadData->deriveid = data.Read<FormID>();
 				//logdebug("ReadData string rep");
 				// get _stringrep
 				//if (length <= offset - initoff + 8 || length <= offset - initoff + 8 + Buffer::CalcStringLength(buffer, offset))
@@ -267,6 +248,33 @@ bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRe
 		return true;
 	default:
 		return false;
+	}
+}
+
+void Input::InitializeEarly(LoadResolver* resolver)
+{
+	if (_loadData) {
+		if (_loadData->testid == 0) {
+			//logwarn("Test ID invalid");
+		} else {
+			this->test = resolver->ResolveFormID<Test>(_loadData->testid);
+			//if (!this->test)
+			//logwarn("Test not found");
+		}
+		if (_loadData->deriveid == 0) {
+		} else {
+			this->derive = resolver->ResolveFormID<DerivationTree>(_loadData->deriveid);
+			//if (!derive)
+			//logwarn("Cannot find DerivationTree: {}", deriveid);
+		}
+	}
+}
+
+void Input::InitializeLate(LoadResolver* /*resolver*/)
+{
+	if (_loadData) {
+		delete _loadData;
+		_loadData = nullptr;
 	}
 }
 

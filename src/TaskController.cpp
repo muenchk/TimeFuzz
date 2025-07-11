@@ -2,6 +2,7 @@
 #include <queue>
 #include <exception>
 
+#include "Data.h"
 #include "TaskController.h"
 #include "Threading.h"
 #include "BufferOperations.h"
@@ -527,6 +528,7 @@ bool TaskController::WriteData(std::ostream* buffer, size_t& offset, size_t leng
 bool TaskController::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
 	SetChanged();
+	ClearTasks();
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
 	case 0x1:
@@ -567,7 +569,7 @@ bool TaskController::ReadData(std::istream* buffer, size_t& offset, size_t lengt
 			size_t num = Buffer::ReadSize(buffer, offset);
 			for (int32_t i = 0; i < (int32_t)num; i++) {
 				std::shared_ptr<Functions::BaseFunction> func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
-				if (!CmdArgs::_clearTasks)
+				if (!CmdArgs::_clearTasks && resolver->finalsave)
 					_tasks.push_back(func);
 				else
 					func->Dispose();
@@ -575,7 +577,7 @@ bool TaskController::ReadData(std::istream* buffer, size_t& offset, size_t lengt
 			num = Buffer::ReadSize(buffer, offset);
 			for (int32_t i = 0; i < (int32_t)num; i++) {
 				std::shared_ptr<Functions::BaseFunction> func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
-				if (!CmdArgs::_clearTasks)
+				if (!CmdArgs::_clearTasks && resolver->finalsave)
 					_tasks_medium.push_back(func);
 				else
 					func->Dispose();
@@ -583,7 +585,7 @@ bool TaskController::ReadData(std::istream* buffer, size_t& offset, size_t lengt
 			num = Buffer::ReadSize(buffer, offset);
 			for (int32_t i = 0; i < (int32_t)num; i++) {
 				std::shared_ptr<Functions::BaseFunction> func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
-				if (!CmdArgs::_clearTasks)
+				if (!CmdArgs::_clearTasks && resolver->finalsave)
 					_tasks_light.push_back(func);
 				else
 					func->Dispose();
@@ -605,6 +607,16 @@ bool TaskController::ReadData(std::istream* buffer, size_t& offset, size_t lengt
 	default:
 		return false;
 	}
+}
+
+void TaskController::InitializeEarly(LoadResolver* /*resolver*/)
+{
+
+}
+
+void TaskController::InitializeLate(LoadResolver* /*resolver*/)
+{
+
 }
 
 void TaskController::Delete(Data*)
@@ -649,6 +661,12 @@ void TaskController::RegisterFactories()
 size_t TaskController::MemorySize()
 {
 	return sizeof(TaskController);
+}
+
+void TaskController::ClearChanged()
+{
+	Form::ClearChanged();
+	SetChanged();
 }
 
 
@@ -735,7 +753,7 @@ void TaskController::GetThreadStatus(std::vector<ThreadStatus>& status, std::vec
 		time.resize(_status.size());
 	}
 	auto now = std::chrono::steady_clock::now();
-	for (int32_t i = 0; i < (int32_t)_status.size(); i++) {
+	for (int32_t i = 0; i < (int32_t)status.size(); i++) {
 		status[i] = _status[i];
 		names[i] = _statusTask[i];
 		time[i] = Logging::FormatTime(std::chrono::duration_cast<std::chrono::microseconds>(now - _statusTime[i]).count());

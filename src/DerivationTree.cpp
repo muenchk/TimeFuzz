@@ -212,6 +212,14 @@ bool DerivationTree::ReadData(std::istream* buffer, size_t& offset, size_t lengt
 	}
 }
 
+void DerivationTree::InitializeEarly(LoadResolver* /*resolver*/)
+{
+}
+
+void DerivationTree::InitializeLate(LoadResolver* /*resolver*/)
+{
+}
+
 bool DerivationTree::CanDelete(Data* data)
 {
 	if (_inputID != 0)

@@ -9,6 +9,11 @@ class Grammar;
 
 class Generator : public Form
 {
+	struct LoadData
+	{
+		FormID gram;
+	};
+	LoadData* _loadData = nullptr;
 public:
 	//bool Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar> grammar, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> parent = {});
 
@@ -49,6 +54,16 @@ public:
 	size_t GetDynamicSize() override;
 	virtual bool WriteData(std::ostream* buffer, size_t& offset, size_t length) override;
 	virtual bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+	/// <summary>
+	/// Early initialiazation pass [is executed once all forms have been loaded
+	/// </summary>
+	/// <param name="resolver"></param>
+	void InitializeEarly(LoadResolver* resolver) override;
+	/// <summary>
+	/// late initialization pass [is executed once all Initialize Early has been called for all forms]
+	/// </summary>
+	/// <param name="resolver"></param>
+	void InitializeLate(LoadResolver* resolver) override;
 	int32_t GetType() override
 	{
 		return FormType::Generator;

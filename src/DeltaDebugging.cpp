@@ -3024,6 +3024,10 @@ namespace DeltaDebugging
 	bool DeltaController::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 	{
 		int32_t version = Buffer::ReadInt32(buffer, offset);
+		if (_loadData)
+			delete _loadData;
+		_loadData = new LoadData();
+		_loadData->version = version;
 		switch (version) {
 		case 0x1:
 			{
@@ -3034,78 +3038,25 @@ namespace DeltaDebugging
 				_remainingtests = Buffer::ReadInt32(buffer, offset);
 				_totaltests = Buffer::ReadInt32(buffer, offset);
 				_finished = Buffer::ReadBool(buffer, offset);
-				FormID origInput = Buffer::ReadUInt64(buffer, offset);
-				FormID input = Buffer::ReadUInt64(buffer, offset);
+				_loadData->origInput = Buffer::ReadUInt64(buffer, offset);
+				_loadData->input = Buffer::ReadUInt64(buffer, offset);
 				_level = Buffer::ReadInt32(buffer, offset);
 				// results
 				size_t reslen = Buffer::ReadSize(buffer, offset);
-				std::vector<FormID> res;
-				std::vector<double> resloss;
-				std::vector<int32_t> reslevel;
 				for (size_t i = 0; i < reslen; i++) {
-					res.push_back(Buffer::ReadUInt64(buffer, offset));
-					resloss.push_back(Buffer::ReadDouble(buffer, offset));
-					reslevel.push_back(Buffer::ReadInt32(buffer, offset));
+					_loadData->res.push_back(Buffer::ReadUInt64(buffer, offset));
+					_loadData->resloss.push_back(Buffer::ReadDouble(buffer, offset));
+					_loadData->reslevel.push_back(Buffer::ReadInt32(buffer, offset));
 				}
 				// activeInputs
 				size_t actIlen = Buffer::ReadSize(buffer, offset);
-				std::vector<FormID> actI;
 				for (size_t i = 0; i < actIlen; i++)
-					actI.push_back(Buffer::ReadUInt64(buffer, offset));
+					_loadData->actI.push_back(Buffer::ReadUInt64(buffer, offset));
 				// resolver
-				resolver->AddTask([this, resolver, origInput, input, res, resloss, reslevel, actI]() {
-					resolver->current = "DeltaDebugging 1";
-					_sessiondata = resolver->ResolveFormID<SessionData>(Data::StaticFormIDs::SessionData);
-					_self = resolver->ResolveFormID<DeltaController>(this->GetFormID());
-					_input = resolver->ResolveFormID<Input>(input);
-					_bestScore = { _input->GetPrimaryScore(),
-						_input->GetSecondaryScore() };
-					if (_input->HasFlag(Form::FormFlags::DoNotFree) == false) {
-						_input->SetFlag(Form::FormFlags::DoNotFree);
-					}
-					_origInput = resolver->ResolveFormID<Input>(origInput);
-					if (_origInput->HasFlag(Form::FormFlags::DoNotFree) == false) {
-						_origInput->SetFlag(Form::FormFlags::DoNotFree);
-					}
-					// results
-					for (size_t i = 0; i < res.size(); i++) {
-						auto ptr = resolver->ResolveFormID<Input>(res[i]);
-						if (ptr) {
-							if (_params->GetGoal() == DDGoal::MaximizeSecondaryScore)
-								_results.insert_or_assign(ptr, std::tuple<double, double, int32_t>{ 0.0f, resloss[i], reslevel[i] });
-							else
-								_results.insert_or_assign(ptr, std::tuple<double, double, int32_t>{ resloss[i], 0.0f, reslevel[i] });
-							if (ptr->HasFlag(Form::FormFlags::DoNotFree) == false) {
-								ptr->SetFlag(Form::FormFlags::DoNotFree);
-							}
-						}
-					}
-					// activeInputs
-					for (size_t i = 0; i < actI.size(); i++) {
-						auto ptr = resolver->ResolveFormID<Input>(actI[i]);
-						if (ptr) {
-							{
-								Utility::SpinLock lock(_activeInputsFlag);
-								_activeInputs.insert(ptr);
-							}
-							if (ptr->HasFlag(Form::FormFlags::DoNotFree) == false) 
-								ptr->SetFlag(Form::FormFlags::DoNotFree);
-						}
-					}
-				});
 				// completedTests
 				size_t cmpllen = Buffer::ReadSize(buffer, offset);
-				std::vector<FormID> complInp;
 				for (size_t i = 0; i < cmpllen; i++)
-					complInp.push_back(Buffer::ReadUInt64(buffer, offset));
-				resolver->AddTask([this, resolver, complInp]() {
-					resolver->current = "DeltaDebugging 2";
-					for (size_t i = 0; i < complInp.size(); i++) {
-						auto ptr = resolver->ResolveFormID<Input>(complInp[i]);
-						if (ptr)
-							_completedTests.insert(ptr);
-					}
-				});
+					_loadData->complInp.push_back(Buffer::ReadUInt64(buffer, offset));
 				// params
 				DDGoal goal = (DDGoal)Buffer::ReadInt32(buffer, offset);
 				size_t sz = Buffer::ReadSize(buffer, offset);
@@ -3178,75 +3129,25 @@ namespace DeltaDebugging
 				_remainingtests = Buffer::ReadInt32(buffer, offset);
 				_totaltests = Buffer::ReadInt32(buffer, offset);
 				_finished = Buffer::ReadBool(buffer, offset);
-				FormID origInput = Buffer::ReadUInt64(buffer, offset);
-				FormID input = Buffer::ReadUInt64(buffer, offset);
+				_loadData->origInput = Buffer::ReadUInt64(buffer, offset);
+				_loadData->input = Buffer::ReadUInt64(buffer, offset);
 				_level = Buffer::ReadInt32(buffer, offset);
 				// results
 				size_t reslen = Buffer::ReadSize(buffer, offset);
-				std::vector<FormID> res;
-				std::vector<double> reslossprim;
-				std::vector<double> reslosssecon;
-				std::vector<int32_t> reslevel;
 				for (size_t i = 0; i < reslen; i++) {
-					res.push_back(Buffer::ReadUInt64(buffer, offset));
-					reslossprim.push_back(Buffer::ReadDouble(buffer, offset));
-					reslosssecon.push_back(Buffer::ReadDouble(buffer, offset));
-					reslevel.push_back(Buffer::ReadInt32(buffer, offset));
+					_loadData->res.push_back(Buffer::ReadUInt64(buffer, offset));
+					_loadData->reslossprim.push_back(Buffer::ReadDouble(buffer, offset));
+					_loadData->reslosssecon.push_back(Buffer::ReadDouble(buffer, offset));
+					_loadData->reslevel.push_back(Buffer::ReadInt32(buffer, offset));
 				}
 				// activeInputs
 				size_t actIlen = Buffer::ReadSize(buffer, offset);
-				std::vector<FormID> actI;
 				for (size_t i = 0; i < actIlen; i++)
-					actI.push_back(Buffer::ReadUInt64(buffer, offset));
-				// resolver
-				resolver->AddTask([this, resolver, origInput, input, res, reslossprim, reslosssecon, reslevel, actI]() {
-					resolver->current = "DeltaDebugging 1";
-					_sessiondata = resolver->ResolveFormID<SessionData>(Data::StaticFormIDs::SessionData);
-					_self = resolver->ResolveFormID<DeltaController>(this->GetFormID());
-					_input = resolver->ResolveFormID<Input>(input);
-					if (_input && _input->HasFlag(Form::FormFlags::DoNotFree) == false) {
-						_input->SetFlag(Form::FormFlags::DoNotFree);
-					}
-					_origInput = resolver->ResolveFormID<Input>(origInput);
-					if (_origInput && _origInput->HasFlag(Form::FormFlags::DoNotFree) == false) {
-						_origInput->SetFlag(Form::FormFlags::DoNotFree);
-					}
-					// results
-					for (size_t i = 0; i < res.size(); i++) {
-						auto ptr = resolver->ResolveFormID<Input>(res[i]);
-						if (ptr) {
-							_results.insert_or_assign(ptr, std::tuple<double, double, int32_t>{ reslossprim[i], reslosssecon[i], reslevel[i] });
-							if (ptr->HasFlag(Form::FormFlags::DoNotFree) == false) {
-								ptr->SetFlag(Form::FormFlags::DoNotFree);
-							}
-						}
-					}
-					// activeInputs
-					for (size_t i = 0; i < actI.size(); i++) {
-						auto ptr = resolver->ResolveFormID<Input>(actI[i]);
-						if (ptr) {
-							{
-								Utility::SpinLock lock(_activeInputsFlag);
-								_activeInputs.insert(ptr);
-							}
-							if (ptr->HasFlag(Form::FormFlags::DoNotFree) == false)
-								ptr->SetFlag(Form::FormFlags::DoNotFree);
-						}
-					}
-				});
+					_loadData->actI.push_back(Buffer::ReadUInt64(buffer, offset));
 				// completedTests
 				size_t cmpllen = Buffer::ReadSize(buffer, offset);
-				std::vector<FormID> complInp;
 				for (size_t i = 0; i < cmpllen; i++)
-					complInp.push_back(Buffer::ReadUInt64(buffer, offset));
-				resolver->AddTask([this, resolver, complInp]() {
-					resolver->current = "DeltaDebugging 2";
-					for (size_t i = 0; i < complInp.size(); i++) {
-						auto ptr = resolver->ResolveFormID<Input>(complInp[i]);
-						if (ptr)
-							_completedTests.insert(ptr);
-					}
-				});
+					_loadData->complInp.push_back(Buffer::ReadUInt64(buffer, offset));
 				// params
 				DDGoal goal = (DDGoal)Buffer::ReadInt32(buffer, offset);
 				size_t sz = Buffer::ReadSize(buffer, offset);
@@ -3300,6 +3201,7 @@ namespace DeltaDebugging
 				//memcpy((void*)_params, dat, sz);
 				//delete dat;
 				// _callback
+				_callback.clear();
 				size_t hascall = Buffer::ReadSize(buffer, offset);
 				for (size_t i = 0; i < hascall; i++)
 				{
@@ -3317,43 +3219,8 @@ namespace DeltaDebugging
 				_stopbatch = Buffer::ReadBool(buffer, offset);
 				// waitingTests
 				size_t waitlen = Buffer::ReadSize(buffer, offset);
-				std::vector<FormID> waitInp;
 				for (size_t i = 0; i < waitlen; i++)
-					waitInp.push_back(Buffer::ReadUInt64(buffer, offset));
-				resolver->AddTask([this, resolver, waitInp]() {
-					resolver->current = "DeltaDebugging 3";
-					for (size_t i = 0; i < waitInp.size(); i++) {
-						auto ptr = resolver->ResolveFormID<Input>(waitInp[i]);
-						if (ptr)
-							_completedTests.insert(ptr);
-					}
-				});
-				// create _inputRanges, _input, and _origInput
-				if (_finished == false) {
-					resolver->AddLateTask([this, resolver]() {
-						resolver->current = "DeltaDebugging Late 1";
-						if (_input && _params->mode == DeltaDebugging::DDMode::ScoreProgress) {
-							_inputRanges = _input->FindIndividualPrimaryScoreRangesWithoutChanges();
-						}
-						resolver->AddRegeneration(_origInput->GetFormID());
-						/*if (_origInput->GetGenerated() == false) {
-						// we are trying to add an _input that hasn't been generated or regenerated
-						// try the generate it and if it succeeds add the test
-						SessionFunctions::GenerateInput(_origInput, _sessiondata);
-						if (_origInput->GetGenerated() == false)
-							logcritical("DeltaDebugging original input could not be reconstructed");
-					}*/
-						resolver->AddRegeneration(_input->GetFormID());
-						/*if (_input->GetGenerated() == false || _input->GetSequenceLength() == 0) {
-						// we are trying to add an _input that hasn't been generated or regenerated
-						// try the generate it and if it succeeds add the test
-						_input->SetGenerated(false);
-						SessionFunctions::GenerateInput(_input, _sessiondata);
-						if (_input->GetGenerated() == false)
-							logcritical("DeltaDebugging input could not be reconstructed");
-					}*/
-					});
-				}
+					_loadData->waitInp.push_back(Buffer::ReadUInt64(buffer, offset));
 
 				if (version >= 0x3)
 				{
@@ -3366,22 +3233,11 @@ namespace DeltaDebugging
 					tasks->sendEndEvent = Buffer::ReadBool(buffer, offset);
 					tasks->processedEndEvent = Buffer::ReadBool(buffer, offset);
 					size_t splitsize = Buffer::ReadSize(buffer, offset);
-					std::vector<FormID> splitids;
 					for (size_t i = 0; i < splitsize; i++)
-						splitids.push_back(Buffer::ReadUInt64(buffer, offset));
+						_loadData->splitids.push_back(Buffer::ReadUInt64(buffer, offset));
 					size_t complementsize = Buffer::ReadSize(buffer, offset);
-					std::vector<FormID> complementids;
 					for (size_t i = 0; i < complementsize; i++)
-						complementids.push_back(Buffer::ReadUInt64(buffer, offset));
-					resolver->AddTask([this, splitids, complementids, resolver]() {
-						resolver->current = "DeltaDebugging 4";
-						for (size_t i = 0; i < splitids.size(); i++)
-						{
-							genCompData.splits.push_back(resolver->ResolveFormID<Input>(splitids[i]));
-						}
-						for (size_t i = 0; i < complementids.size(); i++)
-							genCompData.complements.push_back(resolver->ResolveFormID<Input>(complementids[i]));
-					});
+						_loadData->complementids.push_back(Buffer::ReadUInt64(buffer, offset));
 					size_t dinfosize = Buffer::ReadSize(buffer, offset);
 					for (size_t i = 0; i < dinfosize; i++)
 					{
@@ -3409,6 +3265,157 @@ namespace DeltaDebugging
 			break;
 		default:
 			return false;
+		}
+	}
+
+	void DeltaController::InitializeEarly(LoadResolver* resolver)
+	{
+		if (_loadData) {
+			switch (_loadData->version) {
+			case 0x1:
+				resolver->current = "DeltaDebugging";
+				_sessiondata = resolver->ResolveFormID<SessionData>(Data::StaticFormIDs::SessionData);
+				_self = resolver->ResolveFormID<DeltaController>(this->GetFormID());
+				_input = resolver->ResolveFormID<Input>(_loadData->input);
+				_bestScore = { _input->GetPrimaryScore(),
+					_input->GetSecondaryScore() };
+				if (_input->HasFlag(Form::FormFlags::DoNotFree) == false) {
+					_input->SetFlag(Form::FormFlags::DoNotFree);
+				}
+				_origInput = resolver->ResolveFormID<Input>(_loadData->origInput);
+				if (_origInput->HasFlag(Form::FormFlags::DoNotFree) == false) {
+					_origInput->SetFlag(Form::FormFlags::DoNotFree);
+				}
+				// results
+				for (size_t i = 0; i < _loadData->res.size(); i++) {
+					auto ptr = resolver->ResolveFormID<Input>(_loadData->res[i]);
+					if (ptr) {
+						if (_params->GetGoal() == DDGoal::MaximizeSecondaryScore)
+							_results.insert_or_assign(ptr, std::tuple<double, double, int32_t>{ 0.0f, _loadData->resloss[i], _loadData->reslevel[i] });
+						else
+							_results.insert_or_assign(ptr, std::tuple<double, double, int32_t>{ _loadData->resloss[i], 0.0f, _loadData->reslevel[i] });
+						if (ptr->HasFlag(Form::FormFlags::DoNotFree) == false) {
+							ptr->SetFlag(Form::FormFlags::DoNotFree);
+						}
+					}
+				}
+				// activeInputs
+				for (size_t i = 0; i < _loadData->actI.size(); i++) {
+					auto ptr = resolver->ResolveFormID<Input>(_loadData->actI[i]);
+					if (ptr) {
+						{
+							Utility::SpinLock lock(_activeInputsFlag);
+							_activeInputs.insert(ptr);
+						}
+						if (ptr->HasFlag(Form::FormFlags::DoNotFree) == false)
+							ptr->SetFlag(Form::FormFlags::DoNotFree);
+					}
+				}
+				// completedTests
+				for (size_t i = 0; i < _loadData->complInp.size(); i++) {
+					auto ptr = resolver->ResolveFormID<Input>(_loadData->complInp[i]);
+					if (ptr)
+						_completedTests.insert(ptr);
+				}
+				break;
+			case 0x2:
+			case 0x3:
+			case 0x4:
+				resolver->current = "DeltaDebugging 1";
+				_sessiondata = resolver->ResolveFormID<SessionData>(Data::StaticFormIDs::SessionData);
+				_self = resolver->ResolveFormID<DeltaController>(this->GetFormID());
+				_input = resolver->ResolveFormID<Input>(_loadData->input);
+				if (_input && _input->HasFlag(Form::FormFlags::DoNotFree) == false) {
+					_input->SetFlag(Form::FormFlags::DoNotFree);
+				}
+				_origInput = resolver->ResolveFormID<Input>(_loadData->origInput);
+				if (_origInput && _origInput->HasFlag(Form::FormFlags::DoNotFree) == false) {
+					_origInput->SetFlag(Form::FormFlags::DoNotFree);
+				}
+				// results
+				for (size_t i = 0; i < _loadData->res.size(); i++) {
+					auto ptr = resolver->ResolveFormID<Input>(_loadData->res[i]);
+					if (ptr) {
+						_results.insert_or_assign(ptr, std::tuple<double, double, int32_t>{ _loadData->reslossprim[i], _loadData->reslosssecon[i], _loadData->reslevel[i] });
+						if (ptr->HasFlag(Form::FormFlags::DoNotFree) == false) {
+							ptr->SetFlag(Form::FormFlags::DoNotFree);
+						}
+					}
+				}
+				// activeInputs
+				for (size_t i = 0; i < _loadData->actI.size(); i++) {
+					auto ptr = resolver->ResolveFormID<Input>(_loadData->actI[i]);
+					if (ptr) {
+						{
+							Utility::SpinLock lock(_activeInputsFlag);
+							_activeInputs.insert(ptr);
+						}
+						if (ptr->HasFlag(Form::FormFlags::DoNotFree) == false)
+							ptr->SetFlag(Form::FormFlags::DoNotFree);
+					}
+				}
+				// completedTests
+				for (size_t i = 0; i < _loadData->complInp.size(); i++) {
+					auto ptr = resolver->ResolveFormID<Input>(_loadData->complInp[i]);
+					if (ptr)
+						_completedTests.insert(ptr);
+				}
+				// waitingTests
+				for (size_t i = 0; i < _loadData->waitInp.size(); i++) {
+					auto ptr = resolver->ResolveFormID<Input>(_loadData->waitInp[i]);
+					if (ptr)
+						_completedTests.insert(ptr);
+				}
+				// VERSION 0x3
+				for (size_t i = 0; i < _loadData->splitids.size(); i++) {
+					genCompData.splits.push_back(resolver->ResolveFormID<Input>(_loadData->splitids[i]));
+				}
+				for (size_t i = 0; i < _loadData->complementids.size(); i++)
+					genCompData.complements.push_back(resolver->ResolveFormID<Input>(_loadData->complementids[i]));
+				break;
+			}
+		}
+	}
+
+	void DeltaController::InitializeLate(LoadResolver* resolver)
+	{
+		if (_loadData) {
+			switch (_loadData->version) {
+			case 0x1:
+				break;
+			case 0x2:
+			case 0x3:
+			case 0x4:
+				// create _inputRanges, _input, and _origInput
+				if (_finished == false) {
+					resolver->current = "DeltaDebugging Late 1";
+					if (_input && _params->mode == DeltaDebugging::DDMode::ScoreProgress) {
+						_inputRanges = _input->FindIndividualPrimaryScoreRangesWithoutChanges();
+					}
+					resolver->AddRegeneration(_origInput->GetFormID());
+					/*if (_origInput->GetGenerated() == false) {
+						// we are trying to add an _input that hasn't been generated or regenerated
+						// try the generate it and if it succeeds add the test
+						SessionFunctions::GenerateInput(_origInput, _sessiondata);
+						if (_origInput->GetGenerated() == false)
+							logcritical("DeltaDebugging original input could not be reconstructed");
+					}*/
+					resolver->AddRegeneration(_input->GetFormID());
+					/*if (_input->GetGenerated() == false || _input->GetSequenceLength() == 0) {
+						// we are trying to add an _input that hasn't been generated or regenerated
+						// try the generate it and if it succeeds add the test
+						_input->SetGenerated(false);
+						SessionFunctions::GenerateInput(_input, _sessiondata);
+						if (_input->GetGenerated() == false)
+							logcritical("DeltaDebugging input could not be reconstructed");
+					}*/
+				}
+				break;
+			}
+
+
+			delete _loadData;
+			_loadData = nullptr;
 		}
 	}
 

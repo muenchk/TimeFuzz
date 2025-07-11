@@ -171,6 +171,28 @@ namespace DeltaDebugging
 
 	class DeltaController : public Form
 	{
+		struct LoadData
+		{
+			int32_t version = 0;
+			FormID origInput;
+			FormID input;
+
+			std::vector<FormID> res;
+			std::vector<double> resloss;
+			std::vector<double> reslossprim;
+			std::vector<double> reslosssecon;
+			std::vector<int32_t> reslevel;
+			std::vector<FormID> actI;
+
+			std::vector<FormID> complInp;
+			std::vector<FormID> waitInp;
+
+			std::vector<FormID> splitids;
+			std::vector<FormID> complementids;
+		};
+
+		LoadData* _loadData = nullptr;
+
 	public:
 		DeltaController() {}
 		~DeltaController();
@@ -269,6 +291,16 @@ namespace DeltaDebugging
 		/// <param name="buffer"></param>
 		/// <param name="length"></param>
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+		/// <summary>
+		/// Early initialiazation pass [is executed once all forms have been loaded
+		/// </summary>
+		/// <param name="resolver"></param>
+		void InitializeEarly(LoadResolver* resolver) override;
+		/// <summary>
+		/// late initialization pass [is executed once all Initialize Early has been called for all forms]
+		/// </summary>
+		/// <param name="resolver"></param>
+		void InitializeLate(LoadResolver* resolver) override;
 		/// <summary>
 		/// Deletes all relevant for fields
 		/// </summary>
