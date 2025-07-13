@@ -27,10 +27,6 @@ struct ExclusionTreeNode : public Form
 	/// </summary>
 	FormID _stringID;
 	/// <summary>
-	/// tree-id of the node
-	/// </summary>
-	uint64_t _id;
-	/// <summary>
 	/// (rough) number of visits to node, exclusion wise, may be used to prune the tree if necessary [race condition]
 	/// </summary>
 	//uint64_t _visitcount;
@@ -149,7 +145,7 @@ public:
 
 	~ExclusionTree();
 
-	const int32_t classversion = 0x3;
+	const int32_t classversion = 0x4;
 
 	#pragma region InheritedForm
 
@@ -198,8 +194,6 @@ private:
 	std::shared_ptr<ExclusionTreeNode> root;
 
 	std::shared_mutex _lock;
-
-	uint64_t nextid = 1;
 
 	int64_t depth = 0;
 

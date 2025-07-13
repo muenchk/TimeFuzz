@@ -18,13 +18,12 @@ namespace Hashing
 	{
 		std::size_t hs = 0;
 		hs = std::hash<FormID>{}(node._stringID);
-		hs = hs ^ (std::hash<FormID>{}(node._id) << 1);
 		hs = hs ^ (std::hash<bool>{}(node._isLeaf) << 1);
 		hs = hs ^ (std::hash<OracleResult>{}(node._result) << 1);
 		hs = hs ^ (std::hash<FormID>{}(node._InputID) << 1);
 		auto itr = node._children.begin();
 		while (itr != node._children.end()) {
-			hs = hs ^ (std::hash<FormID>{}((*itr)->_id) << 1);
+			hs = hs ^ (std::hash<FormID>{}((*itr)->_formid) << 1);
 			itr++;
 		}
 		return hs;
@@ -43,15 +42,22 @@ std::shared_ptr<ExclusionTreeNode> ExclusionTreeNode::HasChild(FormID stringID)
 size_t ExclusionTreeNode::GetStaticSize(int32_t version)
 {
 	static size_t size0x1 = 4     // version
-	                 + 8   // _stringID
-	                 + 8   // _id
-	                 + 1   // _isLeaf
-	                 + 8   // _result
-	                 + 8;  // _InputID
+	                        + 8   // _stringID
+	                        + 8   // _id
+	                        + 1   // _isLeaf
+	                        + 8   // _result
+	                        + 8;  // _InputID
+	static size_t size0x2 = 4     // version
+	                        + 8   // _stringID
+	                        + 1   // _isLeaf
+	                        + 8   // _result
+	                        + 8;  // _InputID
 
 	switch (version) {
 	case 0x1:
 		return size0x1;
+	case 0x2:
+		return size0x2;
 	default:
 		return 0;
 	}
@@ -63,11 +69,13 @@ size_t ExclusionTreeNode::GetDynamicSize()
 	sz += 8 + _children.size() * 8;
 	return sz;
 }
+
 #define CHECK(x)                                                                          \
 	if (x == false) {                                                                     \
 		logcritical("Buffer overflow error, len: {}, off: {}", abuf.Size(), abuf.Free()); \
 		throw std::runtime_error("");                                                     \
 	}
+
 bool ExclusionTreeNode::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 {
 	Buffer::Write(classversion, buffer, offset);
@@ -76,7 +84,6 @@ bool ExclusionTreeNode::WriteData(std::ostream* buffer, size_t& offset, size_t l
 	Buffer::ArrayBuffer abuf(length - offset);
 	try {
 		CHECK(abuf.Write<FormID>(_stringID));
-		CHECK(abuf.Write<FormID>(_id));
 		CHECK(abuf.Write<size_t>(_children.size()));
 		for (int64_t i = 0; i < (int64_t)_children.size(); i++) {
 			if (_children[i]) {
@@ -114,7 +121,25 @@ bool ExclusionTreeNode::ReadData(std::istream* buffer, size_t& offset, size_t le
 			try {
 				Buffer::ArrayBuffer data(buffer, length - offset);
 				_stringID = data.Read<FormID>();
-				_id = data.Read<FormID>();
+				data.Read<FormID>();
+				size_t size = data.Read<size_t>();
+				for (int64_t i = 0; i < (int64_t)size; i++)
+					_loadData->_nodes.push_back(data.Read<FormID>());
+				_isLeaf = data.Read<bool>();
+				_result = data.Read<OracleResult>();
+				_InputID = data.Read<FormID>();
+			} catch (std::exception& e) {
+				logcritical("Exception in read method: {}", e.what());
+				return false;
+			}
+		}
+		return true;
+	case 0x2:
+		{
+			Form::ReadData(buffer, offset, length, resolver);
+			try {
+				Buffer::ArrayBuffer data(buffer, length - offset);
+				_stringID = data.Read<FormID>();
 				size_t size = data.Read<size_t>();
 				for (int64_t i = 0; i < (int64_t)size; i++)
 					_loadData->_nodes.push_back(data.Read<FormID>());
@@ -157,7 +182,6 @@ void ExclusionTreeNode::Delete(Data*)
 void ExclusionTreeNode::Clear()
 {
 	_stringID = 0;
-	_id = 0;
 	_children.clear();
 	_children.shrink_to_fit();
 	_result = OracleResult::None;
@@ -191,7 +215,6 @@ void ExclusionTree::Init(std::shared_ptr<SessionData> sessiondata)
 	if (!root) {
 		root = sessiondata->data->CreateForm<ExclusionTreeNode>();
 		root->_result = OracleResult::Undefined;
-		root->_id = 0;
 	}
 }
 
@@ -227,7 +250,6 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input, OracleResult result)
 			std::shared_ptr<ExclusionTreeNode> newnode = _sessiondata->data->CreateForm<ExclusionTreeNode>();
 			newnode->SetChanged();
 			newnode->_result = OracleResult::Undefined;
-			newnode->_id = nextid++;
 			newnode->_stringID = stringID;
 			node->_children.push_back(newnode);
 			node->SetChanged();
@@ -537,6 +559,11 @@ size_t ExclusionTree::GetStaticSize(int32_t version)
 	                        + 8   // depth
 	                        + 8   // leafcount
 	                        + 8;  // nodecount
+	static size_t size0x4 = 4     // version
+	                        + 8   // rootid
+	                        + 8   // depth
+	                        + 8   // leafcount
+	                        + 8;  // nodecount
 	switch (version) {
 	case 0x1:
 		return size0x1;
@@ -544,6 +571,8 @@ size_t ExclusionTree::GetStaticSize(int32_t version)
 		return size0x2;
 	case 0x3:
 		return size0x3;
+	case 0x4:
+		return size0x4;
 	default:
 		return 0;
 	}
@@ -567,7 +596,6 @@ bool ExclusionTree::WriteData(std::ostream* buffer, size_t& offset, size_t lengt
 {
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset, length);
-	Buffer::Write(nextid, buffer, offset);
 	if (root)
 		Buffer::Write(root->GetFormID(), buffer, offset);
 	else
@@ -747,7 +775,18 @@ bool ExclusionTree::ReadData(std::istream* buffer, size_t& offset, size_t length
 		{
 			Form::ReadData(buffer, offset, length, resolver);
 			// load data
-			nextid = Buffer::ReadUInt64(buffer, offset);
+			Buffer::ReadUInt64(buffer, offset);
+			_loadData->rootid = Buffer::ReadUInt64(buffer, offset);
+			depth = Buffer::ReadInt64(buffer, offset);
+			leafcount = Buffer::ReadUInt64(buffer, offset);
+			nodecount = Buffer::ReadUInt64(buffer, offset);
+			return true;
+		}
+		break;
+	case 0x4:
+		{
+			Form::ReadData(buffer, offset, length, resolver);
+			// load data
 			_loadData->rootid = Buffer::ReadUInt64(buffer, offset);
 			depth = Buffer::ReadInt64(buffer, offset);
 			leafcount = Buffer::ReadUInt64(buffer, offset);
