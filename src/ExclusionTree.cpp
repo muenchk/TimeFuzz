@@ -181,6 +181,8 @@ ExclusionTree::ExclusionTree()
 ExclusionTree::~ExclusionTree()
 {
 	Clear();
+	if (_loadData)
+		delete _loadData;
 }
 
 void ExclusionTree::Init(std::shared_ptr<SessionData> sessiondata)

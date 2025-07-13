@@ -15,6 +15,8 @@ class Generator : public Form
 	};
 	LoadData* _loadData = nullptr;
 public:
+	~Generator();
+
 	//bool Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar> grammar, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> parent = {});
 
 	/// <summary>

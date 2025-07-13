@@ -82,6 +82,8 @@ void SessionData::Init()
 SessionData::~SessionData()
 {
 	Clear();
+	if (_loadData)
+		delete _loadData;
 }
 
 void SessionData::SetMaxGenerationCallbacks(int32_t max)

@@ -21,6 +21,8 @@ ExecutionHandler::ExecutionHandler()
 ExecutionHandler::~ExecutionHandler()
 {
 	Clear();
+	if (_loadData)
+		delete _loadData;
 }
 
 void ExecutionHandler::Init(std::shared_ptr<Session> session, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Settings> settings, std::shared_ptr<TaskController> threadpool, int32_t maxConcurrentTests, std::shared_ptr<Oracle> oracle)

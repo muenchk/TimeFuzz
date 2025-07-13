@@ -92,6 +92,8 @@ public:
 
 	Test(std::shared_ptr<Functions::BaseFunction> a_callback, uint64_t id);
 	Test() {}
+	~Test();
+
 	void Init(std::shared_ptr<Functions::BaseFunction> a_callback, uint64_t id);
 
 	void PrepareForExecution() { Init(); }

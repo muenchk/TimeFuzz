@@ -55,6 +55,13 @@ Test::Test(std::shared_ptr<Functions::BaseFunction> a_callback, uint64_t id) :
 	Init();
 }
 
+Test::~Test()
+{
+	Clear();
+	if (_loadData)
+		delete _loadData;
+}
+
 void Test::Init(std::shared_ptr<Functions::BaseFunction> a_callback, uint64_t id)
 {
 	_callback = a_callback;

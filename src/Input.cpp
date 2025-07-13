@@ -312,6 +312,8 @@ Input::Input()
 Input::~Input()
 {
 	Clear();
+	if (_loadData)
+		delete _loadData;
 }
 
 void Input::Clear()

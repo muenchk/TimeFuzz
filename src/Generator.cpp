@@ -11,6 +11,13 @@
 
 static std::mt19937 randan((unsigned int)(std::chrono::system_clock::now().time_since_epoch().count()));
 
+Generator::~Generator()
+{
+	Clear();
+	if (_loadData)
+		delete _loadData;
+}
+
 void Generator::Clean()
 {
 

@@ -10,6 +10,13 @@ Generation::Generation()
 	_sourcesDistr = std::uniform_int_distribution<signed>(0, 0);
 }
 
+Generation::~Generation()
+{
+	Clear();
+	if (_loadData)
+		delete _loadData;
+}
+
 int64_t Generation::GetSize()
 {
 	return _size;

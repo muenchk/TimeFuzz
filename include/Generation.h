@@ -14,6 +14,7 @@ class Generation : public Form
 {
 public:
 	Generation();
+	~Generation();
 
 	/// <summary>
 	/// Returns the total size of this generation
