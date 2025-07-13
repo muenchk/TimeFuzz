@@ -291,6 +291,15 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 						}
 						stats._ExclTree++;
 						break;
+					case FormType::ExclTreeNode:
+						//logdebug("Write Record:      ExclusionTreeNode");
+						Records::CreateRecord<ExclusionTreeNode>(dynamic_pointer_cast<ExclusionTreeNode>(form), &save, _actionrecord_offset, _actionrecord_len);
+						if (_actionrecord_offset > _actionrecord_len) {
+							logcritical("Buffer overflow in record: ExclusionTreeNode");
+							auto sz = dynamic_pointer_cast<ExclusionTreeNode>(form)->GetDynamicSize();
+						}
+						stats._ExclTreeNode++;
+						break;
 					case FormType::Generator:
 						//logdebug("Write Record:      Generator");
 						Records::CreateRecord<Generator>(dynamic_pointer_cast<Generator>(form), &save, _actionrecord_offset, _actionrecord_len);
@@ -554,7 +563,8 @@ void Data::Load(std::string name, int32_t number, LoadSaveArgs& loadArgs)
 
 void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool ignorepriorsaves)
 {
-	_status = "Load save file....";
+	if (!ignorepriorsaves)
+		_status = "Load save file....";
 	_actionloadsave = true;
 	_actionloadsave_max = 0;
 	_actionrecord_len = 0;
@@ -671,6 +681,13 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 
 			if (ignorepriorsaves == false && priorsaves > 0)
 			{
+				// tmp variables that retain important information from save load if earlier saves need to be loaded
+				FormID t_nextformid = _nextformid;
+				bool t_globaltasks = _globalTasks;
+				bool t_globalExec = _globalExec;
+				std::chrono::nanoseconds t_runtime = _runtime;
+				// -
+
 				_priorsaves = priorsv;
 				// load all prior saves in order
 				for (int64_t x = 0; x < (int64_t)priorsv.size(); x++)
@@ -685,6 +702,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 				if (!abort) {
 					try {
 						for (int64_t x = 0; x < (int64_t)priorsv.size(); x++) {
+							_status = "Load save file.... " + std::to_string(x) + "/" + std::to_string(priorsaves);
 							LoadIntern(_saves.at(priorsv[x]), loadArgs, true);
 						}
 					}
@@ -694,6 +712,11 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 					}
 
 				}
+
+				_nextformid = t_nextformid;
+				_globalTasks = t_globaltasks;
+				_globalExec = t_globalExec;
+				_runtime = t_runtime;
 			}
 
 			_actionloadsave_current = pos;
@@ -903,6 +926,26 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 											loginfo("Skipped Reading Record:	ExclusionTree");
 									}
 									break;
+								case FormType::ExclTreeNode:
+									{
+										//logdebug("Read Record:      ExclusionTreeNode");
+										auto record = Records::ReadRecord<ExclusionTreeNode>(&save, offset, _actionrecord_offset, rlen, _lresolve);
+										if (record && record->HasFlag(Form::FormFlags::Deleted) == false) {
+											if (!loadArgs.skipExlusionTree) {
+												bool res = RegisterForm(record);
+												if (res) {
+													stats._ExclTreeNode++;
+												} else {
+													stats._Fail++;
+													logcritical("Failed Record:    ExclusionTreeNode");
+												}
+											}
+										} else {
+											stats._Fail++;
+											logcritical("Deleted Record:    ExclusionTreeNode");
+										}
+									}
+									break;
 								case FormType::Generator:
 									{
 										//logdebug("Read Record:      Generator");
@@ -1100,6 +1143,16 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 				_lresolve->_oracle = CreateForm<Oracle>();
 			}
 
+			// delete all forms marked deleted
+			auto visitor = [](std::shared_ptr<Form> form) {
+				if (form->HasFlag(Form::FormFlags::Deleted))
+					return Data::VisitAction::DeleteForm;
+				else
+					return Data::VisitAction::None;
+			};
+
+			Visit(visitor);
+
 			_status = "Initializing Records Early...";
 			_actionloadsave_max = _hashmap.size();
 			_actionloadsave_current = 0;
@@ -1112,7 +1165,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 			_status = "Resolving Records...";
 
 			loginfo("Resolving records.");
-			_actionloadsave_max = _lresolve->TaskCount();
+			_actionloadsave_max = _lresolve->TaskCountEarly();
 			_actionloadsave_current = 0;
 			_lresolve->Resolve(_actionloadsave_current);
 
@@ -1134,6 +1187,9 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 				_actionloadsave_current++;
 			}
 
+			_status = "Resolving Records Late...";
+			_actionloadsave_max = _lresolve->TaskCountLate();
+			_actionloadsave_current = 0;
 			_lresolve->ResolveLate(_actionloadsave_current);
 
 			sessdata->_oracle = CreateForm<Oracle>();
@@ -1162,16 +1218,10 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 		else
 			threads += taskthreads;*/
 
+			_status = "Regenerating Inpputs...";
+			_actionloadsave_max = 0;
+			_actionloadsave_current = 0;
 			_lresolve->Regenerate(_actionloadsave_current, _actionloadsave_max, sessdata, sessdata->_settings->general.numthreads);
-
-			auto visitor = [](std::shared_ptr<Form> form) {
-				if (form->HasFlag(Form::FormFlags::Deleted))
-					return Data::VisitAction::DeleteForm;
-				else
-					return Data::VisitAction::None;
-			};
-
-			Visit(visitor);
 
 			// unregister ourselves from the lua wrapper if we registered ourselves above
 			if (registeredLua)

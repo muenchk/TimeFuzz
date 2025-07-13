@@ -230,6 +230,10 @@ public:
 			/// If this flag is not present, FreeMemory may delete the values
 			/// </summary>
 			KeepIndividualScores = 1 << 8,
+			/// <summary>
+			/// Internal flag that signals that the input shouold be regenrated on load
+			/// </summary>
+			RegenerateOnLoad = 1 << 9,
 		};
 	};
 

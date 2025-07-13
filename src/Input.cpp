@@ -69,16 +69,19 @@ size_t Input::GetStaticSize(int32_t version)
 
 size_t Input::GetDynamicSize()
 {
-	size_t size = Form::GetDynamicSize()                                            // form stuff
-	              + GetStaticSize(classversion)                                     // static stuff
-	              + 8 + _parent.segments.size() * 16                                // sizeof(), parent.segments content 16 Bytes
-	              + Buffer::DequeBasic::GetDequeSize(_primaryScoreIndividual)      // primaryScoreIndividual
-	              + Buffer::DequeBasic::GetDequeSize(_secondaryScoreIndividual);  // secondaryScoreIndividual
-	size += Buffer::CalcStringLength(_stringrep);
+	if (_generatedSequence || _sequence.size() > 0 /*|| HasFlag(Form::FormFlags::DoNotFree)*/)
+		SetFlag(Flags::RegenerateOnLoad);
+	size_t size = Form::GetDynamicSize()                                               // form stuff
+	              + GetStaticSize(classversion)                                        // static stuff
+	              + 8 + _parent.segments.size() * 16                                   // sizeof(), parent.segments content 16 Bytes
+	              + Buffer::ArrayBuffer::GetContainerSize(_primaryScoreIndividual)     // primaryScoreIndividual
+	              + Buffer::ArrayBuffer::GetContainerSize(_secondaryScoreIndividual);  // secondaryScoreIndividual
+	size += Buffer::_sizeof(_stringrep);
 	//if (HasFlag(Form::FormFlags::DoNotFree)) {  // if do not free flag is present this input is needed for something and won't be checked for regeneration
 	//	size += Buffer::List::GetListLength(_sequence);
 	//	size += Buffer::List::GetListLength(_orig_sequence);
 	//}
+	UnsetFlag(Flags::RegenerateOnLoad);
 	return size;
 }
 
@@ -86,6 +89,10 @@ size_t Input::GetDynamicSize()
 
 bool Input::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 {
+	// check whether input is generated and set regeneration flag
+	if (_generatedSequence || _sequence.size() > 0 /*|| HasFlag(Form::FormFlags::DoNotFree)*/)
+		SetFlag(Flags::RegenerateOnLoad);
+
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset, length);
 
@@ -235,9 +242,7 @@ bool Input::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRe
 				_primaryScoreIndividual = data.ReadDeque<double>();
 				_secondaryScoreIndividual = data.ReadDeque<double>();
 				_derivedFails = data.Read<uint64_t>();
-				if (HasFlag(Form::FormFlags::DoNotFree) && CmdArgs::_clearTasks == false) {
-					resolver->AddRegeneration(_formid);
-				}
+				Form::ClearChanged();
 				if (version == 0x3) {
 					_olderinputs = data.Read<int64_t>();
 				}
@@ -270,9 +275,15 @@ void Input::InitializeEarly(LoadResolver* resolver)
 	}
 }
 
-void Input::InitializeLate(LoadResolver* /*resolver*/)
+void Input::InitializeLate(LoadResolver* resolver)
 {
 	if (_loadData) {
+		//if (HasFlag(Form::FormFlags::DoNotFree) && CmdArgs::_clearTasks == false) {
+		if (HasFlag(Input::Flags::RegenerateOnLoad && CmdArgs::_clearTasks == false)){
+			resolver->AddRegeneration(_formid);
+		}
+		UnsetFlag(Input::Flags::RegenerateOnLoad);
+
 		delete _loadData;
 		_loadData = nullptr;
 	}

@@ -90,23 +90,20 @@ void ExecutionHandler::Clear()
 	_cleared = true;
 	while (!_waitingTests.empty())
 	{
-		std::weak_ptr<Test> test = _waitingTests.front();
+		std::shared_ptr<Test> test = _waitingTests.front();
 		_waitingTests.pop_front();
-		if (auto ptr = test.lock(); ptr && _session->data)
-			_session->data->DeleteForm(ptr);
+		if (test && _session->data)
+			_session->data->DeleteForm(test);
 	}
 	while (!_waitingTestsExec.empty()) {
-		std::weak_ptr<Test> test = _waitingTestsExec.front();
+		std::shared_ptr<Test> test = _waitingTestsExec.front();
 		_waitingTestsExec.pop_front();
-		if (auto ptr = test.lock(); ptr && _session->data)
-			_session->data->DeleteForm(ptr);
+		if (test && _session->data)
+			_session->data->DeleteForm(test);
 	}
-	for (auto test : _runningTests)
-	{
-		if (auto ptr = test.lock(); ptr) {
-			ptr->KillProcess();
-			StopTest(ptr);
-		}
+	for (auto test : _runningTests) {
+			test->KillProcess();
+			StopTest(test);
 	}
 	_runningTests.clear();
 	_handleTests.clear();
@@ -200,58 +197,52 @@ void ExecutionHandler::StartHandler()
 		_currentTests = 0;
 		// delete all waiting tests
 		while (_waitingTests.empty() == false) {
-			auto weak = _waitingTests.front();
+			auto test = _waitingTests.front();
 			_waitingTests.pop_front();
-			if (auto test = weak.lock(); test) {
-				if (auto ptr = test->_input.lock(); ptr) {
-					ptr->_hasfinished = true;
-					ptr->test = test;
-				} else {
-					logwarn("ptr invalid");
-				}
-				test->_exitreason = Test::ExitReason::InitError;
-				SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::InitError);
-				test->_input.reset();
-				// call _callback if test has finished
-				_threadpool->AddTask(test->_callback);
+			if (auto ptr = test->_input.lock(); ptr) {
+				ptr->_hasfinished = true;
+				ptr->test = test;
+			} else {
+				logwarn("ptr invalid");
 			}
+			test->_exitreason = Test::ExitReason::InitError;
+			SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::InitError);
+			test->_input.reset();
+			// call _callback if test has finished
+			_threadpool->AddTask(test->_callback);
 		}
 		// delete all waiting initialized tests
 		while (_waitingTestsExec.empty() == false) {
-			auto weak = _waitingTestsExec.front();
+			auto test = _waitingTestsExec.front();
 			_waitingTestsExec.pop_front();
-			if (auto test = weak.lock(); test) {
-				if (auto ptr = test->_input.lock(); ptr) {
-					ptr->_hasfinished = true;
-					ptr->test = test;
-				} else {
-					logwarn("ptr invalid");
-				}
-				test->_exitreason = Test::ExitReason::InitError;
-				SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::InitError);
-				test->InValidate();
-				test->_input.reset();
-				// call _callback if test has finished
-				_threadpool->AddTask(test->_callback);
+			if (auto ptr = test->_input.lock(); ptr) {
+				ptr->_hasfinished = true;
+				ptr->test = test;
+			} else {
+				logwarn("ptr invalid");
 			}
+			test->_exitreason = Test::ExitReason::InitError;
+			SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::InitError);
+			test->InValidate();
+			test->_input.reset();
+			// call _callback if test has finished
+			_threadpool->AddTask(test->_callback);
 		}
 		// delete all running tests
-		for (std::weak_ptr<Test> weak : _runningTests) {
-			if (auto test = weak.lock(); test) {
-				test->KillProcess();
-				if (auto ptr = test->_input.lock(); ptr) {
-					ptr->_hasfinished = true;
-					ptr->test = test;
-				} else {
-					logwarn("ptr invalid");
-				}
-				test->_exitreason = Test::ExitReason::InitError;
-				SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::InitError);
-				test->InValidate();
-				test->_input.reset();
-				// call _callback if test has finished
-				_threadpool->AddTask(test->_callback);
+		for (std::shared_ptr<Test> test : _runningTests) {
+			test->KillProcess();
+			if (auto ptr = test->_input.lock(); ptr) {
+				ptr->_hasfinished = true;
+				ptr->test = test;
+			} else {
+				logwarn("ptr invalid");
 			}
+			test->_exitreason = Test::ExitReason::InitError;
+			SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::InitError);
+			test->InValidate();
+			test->_input.reset();
+			// call _callback if test has finished
+			_threadpool->AddTask(test->_callback);
 		}
 		_runningTests.clear();
 		// wake anything that may sleep here
@@ -327,6 +318,11 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 		logcritical("Trying to add empty test");
 		return false;
 	}
+	if (!callback)
+	{
+		logcritical("Trying to add test with empty callback");
+		return false;
+	}
 	loginfo("{}: Adding new test", Utility::PrintForm(input));
 
 	if (input->GetGenerated() == false)
@@ -354,6 +350,7 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 	}
 	test->_running = false;
 	test->_input = input;
+	//input->test = test;
 	test->_itr = test->_input.lock()->begin();
 	test->_itrend = test->_input.lock()->end();
 	test->_reactiontime = {};
@@ -386,35 +383,32 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 
 void ExecutionHandler::InitTests()
 {
-	while (_waitingTestsExec.size() < _populationSize && _waitingTests.size() > 0)
-	{
-		std::weak_ptr<Test> ptest;
+	while (_waitingTestsExec.size() < _populationSize && _waitingTests.size() > 0) {
+		std::shared_ptr<Test> test;
 		{
 			std::unique_lock<std::mutex> guard(_lockqueue);
 			if (_waitingTests.size() > 0) {
-				ptest = _waitingTests.front();
+				test = _waitingTests.front();
 				_waitingTests.pop_front();
 			} else
 				return;
 		}
-		if (auto test = ptest.lock(); test) {
-			test->PrepareForExecution();
-			// if we cannot initialize pipes and status just call callback and be done with it
-			if (test->_exitreason & Test::ExitReason::InitError) {
-				if (auto ptr = test->_input.lock(); ptr) {
-					ptr->_hasfinished = true;
-					ptr->test = test;
-				} else {
-					logwarn("ptr invalid");
-				}
-				_threadpool->AddTask(test->_callback);
-				logdebug("test cannot be initialized");
-				return;
+		test->PrepareForExecution();
+		// if we cannot initialize pipes and status just call callback and be done with it
+		if (test->_exitreason & Test::ExitReason::InitError) {
+			if (auto ptr = test->_input.lock(); ptr) {
+				ptr->_hasfinished = true;
+				ptr->test = test;
+			} else {
+				logwarn("ptr invalid");
 			}
-			{
-				std::unique_lock<std::mutex> guard(_lockqueue);
-				_waitingTestsExec.push_back(test);
-			}
+			_threadpool->AddTask(test->_callback);
+			logdebug("test cannot be initialized");
+			return;
+		}
+		{
+			std::unique_lock<std::mutex> guard(_lockqueue);
+			_waitingTestsExec.push_back(test);
 		}
 	}
 }
@@ -422,24 +416,22 @@ void ExecutionHandler::InitTests()
 void ExecutionHandler::InitTestsLockFree()
 {
 	while (_waitingTestsExec.size() < _populationSize && _waitingTests.size() > 0) {
-		std::weak_ptr<Test> ptest = _waitingTests.front();
+		std::shared_ptr<Test> test = _waitingTests.front();
 		_waitingTests.pop_front();
-		if (auto test = ptest.lock(); test) {
-			test->PrepareForExecution();
-			// if we cannot initialize pipes and status just call callback and be done with it
-			if (test->_exitreason & Test::ExitReason::InitError) {
-				if (auto ptr = test->_input.lock(); ptr) {
-					ptr->_hasfinished = true;
-					ptr->test = test;
-				} else {
-					logwarn("ptr invalid");
-				}
-				_threadpool->AddTask(test->_callback);
-				logdebug("test cannot be initialized");
-				return;
+		test->PrepareForExecution();
+		// if we cannot initialize pipes and status just call callback and be done with it
+		if (test->_exitreason & Test::ExitReason::InitError) {
+			if (auto ptr = test->_input.lock(); ptr) {
+				ptr->_hasfinished = true;
+				ptr->test = test;
+			} else {
+				logwarn("ptr invalid");
 			}
-			_waitingTestsExec.push_back(test);
+			_threadpool->AddTask(test->_callback);
+			logdebug("test cannot be initialized");
+			return;
 		}
+		_waitingTestsExec.push_back(test);
 	}
 }
 
@@ -611,7 +603,7 @@ void ExecutionHandler::TestStarter(std::shared_ptr<stop_token> stoken)
 	if (!_settings->fixes.disableExecHandlerSleep)
 		waittime = _waittime;
 	std::shared_ptr<Test> test;
-	std::weak_ptr<Test> testweak;
+	std::shared_ptr<Test> testweak;
 	int32_t newtests = 0;
 	while (_stopHandler == false || _finishtests || stoken->stop_requested() == false) {
 		std::unique_lock<std::mutex> guard(_startingLock);
@@ -649,9 +641,7 @@ void ExecutionHandler::TestStarter(std::shared_ptr<stop_token> stoken)
 						}
 					}
 				}
-				if (auto ptr = testweak.lock(); ptr) {
-					_startingTests.push(ptr);
-				}
+				_startingTests.push(testweak);
 				newtests++;
 			}
 		}
@@ -756,13 +746,10 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 		std::chrono::nanoseconds stalediff = std::chrono::steady_clock::now() - _lastExec;
 		auto itr = _runningTests.begin();
 		while (itr != _runningTests.end()) {
-			if (auto ptr = itr->lock(); ptr)
-			{
-				// account for total timeout
-				ptr->_timeouttime += stalediff;
-				// account for fragment timeout
-				ptr->_lasttime += stalediff;
-			}
+			// account for total timeout
+			(*itr)->_timeouttime += stalediff;
+			// account for fragment timeout
+			(*itr)->_lasttime += stalediff;
 			itr++;
 		}
 		_stale = false;
@@ -816,16 +803,13 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 			Utility::SpinLock guard(_runningTestsFlag);
 			auto itr = _runningTests.begin();
 			while (itr != _runningTests.end() && tohandle < _maxConcurrentTests) {
-				if (auto ptr = itr->lock(); ptr) [[likely]] {
-					if (ptr->_running == false) {
-						itr = _runningTests.erase(itr);
-						continue;
-					} else {
-						_handleTests[tohandle] = ptr;
-						tohandle++;
-					}
-				} else {
+				auto ptr = *itr;
+				if (ptr->_running == false) {
 					itr = _runningTests.erase(itr);
+					continue;
+				} else {
+					_handleTests[tohandle] = ptr;
+					tohandle++;
 				}
 				itr++;
 			}
@@ -973,8 +957,7 @@ TestRunning:;
 //KillRunningTests:
 
 	// kill all running tests
-	for (auto tst : _runningTests) {
-		if (auto ptr = tst.lock(); ptr)
+	for (auto ptr : _runningTests) {
 			ptr->KillProcess();
 	}
 	_runningTests.clear();
@@ -1060,9 +1043,9 @@ void ExecutionHandler::ClearTests()
 		Utility::SpinLock guard(_runningTestsFlag);
 		auto itr = _runningTests.begin();
 		while (itr != _runningTests.end()) {
-			if (auto ptr = (*itr).lock(); ptr && ptr->IsRunning()) {
-				ptr->KillProcess();
-				StopTest(ptr);
+			if ( *itr && (*itr)->IsRunning()) {
+				(*itr)->KillProcess();
+				StopTest(*itr);
 			}
 			if (!_runningTests.empty())
 				_runningTests.pop_front();
@@ -1115,8 +1098,8 @@ bool ExecutionHandler::WriteData(std::ostream* buffer, size_t& offset, size_t le
 	// save all tests running and waiting as waiting tests, since we cannot solve external programs
 	Buffer::WriteSize(_waitingTests.size() + _waitingTestsExec.size() + _runningTests.size() + _stoppingTests.size(), buffer, offset);
 	for (auto test : _runningTests) {
-		if (auto ptr = test.lock(); ptr)
-			Buffer::Write(ptr->GetFormID(), buffer, offset);
+		if (test->HasFlag(Form::FormFlags::Deleted) == false)
+			Buffer::Write(test->GetFormID(), buffer, offset);
 		else
 			Buffer::Write((uint64_t)0, buffer, offset);
 	}
@@ -1124,14 +1107,14 @@ bool ExecutionHandler::WriteData(std::ostream* buffer, size_t& offset, size_t le
 		Buffer::Write(ptr->GetFormID(), buffer, offset);
 	}
 	for (auto test : _waitingTests) {
-		if (auto ptr = test.lock(); ptr)
-			Buffer::Write(ptr->GetFormID(), buffer, offset);
+		if (test->HasFlag(Form::FormFlags::Deleted) == false)
+			Buffer::Write(test->GetFormID(), buffer, offset);
 		else
 			Buffer::Write((uint64_t)0, buffer, offset);
 	}
 	for (auto test : _waitingTestsExec) {
-		if (auto ptr = test.lock(); ptr)
-			Buffer::Write(ptr->GetFormID(), buffer, offset);
+		if (test->HasFlag(Form::FormFlags::Deleted) == false)
+			Buffer::Write(test->GetFormID(), buffer, offset);
 		else
 			Buffer::Write((uint64_t)0, buffer, offset);
 	}

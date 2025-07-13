@@ -88,8 +88,9 @@ void Test::Init()
 	//fcntl64(red_input[0], F_SETFL, O_NONBLOCK);
 	//fcntl64(red_input[1], F_SETFL, O_NONBLOCK);
 #elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-	std::string pipe_name_input = "\\\\.\\pipe\\" + std::to_string(intptr_t(this)) + "inp";
-	std::string pipe_name_output = "\\\\.\\pipe\\" + std::to_string(intptr_t(this)) + "out";
+	std::string tmpname = std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
+	std::string pipe_name_input = "\\\\.\\pipe\\" + std::to_string(intptr_t(this)) + tmpname + "inp";
+	std::string pipe_name_output = "\\\\.\\pipe\\" + std::to_string(intptr_t(this)) + tmpname + "out";
 	// create pipes for _output
 
 	// set security
@@ -1086,7 +1087,6 @@ namespace Functions
 			_input->IncRetries();
 			if (_input->test)
 				_input->test->_exitreason = Test::ExitReason::Repeat;
-			_input->test->_exitreason = Test::ExitReason::Repeat;
 			_input->Debug_ClearSequence();
 			_input->SetGenerated(false);
 			auto test = _input->test;
@@ -1116,6 +1116,19 @@ namespace Functions
 				// ----- SESSION STUFF -----
 				if (SessionFunctions::TestEnd(_sessiondata, _input))
 				{
+					// the oracle decided there was a problem with the test, so go and repeat it
+					loginfo("Repeating test");
+					_input->IncRetries();
+					if (_input->test)
+						_input->test->_exitreason = Test::ExitReason::Repeat;
+					_input->Debug_ClearSequence();
+					_input->SetGenerated(false);
+					auto test = _input->test;
+					_input->test.reset();
+					auto callback = this->DeepCopy();
+					_sessiondata->data->DeleteForm(test);
+					_sessiondata->_exechandler->AddTest(_input, callback, true, false);
+					SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::Repeat);
 					// test has to be repeated
 					return;
 				}
@@ -1217,9 +1230,20 @@ namespace Functions
 		// this is the run funtion for replaying already run tests, 
 		// thus we don't want to actually save the test and the _input,
 		// but delete it instead
-		if (SessionFunctions::TestEnd(_sessiondata, _input, true))
-		{
-			// test has to be repeated
+		if (SessionFunctions::TestEnd(_sessiondata, _input, true)) {
+			// the oracle decided there was a problem with the test, so go and repeat it
+			loginfo("Repeating test");
+			_input->IncRetries();
+			if (_input->test)
+				_input->test->_exitreason = Test::ExitReason::Repeat;
+			_input->Debug_ClearSequence();
+			_input->SetGenerated(false);
+			auto test = _input->test;
+			_input->test.reset();
+			auto callback = this->DeepCopy();
+			_sessiondata->data->DeleteForm(test);
+			_sessiondata->_exechandler->AddTest(_input, callback, true, false);
+			SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::Repeat);
 			return;
 		}
 

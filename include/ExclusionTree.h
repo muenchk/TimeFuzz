@@ -20,7 +20,7 @@ namespace Hashing
 	size_t hash(ExclusionTreeNode const& node);
 }
 
-struct ExclusionTreeNode
+struct ExclusionTreeNode : public Form
 {
 	/// <summary>
 	/// identifier of the node
@@ -37,7 +37,7 @@ struct ExclusionTreeNode
 	/// <summary>
 	/// children of the node
 	/// </summary>
-	std::vector<ExclusionTreeNode*> _children;
+	std::vector<std::shared_ptr<ExclusionTreeNode>> _children;
 	/// <summary>
 	/// childrens ids
 	/// </summary>
@@ -55,9 +55,53 @@ struct ExclusionTreeNode
 	/// </summary>
 	/// <param name="str"></param>
 	/// <returns></returns>
-	ExclusionTreeNode* HasChild(FormID stringID);
+	std::shared_ptr<ExclusionTreeNode> HasChild(FormID stringID);
 
 	friend size_t Hashing::hash(ExclusionTreeNode const& node);
+
+private:
+	const int32_t classversion = 0x1;
+
+	struct LoadData
+	{
+		std::vector<FormID> _nodes;
+	};
+	LoadData* _loadData = nullptr;
+
+public:
+
+#pragma region InheritedForm
+
+
+	size_t GetStaticSize(int32_t version) override;
+	size_t GetDynamicSize() override;
+	bool WriteData(std::ostream* buffer, size_t& offset, size_t length) override;
+	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
+	/// <summary>
+	/// Early initialiazation pass [is executed once all forms have been loaded
+	/// </summary>
+	/// <param name="resolver"></param>
+	void InitializeEarly(LoadResolver* resolver) override;
+	/// <summary>
+	/// late initialization pass [is executed once all Initialize Early has been called for all forms]
+	/// </summary>
+	/// <param name="resolver"></param>
+	void InitializeLate(LoadResolver* resolver) override;
+	int32_t GetType() override
+	{
+		return FormType::ExclTreeNode;
+	}
+	static int32_t GetTypeStatic()
+	{
+		return FormType::ExclTreeNode;
+	}
+	void Delete(Data* data) override;
+	void Clear() override;
+	inline static bool _registeredFactories = false;
+	static void RegisterFactories();
+	size_t MemorySize() override;
+
+#pragma endregion
 };
 
 /// <summary>
@@ -65,6 +109,12 @@ struct ExclusionTreeNode
 /// </summary>
 class ExclusionTree : public Form
 {
+	struct LoadData
+	{
+		FormID rootid;
+	};
+	LoadData* _loadData = nullptr;
+
 public:
 	ExclusionTree();
 
@@ -99,11 +149,11 @@ public:
 
 	~ExclusionTree();
 
-	const int32_t classversion = 0x2;
+	const int32_t classversion = 0x3;
 
 	#pragma region InheritedForm
 
-	size_t GetStaticSize(int32_t version = 0x1) override;
+	size_t GetStaticSize(int32_t version) override;
 	size_t GetDynamicSize() override;
 	bool WriteData(std::ostream* buffer, size_t& offset, size_t length) override;
 	bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
@@ -131,6 +181,8 @@ public:
 	static void RegisterFactories();
 	size_t MemorySize() override;
 
+#pragma endregion
+
 	int64_t GetDepth();
 	uint64_t GetNodeCount();
 	uint64_t GetLeafCount();
@@ -142,10 +194,8 @@ public:
 	/// <returns></returns>
 	double CheckForAlternatives(int32_t alternativesPerNode);
 
-	#pragma endregion
-
 private:
-	ExclusionTreeNode* root;
+	std::shared_ptr<ExclusionTreeNode> root;
 
 	std::shared_mutex _lock;
 
@@ -155,13 +205,15 @@ private:
 
 	uint64_t leafcount = 0;
 
-	std::unordered_map<uint64_t, ExclusionTreeNode*> hashmap;
+	uint64_t nodecount = 0;
+
+	//std::unordered_map<uint64_t, ExclusionTreeNode*> hashmap;
 
 	std::shared_ptr<SessionData> _sessiondata;
 
-	void DeleteChildren(ExclusionTreeNode* node);
+	void DeleteChildren(std::shared_ptr<ExclusionTreeNode> node);
 
-	void DeleteChildrenIntern(ExclusionTreeNode* node);
+	void DeleteChildrenIntern(std::shared_ptr<ExclusionTreeNode> node);
 
-	void DeleteNodeIntern(ExclusionTreeNode* node);
+	void DeleteNodeIntern(std::shared_ptr<ExclusionTreeNode> node);
 };

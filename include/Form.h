@@ -402,6 +402,7 @@ struct FormType
 		Grammar = 'GRAM',           // Grammar
 		DevTree = 'DEVT',           // Derivation Tree
 		ExclTree = 'EXCL',          // ExclusionTree
+		ExclTreeNode = 'EXCN',          // ExclusionTreeNode
 		Generator = 'GENR',         // Generator
 		Generation = 'GENE',         // Generation
 		Session = 'SESS',           // Session

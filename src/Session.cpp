@@ -1320,6 +1320,12 @@ void Session::UI_GetDatabaseObjectStatus()
 			if (form->Freed() == false)
 				freed._ExclTree++;
 			break;
+		case FormType::ExclTreeNode:
+			stats._ExclTreeNode += form->MemorySize();
+			nums._ExclTreeNode++;
+			if (form->Freed() == false)
+				freed._ExclTreeNode++;
+			break;
 		case FormType::Generator:
 			stats._Generator += form->MemorySize();
 			nums._Generator++;

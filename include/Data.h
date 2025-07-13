@@ -68,6 +68,7 @@ public:
 		int64_t _Grammar = 0;
 		int64_t _DevTree = 0;
 		int64_t _ExclTree = 0;
+		int64_t _ExclTreeNode = 0;
 		int64_t _Generator = 0;
 		int64_t _Session = 0;
 		int64_t _Settings = 0;
@@ -335,6 +336,9 @@ public:
 	{
 		if (form) {
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
+			//if (_hashmap.contains(form->GetFormID()) && _hashmap.at(form->GetFormID())->GetType() != form->GetType()) {
+			//	logcritical("Already assigned formid for form of different type");
+			//}
 			_hashmap.insert(std::pair<FormID, std::shared_ptr<Form>>{ form->GetFormID(), dynamic_pointer_cast<Form>(form) });
 			return true;
 		}
@@ -613,6 +617,8 @@ public:
 	/// </summary>
 	/// <returns>number of waiting tasks</returns>
 	size_t TaskCount() { return _tasks.size() + _latetasks.size(); }
+	size_t TaskCountEarly() { return _tasks.size(); }
+	size_t TaskCountLate() { return _latetasks.size(); }
 
 private:
 	/// <summary>

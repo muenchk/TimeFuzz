@@ -179,15 +179,15 @@ private:
 	/// <summary>
 	/// queue for tests waiting to be initialized for execution
 	/// </summary>
-	std::deque<std::weak_ptr<Test>> _waitingTests;
+	std::deque<std::shared_ptr<Test>> _waitingTests;
 	/// <summary>
 	/// queue for tests waiting to be executed
 	/// </summary>
-	std::deque<std::weak_ptr<Test>> _waitingTestsExec;
+	std::deque<std::shared_ptr<Test>> _waitingTestsExec;
 	/// <summary>
 	/// list holding currently active tests
 	/// </summary>
-	std::list<std::weak_ptr<Test>> _runningTests;
+	std::list<std::shared_ptr<Test>> _runningTests;
 	/// <summary>
 	///  atomic flag for access to _runningTests
 	/// </summary>

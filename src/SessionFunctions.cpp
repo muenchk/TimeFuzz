@@ -456,7 +456,7 @@ void SessionFunctions::MasterControl(std::shared_ptr<SessionData> sessiondata, b
 			}
 		}
 	} else {
-		if ((int64_t)sessiondata->_memory_mem > sessiondata->_settings->general.memory_softlimit) {
+		if (sessiondata->_settings->general.memory_sweep_period > 0ms && (int64_t) sessiondata->_memory_mem > sessiondata->_settings->general.memory_softlimit) {
 			if ((int64_t)sessiondata->_memory_mem > sessiondata->_settings->general.memory_limit || std::chrono::duration_cast<std::chrono::nanoseconds>(now - sessiondata->_lastMemorySweep) > sessiondata->_settings->general.memory_sweep_period) {
 				// free memory
 				ReclaimMemory(sessiondata);
@@ -568,18 +568,7 @@ bool SessionFunctions::TestEnd(std::shared_ptr<SessionData> sessiondata, std::sh
 	}
 	if (input->GetOracleResult() == OracleResult::Repeat || sessiondata->_settings->fixes.repeatTimeoutedTests && input->test && input->test->_exitreason == Test::ExitReason::Timeout) {
 		if (input->GetRetries() < 5) {
-			// the oracle decided there was a problem with the test, so go and repeat it
-			loginfo("Repeating test");
-			input->IncRetries();
-			input->test->_exitreason = Test::ExitReason::Repeat;
-			input->Debug_ClearSequence();
-			input->SetGenerated(false);
-			auto test = input->test;
-			input->test.reset();
-			auto callback = test->_callback->DeepCopy();
-			sessiondata->data->DeleteForm(test);
-			sessiondata->_exechandler->AddTest(input, callback, true, false);
-			AddTestExitReason(sessiondata, Test::ExitReason::Repeat);
+			// reconstruct in calling function
 			return true;
 		} else {
 			input->_oracleResult = OracleResult::Undefined;

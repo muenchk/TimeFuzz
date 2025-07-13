@@ -57,8 +57,20 @@ namespace Functions
 				_input = input;
 			}
 		} else {
-			if (SessionFunctions::TestEnd(_sessiondata, _input, false, _DDcontroller))
-			{
+			if (SessionFunctions::TestEnd(_sessiondata, _input, false, _DDcontroller)) {
+				// the oracle decided there was a problem with the test, so go and repeat it
+				loginfo("Repeating test");
+				_input->IncRetries();
+				if (_input->test)
+					_input->test->_exitreason = Test::ExitReason::Repeat;
+				_input->Debug_ClearSequence();
+				_input->SetGenerated(false);
+				auto test = _input->test;
+				_input->test.reset();
+				auto callback = this->DeepCopy();
+				_sessiondata->data->DeleteForm(test);
+				_sessiondata->_exechandler->AddTest(_input, callback, true, false);
+				SessionFunctions::AddTestExitReason(_sessiondata, Test::ExitReason::Repeat);
 				// test has to be repeated, don't do anything yet
 				return;
 			}

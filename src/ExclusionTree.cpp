@@ -31,7 +31,7 @@ namespace Hashing
 	}
 }
 
-ExclusionTreeNode* ExclusionTreeNode::HasChild(FormID stringID)
+std::shared_ptr<ExclusionTreeNode> ExclusionTreeNode::HasChild(FormID stringID)
 {
 	for (int64_t i = 0; i < (int64_t)_children.size(); i++) {
 		if (_children[i] && _children[i]->_stringID == stringID)
@@ -40,11 +40,142 @@ ExclusionTreeNode* ExclusionTreeNode::HasChild(FormID stringID)
 	return nullptr;
 }
 
+size_t ExclusionTreeNode::GetStaticSize(int32_t version)
+{
+	static size_t size0x1 = 4     // version
+	                 + 8   // _stringID
+	                 + 8   // _id
+	                 + 1   // _isLeaf
+	                 + 8   // _result
+	                 + 8;  // _InputID
+
+	switch (version) {
+	case 0x1:
+		return size0x1;
+	default:
+		return 0;
+	}
+}
+size_t ExclusionTreeNode::GetDynamicSize()
+{
+	size_t sz = Form::GetDynamicSize()  // form stuff
+	            + GetStaticSize(classversion);
+	sz += 8 + _children.size() * 8;
+	return sz;
+}
+#define CHECK(x)                                                                          \
+	if (x == false) {                                                                     \
+		logcritical("Buffer overflow error, len: {}, off: {}", abuf.Size(), abuf.Free()); \
+		throw std::runtime_error("");                                                     \
+	}
+bool ExclusionTreeNode::WriteData(std::ostream* buffer, size_t& offset, size_t length)
+{
+	Buffer::Write(classversion, buffer, offset);
+	Form::WriteData(buffer, offset, length);
+
+	Buffer::ArrayBuffer abuf(length - offset);
+	try {
+		CHECK(abuf.Write<FormID>(_stringID));
+		CHECK(abuf.Write<FormID>(_id));
+		CHECK(abuf.Write<size_t>(_children.size()));
+		for (int64_t i = 0; i < (int64_t)_children.size(); i++) {
+			if (_children[i]) {
+				CHECK(abuf.Write<FormID>(_children[i]->GetFormID()));
+			} else {
+				CHECK(abuf.Write<FormID>(0));
+			}
+		}
+		CHECK(abuf.Write<bool>(_isLeaf));
+		CHECK(abuf.Write<OracleResult>(_result));
+		CHECK(abuf.Write<FormID>(_InputID));
+	} catch (std::exception&) {
+		auto [data, sz] = abuf.GetBuffer();
+		buffer->write((char*)data, sz);
+		offset += sz;
+		return false;
+	}
+
+	auto [data, sz] = abuf.GetBuffer();
+	buffer->write((char*)data, sz);
+	offset += sz;
+	return true;
+}
+bool ExclusionTreeNode::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+{
+	if (_loadData)
+		delete _loadData;
+	_loadData = new LoadData();
+
+	int32_t version = Buffer::ReadInt32(buffer, offset);
+	switch (version) {
+	case 0x1:
+		{
+			Form::ReadData(buffer, offset, length, resolver);
+			try {
+				Buffer::ArrayBuffer data(buffer, length - offset);
+				_stringID = data.Read<FormID>();
+				_id = data.Read<FormID>();
+				size_t size = data.Read<size_t>();
+				for (int64_t i = 0; i < (int64_t)size; i++)
+					_loadData->_nodes.push_back(data.Read<FormID>());
+				_isLeaf = data.Read<bool>();
+				_result = data.Read<OracleResult>();
+				_InputID = data.Read<FormID>();
+			} catch (std::exception& e) {
+				logcritical("Exception in read method: {}", e.what());
+				return false;
+			}
+		}
+		return true;
+	default:
+		return false;
+	}
+}
+void ExclusionTreeNode::InitializeEarly(LoadResolver* resolver)
+{
+	if (_loadData) {
+		for (int64_t x = 0; x < (int64_t)_loadData->_nodes.size(); x++)
+		{
+			auto ptr = resolver->ResolveFormID<ExclusionTreeNode>(_loadData->_nodes[x]);
+			if (ptr)
+				_children.push_back(ptr);
+			else
+				logwarn("Exclusion Tree Node couldn't be found");
+		}
+
+		delete _loadData;
+		_loadData = nullptr;
+	}
+}
+void ExclusionTreeNode::InitializeLate(LoadResolver* /*resolver*/)
+{
+}
+void ExclusionTreeNode::Delete(Data*)
+{
+	Clear();
+}
+void ExclusionTreeNode::Clear()
+{
+	_stringID = 0;
+	_id = 0;
+	_children.clear();
+	_children.shrink_to_fit();
+	_result = OracleResult::None;
+	_InputID = 0;
+}
+void ExclusionTreeNode::RegisterFactories()
+{
+}
+size_t ExclusionTreeNode::MemorySize()
+{
+	return sizeof(ExclusionTreeNode) + _children.size()*16;
+}
+
+
+
+
 ExclusionTree::ExclusionTree()
 {
-	root = new ExclusionTreeNode();
-	root->_result = OracleResult::Undefined;
-	root->_id = 0;
 }
 
 ExclusionTree::~ExclusionTree()
@@ -55,6 +186,11 @@ ExclusionTree::~ExclusionTree()
 void ExclusionTree::Init(std::shared_ptr<SessionData> sessiondata)
 {
 	_sessiondata = sessiondata;
+	if (!root) {
+		root = sessiondata->data->CreateForm<ExclusionTreeNode>();
+		root->_result = OracleResult::Undefined;
+		root->_id = 0;
+	}
 }
 
 void ExclusionTree::AddInput(std::shared_ptr<Input> input, OracleResult result)
@@ -69,7 +205,7 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input, OracleResult result)
 		return;
 
 	exclwlock;
-	ExclusionTreeNode* node = root;
+	std::shared_ptr<ExclusionTreeNode> node = root;
 	int dep = 0;
 	auto itr = input->begin();
 	while (itr != input->end()) {
@@ -86,12 +222,15 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input, OracleResult result)
 		} else {
 			SetChanged();
 			// if there is no matching child, create one.
-			ExclusionTreeNode* newnode = new ExclusionTreeNode;
+			std::shared_ptr<ExclusionTreeNode> newnode = _sessiondata->data->CreateForm<ExclusionTreeNode>();
+			newnode->SetChanged();
 			newnode->_result = OracleResult::Undefined;
 			newnode->_id = nextid++;
 			newnode->_stringID = stringID;
 			node->_children.push_back(newnode);
-			hashmap.insert({ newnode->_id, newnode });
+			node->SetChanged();
+			nodecount++;
+			//hashmap.insert({ newnode->_id, newnode });
 			node = newnode;
 		}
 		dep++;
@@ -101,6 +240,7 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input, OracleResult result)
 	// it as a prefix yields the same result.
 	// Thus we can remove all children from our current node, as they would yield the same result.
 	if (result == OracleResult::Passing || result == OracleResult::Failing) {
+		node->SetChanged();
 		node->_result = result;
 		node->_isLeaf = true;
 		node->_InputID = input->GetFormID();
@@ -110,6 +250,7 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input, OracleResult result)
 			loginfo("Killing some children");
 		}
 	} else {
+		node->SetChanged();
 		node->_result = result;
 		node->_InputID = input->GetFormID();
 	}
@@ -136,7 +277,7 @@ bool ExclusionTree::HasPrefix(std::shared_ptr<Input> input, FormID& prefixID)
 
 	prefixID = 0;
 
-	ExclusionTreeNode* node = root;
+	std::shared_ptr<ExclusionTreeNode> node = root;
 	auto itr = input->begin();
 	size_t count = 0;
 	while (itr != input->end()) {
@@ -180,7 +321,7 @@ std::tuple<bool, FormID, bool, FormID> ExclusionTree::HasPrefixAndShortestExtens
 
 	FormID prefixID = 0;
 
-	ExclusionTreeNode* node = root;
+	std::shared_ptr<ExclusionTreeNode> node = root;
 	auto itr = input->begin();
 	size_t count = 0;
 	while (itr != input->end()) {
@@ -214,7 +355,7 @@ std::tuple<bool, FormID, bool, FormID> ExclusionTree::HasPrefixAndShortestExtens
 	// we will now commence breath-first search to find the shortest extension of our input, and
 	// return that if we find one
 
-	std::queue<ExclusionTreeNode*> nodequeue;
+	std::queue<std::shared_ptr<ExclusionTreeNode>> nodequeue;
 	nodequeue.push(node);
 	while (nodequeue.size() > 0)
 	{
@@ -237,22 +378,22 @@ std::tuple<bool, FormID, bool, FormID> ExclusionTree::HasPrefixAndShortestExtens
 	return { false, 0, false, 0 };
 }
 
-void ExclusionTree::DeleteChildren(ExclusionTreeNode* node)
+void ExclusionTree::DeleteChildren(std::shared_ptr<ExclusionTreeNode> node)
 {
 	SetChanged();
 	exclwlock;
 	DeleteChildrenIntern(node);
 }
 
-void ExclusionTree::DeleteChildrenIntern(ExclusionTreeNode* node)
+void ExclusionTree::DeleteChildrenIntern(std::shared_ptr<ExclusionTreeNode> node)
 {
 	// delete all children
 	// recursion free
-	std::stack<ExclusionTreeNode*> stack;
+	std::stack<std::shared_ptr<ExclusionTreeNode>> stack;
 	for (int64_t i = 0; i < (int64_t)node->_children.size(); i++)
 		stack.push(node->_children[i]);
 	node->_children.clear();
-	ExclusionTreeNode* tmp = nullptr;
+	std::shared_ptr<ExclusionTreeNode> tmp = nullptr;
 	while (stack.size() > 0)
 	{
 		tmp = stack.top();
@@ -262,8 +403,10 @@ void ExclusionTree::DeleteChildrenIntern(ExclusionTreeNode* node)
 		}
 		if (tmp->_isLeaf)
 			leafcount--;
-		hashmap.erase(tmp->_id);
-		delete tmp;
+		//hashmap.erase(tmp->_id);
+		nodecount--;
+		_sessiondata->data->DeleteForm(tmp);
+		//delete tmp;
 	}
 
 	// delete all children
@@ -271,13 +414,15 @@ void ExclusionTree::DeleteChildrenIntern(ExclusionTreeNode* node)
 		DeleteChildrenIntern(node->_children[i]);
 		if (node->_children[i]->_isLeaf)
 			leafcount--;
-		hashmap.erase(node->_children[i]->_id);
-		delete node->_children[i];
+		//hashmap.erase(node->_children[i]->_id);
+		nodecount--;
+		_sessiondata->data->DeleteForm(node->_children[i]);
+		//delete node->_children[i];
 	}
 	node->_children.clear();
 }
 
-void ExclusionTree::DeleteNodeIntern(ExclusionTreeNode* node)
+void ExclusionTree::DeleteNodeIntern(std::shared_ptr<ExclusionTreeNode> node)
 {
 	// delete all children of this node
 	for (int64_t i = 0; i < (int64_t)node->_children.size(); i++) {
@@ -285,8 +430,10 @@ void ExclusionTree::DeleteNodeIntern(ExclusionTreeNode* node)
 	}
 	node->_children.clear();
 	// delete the node
-	hashmap.erase(node->_id);
-	delete node;
+	//hashmap.erase(node->_id);
+	nodecount--;
+	_sessiondata->data->DeleteForm(node);
+	//delete node;
 }
 
 int64_t ExclusionTree::GetDepth()
@@ -296,7 +443,8 @@ int64_t ExclusionTree::GetDepth()
 
 uint64_t ExclusionTree::GetNodeCount()
 {
-	return hashmap.size();
+	//return hashmap.size();
+	return nodecount;
 }
 
 uint64_t ExclusionTree::GetLeafCount()
@@ -313,7 +461,7 @@ double ExclusionTree::CheckForAlternatives(int32_t alternativesPerNode)
 	struct Path
 	{
 	public:
-		std::vector<ExclusionTreeNode*> nodes;
+		std::vector<std::shared_ptr<ExclusionTreeNode>> nodes;
 		bool finished = false;
 
 		Path* Copy()
@@ -328,7 +476,7 @@ double ExclusionTree::CheckForAlternatives(int32_t alternativesPerNode)
 	int64_t open = 0;
 	int64_t leaf = 0;
 
-	std::stack<std::pair<ExclusionTreeNode*, Path*>> stack;
+	std::stack<std::pair<std::shared_ptr<ExclusionTreeNode>, Path*>> stack;
 	for (auto child : root->_children)
 		stack.push({ child, new Path() });
 	while (stack.size() > 0)
@@ -373,20 +521,27 @@ double ExclusionTree::CheckForAlternatives(int32_t alternativesPerNode)
 
 size_t ExclusionTree::GetStaticSize(int32_t version)
 {
-	static size_t size0x1 = 4                       // version
-	                        + 8                     // nextid
-	                        + 8                     // root children count
-	                        + 1                     // root isLeaf
-	                        + 8                     // size of hashmap
-	                        + 8                     // depth
-	                        + 8;                    // leafcount
+	static size_t size0x1 = 4     // version
+	                        + 8   // nextid
+	                        + 8   // root children count
+	                        + 1   // root isLeaf
+	                        + 8   // size of hashmap
+	                        + 8   // depth
+	                        + 8;  // leafcount
 	static size_t size0x2 = size0x1;
-	switch (version)
-	{
+	static size_t size0x3 = 4     // version
+	                        + 8   // nextid
+	                        + 8   // rootid
+	                        + 8   // depth
+	                        + 8   // leafcount
+	                        + 8;  // nodecount
+	switch (version) {
 	case 0x1:
 		return size0x1;
 	case 0x2:
 		return size0x2;
+	case 0x3:
+		return size0x3;
 	default:
 		return 0;
 	}
@@ -395,14 +550,14 @@ size_t ExclusionTree::GetStaticSize(int32_t version)
 size_t ExclusionTree::GetDynamicSize()
 {
 	size_t sz = Form::GetDynamicSize()  // form stuff
-	            + GetStaticSize();
+	            + GetStaticSize(classversion);
 	// root children
-	sz += 8 * root->_children.size();
-	for (auto& [id, node] : hashmap)
-	{
+	//sz += 8 * root->_children.size();
+	//for (auto& [id, node] : hashmap)
+	//{
 		// id, stringID, visitcount, children count, children, isLeaf, result, InputID
-		sz += 8 + 8 + /*8 +*/ 8 + 8 * node->_children.size() + 1 + 4 + 8;
-	}
+	//	sz += 8 + 8 + /*8 +*/ 8 + 8 * node->_children.size() + 1 + 4 + 8;
+	//}
 	return sz;
 }
 
@@ -411,15 +566,19 @@ bool ExclusionTree::WriteData(std::ostream* buffer, size_t& offset, size_t lengt
 	Buffer::Write(classversion, buffer, offset);
 	Form::WriteData(buffer, offset, length);
 	Buffer::Write(nextid, buffer, offset);
+	if (root)
+		Buffer::Write(root->GetFormID(), buffer, offset);
+	else
+		Buffer::Write((FormID)0, buffer, offset);
 	// root children
-	Buffer::WriteSize(root->_children.size(), buffer, offset);
-	for (int32_t i = 0; i < (int32_t)root->_children.size(); i++)
-	{
-		Buffer::Write(root->_children[i]->_id, buffer, offset);
-	}
-	Buffer::Write(root->_isLeaf, buffer, offset);
+	//Buffer::WriteSize(root->_children.size(), buffer, offset);
+	//for (int32_t i = 0; i < (int32_t)root->_children.size(); i++)
+	//{
+	//	Buffer::Write(root->_children[i]->_id, buffer, offset);
+	//}
+	//Buffer::Write(root->_isLeaf, buffer, offset);
 	// hashmap
-	Buffer::WriteSize(hashmap.size(), buffer, offset);
+	/*Buffer::WriteSize(hashmap.size(), buffer, offset);
 	for (auto& [id, node] : hashmap)
 	{
 		Buffer::Write(id, buffer, offset);
@@ -431,14 +590,19 @@ bool ExclusionTree::WriteData(std::ostream* buffer, size_t& offset, size_t lengt
 		Buffer::Write(node->_isLeaf, buffer, offset);
 		Buffer::Write((int32_t)node->_result, buffer, offset);
 		Buffer::Write(node->_InputID, buffer, offset);
-	}
+	}*/
 	Buffer::Write(depth, buffer, offset);
 	Buffer::Write(leafcount, buffer, offset);
+	Buffer::Write(nodecount, buffer, offset);
 	return true;
 }
 
 bool ExclusionTree::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
+	if (_loadData)
+		delete _loadData;
+	_loadData = new LoadData();
+
 	// get settings
 	auto settings = resolver->_data->CreateForm<Settings>();
 	// clear everything
@@ -446,7 +610,7 @@ bool ExclusionTree::ReadData(std::istream* buffer, size_t& offset, size_t length
 
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
-	case 0x1:
+	/*case 0x1:
 		{
 			Form::ReadData(buffer, offset, length, resolver);
 			// load data
@@ -463,7 +627,7 @@ bool ExclusionTree::ReadData(std::istream* buffer, size_t& offset, size_t length
 				}
 			root->_isLeaf = Buffer::ReadBool(buffer, offset);
 			// hashmap
-			hashmap.clear();
+			//hashmap.clear();
 			size_t smap = Buffer::ReadSize(buffer, offset);
 			for (int64_t i = 0; i < (int64_t)smap; i++) {
 				if (offset > length)
@@ -471,7 +635,8 @@ bool ExclusionTree::ReadData(std::istream* buffer, size_t& offset, size_t length
 				ExclusionTreeNode* node = new ExclusionTreeNode();
 				node->_id = Buffer::ReadUInt64(buffer, offset);
 				node->_stringID = Buffer::ReadUInt64(buffer, offset);
-				/*node->_visitcount = */ Buffer::ReadUInt64(buffer, offset);
+				//node->_visitcount = 
+				Buffer::ReadUInt64(buffer, offset);
 				uint64_t sch = Buffer::ReadSize(buffer, offset);
 				for (int32_t c = 0; c < (int32_t)sch; c++)
 					node->_children.push_back((ExclusionTreeNode*)Buffer::ReadUInt64(buffer, offset));
@@ -575,14 +740,32 @@ bool ExclusionTree::ReadData(std::istream* buffer, size_t& offset, size_t length
 			}
 			return true;
 		}
+		break;*/
+	case 0x3:
+		{
+			Form::ReadData(buffer, offset, length, resolver);
+			// load data
+			nextid = Buffer::ReadUInt64(buffer, offset);
+			_loadData->rootid = Buffer::ReadUInt64(buffer, offset);
+			depth = Buffer::ReadInt64(buffer, offset);
+			leafcount = Buffer::ReadUInt64(buffer, offset);
+			nodecount = Buffer::ReadUInt64(buffer, offset);
+			return true;
+		}
 		break;
 	default:
 		return false;
 	}
 }
 
-void ExclusionTree::InitializeEarly(LoadResolver* /*resolver*/)
+void ExclusionTree::InitializeEarly(LoadResolver* resolver)
 {
+	if (_loadData)
+	{
+		root = resolver->ResolveFormID<ExclusionTreeNode>(_loadData->rootid);
+		delete _loadData;
+		_loadData = nullptr;
+	}
 }
 
 void ExclusionTree::InitializeLate(LoadResolver* resolver)
@@ -606,9 +789,10 @@ void ExclusionTree::Clear()
 		//node->_childrenids.clear();
 		delete node;
 	}*/
-	hashmap.clear();
-	DeleteChildren(root);
+	//hashmap.clear();
+	//DeleteChildren(root);
 	//delete root;
+	root.reset();
 	_sessiondata.reset();
 }
 
@@ -621,5 +805,6 @@ void ExclusionTree::RegisterFactories()
 
 size_t ExclusionTree::MemorySize()
 {
-	return sizeof(ExclusionTree) + hashmap.size() * (sizeof(std::pair<uint64_t, ExclusionTreeNode*>) + sizeof(ExclusionTreeNode) + 8);
+	//return sizeof(ExclusionTree) + hashmap.size() * (sizeof(std::pair<uint64_t, ExclusionTreeNode*>) + sizeof(ExclusionTreeNode) + 8);
+	return sizeof(ExclusionTree);
 }

@@ -791,6 +791,8 @@ int32_t main(int32_t argc, char** argv)
 		"    --dry-i <INPUT>                      - just run PUT once with the given input\n"
 		"    --responsive                         - Enables resposive console mode accepting inputs from use\n"
 		"    --ui			    	              - Starts the program in GUI mode\n"
+		"    --consoleui			    	      - Starts the program with constantly refreshing status output on the console \n"
+		"    --refreshrate <NUM>			      - refreshrate for consoleui\n"
 		"    --logtoconsole                       - Writes all logging output to the console\n"
 		"    --separatelogfiles <FOLDER>          - Writes logfiles to \"/logs\" and uses timestamps in the logname\n"
 		"    --create-conf <PATH>                 - Writes a default configuration file to the current folder\n"
@@ -816,6 +818,7 @@ int32_t main(int32_t argc, char** argv)
 	bool custsavepath = false;
 	bool custresultpath = false;
 	std::string resultpath = "";
+	int32_t refreshrate = 1;
 
 	std::filesystem::path execpath = std::filesystem::path(argv[0]).parent_path();
 
@@ -826,6 +829,20 @@ int32_t main(int32_t argc, char** argv)
 			// print help dialogue and exit
 			std::cout << cmdargs;
 			exit(0);
+		} else if (option.find("--refreshrate") != std::string::npos) {
+			if (i + 1 < argc) {
+				try {
+					refreshrate = std::stol(std::string(argv[i + 1]));
+				} catch (std::exception&) {
+					std::cerr << "missing refreshrate";
+					exit(ExitCodes::ArgumentError);
+				}
+				std::cout << "Parameter: --refreshrate\t" + std::to_string(refreshrate) + "\n";
+				i += 1;
+			} else {
+				std::cerr << "missing refreshrate";
+				exit(ExitCodes::ArgumentError);
+			}
 		} else if (option.find("--test-dd") != std::string::npos) {
 			if (i + 1 < argc) {
 				try {
@@ -2808,6 +2825,8 @@ Responsive:
 		Logging::StdOutDebug = false;
 		Logging::StdOutLogging = false;
 		StartSession();
+
+		std::chrono::microseconds refrwait = std::chrono::microseconds(1000000) / refreshrate;
 		//while (session->Loaded() == false) {
 		//	std::this_thread::sleep_for(std::chrono::milliseconds(50));
 		//}
@@ -2824,7 +2843,7 @@ Responsive:
 				session->StopSession(false, true);
 				break;
 			}
-			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+			std::this_thread::sleep_for(refrwait);
 			auto out = Snapshot(false);
 			clearScreen();
 			moveTo(1, 1);
