@@ -80,7 +80,9 @@ protected:
 	//FlagMap _flags;
 	//EnumType _flags = FormFlags::None;
 	std::shared_mutex _lock;
-	std::mutex _flaglock;
+	//std::mutex _flaglock;
+
+	std::atomic_flag _flaglock = ATOMIC_FLAG_INIT;
 
 public:
 
@@ -138,6 +140,14 @@ public:
 	/// clear form internals
 	/// </summary>
 	void ClearForm();
+
+protected:
+	/// <summary>
+	/// clear form internals
+	/// </summary>
+	void ClearFormInternal();
+
+public:
 	/// <summary>
 	/// Clears all internals
 	/// </summary>

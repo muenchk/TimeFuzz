@@ -192,14 +192,18 @@ bool Form::ReadData(std::istream* buffer, size_t& offset, size_t /*length*/, Loa
 
 void Form::SetFlag(EnumType flag)
 {
-	std::unique_lock<std::mutex> guard(_flaglock);
+	//std::unique_lock<std::mutex> guard(_flaglock);
+	//std::unique_lock<std::shared_mutex> guard(_lock);
+	Spinlock guard(_flaglock);
 	_flags.insert(flag);
 	_flagsAlloc |= flag;
 }
 
 void Form::UnsetFlag(EnumType flag)
 {
-	std::unique_lock<std::mutex> guard(_flaglock);
+	//std::unique_lock<std::mutex> guard(_flaglock);
+	//std::unique_lock<std::shared_mutex> guard(_lock);
+	Spinlock guard(_flaglock);
 	auto itr = _flags.find(flag);
 	if (itr != _flags.end()) {
 		_flags.erase(itr);
@@ -239,7 +243,16 @@ bool Form::WasSaved()
 
 void Form::ClearForm()
 {
-	std::unique_lock<std::mutex> guard(_flaglock);
+	//std::unique_lock<std::mutex> guard(_flaglock);
+	//std::unique_lock<std::shared_mutex> guard(_lock);
+	Spinlock guard(_flaglock);
+	_flagsAlloc = 0;
+	_flags.clear();
+}
+
+void Form::ClearFormInternal()
+{
+	//std::unique_lock<std::mutex> guard(_flaglock);
 	_flagsAlloc = 0;
 	_flags.clear();
 }

@@ -314,7 +314,8 @@ void DerivationTree::ClearInternal()
 
 DerivationTree::~DerivationTree()
 {
-	Clear();
+	ClearInternal();
+	Form::ClearFormInternal();
 }
 
 void DerivationTree::Clear()
