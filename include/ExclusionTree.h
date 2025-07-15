@@ -56,7 +56,7 @@ struct ExclusionTreeNode : public Form
 	friend size_t Hashing::hash(ExclusionTreeNode const& node);
 
 private:
-	const int32_t classversion = 0x1;
+	const int32_t classversion = 0x2;
 
 	struct LoadData
 	{

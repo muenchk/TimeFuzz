@@ -15,6 +15,8 @@
 #include <fstream>
 #include <filesystem>
 #include <exception>
+#include <algorithm>
+#include <execution>
 
 Data::Data()
 {
@@ -149,8 +151,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 				delete[] buffer;
 			}
 			// write information about prior saves
-			if (useincrementalsave)
-			{
+			if (useincrementalsave) {
 				size_t len = 8;
 				size_t offset = 0;
 				unsigned char* buffer = new unsigned char[len];
@@ -161,17 +162,14 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					len = 4;
 					offset = 0;
 					buffer = new unsigned char[len];
-					for (int64_t x = 0; x < (int64_t)_priorsaves.size(); x++)
-					{
+					for (int64_t x = 0; x < (int64_t)_priorsaves.size(); x++) {
 						offset = 0;
 						Buffer::Write((int32_t)_priorsaves[x], buffer, offset);
 						fsave.write((char*)buffer, len);
 					}
 					delete[] buffer;
 				}
-			}
-			else
-			{
+			} else {
 				_priorsaves.clear();
 
 				size_t len = 8;
@@ -182,6 +180,58 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 				delete[] buffer;
 			}
 
+			// here we are going to save the callback we are supposed to call, so that we can call it even if the
+			// program end after this save
+			// we are allocating a flat 256 bytes for this, the callback shouldn't be larger than this
+			{
+				size_t len = 256;
+				size_t offset = 0;
+				unsigned char* buffer = new unsigned char[len];
+				if (callback) {
+					Buffer::Write(true, &fsave, offset);
+					callback->WriteData(&fsave, offset);
+					fsave.write((char*)buffer, len - callback->GetLength() - 1);
+				} else {
+					Buffer::Write(false, buffer, offset);
+					fsave.write((char*)buffer, len);
+				}
+				delete[] buffer;
+			}
+
+			_status = "Writing save...";
+
+			std::streamsize recordpos = 0;
+			// write session data
+			{
+				/*std::shared_lock<std::shared_mutex> guard(_hashmaplock);
+				size_t recordnum = 0;
+				auto changedcounter = [&recordnum](std::shared_ptr<Form> form) {
+					if (form && form->HasChanged()) {
+						recordnum++;
+					}
+					return Data::VisitAction::None;
+				};
+				if (useincrementalsave) {
+					Visit(changedcounter);
+				} else
+					recordnum = _hashmap.size();
+				*/
+				size_t recordnum = _hashmap.size();
+
+				logmessage("Saving {} records... with hashtable with {}", recordnum, _hashmap.size());
+				_actionloadsave_max = recordnum + 1;
+				_actionloadsave_current = 0;
+				recordpos = fsave.tellp();
+				{
+					size_t len = 8;
+					size_t offset = 0;
+					unsigned char* buffer = new unsigned char[len];
+					Buffer::WriteSize(recordnum + 1 /*string Hashmap*/, buffer, offset);
+					fsave.write((char*)buffer, len);
+					delete[] buffer;
+				}
+			}
+
 			Streambuf* sbuf = nullptr;
 			if (settings->saves.compressionLevel != -1) {
 				sbuf = new LZMAStreambuf(&fsave, settings->saves.compressionLevel, settings->saves.compressionExtreme, settings->general.numthreads);
@@ -190,53 +240,10 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 			std::ostream save(sbuf);
 			loginfo("Opened save-file \"{}\"", name);
 
-			// here we are going to save the callbac we are supposed to call, so that we can call it even if the
-			// program end after this save
-			// we are allocating a flat 256 bytes for this, the callback shouldn't be larger than this
+			size_t writtenrecords = 1;
+
+			// write hashmap;
 			{
-				size_t len = 256;
-				size_t offset = 0;
-				unsigned char* buffer = new unsigned char[len];
-				if (callback) {
-					Buffer::Write(true, &save, offset);
-					callback->WriteData(&save, offset);
-					save.write((char*)buffer, len - callback->GetLength() - 1);
-				} else {
-					Buffer::Write(false, buffer, offset);
-					save.write((char*)buffer, len);
-				}
-				delete[] buffer;
-			}
-
-			_status = "Writing save...";
-
-			// write session data
-			{
-				std::shared_lock<std::shared_mutex> guard(_hashmaplock);
-				size_t recordnum = 0;
-				auto changedcounter = [&recordnum](std::shared_ptr<Form> form) {
-					if (form && form->HasChanged())
-					{
-						recordnum++;
-					}
-					return Data::VisitAction::None;
-				};
-				if (useincrementalsave)
-					Visit(changedcounter);
-				else
-					recordnum = _hashmap.size();
-
-				logmessage("Saving {} records... with hashtable with {}", recordnum, _hashmap.size());
-				_actionloadsave_max = recordnum + 1;
-				_actionloadsave_current = 0;
-				{
-					size_t len = 8;
-					size_t offset = 0;
-					unsigned char* buffer = new unsigned char[len];
-					Buffer::WriteSize(recordnum + 1 /*string Hashmap*/, buffer, offset);
-					save.write((char*)buffer, len);
-					delete[] buffer;
-				}
 				// write string hashmap [its coded as a type of record]
 				{
 					size_t sz = GetStringHashmapSize();  // record length
@@ -249,10 +256,14 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					if (fsave.bad())
 						logcritical("critical error in underlying savefile");
 				}
+
 				for (auto& [formid, form] : _hashmap) {
-					// if we are writing incremental saves 
-					if (useincrementalsave && form->HasChanged() == false)
+					// if we are writing incremental saves
+					_actionloadsave_current++;
+					if (useincrementalsave && form->HasChanged() == false) {
 						continue;
+					}
+					writtenrecords++;
 					form->ClearChanged();
 					_actionrecord_len = 0;
 					_actionrecord_offset = 0;
@@ -394,11 +405,21 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					//	stats._Fail++;
 					//	logcritical("record buffer could not be created");
 					//}
-					_actionloadsave_current++;
 				}
 			}
 			sbuf->flush();
 			save.flush();
+			fsave.flush();
+			// update record num
+			fsave.seekp(recordpos);
+			{
+				size_t len = 8;
+				size_t offset = 0;
+				unsigned char* buffer = new unsigned char[len];
+				Buffer::WriteSize(writtenrecords, buffer, offset);
+				fsave.write((char*)buffer, len);
+				delete[] buffer;
+			}
 			fsave.flush();
 			fsave.close();
 			if (sbuf != nullptr) {
@@ -718,6 +739,42 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 				_globalExec = t_globalExec;
 				_runtime = t_runtime;
 			}
+			
+			// load callback if it exists
+			{
+				size_t length = 256;
+				offset = 0;
+				//save.read((char*)buffer, 1);
+				//if (save.gcount() == (std::streamsize)length) {
+				if (Buffer::ReadBool(&fsave, offset) && ignorepriorsaves == false) {
+					callback = Functions::BaseFunction::Create(&fsave, offset, length, _lresolve);
+					fsave.read((char*)buffer, length - 1 - callback->GetLength());
+				} else
+					fsave.read((char*)buffer, length - 1);
+				//} else {
+				if (fsave.bad()) {
+					logcritical("Save file does not appear to have the proper format: failed to read callback information");
+					abort = true;
+				}
+			}
+			
+			// read hashmap and progress information
+			_actionloadsave_max = 0;
+			_actionloadsave_current = 0;
+			{
+				fsave.read(reinterpret_cast<char*>(buffer), 8);
+				if (fsave.bad()) {
+					logcritical("io error");
+					abort = true;
+				}
+				offset = 0;
+				if (fsave.gcount() == 8) {
+					_actionloadsave_max = Buffer::ReadSize(buffer, offset);
+				} else {
+					logcritical("Save file does not appear to have the proper format: failed to read hashmap size");
+					abort = true;
+				}
+			}
 
 			_actionloadsave_current = pos;
 			if (!abort) {
@@ -731,42 +788,6 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 				std::istream save(sbuf);
 
 				bool fileerror = false;
-				// load callback if it exists
-				{
-					size_t length = 256;
-					offset = 0;
-					//save.read((char*)buffer, 1);
-					//if (save.gcount() == (std::streamsize)length) {
-						if (Buffer::ReadBool(&save, offset) && ignorepriorsaves == false) {
-							callback = Functions::BaseFunction::Create(&save, offset, length, _lresolve);
-							save.read((char*)buffer, length - 1 - callback->GetLength());
-						} else
-							save.read((char*)buffer, length - 1);
-					//} else {
-						if (save.bad()) {
-						logcritical("Save file does not appear to have the proper format: failed to read callback information");
-						fileerror = true;
-					}
-				}
-
-				// read hashmap and progress information
-				_actionloadsave_max = 0;
-				_actionloadsave_current = 0;
-				{
-					save.read(reinterpret_cast<char*>(buffer), 8);
-					if (save.bad())
-					{
-						logcritical("io error");
-						fileerror = true;
-					}
-					offset = 0;
-					if (save.gcount() == 8) {
-						_actionloadsave_max = Buffer::ReadSize(buffer, offset);
-					} else {
-						logcritical("Save file does not appear to have the proper format: failed to read hashmap size");
-						fileerror = true;
-					}
-				}
 
 				logdebug("load {} records.", _actionloadsave_max);
 
