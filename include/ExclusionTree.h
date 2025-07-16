@@ -22,6 +22,21 @@ namespace Hashing
 
 struct ExclusionTreeNode : public StrippedForm
 {
+	struct Flags
+	{
+		enum Flag : EnumType
+		{
+			/// <summary>
+			/// No flags
+			/// </summary>
+			None = 0 << 0,
+			/// <summary>
+			/// The node is a LeafNode
+			/// </summary>
+			IsLeaf = 1 << 0,
+		};
+	};
+
 	/// <summary>
 	/// identifier of the node
 	/// </summary>
@@ -41,7 +56,7 @@ struct ExclusionTreeNode : public StrippedForm
 	/// <summary>
 	/// whether this node is a lead
 	/// </summary>
-	bool _isLeaf = false;
+	//bool _isLeaf = false;
 
 	OracleResult _result;
 	FormID _InputID = 0;

@@ -14,18 +14,15 @@
 
 namespace Hashing
 {
-	size_t hash(ExclusionTreeNode const& node)
+	size_t hash(ExclusionTreeNode& node)
 	{
 		std::size_t hs = 0;
 		hs = std::hash<FormID>{}(node._stringID);
-		hs = hs ^ (std::hash<bool>{}(node._isLeaf) << 1);
+		hs = hs ^ (std::hash<bool>{}(node.HasFlag(ExclusionTreeNode::Flags::IsLeaf)) << 1);
 		hs = hs ^ (std::hash<OracleResult>{}(node._result) << 1);
 		hs = hs ^ (std::hash<FormID>{}(node._InputID) << 1);
-		auto itr = node._children.begin();
-		while (itr != node._children.end()) {
-			hs = hs ^ (std::hash<FormID>{}((*itr)->_formid) << 1);
-			itr++;
-		}
+		for (int64_t i = 0; i < (int64_t)node._children.size(); i++)
+			hs = hs ^ (std::hash<FormID>{}(node._children[i]->GetFormID()) << 1);
 		return hs;
 	}
 }
@@ -52,7 +49,10 @@ size_t ExclusionTreeNode::GetStaticSize(int32_t version)
 	                        + 1   // _isLeaf
 	                        + 8   // _result
 	                        + 8;  // _InputID
-	static size_t size0x3 = size0x2;
+	static size_t size0x3 = 4     // version
+	                        + 8   // _stringID
+	                        + 8   // _result
+	                        + 8;  // _InputID
 
 	switch (version) {
 	case 0x1:
@@ -95,7 +95,6 @@ bool ExclusionTreeNode::WriteData(std::ostream* buffer, size_t& offset, size_t l
 				CHECK(abuf.Write<FormID>(0));
 			}
 		}
-		CHECK(abuf.Write<bool>(_isLeaf));
 		CHECK(abuf.Write<OracleResult>(_result));
 		CHECK(abuf.Write<FormID>(_InputID));
 	} catch (std::exception&) {
@@ -129,7 +128,8 @@ bool ExclusionTreeNode::ReadData(std::istream* buffer, size_t& offset, size_t le
 				for (int64_t i = 0; i < (int64_t)size; i++)
 					_children.push_back((ExclusionTreeNode*)data.Read<FormID>());
 					//_loadData->_nodes.push_back(data.Read<FormID>());
-				_isLeaf = data.Read<bool>();
+				if (data.Read<bool>())
+					SetFlag(ExclusionTreeNode::Flags::IsLeaf);
 				_result = data.Read<OracleResult>();
 				_InputID = data.Read<FormID>();
 			} catch (std::exception& e) {
@@ -148,7 +148,8 @@ bool ExclusionTreeNode::ReadData(std::istream* buffer, size_t& offset, size_t le
 				for (int64_t i = 0; i < (int64_t)size; i++)
 					_children.push_back((ExclusionTreeNode*)data.Read<FormID>());
 					//_loadData->_nodes.push_back(data.Read<FormID>());
-				_isLeaf = data.Read<bool>();
+				if (data.Read<bool>())
+					SetFlag(ExclusionTreeNode::Flags::IsLeaf);
 				_result = data.Read<OracleResult>();
 				_InputID = data.Read<FormID>();
 			} catch (std::exception& e) {
@@ -167,7 +168,6 @@ bool ExclusionTreeNode::ReadData(std::istream* buffer, size_t& offset, size_t le
 				for (int64_t i = 0; i < (int64_t)size; i++)
 					_children.push_back((ExclusionTreeNode*)data.Read<FormID>());
 					//_loadData->_nodes.push_back(data.Read<FormID>());
-				_isLeaf = data.Read<bool>();
 				_result = data.Read<OracleResult>();
 				_InputID = data.Read<FormID>();
 			} catch (std::exception& e) {
@@ -264,7 +264,7 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input, OracleResult result)
 		if (auto child = node->HasChild(stringID); child != nullptr) {
 			// if the current node already has the required child,
 			// choose it as our node and go to the next _input entry
-			if (child->_isLeaf) {
+			if (child->HasFlag(ExclusionTreeNode::Flags::IsLeaf)) {
 				// check the result to determine whether the _input is excluded or if its just unfinished
 				if (child->_result == OracleResult::Passing || child->_result == OracleResult::Failing)
 					return;  // the _input is already excluded
@@ -292,7 +292,7 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input, OracleResult result)
 	if (result == OracleResult::Passing || result == OracleResult::Failing) {
 		node->SetChanged();
 		node->_result = result;
-		node->_isLeaf = true;
+		node->SetFlag(ExclusionTreeNode::Flags::IsLeaf);
 		node->_InputID = input->GetFormID();
 		leafcount++;
 		if (node->_children.size() > 0) {
@@ -333,7 +333,7 @@ bool ExclusionTree::HasPrefix(std::shared_ptr<Input> input, FormID& prefixID)
 	while (itr != input->end()) {
 		FormID stringID = _sessiondata->data->GetIDFromString(*itr);
 		if (auto child = node->HasChild(stringID); child != nullptr) {
-			if (child->_isLeaf) {
+			if (child->HasFlag(ExclusionTreeNode::Flags::IsLeaf)) {
 				//child->_visitcount++; // this will lead to races, but as we do not need a precise number, a few races don't matter
 				prefixID = child->_InputID;
 				return true;  // if the child is a leaf, then we have found an excluded prefix
@@ -377,7 +377,7 @@ std::tuple<bool, FormID, bool, FormID> ExclusionTree::HasPrefixAndShortestExtens
 	while (itr != input->end()) {
 		FormID stringID = _sessiondata->data->GetIDFromString(*itr);
 		if (auto child = node->HasChild(stringID); child != nullptr) {
-			if (child->_isLeaf) {
+			if (child->HasFlag(ExclusionTreeNode::Flags::IsLeaf)) {
 				//child->_visitcount++;  // this will lead to races, but as we do not need a precise number, a few races don't matter
 				prefixID = child->_InputID;
 				return { true, prefixID, false, 0 };  // if the child is a leaf, then we have found an excluded prefix
@@ -412,7 +412,7 @@ std::tuple<bool, FormID, bool, FormID> ExclusionTree::HasPrefixAndShortestExtens
 		node = nodequeue.front();
 		nodequeue.pop();
 		// if the node is a leaf we have found the shortest extension and can return a result
-		if (node->_isLeaf)
+		if (node->HasFlag(ExclusionTreeNode::Flags::IsLeaf))
 			return { false, 0, true, node->_InputID };
 		// if the node represents an unfinished result we also have found the shortest extension
 		else if (node->_result == OracleResult::Unfinished)
@@ -451,7 +451,7 @@ void ExclusionTree::DeleteChildrenIntern(ExclusionTreeNode* node)
 		for (int64_t i = 0; i < (int64_t)tmp->_children.size(); i++) {
 			stack.push(tmp->_children[i]);
 		}
-		if (tmp->_isLeaf)
+		if (tmp->HasFlag(ExclusionTreeNode::Flags::IsLeaf))
 			leafcount--;
 		//hashmap.erase(tmp->_id);
 		nodecount--;
@@ -462,7 +462,7 @@ void ExclusionTree::DeleteChildrenIntern(ExclusionTreeNode* node)
 	// delete all children
 	for (int64_t i = 0; i < (int64_t)node->_children.size(); i++) {
 		DeleteChildrenIntern(node->_children[i]);
-		if (node->_children[i]->_isLeaf)
+		if (node->_children[i]->HasFlag(ExclusionTreeNode::Flags::IsLeaf))
 			leafcount--;
 		//hashmap.erase(node->_children[i]->_id);
 		nodecount--;
@@ -534,7 +534,7 @@ double ExclusionTree::CheckForAlternatives(int32_t alternativesPerNode)
 		auto [node, path] = stack.top();
 		stack.pop();
 		path->nodes.push_back(node);
-		if (node->_isLeaf) {
+		if (node->HasFlag(ExclusionTreeNode::Flags::IsLeaf)) {
 			path->finished = true;
 			done.push_back(path);
 			leaf++;

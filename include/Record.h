@@ -71,14 +71,14 @@ struct Records
 	{
 		T::RegisterFactories();
 		internaloffset = 0;
-		T* rec = new T();
+		std::shared_ptr<T> rec = std::make_shared<T>();
 		rec->ReadData(buffer, internaloffset, length, resolver);
 		// if the offset (that was updated by ReadData) is greater than length, we have read beyond the limits of the buffer
 		if (internaloffset > length) {
-			delete rec;
+			rec.reset();
 			return {};
 		}
-		return std::shared_ptr<T>(rec);
+		return rec;
 	}
 };
 
