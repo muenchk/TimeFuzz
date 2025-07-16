@@ -33,7 +33,7 @@ struct ExclusionTreeNode : public StrippedForm
 	/// <summary>
 	/// children of the node
 	/// </summary>
-	std::vector<std::shared_ptr<ExclusionTreeNode>> _children;
+	std::vector<ExclusionTreeNode*> _children;
 	/// <summary>
 	/// childrens ids
 	/// </summary>
@@ -51,18 +51,18 @@ struct ExclusionTreeNode : public StrippedForm
 	/// </summary>
 	/// <param name="str"></param>
 	/// <returns></returns>
-	std::shared_ptr<ExclusionTreeNode> HasChild(FormID stringID);
+	ExclusionTreeNode* HasChild(FormID stringID);
 
 	friend size_t Hashing::hash(ExclusionTreeNode const& node);
 
 private:
 	static const int32_t classversion = 0x3;
 
-	struct LoadData
-	{
-		std::vector<FormID> _nodes;
-	};
-	LoadData* _loadData = nullptr;
+	//struct LoadData
+	//{
+	//	std::vector<FormID> _nodes;
+	//};
+	//LoadData* _loadData = nullptr;
 
 public:
 
@@ -205,9 +205,9 @@ private:
 
 	std::shared_ptr<SessionData> _sessiondata;
 
-	void DeleteChildren(std::shared_ptr<ExclusionTreeNode> node);
+	void DeleteChildren(ExclusionTreeNode* node);
 
-	void DeleteChildrenIntern(std::shared_ptr<ExclusionTreeNode> node);
+	void DeleteChildrenIntern(ExclusionTreeNode* node);
 
-	void DeleteNodeIntern(std::shared_ptr<ExclusionTreeNode> node);
+	void DeleteNodeIntern(ExclusionTreeNode* node);
 };

@@ -372,6 +372,27 @@ public:
 		}
 	}
 
+	void DeleteForm(FormID formid)
+	{
+		if (formid != 0) {
+			auto form = LookupFormID<IForm>(formid);
+			if (form->CanDelete(this) == true) {
+				std::unique_lock<std::shared_mutex> guard(_hashmaplock);
+				form->SetFlag(Form::FormFlags::Deleted);
+				// if form was in an earlier save file we don't delete it from the hashmap
+				// such that we can save to a newer savefile that it was deleted
+				if (form->WasSaved() == false)
+					_hashmap.erase(form->GetFormID());
+				//form->Clear();
+				//RecycleObject<T>(form);
+				form.reset();
+				return;
+			}
+		} else {
+			return;
+		}
+	}
+
 	/// <summary>
 	/// Looks up a form by its id
 	/// </summary>

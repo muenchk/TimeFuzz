@@ -30,7 +30,7 @@ namespace Hashing
 	}
 }
 
-std::shared_ptr<ExclusionTreeNode> ExclusionTreeNode::HasChild(FormID stringID)
+ExclusionTreeNode* ExclusionTreeNode::HasChild(FormID stringID)
 {
 	for (int64_t i = 0; i < (int64_t)_children.size(); i++) {
 		if (_children[i] && _children[i]->_stringID == stringID)
@@ -112,9 +112,9 @@ bool ExclusionTreeNode::WriteData(std::ostream* buffer, size_t& offset, size_t l
 }
 bool ExclusionTreeNode::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 {
-	if (_loadData)
-		delete _loadData;
-	_loadData = new LoadData();
+	//if (_loadData)
+	//	delete _loadData;
+	//_loadData = new LoadData();
 
 	int32_t version = Buffer::ReadInt32(buffer, offset);
 	switch (version) {
@@ -127,7 +127,8 @@ bool ExclusionTreeNode::ReadData(std::istream* buffer, size_t& offset, size_t le
 				data.Read<FormID>();
 				size_t size = data.Read<size_t>();
 				for (int64_t i = 0; i < (int64_t)size; i++)
-					_loadData->_nodes.push_back(data.Read<FormID>());
+					_children.push_back((ExclusionTreeNode*)data.Read<FormID>());
+					//_loadData->_nodes.push_back(data.Read<FormID>());
 				_isLeaf = data.Read<bool>();
 				_result = data.Read<OracleResult>();
 				_InputID = data.Read<FormID>();
@@ -145,7 +146,8 @@ bool ExclusionTreeNode::ReadData(std::istream* buffer, size_t& offset, size_t le
 				_stringID = data.Read<FormID>();
 				size_t size = data.Read<size_t>();
 				for (int64_t i = 0; i < (int64_t)size; i++)
-					_loadData->_nodes.push_back(data.Read<FormID>());
+					_children.push_back((ExclusionTreeNode*)data.Read<FormID>());
+					//_loadData->_nodes.push_back(data.Read<FormID>());
 				_isLeaf = data.Read<bool>();
 				_result = data.Read<OracleResult>();
 				_InputID = data.Read<FormID>();
@@ -163,7 +165,8 @@ bool ExclusionTreeNode::ReadData(std::istream* buffer, size_t& offset, size_t le
 				_stringID = data.Read<FormID>();
 				size_t size = data.Read<size_t>();
 				for (int64_t i = 0; i < (int64_t)size; i++)
-					_loadData->_nodes.push_back(data.Read<FormID>());
+					_children.push_back((ExclusionTreeNode*)data.Read<FormID>());
+					//_loadData->_nodes.push_back(data.Read<FormID>());
 				_isLeaf = data.Read<bool>();
 				_result = data.Read<OracleResult>();
 				_InputID = data.Read<FormID>();
@@ -179,19 +182,21 @@ bool ExclusionTreeNode::ReadData(std::istream* buffer, size_t& offset, size_t le
 }
 void ExclusionTreeNode::InitializeEarly(LoadResolver* resolver)
 {
-	if (_loadData) {
-		for (int64_t x = 0; x < (int64_t)_loadData->_nodes.size(); x++)
-		{
-			auto ptr = resolver->ResolveFormID<ExclusionTreeNode>(_loadData->_nodes[x]);
+	//if (_loadData) {
+		//for (int64_t x = 0; x < (int64_t)_loadData->_nodes.size(); x++)
+		for (int64_t x = 0; x < (int64_t)_children.size(); x++) {
+			//auto ptr = resolver->ResolveFormID<ExclusionTreeNode>(_loadData->_nodes[x]);
+			auto ptr = resolver->ResolveFormID<ExclusionTreeNode>((FormID)_children[x]);
 			if (ptr)
-				_children.push_back(ptr);
+				//_children.push_back(ptr);
+				_children[x] = ptr.get();
 			else
 				logwarn("Exclusion Tree Node couldn't be found");
 		}
 
-		delete _loadData;
-		_loadData = nullptr;
-	}
+		//delete _loadData;
+		//_loadData = nullptr;
+	//}
 }
 void ExclusionTreeNode::InitializeLate(LoadResolver* /*resolver*/)
 {
@@ -251,7 +256,7 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input, OracleResult result)
 		return;
 
 	exclwlock;
-	std::shared_ptr<ExclusionTreeNode> node = root;
+	ExclusionTreeNode* node = root.get();
 	int dep = 0;
 	auto itr = input->begin();
 	while (itr != input->end()) {
@@ -272,11 +277,11 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input, OracleResult result)
 			newnode->SetChanged();
 			newnode->_result = OracleResult::Undefined;
 			newnode->_stringID = stringID;
-			node->_children.push_back(newnode);
+			node->_children.push_back(newnode.get());
 			node->SetChanged();
 			nodecount++;
 			//hashmap.insert({ newnode->_id, newnode });
-			node = newnode;
+			node = newnode.get();
 		}
 		dep++;
 		itr++;
@@ -322,7 +327,7 @@ bool ExclusionTree::HasPrefix(std::shared_ptr<Input> input, FormID& prefixID)
 
 	prefixID = 0;
 
-	std::shared_ptr<ExclusionTreeNode> node = root;
+	ExclusionTreeNode* node = root.get();
 	auto itr = input->begin();
 	size_t count = 0;
 	while (itr != input->end()) {
@@ -366,7 +371,7 @@ std::tuple<bool, FormID, bool, FormID> ExclusionTree::HasPrefixAndShortestExtens
 
 	FormID prefixID = 0;
 
-	std::shared_ptr<ExclusionTreeNode> node = root;
+	ExclusionTreeNode* node = root.get();
 	auto itr = input->begin();
 	size_t count = 0;
 	while (itr != input->end()) {
@@ -400,7 +405,7 @@ std::tuple<bool, FormID, bool, FormID> ExclusionTree::HasPrefixAndShortestExtens
 	// we will now commence breath-first search to find the shortest extension of our input, and
 	// return that if we find one
 
-	std::queue<std::shared_ptr<ExclusionTreeNode>> nodequeue;
+	std::queue<ExclusionTreeNode*> nodequeue;
 	nodequeue.push(node);
 	while (nodequeue.size() > 0)
 	{
@@ -423,22 +428,22 @@ std::tuple<bool, FormID, bool, FormID> ExclusionTree::HasPrefixAndShortestExtens
 	return { false, 0, false, 0 };
 }
 
-void ExclusionTree::DeleteChildren(std::shared_ptr<ExclusionTreeNode> node)
+void ExclusionTree::DeleteChildren(ExclusionTreeNode* node)
 {
 	SetChanged();
 	exclwlock;
 	DeleteChildrenIntern(node);
 }
 
-void ExclusionTree::DeleteChildrenIntern(std::shared_ptr<ExclusionTreeNode> node)
+void ExclusionTree::DeleteChildrenIntern(ExclusionTreeNode* node)
 {
 	// delete all children
 	// recursion free
-	std::stack<std::shared_ptr<ExclusionTreeNode>> stack;
+	std::stack<ExclusionTreeNode*> stack;
 	for (int64_t i = 0; i < (int64_t)node->_children.size(); i++)
 		stack.push(node->_children[i]);
 	node->_children.clear();
-	std::shared_ptr<ExclusionTreeNode> tmp = nullptr;
+	ExclusionTreeNode* tmp = nullptr;
 	while (stack.size() > 0)
 	{
 		tmp = stack.top();
@@ -450,7 +455,7 @@ void ExclusionTree::DeleteChildrenIntern(std::shared_ptr<ExclusionTreeNode> node
 			leafcount--;
 		//hashmap.erase(tmp->_id);
 		nodecount--;
-		_sessiondata->data->DeleteForm(tmp);
+		_sessiondata->data->DeleteForm(tmp->GetFormID());
 		//delete tmp;
 	}
 
@@ -461,13 +466,13 @@ void ExclusionTree::DeleteChildrenIntern(std::shared_ptr<ExclusionTreeNode> node
 			leafcount--;
 		//hashmap.erase(node->_children[i]->_id);
 		nodecount--;
-		_sessiondata->data->DeleteForm(node->_children[i]);
+		_sessiondata->data->DeleteForm(node->_children[i]->GetFormID());
 		//delete node->_children[i];
 	}
 	node->_children.clear();
 }
 
-void ExclusionTree::DeleteNodeIntern(std::shared_ptr<ExclusionTreeNode> node)
+void ExclusionTree::DeleteNodeIntern(ExclusionTreeNode* node)
 {
 	// delete all children of this node
 	for (int64_t i = 0; i < (int64_t)node->_children.size(); i++) {
@@ -477,7 +482,7 @@ void ExclusionTree::DeleteNodeIntern(std::shared_ptr<ExclusionTreeNode> node)
 	// delete the node
 	//hashmap.erase(node->_id);
 	nodecount--;
-	_sessiondata->data->DeleteForm(node);
+	_sessiondata->data->DeleteForm(node->GetFormID());
 	//delete node;
 }
 
@@ -506,7 +511,7 @@ double ExclusionTree::CheckForAlternatives(int32_t alternativesPerNode)
 	struct Path
 	{
 	public:
-		std::vector<std::shared_ptr<ExclusionTreeNode>> nodes;
+		std::vector<ExclusionTreeNode*> nodes;
 		bool finished = false;
 
 		Path* Copy()
@@ -521,7 +526,7 @@ double ExclusionTree::CheckForAlternatives(int32_t alternativesPerNode)
 	int64_t open = 0;
 	int64_t leaf = 0;
 
-	std::stack<std::pair<std::shared_ptr<ExclusionTreeNode>, Path*>> stack;
+	std::stack<std::pair<ExclusionTreeNode*, Path*>> stack;
 	for (auto child : root->_children)
 		stack.push({ child, new Path() });
 	while (stack.size() > 0)
