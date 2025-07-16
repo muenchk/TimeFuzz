@@ -36,18 +36,165 @@ namespace Hashing
 		}
 		return hs;
 	}
+
+	size_t hash(EnumType const& st)
+	{
+		return std::hash<EnumType>{}(st);
+	}
 }
 
-
-FormID Form::GetFormID()
+FormID IForm::GetFormID()
 {
 	return _formid;
 }
-
-void Form::SetFormID(FormID formid)
+void IForm::SetFormID(FormID formid)
 {
 	_formid = formid;
 }
+
+
+size_t StrippedForm::GetStaticSize(int32_t version)
+{
+	static size_t size0x1 = 4     // version
+	                        + 8   // _formid
+	                        + 8;  // _flags
+	switch (version) {
+	case 0x1:
+		return size0x1;
+	default:
+		return 0;
+	}
+}
+
+size_t StrippedForm::GetDynamicSize()
+{
+	return StrippedForm::GetStaticSize(formversion);  // basic stuff
+}
+
+bool StrippedForm::WriteData(std::ostream* buffer, size_t& offset, size_t)
+{
+	Buffer::Write(formversion, buffer, offset);
+	Buffer::Write(_formid, buffer, offset);
+	Buffer::Write(_flagsAlloc, buffer, offset);
+	return true;
+}
+
+bool StrippedForm::ReadData(std::istream* buffer, size_t& offset, size_t /*length*/, LoadResolver* /*resolver*/)
+{
+	// sets saved to true -> form has been read from save
+	__saved = true;
+	int32_t version = Buffer::ReadInt32(buffer, offset);
+	switch (version) {
+	case 0x1:
+		{
+			_formid = Buffer::ReadUInt64(buffer, offset);
+			_flagsAlloc = Buffer::ReadUInt64(buffer, offset);
+			__flaghash = Hashing::hash(_flagsAlloc);
+		}
+		return true;
+	default:
+		return false;
+	}
+}
+bool StrippedForm::ReadDataLegacy(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+{
+	// sets saved to true -> form has been read from save
+	__saved = true;
+	int32_t version = Buffer::ReadInt32(buffer, offset);
+	switch (version) {
+	case 0x1:
+		{
+			_formid = Buffer::ReadUInt64(buffer, offset);
+			_flagsAlloc = Buffer::ReadUInt64(buffer, offset);
+			/* size_t size = Buffer::ReadSize(buffer, offset);
+			for (size_t i = 0; i < size; i++) {
+				FormID setterID = Buffer::ReadUInt64(buffer, offset);
+				EnumType flag = Buffer::ReadUInt64(buffer, offset);
+				_flags.insert(FlagMap::value_type(setterID, flag));
+			}*/
+			size_t size = Buffer::ReadSize(buffer, offset);
+			for (size_t i = 0; i < size; i++) {
+				Buffer::ReadUInt64(buffer, offset);
+			}
+			__flaghash = Hashing::hash(_flagsAlloc);
+		}
+		return true;
+	default:
+		return false;
+	}
+}
+
+bool StrippedForm::CanDelete(Data*)
+{
+	return true;
+}
+
+void StrippedForm::ClearForm()
+{
+	_flagsAlloc = 0;
+}
+
+void StrippedForm::ClearFormInternal()
+{
+	_flagsAlloc = 0;
+}
+
+void StrippedForm::FreeMemory()
+{
+
+}
+
+bool StrippedForm::Freed()
+{
+	return true;
+}
+
+size_t StrippedForm::MemorySize()
+{
+	return GetDynamicSize();
+}
+
+void StrippedForm::SetFlag(EnumType flag)
+{
+	_flagsAlloc |= flag;
+}
+
+void StrippedForm::UnsetFlag(EnumType flag)
+{
+	_flagsAlloc = _flagsAlloc & (0xFFFFFFFFFFFFFFFF xor flag);
+}
+
+bool StrippedForm::HasFlag(EnumType flag)
+{
+	return _flagsAlloc & flag;
+}
+
+EnumType StrippedForm::GetFlags()
+{
+	return _flagsAlloc;
+}
+
+void StrippedForm::SetChanged()
+{
+	__changed |= 1;
+}
+void StrippedForm::ClearChanged()
+{
+	__changed ^= __changed;
+	__flaghash = Hashing::hash(_flagsAlloc);
+}
+bool StrippedForm::HasChanged()
+{
+	return __changed || __flaghash != Hashing::hash(_flagsAlloc);
+}
+
+bool StrippedForm::WasSaved()
+{
+	return __saved;
+}
+
+
+
 
 void Form::FreeMemory()
 {
@@ -56,7 +203,7 @@ void Form::FreeMemory()
 
 bool Form::Freed()
 {
-	return false;
+	return true;
 }
 
 size_t Form::MemorySize()

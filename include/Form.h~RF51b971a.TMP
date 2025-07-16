@@ -313,7 +313,9 @@ private:
 	static const int32_t formversion = 0x1;
 
 protected:
+	FormID _formid = 0;
 	std::multiset<EnumType> _flags;
+	EnumType _flagsAlloc = FormFlags::None;
 
 	//typedef boost::bimap<boost::bimaps::multiset_of<FormID>, boost::bimaps::multiset_of<EnumType>> FlagMap;
 	//FlagMap _flags;

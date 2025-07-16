@@ -20,7 +20,7 @@ namespace Hashing
 	size_t hash(ExclusionTreeNode const& node);
 }
 
-struct ExclusionTreeNode : public Form
+struct ExclusionTreeNode : public StrippedForm
 {
 	/// <summary>
 	/// identifier of the node
@@ -56,7 +56,7 @@ struct ExclusionTreeNode : public Form
 	friend size_t Hashing::hash(ExclusionTreeNode const& node);
 
 private:
-	const int32_t classversion = 0x2;
+	static const int32_t classversion = 0x3;
 
 	struct LoadData
 	{

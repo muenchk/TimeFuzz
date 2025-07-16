@@ -86,11 +86,11 @@ private:
 	struct ObjStorage
 	{
 	private:
-		std::queue<std::shared_ptr<Form>> storage;
+		std::queue<std::shared_ptr<IForm>> storage;
 		std::atomic_flag _flag = ATOMIC_FLAG_INIT;
 
 	public:
-		std::shared_ptr<Form> GetObj()
+		std::shared_ptr<IForm> GetObj()
 		{
 			Utility::SpinLock spin(_flag);
 			if (storage.size() > 0) {
@@ -100,7 +100,7 @@ private:
 			}
 			return {};
 		}
-		void StoreObj(std::shared_ptr<Form> obj)
+		void StoreObj(std::shared_ptr<IForm> obj)
 		{
 			Utility::SpinLock spin(_flag);
 			storage.push(obj);
@@ -178,8 +178,8 @@ private:
 	/// <summary>
 	/// hashmap holding all forms
 	/// </summary>
-	//std::unordered_map<FormID, std::shared_ptr<Form>> _hashmap;
-	boost::unordered_map<FormID, std::shared_ptr<Form>> _hashmap;
+	//std::unordered_map<FormID, std::shared_ptr<IForm>> _hashmap;
+	boost::unordered_map<FormID, std::shared_ptr<IForm>> _hashmap;
 	/// <summary>
 	/// mutex for _hashmap access
 	/// </summary>
@@ -292,7 +292,7 @@ public:
 	/// <typeparam name="T"></typeparam>
 	/// <typeparam name=""></typeparam>
 	/// <returns>valid shared_ptr</returns>
-	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+	template <class T, typename = std::enable_if<std::is_base_of<IForm, T>::value>>
 	[[deprecated]] std::shared_ptr<T> GetRecycledObject()
 	{
 		auto stor = _objectRecycler.at(T::GetTypeStatic());
@@ -303,7 +303,7 @@ public:
 	/// Creates a new dynamic form and registers it
 	/// </summary>
 	/// <typeparam name="T">Type of the form to create</typeparam>
-	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+	template <class T, typename = std::enable_if<std::is_base_of<IForm, T>::value>>
 	std::shared_ptr<T> CreateForm()
 	{
 		//loginfo("Create Form");
@@ -319,7 +319,7 @@ public:
 		ptr->SetFormID(formid);
 		{
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
-			_hashmap.insert({ formid, dynamic_pointer_cast<Form>(ptr) });
+			_hashmap.insert({ formid, dynamic_pointer_cast<IForm>(ptr) });
 		}
 		ptr->SetChanged();
 		return ptr;
@@ -331,7 +331,7 @@ public:
 	/// <typeparam name="T">Type of the form to register</typeparam>
 	/// <param name="form">The form to register</param>
 	/// <returns>whether the form was registered successfully, false otherwise</returns>
-	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+	template <class T, typename = std::enable_if<std::is_base_of<IForm, T>::value>>
 	bool RegisterForm(std::shared_ptr<T> form)
 	{
 		if (form) {
@@ -339,7 +339,7 @@ public:
 			//if (_hashmap.contains(form->GetFormID()) && _hashmap.at(form->GetFormID())->GetType() != form->GetType()) {
 			//	logcritical("Already assigned formid for form of different type");
 			//}
-			_hashmap.insert(std::pair<FormID, std::shared_ptr<Form>>{ form->GetFormID(), dynamic_pointer_cast<Form>(form) });
+			_hashmap.insert(std::pair<FormID, std::shared_ptr<IForm>>{ form->GetFormID(), dynamic_pointer_cast<IForm>(form) });
 			return true;
 		}
 		return false;
@@ -350,7 +350,7 @@ public:
 	/// </summary>
 	/// <typeparam name="T">Type of the form to delete</typeparam>
 	/// <param name="form">The form to delete</param>
-	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+	template <class T, typename = std::enable_if<std::is_base_of<IForm, T>::value>>
 	void DeleteForm(std::shared_ptr<T> form)
 	{
 		if (form) {
@@ -378,7 +378,7 @@ public:
 	/// <typeparam name="T">Type of the form to find</typeparam>
 	/// <param name="formid">The id of the form to find</param>
 	/// <returns>valid shared_ptr if formid has been found, invalid shared_ptr otherwise</returns>
-	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+	template <class T, typename = std::enable_if<std::is_base_of<IForm, T>::value>>
 	std::shared_ptr<T> LookupFormID(FormID formid)
 	{
 		std::shared_lock<std::shared_mutex> guard(_hashmaplock);
@@ -394,7 +394,7 @@ public:
 	/// </summary>
 	/// <typeparam name="T">type to find</typeparam>
 	/// <returns>vector with entries of type T</returns>
-	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+	template <class T, typename = std::enable_if<std::is_base_of<IForm, T>::value>>
 	std::vector<std::shared_ptr<T>> GetFormArray()
 	{
 		std::vector<std::shared_ptr<T>> results;
@@ -411,7 +411,7 @@ public:
 	/// </summary>
 	/// <typeparam name="T">type to find</typeparam>
 	/// <returns>vector with entries of type T</returns>
-	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+	template <class T, typename = std::enable_if<std::is_base_of<IForm, T>::value>>
 	int64_t CountOlderObjects(std::shared_ptr<T> compare)
 	{
 		std::vector<std::shared_ptr<T>> results;
@@ -435,13 +435,13 @@ public:
 	/// Applies the [visitor] function to all forms in the hashmap
 	/// </summary>
 	/// <param name="visitor">predicate that is applied to all database entries</param>
-	void Visit(std::function<VisitAction(std::shared_ptr<Form>)> visitor);
+	void Visit(std::function<VisitAction(std::shared_ptr<IForm>)> visitor);
 
 	/// <summary>
 	/// Returns a copy of the hashmap with weak pointers instead of the shared pointers
 	/// </summary>
 	/// <returns>hashmap with weak copies of database entries</returns>
-	std::unordered_map<FormID, std::weak_ptr<Form>> GetWeakHashmapCopy();
+	std::unordered_map<FormID, std::weak_ptr<IForm>> GetWeakHashmapCopy();
 
 	/// <summary>
 	/// Returns the ID associated with the given string
@@ -499,8 +499,8 @@ public:
 	/// </summary>
 	/// <typeparam name="T">type to find</typeparam>
 	/// <returns>vector with entries of type T</returns>
-	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
-	std::shared_ptr<T> FindRandomObject(EnumType matchflags, EnumType excludeflags, std::set<FormID>& excluded,std::function<bool(std::shared_ptr<Form>)> pred)
+	template <class T, typename = std::enable_if<std::is_base_of<IForm, T>::value>>
+	std::shared_ptr<T> FindRandomObject(EnumType matchflags, EnumType excludeflags, std::set<FormID>& excluded, std::function<bool(std::shared_ptr<IForm>)> pred)
 	{
 		std::shared_lock<std::shared_mutex> guard(_hashmaplock);
 		FormID formid = Utility::RandomInt(_baseformid, _nextformid - 1);

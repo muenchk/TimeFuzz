@@ -1280,7 +1280,7 @@ void Session::UI_GetDatabaseObjectStatus()
 	int64_t freedObjects = 0, fullObjects = 0;
 	Data::SaveStats stats, nums, freed;
 	uint64_t unfreed = 0;
-	std::function<Data::VisitAction(std::shared_ptr<Form>)> report = [&freedObjects, &fullObjects, &stats, &nums, &freed, &unfreed](std::shared_ptr<Form> form) {
+	std::function<Data::VisitAction(std::shared_ptr<IForm>)> report = [&freedObjects, &fullObjects, &stats, &nums, &freed, &unfreed](std::shared_ptr<IForm> form) {
 		if (form->Freed())
 			freedObjects++;
 		else
@@ -1526,7 +1526,7 @@ void Session::ExtractInputs(int number, int length, double score)
 
 	sessdata->SetMaxGenerationCallbacks(sessdata->_controller->GetNumThreads() * 5);
 
-	std::function<bool(std::shared_ptr<Form>)> pred = [&length, &score](std::shared_ptr<Form> form) {
+	std::function<bool(std::shared_ptr<IForm>)> pred = [&length, &score](std::shared_ptr<IForm> form) {
 		if (auto inp = form->As<Input>(); inp != nullptr)
 			if (inp->EffectiveLength() >= length && inp->GetPrimaryScore() >= score)
 				return true;

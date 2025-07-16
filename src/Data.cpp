@@ -205,7 +205,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 			{
 				/*std::shared_lock<std::shared_mutex> guard(_hashmaplock);
 				size_t recordnum = 0;
-				auto changedcounter = [&recordnum](std::shared_ptr<Form> form) {
+				auto changedcounter = [&recordnum](std::shared_ptr<IForm> form) {
 					if (form && form->HasChanged()) {
 						recordnum++;
 					}
@@ -1165,7 +1165,9 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 			}
 
 			// delete all forms marked deleted
-			auto visitor = [](std::shared_ptr<Form> form) {
+			auto visitor = [](std::shared_ptr<IForm> form) {
+				if (!form)
+					logcritical("Form is empty");
 				if (form->HasFlag(Form::FormFlags::Deleted))
 					return Data::VisitAction::DeleteForm;
 				else
@@ -1500,7 +1502,7 @@ std::shared_ptr<Session> Data::CreateForm()
 		ptr->SetFormID(formid);
 		{
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
-			_hashmap.insert({ formid, dynamic_pointer_cast<Form>(ptr) });
+			_hashmap.insert({ formid, dynamic_pointer_cast<IForm>(ptr) });
 		}
 		ptr->SetChanged();
 		return ptr;
@@ -1530,7 +1532,7 @@ std::shared_ptr<TaskController> Data::CreateForm()
 		ptr->SetFormID(formid);
 		{
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
-			_hashmap.insert({ formid, dynamic_pointer_cast<Form>(ptr) });
+			_hashmap.insert({ formid, dynamic_pointer_cast<IForm>(ptr) });
 		}
 		ptr->SetChanged();
 		return ptr;
@@ -1555,7 +1557,7 @@ std::shared_ptr<Settings> Data::CreateForm()
 		ptr->SetFormID(formid);
 		{
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
-			_hashmap.insert({ formid, dynamic_pointer_cast<Form>(ptr) });
+			_hashmap.insert({ formid, dynamic_pointer_cast<IForm>(ptr) });
 		}
 		ptr->SetChanged();
 		return ptr;
@@ -1580,7 +1582,7 @@ std::shared_ptr<Oracle> Data::CreateForm()
 		ptr->SetFormID(formid);
 		{
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
-			_hashmap.insert({ formid, dynamic_pointer_cast<Form>(ptr) });
+			_hashmap.insert({ formid, dynamic_pointer_cast<IForm>(ptr) });
 		}
 		ptr->SetChanged();
 		return ptr;
@@ -1605,7 +1607,7 @@ std::shared_ptr<Generator> Data::CreateForm()
 		ptr->SetFormID(formid);
 		{
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
-			_hashmap.insert({ formid, dynamic_pointer_cast<Form>(ptr) });
+			_hashmap.insert({ formid, dynamic_pointer_cast<IForm>(ptr) });
 		}
 		ptr->SetChanged();
 		return ptr;
@@ -1630,7 +1632,7 @@ std::shared_ptr<ExclusionTree> Data::CreateForm()
 		ptr->SetFormID(formid);
 		{
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
-			_hashmap.insert({ formid, dynamic_pointer_cast<Form>(ptr) });
+			_hashmap.insert({ formid, dynamic_pointer_cast<IForm>(ptr) });
 		}
 		ptr->SetChanged();
 		return ptr;
@@ -1660,7 +1662,7 @@ std::shared_ptr<ExecutionHandler> Data::CreateForm()
 		ptr->SetFormID(formid);
 		{
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
-			_hashmap.insert({ formid, dynamic_pointer_cast<Form>(ptr) });
+			_hashmap.insert({ formid, dynamic_pointer_cast<IForm>(ptr) });
 		}
 		ptr->SetChanged();
 		return ptr;
@@ -1686,21 +1688,21 @@ std::shared_ptr<SessionData> Data::CreateForm()
 		ptr->SetFormID(formid);
 		{
 			std::unique_lock<std::shared_mutex> guard(_hashmaplock);
-			_hashmap.insert({ formid, dynamic_pointer_cast<Form>(ptr) });
+			_hashmap.insert({ formid, dynamic_pointer_cast<IForm>(ptr) });
 		}
 		ptr->SetChanged();
 		return ptr;
 	}
 }
 
-std::unordered_map<FormID, std::weak_ptr<Form>> Data::GetWeakHashmapCopy()
+std::unordered_map<FormID, std::weak_ptr<IForm>> Data::GetWeakHashmapCopy()
 {
-	std::unordered_map<FormID, std::weak_ptr<Form>> hashweak;
+	std::unordered_map<FormID, std::weak_ptr<IForm>> hashweak;
 	{
 		std::shared_lock<std::shared_mutex> guard(_hashmaplock);
 		for (auto& [id, form] : _hashmap)
 		{
-			hashweak.insert({ id, std::weak_ptr<Form>(form) });
+			hashweak.insert({ id, std::weak_ptr<IForm>(form) });
 		}
 	}
 	return hashweak;
@@ -1786,7 +1788,7 @@ bool Data::ReadStringHashmap(std::istream* buffer, size_t& offset, size_t length
 	return false;
 }
 
-void Data::Visit(std::function<VisitAction(std::shared_ptr<Form>)> visitor)
+void Data::Visit(std::function<VisitAction(std::shared_ptr<IForm>)> visitor)
 {
 	bool writelock = false;
 	_hashmaplock.lock_shared();

@@ -340,7 +340,7 @@ void SessionFunctions::EndSession_Async(std::shared_ptr<SessionData> sessiondata
 	}
 }
 
-bool HandleForms(std::shared_ptr<IForm> form)
+bool HandleForms(std::shared_ptr<Form> form)
 {
 	if (form->GetType() == FormType::DevTree)
 		return false;
@@ -355,7 +355,7 @@ void SessionFunctions::ReclaimMemory(std::shared_ptr<SessionData> sessiondata)
 	loginfo("trying to free memory");
 	StartProfiling;
 	sessiondata->_lastMemorySweep = std::chrono::steady_clock::now();
-	std::vector<std::shared_ptr<IForm>> free;
+	std::vector<std::shared_ptr<Form>> free;
 	int32_t size = 0;
 	sessiondata->data->Visit([&free,&size](std::shared_ptr<IForm> form) {
 		if (HandleForms(form)) {

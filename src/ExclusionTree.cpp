@@ -52,19 +52,22 @@ size_t ExclusionTreeNode::GetStaticSize(int32_t version)
 	                        + 1   // _isLeaf
 	                        + 8   // _result
 	                        + 8;  // _InputID
+	static size_t size0x3 = size0x2;
 
 	switch (version) {
 	case 0x1:
 		return size0x1;
 	case 0x2:
 		return size0x2;
+	case 0x3:
+		return size0x3;
 	default:
 		return 0;
 	}
 }
 size_t ExclusionTreeNode::GetDynamicSize()
 {
-	size_t sz = Form::GetDynamicSize()  // form stuff
+	size_t sz = StrippedForm::GetDynamicSize()  // form stuff
 	            + GetStaticSize(classversion);
 	sz += 8 + _children.size() * 8;
 	return sz;
@@ -79,7 +82,7 @@ size_t ExclusionTreeNode::GetDynamicSize()
 bool ExclusionTreeNode::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 {
 	Buffer::Write(classversion, buffer, offset);
-	Form::WriteData(buffer, offset, length);
+	StrippedForm::WriteData(buffer, offset, length);
 
 	Buffer::ArrayBuffer abuf(length - offset);
 	try {
@@ -117,7 +120,7 @@ bool ExclusionTreeNode::ReadData(std::istream* buffer, size_t& offset, size_t le
 	switch (version) {
 	case 0x1:
 		{
-			Form::ReadData(buffer, offset, length, resolver);
+			StrippedForm::ReadData(buffer, offset, length, resolver);
 			try {
 				Buffer::ArrayBuffer data(buffer, length - offset);
 				_stringID = data.Read<FormID>();
@@ -136,7 +139,25 @@ bool ExclusionTreeNode::ReadData(std::istream* buffer, size_t& offset, size_t le
 		return true;
 	case 0x2:
 		{
-			Form::ReadData(buffer, offset, length, resolver);
+			StrippedForm::ReadDataLegacy(buffer, offset, length, resolver);
+			try {
+				Buffer::ArrayBuffer data(buffer, length - offset);
+				_stringID = data.Read<FormID>();
+				size_t size = data.Read<size_t>();
+				for (int64_t i = 0; i < (int64_t)size; i++)
+					_loadData->_nodes.push_back(data.Read<FormID>());
+				_isLeaf = data.Read<bool>();
+				_result = data.Read<OracleResult>();
+				_InputID = data.Read<FormID>();
+			} catch (std::exception& e) {
+				logcritical("Exception in read method: {}", e.what());
+				return false;
+			}
+		}
+		return true;
+	case 0x3:
+		{
+			StrippedForm::ReadData(buffer, offset, length, resolver);
 			try {
 				Buffer::ArrayBuffer data(buffer, length - offset);
 				_stringID = data.Read<FormID>();
