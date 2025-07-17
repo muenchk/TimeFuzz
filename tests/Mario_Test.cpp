@@ -20,7 +20,9 @@ namespace Functions
 	{
 	public:
 
-		std::shared_ptr<Input> input;
+		
+		
+		<Input> input;
 
 		void Run() override
 		{
@@ -33,9 +35,9 @@ namespace Functions
 		uint64_t GetType() override { return 'CALL'; }
 		FunctionType GetFunctionType() override { return FunctionType::Heavy; };
 
-		virtual std::shared_ptr<BaseFunction> DeepCopy() override
+		virtual Types::shared_ptr<BaseFunction> DeepCopy() override
 		{
-			auto ptr = std::make_shared<Callback>();
+			auto ptr = Types::make_shared<Callback>();
 			ptr->input = input;
 			return dynamic_pointer_cast<BaseFunction>(ptr);
 		}
@@ -50,9 +52,9 @@ namespace Functions
 			return true;
 		}
 
-		static std::shared_ptr<BaseFunction> Create()
+		static Types::shared_ptr<BaseFunction> Create()
 		{
-			return dynamic_pointer_cast<BaseFunction>(std::make_shared<Callback>());
+			return dynamic_pointer_cast<BaseFunction>(Types::make_shared<Callback>());
 		}
 
 		void Dispose() override
@@ -88,15 +90,15 @@ int main(/*int argc, char** argv*/)
 #endif
 	Functions::RegisterFactory(Functions::Callback::GetTypeStatic(), Functions::Callback::Create);
 	logdebug("Init");
-	std::shared_ptr<Settings> sett = std::make_shared<Settings>();
-	std::shared_ptr<Session> sess = Session::CreateSession();
-	std::shared_ptr<SessionData> sessdata = sess->data->CreateForm<SessionData>();
+	Types::shared_ptr<Settings> sett = Types::make_shared<Settings>();
+	Types::shared_ptr<Session> sess = Session::CreateSession();
+	Types::shared_ptr<SessionData> sessdata = sess->data->CreateForm<SessionData>();
 	logdebug("Initialized Settings");
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>();
+	Types::shared_ptr<Oracle> oracle = Types::make_shared<Oracle>();
 	oracle->Set(Oracle::PUTType::Script, "C:/Users/Kai/AppData/Local/Microsoft/WindowsApps/python3.8.exe");
 #else
-	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>();
+	Types::shared_ptr<Oracle> oracle = Types::make_shared<Oracle>();
 	oracle->Set(Oracle::PUTType::Script, "/usr/local/bin/python3.8");
 #endif
 	oracle->SetLuaCmdArgs(lua);
@@ -106,21 +108,21 @@ int main(/*int argc, char** argv*/)
 		exit(1);
 	}
 	logdebug("Created Oracle");
-	std::shared_ptr<TaskController> controller = std::make_shared<TaskController>();
+	Types::shared_ptr<TaskController> controller = Types::make_shared<TaskController>();
 	controller->SetDisableLua();
 	logdebug("Created TaskController");
 	controller->Start(sessdata, 1);
 	logdebug("Started TaskController with 1 thread");
-	std::shared_ptr<ExecutionHandler> execution = std::make_shared<ExecutionHandler>();
+	Types::shared_ptr<ExecutionHandler> execution = Types::make_shared<ExecutionHandler>();
 	execution->Init(sess, sessdata, sett, controller, 1, oracle);
 	execution->SetMaxConcurrentTests(10);
 	logdebug("Created executionhandler");
 	execution->StartHandler();
 	logdebug("Started executionhandler");
 	logdebug("Adding test");
-	std::vector<std::shared_ptr<Input>> ls;
+	std::vector<Types::shared_ptr<Input>> ls;
 	for (int i = 0; i < 5; i++) {
-		std::shared_ptr<Input> input = std::make_shared<Input>();
+		Types::shared_ptr<Input> input = Types::make_shared<Input>();
 		input->AddEntry("[]");
 		input->SetGenerated();
 
@@ -129,7 +131,7 @@ int main(/*int argc, char** argv*/)
 		execution->AddTest(input, dynamic_pointer_cast<Functions::BaseFunction>(task));
 		ls.push_back(input);
 	}
-	//std::shared_ptr<Input> input = std::make_shared<Input>();
+	//Types::shared_ptr<Input> input = Types::make_shared<Input>();
 	//execution->AddTest(input, [input]() {
 	//	Callback(input);
 	//});

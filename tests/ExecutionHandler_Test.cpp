@@ -34,9 +34,13 @@ namespace Functions
 		uint64_t GetType() override { return 'CALL'; }
 		FunctionType GetFunctionType() override { return FunctionType::Heavy; };
 
-		virtual std::shared_ptr<BaseFunction> DeepCopy() override
+		virtual 
+			
+			
+			
+			<BaseFunction> DeepCopy() override
 		{
-			auto ptr = std::make_shared<Callback>();
+			auto ptr = Types::make_shared<Callback>();
 			return dynamic_pointer_cast<BaseFunction>(ptr);
 		}
 
@@ -50,9 +54,9 @@ namespace Functions
 			return true;
 		}
 
-		static std::shared_ptr<BaseFunction> Create()
+		static Types::shared_ptr<BaseFunction> Create()
 		{
-			return dynamic_pointer_cast<BaseFunction>(std::make_shared<Callback>());
+			return dynamic_pointer_cast<BaseFunction>(Types::make_shared<Callback>());
 		}
 
 		void Dispose()
@@ -84,15 +88,15 @@ int32_t main(/*int32_t argc, char** argv*/)
 	Functions::RegisterFactory(Functions::Callback::GetTypeStatic(), Functions::Callback::Create);
 	logdebug("Init");
 	logdebug("Started TaskController with 1 thread");
-	std::shared_ptr<Settings> sett = std::make_shared<Settings>();
-	std::shared_ptr<Session> sess = Session::CreateSession();
-	std::shared_ptr<SessionData> sessdata = sess->data->CreateForm<SessionData>();
+	Types::shared_ptr<Settings> sett = Types::make_shared<Settings>();
+	Types::shared_ptr<Session> sess = Session::CreateSession();
+	Types::shared_ptr<SessionData> sessdata = sess->data->CreateForm<SessionData>();
 	logdebug("Initialized Settings");
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>();
+	Types::shared_ptr<Oracle> oracle = Types::make_shared<Oracle>();
 	oracle->Set(Oracle::PUTType::STDIN_Dump, std::filesystem::absolute(std::filesystem::path("Test_PUT_General.exe")));
 #else
-	std::shared_ptr<Oracle> oracle = std::make_shared<Oracle>();
+	Types::shared_ptr<Oracle> oracle = Types::make_shared<Oracle>();
 	oracle->Set(Oracle::PUTType::STDIN_Dump, std::filesystem::absolute(std::filesystem::path("Test_PUT_General")));
 #endif
 	oracle->SetLuaCmdArgs(lua);
@@ -102,20 +106,20 @@ int32_t main(/*int32_t argc, char** argv*/)
 		exit(1);
 	}
 	logdebug("Created Oracle");
-	std::shared_ptr<TaskController> controller = std::make_shared<TaskController>();
+	Types::shared_ptr<TaskController> controller = Types::make_shared<TaskController>();
 	controller->SetDisableLua();
 	logdebug("Created TaskController");
 	controller->Start(sessdata, 1);
-	std::shared_ptr<ExecutionHandler> execution = std::make_shared<ExecutionHandler>();
+	Types::shared_ptr<ExecutionHandler> execution = Types::make_shared<ExecutionHandler>();
 	execution->Init(sess, sessdata, sett, controller, 1, oracle);
 	execution->SetMaxConcurrentTests(50);
 	logdebug("Created executionhandler");
 	execution->StartHandler();
 	logdebug("Started executionhandler");
 	logdebug("Adding tests");
-	std::vector<std::shared_ptr<Input>> ls;
+	std::vector<Types::shared_ptr<Input>> ls;
 	for (int32_t i = 0; i < NUM_TESTS; i++) {
-		std::shared_ptr<Input> input = std::make_shared<Input>();
+		Types::shared_ptr<Input> input = Types::make_shared<Input>();
 		execution->AddTest(input, dynamic_pointer_cast<Functions::BaseFunction>(Functions::BaseFunction::Create<Functions::Callback>()));
 		ls.push_back(input);
 	}
@@ -135,10 +139,10 @@ int32_t main(/*int32_t argc, char** argv*/)
 
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-	oracle = std::make_shared<Oracle>();
+	oracle = Types::make_shared<Oracle>();
 	oracle->Set(Oracle::PUTType::STDIN_Dump, std::filesystem::absolute(std::filesystem::path("Test_PUT_IO.exe")));
 #else
-	oracle = std::make_shared<Oracle>();
+	oracle = Types::make_shared<Oracle>();
 	oracle->Set(Oracle::PUTType::STDIN_Dump, std::filesystem::absolute(std::filesystem::path("Test_PUT_IO")));
 #endif
 	// check the oracle for validity
@@ -147,14 +151,14 @@ int32_t main(/*int32_t argc, char** argv*/)
 		controller->Stop();
 		exit(1);
 	}
-	execution = std::make_shared<ExecutionHandler>();
+	execution = Types::make_shared<ExecutionHandler>();
 	execution->Init(sess, sessdata, sett, controller, 1, oracle);
 	logdebug("Set up IO test");
 	sett->tests.use_testtimeout = true;
 	sett->tests.testtimeout = 10000000;
 	execution->SetEnableFragments();
 	execution->StartHandler();
-	std::shared_ptr<Input> inp = std::make_shared<Input>();
+	Types::shared_ptr<Input> inp = Types::make_shared<Input>();
 	inp->AddEntry("What a wonderful day.");
 	inp->AddEntry(".");
 	execution->AddTest(inp, dynamic_pointer_cast<Functions::BaseFunction>(Functions::BaseFunction::Create<Functions::Callback>()));

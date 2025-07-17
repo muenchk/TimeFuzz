@@ -386,7 +386,7 @@ size_t DerivationTree::MemorySize()
 	return sizeof(DerivationTree) + sizeof(std::pair<int64_t, int64_t>) * _parent.segments.size() + (8 + 8 + sizeof(NonTerminalNode)) * _nodes;
 }
 
-void DerivationTree::DeepCopy(std::shared_ptr<DerivationTree> other)
+void DerivationTree::DeepCopy(Types::shared_ptr<DerivationTree> other)
 {
 	other->_inputID = _inputID;
 	other->_parent = _parent;

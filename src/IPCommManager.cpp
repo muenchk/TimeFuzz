@@ -2,7 +2,7 @@
 #include "Test.h"
 #include "Logging.h"
 
-IPCommManager::WriteData::WriteData(std::shared_ptr<Test> test, const char* data, size_t offset, size_t length)
+IPCommManager::WriteData::WriteData(Types::shared_ptr<Test> test, const char* data, size_t offset, size_t length)
 {
 	_test = test;
 	_data = new char[length];
@@ -23,7 +23,7 @@ IPCommManager* IPCommManager::GetSingleton()
 	return std::addressof(singleton);
 }
 
-bool IPCommManager::Write(std::shared_ptr<Test> test, const char* data, size_t offset, size_t length)
+bool IPCommManager::Write(Types::shared_ptr<Test> test, const char* data, size_t offset, size_t length)
 {
 	if (test && data != nullptr && length > 0) {
 		if (test->IsValid() == false)

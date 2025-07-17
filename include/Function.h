@@ -4,6 +4,7 @@
 #include <functional>
 #include <cstdint>
 #include <memory>
+#include "Types.h"
 
 class LoadResolver;
 
@@ -68,7 +69,7 @@ namespace Functions
 		
 		virtual FunctionType GetFunctionType() = 0;
 
-		virtual std::shared_ptr<BaseFunction> DeepCopy() = 0;
+		virtual Types::shared_ptr<BaseFunction> DeepCopy() = 0;
 
 		template <class T, typename = std::enable_if<std::is_base_of<BaseFunction, T>::value>>
 		T* As()
@@ -80,25 +81,25 @@ namespace Functions
 		}
 
 		template <class T, typename = std::enable_if<std::is_base_of<BaseFunction, T>::value>>
-		static std::shared_ptr<T> Create()
+		static Types::shared_ptr<T> Create()
 		{
 			return dynamic_pointer_cast<T>(T::Create());
 		}
 
-		static std::shared_ptr<BaseFunction> Create(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+		static Types::shared_ptr<BaseFunction> Create(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 
-		static std::shared_ptr<BaseFunction> Create(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
+		static Types::shared_ptr<BaseFunction> Create(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver);
 
 		virtual const char* GetName() = 0;
 	};
 
-	void RegisterFactory(uint64_t classid, std::function<std::shared_ptr<BaseFunction>()> factory);
+	void RegisterFactory(uint64_t classid, std::function<Types::shared_ptr<BaseFunction>()> factory);
 
 	template <class T>
-	std::shared_ptr<T> FunctionFactory()
+	Types::shared_ptr<T> FunctionFactory()
 	{
 		return BaseFunction::Create<T>();
 	}
 
-	std::shared_ptr<BaseFunction> FunctionFactory(uint64_t classid);
+	Types::shared_ptr<BaseFunction> FunctionFactory(uint64_t classid);
 }

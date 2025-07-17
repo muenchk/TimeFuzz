@@ -105,7 +105,7 @@ public:
 	/// </summary>
 	/// <param name="test"></param>
 	/// <returns></returns>
-	OracleResult Evaluate(lua_State* L, std::shared_ptr<Test> test);
+	OracleResult Evaluate(lua_State* L, Types::shared_ptr<Test> test);
 	/// <summary>
 	/// computes the command line args for a test
 	/// </summary>

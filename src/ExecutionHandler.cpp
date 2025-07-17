@@ -25,7 +25,7 @@ ExecutionHandler::~ExecutionHandler()
 		delete _loadData;
 }
 
-void ExecutionHandler::Init(std::shared_ptr<Session> session, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Settings> settings, std::shared_ptr<TaskController> threadpool, int32_t maxConcurrentTests, std::shared_ptr<Oracle> oracle)
+void ExecutionHandler::Init(Types::shared_ptr<Session> session, Types::shared_ptr<SessionData> sessiondata, Types::shared_ptr<Settings> settings, Types::shared_ptr<TaskController> threadpool, int32_t maxConcurrentTests, Types::shared_ptr<Oracle> oracle)
 {
 	loginfo("Init execution handler");
 	_maxConcurrentTests = maxConcurrentTests > 0 ? maxConcurrentTests : 1;
@@ -92,13 +92,13 @@ void ExecutionHandler::Clear()
 	_cleared = true;
 	while (!_waitingTests.empty())
 	{
-		std::shared_ptr<Test> test = _waitingTests.front();
+		Types::shared_ptr<Test> test = _waitingTests.front();
 		_waitingTests.pop_front();
 		if (test && _session->data)
 			_session->data->DeleteForm(test);
 	}
 	while (!_waitingTestsExec.empty()) {
-		std::shared_ptr<Test> test = _waitingTestsExec.front();
+		Types::shared_ptr<Test> test = _waitingTestsExec.front();
 		_waitingTestsExec.pop_front();
 		if (test && _session->data)
 			_session->data->DeleteForm(test);
@@ -165,11 +165,11 @@ void ExecutionHandler::StartHandlerAsIs()
 		}
 	}
 	// start thread
-	_threadStopToken = std::make_shared<stop_token>();
-	_threadTSStopToken = std::make_shared<stop_token>();
+	_threadStopToken = Types::make_shared<stop_token>();
+	_threadTSStopToken = Types::make_shared<stop_token>();
 	_thread = std::thread(std::bind(&ExecutionHandler::InternalLoop, this, std::placeholders::_1), _threadStopToken);
 	_threadTS = std::thread(std::bind(&ExecutionHandler::TestStarter, this, std::placeholders::_1), _threadTSStopToken);
-	_threadTestStopToken = std::make_shared<stop_token>();
+	_threadTestStopToken = Types::make_shared<stop_token>();
 #if defined(unix) || defined(__unix__) || defined(__unix)
 	_threadTest = std::thread(std::bind(&ExecutionHandler::TestWaiter, this, std::placeholders::_1), _threadTestStopToken);
 #endif
@@ -231,7 +231,7 @@ void ExecutionHandler::StartHandler()
 			_threadpool->AddTask(test->_callback);
 		}
 		// delete all running tests
-		for (std::shared_ptr<Test> test : _runningTests) {
+		for (Types::shared_ptr<Test> test : _runningTests) {
 			test->KillProcess();
 			if (auto ptr = test->_input.lock(); ptr) {
 				ptr->_hasfinished = true;
@@ -257,11 +257,11 @@ void ExecutionHandler::StartHandler()
 		_thread = {};
 	}
 	// start thread
-	_threadStopToken = std::make_shared<stop_token>();
-	_threadTSStopToken = std::make_shared<stop_token>();
+	_threadStopToken = Types::make_shared<stop_token>();
+	_threadTSStopToken = Types::make_shared<stop_token>();
 	_thread = std::thread(std::bind(&ExecutionHandler::InternalLoop, this, std::placeholders::_1), _threadStopToken);
 	_threadTS = std::thread(std::bind(&ExecutionHandler::TestStarter, this, std::placeholders::_1), _threadTSStopToken);
-	_threadTestStopToken = std::make_shared<stop_token>();
+	_threadTestStopToken = Types::make_shared<stop_token>();
 #if defined(unix) || defined(__unix__) || defined(__unix)
 	_threadTest = std::thread(std::bind(&ExecutionHandler::TestWaiter, this, std::placeholders::_1), _threadTestStopToken);
 #endif
@@ -271,7 +271,7 @@ void ExecutionHandler::ReinitHandler()
 {
 	_threadStopToken->request_stop();
 	_stale = true;
-	_threadStopToken = std::make_shared<stop_token>();
+	_threadStopToken = Types::make_shared<stop_token>();
 	_thread.detach();
 	_thread = std::thread(std::bind(&ExecutionHandler::InternalLoop, this, std::placeholders::_1), _threadStopToken);
 }
@@ -312,7 +312,7 @@ bool ExecutionHandler::IsStale(std::chrono::milliseconds dur)
 	return (std::chrono::steady_clock::now() - _lastExec) > dur;
 }
 
-bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback, bool bypass, bool replay)
+bool ExecutionHandler::AddTest(Types::shared_ptr<Input> input, Types::shared_ptr<Functions::BaseFunction> callback, bool bypass, bool replay)
 {
 	StartProfilingDebug;
 
@@ -343,7 +343,7 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 		std::unique_lock<std::mutex> guard(_lockqueue);
 		id = _nextid++;
 	}
-	std::shared_ptr<Test> test = _sessiondata->data->CreateForm<Test>();
+	Types::shared_ptr<Test> test = _sessiondata->data->CreateForm<Test>();
 	test->SetFlag(Form::FormFlags::DoNotFree);
 	test->Init(callback, id);
 	if (test->_exitreason & Test::ExitReason::InitError) {
@@ -386,7 +386,7 @@ bool ExecutionHandler::AddTest(std::shared_ptr<Input> input, std::shared_ptr<Fun
 void ExecutionHandler::InitTests()
 {
 	while (_waitingTestsExec.size() < _populationSize && _waitingTests.size() > 0) {
-		std::shared_ptr<Test> test;
+		Types::shared_ptr<Test> test;
 		{
 			std::unique_lock<std::mutex> guard(_lockqueue);
 			if (_waitingTests.size() > 0) {
@@ -418,7 +418,7 @@ void ExecutionHandler::InitTests()
 void ExecutionHandler::InitTestsLockFree()
 {
 	while (_waitingTestsExec.size() < _populationSize && _waitingTests.size() > 0) {
-		std::shared_ptr<Test> test = _waitingTests.front();
+		Types::shared_ptr<Test> test = _waitingTests.front();
 		_waitingTests.pop_front();
 		test->PrepareForExecution();
 		// if we cannot initialize pipes and status just call callback and be done with it
@@ -437,7 +437,7 @@ void ExecutionHandler::InitTestsLockFree()
 	}
 }
 
-bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
+bool ExecutionHandler::StartTest(Types::shared_ptr<Test> test)
 {
 	StartProfilingDebug;
 	// everything that has less than 50 list entries is very likely to be already run when for 
@@ -561,7 +561,7 @@ bool ExecutionHandler::StartTest(std::shared_ptr<Test> test)
 	return true;
 }
 
-void ExecutionHandler::StopTest(std::shared_ptr<Test> test)
+void ExecutionHandler::StopTest(Types::shared_ptr<Test> test)
 {
 	// clean up _input length (cut the sequence to last executed
 	if (_enableFragments) {
@@ -599,13 +599,13 @@ void ExecutionHandler::StopTest(std::shared_ptr<Test> test)
 	_currentTests--;
 }
 
-void ExecutionHandler::TestStarter(std::shared_ptr<stop_token> stoken)
+void ExecutionHandler::TestStarter(Types::shared_ptr<stop_token> stoken)
 {
 	std::chrono::nanoseconds waittime = std::chrono::microseconds(100);
 	if (!_settings->fixes.disableExecHandlerSleep)
 		waittime = _waittime;
-	std::shared_ptr<Test> test;
-	std::shared_ptr<Test> testweak;
+	Types::shared_ptr<Test> test;
+	Types::shared_ptr<Test> testweak;
 	int32_t newtests = 0;
 	while (_stopHandler == false || _finishtests || stoken->stop_requested() == false) {
 		std::unique_lock<std::mutex> guard(_startingLock);
@@ -667,7 +667,7 @@ void ExecutionHandler::TestStarter(std::shared_ptr<stop_token> stoken)
 	}
 }
 
-void ExecutionHandler::TestWaiter(std::shared_ptr<stop_token> stoken)
+void ExecutionHandler::TestWaiter(Types::shared_ptr<stop_token> stoken)
 {
 	logmessage("Starting Test Waiter");
 	if (stoken->stop_requested())
@@ -723,7 +723,7 @@ void ExecutionHandler::TestWaiter(std::shared_ptr<stop_token> stoken)
 	logmessage("Ending Test Waiter");
 }
 
-void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
+void ExecutionHandler::InternalLoop(Types::shared_ptr<stop_token> stoken)
 {
 	// time_point used to record enter times and to calculate timeouts
 	auto time = std::chrono::steady_clock::now();
@@ -1032,7 +1032,7 @@ void ExecutionHandler::ClearTests()
 	std::unique_lock<std::mutex> guardstart(_startingLock);
 	_waitingTests.clear();
 	while (!_waitingTestsExec.empty()) {
-		std::shared_ptr<Test> test = _waitingTestsExec.front();
+		Types::shared_ptr<Test> test = _waitingTestsExec.front();
 		_waitingTestsExec.pop_front();
 		test->InValidatePreExec();
 	}
@@ -1050,7 +1050,7 @@ void ExecutionHandler::ClearTests()
 		}
 	}
 	while (!_startingTests.empty()) {
-		std::shared_ptr<Test> test = _startingTests.front();
+		Types::shared_ptr<Test> test = _startingTests.front();
 		_startingTests.pop();
 		test->InValidatePreExec();
 
@@ -1178,7 +1178,7 @@ void ExecutionHandler::InitializeLate(LoadResolver* resolver)
 										ptr->test = test;
 									if (ptr->GetGenerated() == false)
 										SessionFunctions::GenerateInput(ptr, this->_sessiondata);
-									std::shared_ptr<Input> tmp = resolver->ResolveFormID<Input>(ptr->GetParentID());
+									Types::shared_ptr<Input> tmp = resolver->ResolveFormID<Input>(ptr->GetParentID());
 									while (tmp) {
 										tmp->FreeMemory();
 										if (tmp->derive)
@@ -1238,9 +1238,9 @@ namespace Functions
 		_sessiondata->_exechandler->InitTests();
 	}
 
-	std::shared_ptr<BaseFunction> ExecInitTestsCallback::DeepCopy()
+	Types::shared_ptr<BaseFunction> ExecInitTestsCallback::DeepCopy()
 	{
-		auto ptr = std::make_shared<ExecInitTestsCallback>();
+		auto ptr = Types::make_shared<ExecInitTestsCallback>();
 		ptr->_sessiondata = _sessiondata;
 		return dynamic_pointer_cast<BaseFunction>(ptr);
 	}
@@ -1292,9 +1292,9 @@ namespace Functions
 		_sessiondata.reset();
 	}
 
-	std::shared_ptr<BaseFunction> ExecInitTestsCallback::CreateFull(std::shared_ptr<SessionData> sessiondata)
+	Types::shared_ptr<BaseFunction> ExecInitTestsCallback::CreateFull(Types::shared_ptr<SessionData> sessiondata)
 	{
-		auto ptr = std::make_shared<ExecInitTestsCallback>();
+		auto ptr = Types::make_shared<ExecInitTestsCallback>();
 		ptr->_sessiondata = sessiondata;
 		return dynamic_pointer_cast<BaseFunction>(ptr);
 	}
@@ -1328,10 +1328,10 @@ namespace Functions
 		}
 	}
 
-	std::shared_ptr<BaseFunction> WriteTestInputCallback::DeepCopy()
+	Types::shared_ptr<BaseFunction> WriteTestInputCallback::DeepCopy()
 	{
 		// not copyable
-		auto ptr = std::make_shared<WriteTestInputCallback>();
+		auto ptr = Types::make_shared<WriteTestInputCallback>();
 		return dynamic_pointer_cast<BaseFunction>(ptr);
 	}
 

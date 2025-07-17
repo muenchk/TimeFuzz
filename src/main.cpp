@@ -76,7 +76,7 @@ void endCallback()
 }
 
 
-std::shared_ptr<Session> session = nullptr;
+Types::shared_ptr<Session> session = nullptr;
 
 int extractinputs = -1;
 int extractlength = -1;

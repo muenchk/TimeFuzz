@@ -4,8 +4,10 @@
 #include <vector>
 #include <atomic>
 #include <exception>
+#include <stdexcept>
 #include <deque>
 #include <memory>
+#include <cstddef>
 
 #include "Threading.h"
 
@@ -691,7 +693,11 @@ public:
 // --------------------------------------------------------------
 namespace Types
 {
-	class __declspec(novtable) control_block
+	class 
+		#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+		__declspec(novtable) 
+		#endif
+		control_block
 	{
 	public:
 		//std::atomic<long> _ref_count = 1;
@@ -740,6 +746,48 @@ namespace Types
 			}
 			return false;
 		}
+
+		virtual void Destroy(void* obj) = 0;
+		virtual void Delete() = 0;
+
+		virtual ~control_block()
+		{
+
+		}
+	};
+
+	template <class T>
+	class
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+		__declspec(novtable)
+#endif
+		control_blockT : public control_block
+	{
+		virtual void Destroy(void* obj) override
+		{
+			delete (T*)(obj);
+		}
+		virtual void Delete() override
+		{
+			delete this;
+		}
+	};
+
+	template <class T>
+	class
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+		__declspec(novtable)
+#endif
+		control_blockTA : public control_block
+	{
+		virtual void Destroy(void* obj) override
+		{
+			((T*)(obj))->~T();
+		}
+		virtual void Delete() override
+		{
+			free((void*)this);
+		}
 	};
 
 	template <typename T>
@@ -753,9 +801,15 @@ namespace std
 	struct std::less<Types::shared_ptr<T>>;
 	template <class T>
 	struct std::less<Types::weak_ptr<T>>;
+
+	template <class T>
+	struct hash<Types::shared_ptr<T>>;
+	template <class T>
+	struct hash<Types::weak_ptr<T>>;
 }
 namespace Types
 {
+
 	template <class T>
 	class PtrBase
 	{
@@ -782,7 +836,7 @@ namespace Types
 		PtrBase& operator=(const PtrBase&) = delete;
 
 	protected:
-		T* get()
+		T* get() const noexcept
 		{
 			return _ref;
 		}
@@ -813,7 +867,7 @@ namespace Types
 		template <class Y>
 		void copy(const shared_ptr<Y>& other) noexcept
 		{
-			other.IncRef();
+			other.Incref();
 			_ref = other._ref;
 			_crtl = other._crtl;
 		}
@@ -822,15 +876,38 @@ namespace Types
 		bool ContstructFromWeak(const weak_ptr<Y>& other) noexcept
 		{
 			if (other._crtl && other._crtl->Incref_nz()) {
-				_ref = other.ref;
+				_ref = other._ref;
 				_crtl = other._crtl;
+				return true;
 			}
+			return false;
 		}
 
-		long Incref() noexcept
+		template <class Y>
+		void AliasConstruct(const shared_ptr<Y>& _Other, T* _Px) noexcept
+		{
+			// implement shared_ptr's aliasing ctor
+			_Other.Incref();
+
+			_ref = _Px;
+			_crtl = _Other._crtl;
+		}
+
+		template <class Y>
+		void AliasMoveConstruct(shared_ptr<Y>&& _Other, T* _Px) noexcept
+		{
+			// implement shared_ptr's aliasing move ctor
+			_ref = _Px;
+			_crtl = _Other._crtl;
+
+			_Other._ref = nullptr;
+			_Other._crtl = nullptr;
+		}
+		long Incref() const noexcept
 		{
 			if (_crtl)
-				_crtl->Incref();
+				return _crtl->Incref();
+			return -1;
 		}
 
 		long Decref() noexcept
@@ -839,7 +916,7 @@ namespace Types
 				long ret = 1;
 				if (ret = _crtl->Decref(); ret == 0) {
 					// we have deleted the last shared_ptr instance and can delete the underlying poínter
-					delete _ref;
+					_crtl->Destroy(_ref);
 					_ref = nullptr;
 					Decweak();
 				}
@@ -859,10 +936,11 @@ namespace Types
 			}
 		}
 
-		long Incweak() noexcept
+		long Incweak() const noexcept
 		{
 			if (_crtl)
-				_crtl->Incweak();
+				return _crtl->Incweak();
+			return -1;
 		}
 
 		long Decweak() noexcept
@@ -871,7 +949,7 @@ namespace Types
 				long ret = 1;
 				if (ret = _crtl->Decweak(); ret == 0) {
 					// we have deleted all weak refs. If there aren't any full refs delete ctrl object
-					delete _crtl;
+					_crtl->Delete();
 					_crtl = nullptr;
 				}
 				return ret;
@@ -881,29 +959,50 @@ namespace Types
 
 		void Swap(PtrBase& other) noexcept
 		{  // swap pointers
-			_STD swap(_ref, other._ref);
-			_STD swap(_crtl, other._crtl);
+			std::swap(_ref, other._ref);
+			std::swap(_crtl, other._crtl);
 		}
 
 		friend class shared_ptr<T>;
-		friend class weak_ptr<T>;
+
+		template <class Y>
+		friend class PtrBase;
+
+		template <class Y>
+		friend class weak_ptr;
 
 		friend struct std::less<weak_ptr<T>>;
 		friend struct std::less<shared_ptr<T>>;
+		friend struct std::hash<weak_ptr<T>>;
+		friend struct std::hash<shared_ptr<T>>;
 	};
 
-	template <typename T>
-	class shared_ptr : protected PtrBase<T>
+	template <class T>
+	class shared_ptr : public PtrBase<T>
 	{
 	public:
 		constexpr shared_ptr() noexcept = default;
 
-		constexpr shared_ptr(nullptr_t) noexcept {}  // construct empty shared_ptr
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+		constexpr shared_ptr(std::nullptr_t) noexcept {}  // construct empty shared_ptr
+#else
+		shared_ptr(std::nullptr_t) noexcept 
+		{
+		}  // construct empty shared_ptr
+#endif
 
-		explicit shared_ptr(T* ptr) noexcept
+		template <class Y, std::enable_if_t<std::is_convertible<Y*, T*>::value, int> = 0>
+		shared_ptr(Y* ptr, control_block* crtl)
 		{
 			PtrBase<T>::_ref = ptr;
-			PtrBase<T>::_crtl = new control_block;
+			PtrBase<T>::_crtl = crtl;
+		}
+		
+		template <class Y, std::enable_if_t<std::is_convertible<Y*, T*>::value, int> = 0>
+		explicit shared_ptr(Y* ptr) noexcept
+		{
+			PtrBase<T>::_ref = ptr;
+			PtrBase<T>::_crtl = new control_blockT<Y>();
 		}
 
 		shared_ptr(const shared_ptr& other) noexcept
@@ -911,8 +1010,8 @@ namespace Types
 			this->copy(other);
 		}
 
-		template <class _Ty2, std::enable_if_t<std::_SP_pointer_compatible<_Ty2, T>::value, int> = 0>
-		shared_ptr(const shared_ptr<_Ty2>& other) noexcept
+		template <class Y, std::enable_if_t<std::is_convertible<Y*, T*>::value, int> = 0>
+		shared_ptr(const shared_ptr<Y>& other) noexcept
 		{
 			// construct shared_ptr object that owns same resource as _Other
 			this->copy(other);
@@ -923,18 +1022,32 @@ namespace Types
 			this->move(std::move(other));
 		}
 
-		template <class _Ty2, std::enable_if_t<std::_SP_pointer_compatible<_Ty2, T>::value, int> = 0>
-		shared_ptr(shared_ptr<_Ty2>&& other) noexcept
+		template <class Y, std::enable_if_t<std::is_convertible<Y*, T*>::value, int> = 0>
+		shared_ptr(shared_ptr<Y>&& other) noexcept
 		{  // construct shared_ptr object that takes resource from other
 			this->move(std::move(other));
 		}
 
-		template <class _Ty2, std::enable_if_t<std::_SP_pointer_compatible<_Ty2, T>::value, int> = 0>
-		explicit shared_ptr(const weak_ptr<_Ty2> other)
+		template <class Y, std::enable_if_t<std::is_convertible<Y*, T*>::value, int> = 0>
+		explicit shared_ptr(const weak_ptr<Y> other)
 		{
 			if (this->ContstructFromWeak(other) == false) {
 				throw std::bad_weak_ptr{};
 			}
+		}
+
+		template <class Y>
+		shared_ptr(const shared_ptr<Y>& _Right, T* _Px) noexcept
+		{
+			// construct shared_ptr object that aliases _Right
+			this->AliasConstruct(_Right, _Px);
+		}
+
+		template <class Y>
+		shared_ptr(shared_ptr<Y>&& _Right, T* _Px) noexcept
+		{
+			// move construct shared_ptr object that aliases _Right
+			this->AliasMoveConstruct(std::move(_Right), _Px);
 		}
 
 		~shared_ptr() noexcept
@@ -953,8 +1066,8 @@ namespace Types
 			return *this;
 		}
 
-		template <class _Ty2, std::enable_if_t<std::_SP_pointer_compatible<_Ty2, T>::value, int> = 0>
-		shared_ptr& operator=(const shared_ptr<_Ty2>& other) noexcept
+		template <class Y, std::enable_if_t<std::is_convertible<Y*, T*>::value, int> = 0>
+		shared_ptr& operator=(const shared_ptr<Y>& other) noexcept
 		{
 			shared_ptr(other).swap(*this);
 			return *this;
@@ -962,14 +1075,14 @@ namespace Types
 
 		shared_ptr& operator=(shared_ptr&& _Right) noexcept
 		{  // take resource from _Right
-			shared_ptr(_STD move(_Right)).swap(*this);
+			shared_ptr(std::move(_Right)).swap(*this);
 			return *this;
 		}
 
-		template <class _Ty2, std::enable_if_t<std::_SP_pointer_compatible<_Ty2, T>::value, int> = 0>
-		shared_ptr& operator=(shared_ptr<_Ty2>&& _Right) noexcept
+		template <class Y, std::enable_if_t<std::is_convertible<Y*, T*>::value, int> = 0>
+		shared_ptr& operator=(shared_ptr<Y>&& _Right) noexcept
 		{  // take resource from _Right
-			shared_ptr(_STD move(_Right)).swap(*this);
+			shared_ptr(std::move(_Right)).swap(*this);
 			return *this;
 		}
 
@@ -981,42 +1094,176 @@ namespace Types
 
 		[[nodiscard]] T& operator*() const noexcept
 		{
-			return *(PtrBase<T>::get());
+			return *(get());
 		}
 
 		[[nodiscard]] T* operator->() const noexcept
 		{
-			return PtrBase<T>::get();
+			return get();
 		}
 
 		explicit operator bool() const noexcept
 		{
-			return PtrBase<T>::get() != nullptr;
+			return get() != nullptr;
 		}
 
 		friend struct std::less<shared_ptr<T>>;
+		friend struct std::hash<shared_ptr<T>>;
 
 		template <class Y, class... _Args>
-		friend std::shared_ptr<Y> make_shared(_Args&&... args);
+		friend shared_ptr<Y> make_shared(_Args&&... args);
 
-		template <class T>
-		friend shared_ptr<T> make_shared();
+		template <class Y>
+		friend shared_ptr<Y> make_shared();
 	};
+
+	template<class T,class S>
+	inline bool operator==(const shared_ptr<T>& lhs, const shared_ptr<S>& rhs)
+	{ 
+		return lhs.get() == rhs.get(); 
+	}
+
+#if __cplusplus >= 202002L
+	template <class T, class S>
+	inline bool operator<=>(const shared_ptr<T>& lhs, const shared_ptr<S>& rhs)
+	{
+		return lhs.get() <=> rhs.get();
+	}
+#else
+	template <class T1, class T2>
+	[[nodiscard]] bool operator!=(const shared_ptr<T1>& lhs, const shared_ptr<T2>& rhs) noexcept
+	{
+		return lhs.get() != rhs.get();
+	}
+
+	template <class T1, class T2>
+	[[nodiscard]] bool operator<(const shared_ptr<T1>& lhs, const shared_ptr<T2>& rhs) noexcept
+	{
+		return lhs.get() < rhs.get();
+	}
+
+	template <class T1, class T2>
+	[[nodiscard]] bool operator>=(const shared_ptr<T1>& lhs, const shared_ptr<T2>& rhs) noexcept
+	{
+		return lhs.get() >= rhs.get();
+	}
+
+	template <class T1, class T2>
+	[[nodiscard]] bool operator>(const shared_ptr<T1>& lhs, const shared_ptr<T2>& rhs) noexcept
+	{
+		return lhs.get() > rhs.get();
+	}
+
+	template <class T1, class T2>
+	[[nodiscard]] bool operator<=(const shared_ptr<T1>& lhs, const shared_ptr<T2>& rhs) noexcept
+	{
+		return lhs.get() <= rhs.get();
+	}
+
+#endif
+
+	template <class T>
+	inline bool operator==(const shared_ptr<T>& lhs, std::nullptr_t)
+	{
+		return lhs.get() == nullptr;
+	}
+#if __cplusplus >= 202002L
+
+	template <class T>
+	inline bool operator<=>(const shared_ptr<T>& lhs, std::nullptr_t)
+	{
+		return lhs.get() <=> nullptr;
+	}
+#else
+	template < class T>
+	[[nodiscard]] bool operator==(std::nullptr_t, const shared_ptr<T>& rhs) noexcept
+	{
+		return nullptr == rhs.get();
+	}
+
+	template <class T>
+	[[nodiscard]] bool operator!=(const shared_ptr<T>& lhs, std::nullptr_t) noexcept
+	{
+		return lhs.get() != nullptr;
+	}
+
+	template <class T>
+	[[nodiscard]] bool operator!=(std::nullptr_t, const shared_ptr<T>& rhs) noexcept
+	{
+		return nullptr != rhs.get();
+	}
+
+	template <class T>
+	[[nodiscard]] bool operator<(const shared_ptr<T>& lhs, std::nullptr_t) noexcept
+	{
+		return lhs.get() < static_cast<typename shared_ptr<T>::elementTpe*>(nullptr);
+	}
+
+	template <class T>
+	[[nodiscard]] bool operator<(std::nullptr_t, const shared_ptr<T>& rhs) noexcept
+	{
+		return static_cast<typename shared_ptr<T>::elementTpe*>(nullptr) < rhs.get();
+	}
+
+	template <class T>
+	[[nodiscard]] bool operator>=(const shared_ptr<T>& lhs, std::nullptr_t) noexcept
+	{
+		return lhs.get() >= static_cast<typename shared_ptr<T>::elementTpe*>(nullptr);
+	}
+
+	template <class T>
+	[[nodiscard]] bool operator>=(std::nullptr_t, const shared_ptr<T>& rhs) noexcept
+	{
+		return static_cast<typename shared_ptr<T>::elementTpe*>(nullptr) >= rhs.get();
+	}
+
+	template <class T>
+	[[nodiscard]] bool operator>(const shared_ptr<T>& lhs, std::nullptr_t) noexcept
+	{
+		return lhs.get() > static_cast<typename shared_ptr<T>::elementTpe*>(nullptr);
+	}
+
+	template <class T>
+	[[nodiscard]] bool operator>(std::nullptr_t, const shared_ptr<T>& rhs) noexcept
+	{
+		return static_cast<typename shared_ptr<T>::elementTpe*>(nullptr) > rhs.get();
+	}
+
+	template <class T>
+	[[nodiscard]] bool operator<=(const shared_ptr<T>& lhs, std::nullptr_t) noexcept
+	{
+		return lhs.get() <= static_cast<typename shared_ptr<T>::elementTpe*>(nullptr);
+	}
+
+	template <class T>
+	[[nodiscard]] bool operator<=(std::nullptr_t, const shared_ptr<T>& rhs) noexcept
+	{
+		return static_cast<typename shared_ptr<T>::elementTpe*>(nullptr) <= rhs.get();
+	}
+#endif
 
 	template <class T, class... _Args>
 	shared_ptr<T> make_shared(_Args&&... args)
 	{
-		shared_ptr ptr(new T(std::forward<_Args>(args)...));
+		void* mem = malloc(sizeof(T) + sizeof(control_blockTA<T>));
+		control_blockTA<T>* crtl = new (mem) control_blockTA<T>();
+		T* tptr = new ((char*)mem + sizeof(control_blockTA<T>)) T(std::forward<_Args>(args)...);
+		//shared_ptr<T> ptr(new T(std::forward<_Args>(args)...));
+		shared_ptr<T> ptr(tptr, crtl);
 		return ptr;
 	}
 	template <class T>
 	shared_ptr<T> make_shared()
 	{
-		shared_ptr ptr(new T());
+		void* mem = malloc(sizeof(T) + sizeof(control_blockTA<T>));
+		control_blockTA<T>* crtl = new (mem) control_blockTA<T>();
+		T* tptr = new ((char*)mem + sizeof(control_blockTA<T>)) T();
+		shared_ptr<T> ptr(tptr, crtl);
+		//shared_ptr<T> ptr(new T());
 		return ptr;
 	}
 
-	template <typename T>
+	template <class T>
 	class weak_ptr : public PtrBase<T>
 	{
 	public:
@@ -1027,14 +1274,14 @@ namespace Types
 			this->ConstructWeak(other);  // same type, no conversion
 		}
 
-		template <class _Ty2, std::enable_if_t<std::_SP_pointer_compatible<_Ty2, T>::value, int> = 0>
-		weak_ptr(const shared_ptr<_Ty2>& other) noexcept
+		template <class Y, std::enable_if_t<std::is_convertible<Y*, T*>::value, int> = 0>
+		weak_ptr(const shared_ptr<Y>& other) noexcept
 		{
 			this->ConstructWeak(other);  // shared_ptr keeps resource alive during conversion
 		}
 
-		template <class _Ty2, std::enable_if_t<std::_SP_pointer_compatible<_Ty2, T>::value, int> = 0>
-		weak_ptr(const weak_ptr<_Ty2>& other) noexcept
+		template <class Y, std::enable_if_t<std::is_convertible<Y*, T*>::value, int> = 0>
+		weak_ptr(const weak_ptr<Y>& other) noexcept
 		{
 			this->ConstructWeak(other);
 		}
@@ -1044,8 +1291,8 @@ namespace Types
 			this->move(std::move(other));
 		}
 
-		template <class _Ty2, std::enable_if_t<std::_SP_pointer_compatible<_Ty2, T>::value, int> = 0>
-		weak_ptr(weak_ptr<_Ty2>&& other) noexcept
+		template <class Y, std::enable_if_t<std::is_convertible<Y*, T*>::value, int> = 0>
+		weak_ptr(weak_ptr<Y>&& other) noexcept
 		{
 			this->WeakMove(std::move(other));
 		}
@@ -1066,8 +1313,8 @@ namespace Types
 			return *this;
 		}
 
-		template <class _Ty2, std::enable_if_t<std::_SP_pointer_compatible<_Ty2, T>::value, int> = 0>
-		weak_ptr& operator=(const weak_ptr<_Ty2>& other) noexcept
+		template <class Y, std::enable_if_t<std::is_convertible<Y*, T*>::value, int> = 0>
+		weak_ptr& operator=(const weak_ptr<Y>& other) noexcept
 		{
 			weak_ptr(other).swap(*this);
 			return *this;
@@ -1079,15 +1326,15 @@ namespace Types
 			return *this;
 		}
 
-		template <class _Ty2, std::enable_if_t<std::_SP_pointer_compatible<_Ty2, T>::value, int> = 0>
-		weak_ptr& operator=(weak_ptr<_Ty2>&& other) noexcept
+		template <class Y, std::enable_if_t<std::is_convertible<Y*, T*>::value, int> = 0>
+		weak_ptr& operator=(weak_ptr<Y>&& other) noexcept
 		{
 			weak_ptr(std::move(other)).swap(*this);
 			return *this;
 		}
 
-		template <class _Ty2, std::enable_if_t<std::_SP_pointer_compatible<_Ty2, T>::value, int> = 0>
-		weak_ptr& operator=(const shared_ptr<_Ty2>& other) noexcept
+		template <class Y, std::enable_if_t<std::is_convertible<Y*, T*>::value, int> = 0>
+		weak_ptr& operator=(const shared_ptr<Y>& other) noexcept
 		{
 			weak_ptr(other).swap(*this);
 			return *this;
@@ -1111,14 +1358,15 @@ namespace Types
 		}
 
 		friend struct std::less<weak_ptr<T>>;
+		friend struct std::hash<weak_ptr<T>>;
 	};
 }
 
 template <class _Ty1, class _Ty2>
-_NODISCARD Types::shared_ptr<_Ty1> dynamic_pointer_cast(const Types::shared_ptr<_Ty2>& _Other) noexcept
+[[nodiscard]] Types::shared_ptr<_Ty1> dynamic_pointer_cast(const Types::shared_ptr<_Ty2>& _Other) noexcept
 {
 	// dynamic_cast for shared_ptr that properly respects the reference count control block
-	const auto _Ptr = dynamic_cast<typename Types::shared_ptr<_Ty1>::element_type*>(_Other.get());
+	const auto _Ptr = dynamic_cast<_Ty1*>(_Other.get());
 
 	if (_Ptr) {
 		return Types::shared_ptr<_Ty1>(_Other, _Ptr);
@@ -1128,13 +1376,13 @@ _NODISCARD Types::shared_ptr<_Ty1> dynamic_pointer_cast(const Types::shared_ptr<
 }
 
 template <class _Ty1, class _Ty2>
-_NODISCARD Types::shared_ptr<_Ty1> dynamic_pointer_cast(Types::shared_ptr<_Ty2>&& _Other) noexcept
+[[nodiscard]] Types::shared_ptr<_Ty1> dynamic_pointer_cast(Types::shared_ptr<_Ty2>&& _Other) noexcept
 {
 	// dynamic_cast for shared_ptr that properly respects the reference count control block
-	const auto _Ptr = dynamic_cast<typename Types::shared_ptr<_Ty1>::element_type*>(_Other.get());
+	const auto _Ptr = dynamic_cast<_Ty1*>(_Other.get());
 
 	if (_Ptr) {
-		return Types::shared_ptr<_Ty1>(_STD move(_Other), _Ptr);
+		return Types::shared_ptr<_Ty1>(std::move(_Other), _Ptr);
 	}
 
 	return {};
@@ -1147,7 +1395,7 @@ namespace std
 	{
 		bool operator()(const Types::shared_ptr<T>& _left, const Types::shared_ptr<T>& _right) const
 		{
-			return less<uintptr_t>{}(_left._crtl, _right._crtl);
+			return less<Types::control_block*>{}(_left._crtl, _right._crtl);
 		}
 	};
 
@@ -1156,7 +1404,25 @@ namespace std
 	{
 		bool operator()(const Types::weak_ptr<T>& _left, const Types::weak_ptr<T>& _right) const
 		{
-			return less<uintptr_t>{}(_left._crtl, _right._crtl);
+			return less<Types::control_block*>{}(_left._crtl, _right._crtl);
+		}
+	};
+
+	template <class T>
+	struct hash<Types::shared_ptr<T>>
+	{
+		[[nodiscard]] static size_t operator()(const Types::shared_ptr<T>& key) noexcept
+		{
+			return hash<Types::control_block*>()(key._crtl);
+		}
+	};
+
+	template <class T>
+	struct hash<Types::weak_ptr<T>>
+	{
+		[[nodiscard]] static size_t operator()(const Types::weak_ptr<T>& key) noexcept
+		{
+			return hash<Types::control_block*>()(key._crtl);
 		}
 	};
 }

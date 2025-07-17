@@ -15,6 +15,7 @@
 #include "ExclusionTree.h"
 #include "Generation.h"
 #include "Evaluation.h"
+#include "Types.h"
 
 Session* Session::GetSingleton()
 {
@@ -26,7 +27,7 @@ Session::Session()
 {
 }
 
-std::shared_ptr<Session> Session::CreateSession()
+Types::shared_ptr<Session> Session::CreateSession()
 {
 	Data* dat = new Data();
 	return dat->CreateForm<Session>();
@@ -98,7 +99,7 @@ void Session::LoadSession_Async(Data* dat, std::string name, int32_t number, boo
 		delete args;
 }
 
-std::shared_ptr<Session> Session::LoadSession(std::string name, LoadSessionArgs& loadargs, bool* error, SessionStatus* status)
+Types::shared_ptr<Session> Session::LoadSession(std::string name, LoadSessionArgs& loadargs, bool* error, SessionStatus* status)
 {
 	loginfo("Load Session");
 	Data* dat = new Data();
@@ -136,7 +137,7 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, LoadSessionArgs&
 	return session;
 }
 
-std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, LoadSessionArgs& loadargs, bool* error, SessionStatus* status)
+Types::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, LoadSessionArgs& loadargs, bool* error, SessionStatus* status)
 {
 	loginfo("Load Session");
 	Data* dat = new Data();
@@ -262,7 +263,7 @@ bool Session::Wait(std::chrono::nanoseconds timeout)
 
 }
 
-std::vector<std::shared_ptr<Input>> Session::GenerateNegatives(int32_t /*negatives*/, bool& /*error*/, int32_t /*maxiterations*/, int32_t /*timeout*/, bool /*returnpositives*/)
+std::vector<Types::shared_ptr<Input>> Session::GenerateNegatives(int32_t /*negatives*/, bool& /*error*/, int32_t /*maxiterations*/, int32_t /*timeout*/, bool /*returnpositives*/)
 {
 	return {};
 }
@@ -658,7 +659,7 @@ void Session::SessionControl()
 			StopSession(false, true);
 			return;
 		}
-		auto callback = std::dynamic_pointer_cast<Functions::SessionDDTestCallback>(Functions::SessionDDTestCallback::Create());
+		auto callback = dynamic_pointer_cast<Functions::SessionDDTestCallback>(Functions::SessionDDTestCallback::Create());
 		callback->_sessiondata = _sessiondata;
 		SessionFunctions::BeginDeltaDebugging(_sessiondata, inp, callback, false, DeltaDebugging::DDGoal::MaximizePrimaryScore, DeltaDebugging::DDGoal::None, 0);
 	}
@@ -721,7 +722,7 @@ void Session::SessionControl()
 			loginfo("Check for dd");
 			if (gen && gen->IsDeltaDebuggingActive() && CmdArgs::_clearTasks == false)
 			{
-				auto visitor = [sessiondata = _sessiondata](std::shared_ptr<DeltaDebugging::DeltaController> controller) {
+				auto visitor = [sessiondata = _sessiondata](Types::shared_ptr<DeltaDebugging::DeltaController> controller) {
 					if (controller && controller->GetBatchTasks())
 						loginfo("visiting {}, tasks: {}, sendend: {}, procend: {}", controller->GetFormID(), controller->GetBatchTasks()->tasks.load(), controller->GetBatchTasks()->sendEndEvent, controller->GetBatchTasks()->processedEndEvent);
 					if (controller && !controller->Finished())
@@ -784,7 +785,7 @@ void Session::InitStatus(SessionStatus& status)
 	InitStatus(&status, _sessiondata->_settings);
 }
 
-void Session::InitStatus(SessionStatus* status, std::shared_ptr<Settings> sett)
+void Session::InitStatus(SessionStatus* status, Types::shared_ptr<Settings> sett)
 {
 	status->sessionname = sett->saves.savename;
 	if (sett->conditions.use_overalltests)
@@ -990,7 +991,7 @@ void Session::UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k)
 		return;
 	if (vector.size() < k)
 		vector.resize(k);
-	std::vector<std::shared_ptr<Input>> vec;
+	std::vector<Types::shared_ptr<Input>> vec;
 	switch (_sessiondata->_settings->generation.sourcesType) {
 	case Settings::GenerationSourcesType::FilterLength:
 		vec = _sessiondata->GetTopK_Length((int32_t)k);
@@ -1025,7 +1026,7 @@ void Session::UI_GetPositiveInputs(std::vector<UI::UIInput>& vector, size_t k)
 	int* c = new int;
 	*c = 0;
 	std::vector<UI::UIInput>* vec = &vector; 
-	auto visitor = [&k, &c, &vec, sessdata = _sessiondata](std::shared_ptr<Input> input) {
+	auto visitor = [&k, &c, &vec, sessdata = _sessiondata](Types::shared_ptr<Input> input) {
 		if ((int)vec->size() > *c) {
 			(*vec)[*c].id = input->GetFormID();
 			(*vec)[*c].length = input->EffectiveLength();
@@ -1069,7 +1070,7 @@ void Session::UI_GetLastRunInputs(std::vector<UI::UIInput>& vector, size_t k)
 	int* c = new int;
 	*c = 0;
 	std::vector<UI::UIInput>* vec = &vector;
-	auto visitor = [&k, &c, &vec, sessdata = _sessiondata](std::shared_ptr<Input> input) {
+	auto visitor = [&k, &c, &vec, sessdata = _sessiondata](Types::shared_ptr<Input> input) {
 		if ((int)vec->size() > *c) {
 			(*vec)[*c].id = input->GetFormID();
 			(*vec)[*c].length = input->EffectiveLength();
@@ -1280,7 +1281,7 @@ void Session::UI_GetDatabaseObjectStatus()
 	int64_t freedObjects = 0, fullObjects = 0;
 	Data::SaveStats stats, nums, freed;
 	uint64_t unfreed = 0;
-	std::function<Data::VisitAction(std::shared_ptr<IForm>)> report = [&freedObjects, &fullObjects, &stats, &nums, &freed, &unfreed](std::shared_ptr<IForm> form) {
+	std::function<Data::VisitAction(Types::shared_ptr<IForm>)> report = [&freedObjects, &fullObjects, &stats, &nums, &freed, &unfreed](Types::shared_ptr<IForm> form) {
 		if (form->Freed())
 			freedObjects++;
 		else
@@ -1526,7 +1527,7 @@ void Session::ExtractInputs(int number, int length, double score)
 
 	sessdata->SetMaxGenerationCallbacks(sessdata->_controller->GetNumThreads() * 5);
 
-	std::function<bool(std::shared_ptr<IForm>)> pred = [&length, &score](std::shared_ptr<IForm> form) {
+	std::function<bool(Types::shared_ptr<IForm>)> pred = [&length, &score](Types::shared_ptr<IForm> form) {
 		if (auto inp = form->As<Input>(); inp != nullptr)
 			if (inp->EffectiveLength() >= length && inp->GetPrimaryScore() >= score)
 				return true;
@@ -1538,7 +1539,7 @@ void Session::ExtractInputs(int number, int length, double score)
 	int iters = 0;
 	std::set<FormID> done;
 
-	auto getNew = [&done, &dat, &sessdata](std::shared_ptr<Input> inp) {
+	auto getNew = [&done, &dat, &sessdata](Types::shared_ptr<Input> inp) {
 		done.insert(inp->GetFormID());
 		auto newinp = dat->CreateForm<Input>();
 		inp->DeepCopy(newinp);
@@ -1584,14 +1585,14 @@ void Session::ExtractInputs(int number, int length, double score)
 	while (count < number) {
 		iters++;
 		logmessage("Run Extract Attempt {}. Found {}.", iters, count);
-		std::shared_ptr<Input> inp = data->FindRandomObject<Input>(Input::Flags::GeneratedGrammar, Input::Flags::GeneratedGrammarParent, done, pred);
+		Types::shared_ptr<Input> inp = data->FindRandomObject<Input>(Input::Flags::GeneratedGrammar, Input::Flags::GeneratedGrammarParent, done, pred);
 		if (inp && (inp->derive && inp->HasFlag(Input::Flags::GeneratedGrammar) && (inp->GetOracleResult() == OracleResult::Failing || inp->GetOracleResult() == OracleResult::Passing || inp->GetOracleResult() == OracleResult::Unfinished) && inp->EffectiveLength() >= length && inp->GetPrimaryScore() >= score)) {
 			if (inp->HasFlag(Input::Flags::GeneratedGrammarParent)) {
 				auto input = inp;
 				auto newinp = getNew(input);
 				count++;
 				auto parent = data->LookupFormID<Input>(input->GetParentID());
-				std::shared_ptr<Input> newpar; 
+				Types::shared_ptr<Input> newpar; 
 				while (parent)
 				{
 					newpar = getNew(parent);

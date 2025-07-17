@@ -17,12 +17,15 @@ class Generator : public Form
 public:
 	~Generator();
 
-	//bool Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar> grammar, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> parent = {});
+	//bool Generate(
+	// 
+	// 
+	// <Input>& input, Types::shared_ptr<Grammar> grammar, Types::shared_ptr<SessionData> sessiondata, Types::shared_ptr<Input> parent = {});
 
 	/// <summary>
 	/// Build sequence of the input
 	/// </summary>
-	bool BuildSequence(std::shared_ptr<Input> input);
+	bool BuildSequence(Types::shared_ptr<Input> input);
 	/// <summary>
 	/// generate input directly from grammar
 	/// </summary>
@@ -30,7 +33,7 @@ public:
 	/// <param name="gram"></param>
 	/// <param name="sessiondata"></param>
 	/// <returns></returns>
-	bool GenerateInputGrammar(std::shared_ptr<Input> input, std::shared_ptr<Grammar> gram, std::shared_ptr<SessionData> sessiondata);
+	bool GenerateInputGrammar(Types::shared_ptr<Input> input, Types::shared_ptr<Grammar> gram, Types::shared_ptr<SessionData> sessiondata);
 	/// <summary>
 	/// generate input
 	/// </summary>
@@ -39,8 +42,8 @@ public:
 	/// <param name="grammar"></param>
 	/// <param name="sessiondata"></param>
 	/// <returns></returns>
-	bool Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> parent, std::shared_ptr<Grammar> grammar, std::shared_ptr<SessionData> sessiondata);
-	void GenInputFromDevTree(std::shared_ptr<Input> input);
+	bool Generate(Types::shared_ptr<Input> input, Types::shared_ptr<Input> parent, Types::shared_ptr<Grammar> grammar, Types::shared_ptr<SessionData> sessiondata);
+	void GenInputFromDevTree(Types::shared_ptr<Input> input);
 	/// <summary>
 	/// resets all progress made
 	/// </summary>
@@ -82,9 +85,9 @@ public:
 
 	virtual void Init();
 
-	virtual void SetGrammar(std::shared_ptr<Grammar> grammar);
+	virtual void SetGrammar(Types::shared_ptr<Grammar> grammar);
 
-	virtual std::shared_ptr<Grammar> GetGrammar() { return _grammar; }
+	virtual Types::shared_ptr<Grammar> GetGrammar() { return _grammar; }
 
 	#pragma endregion
 
@@ -92,7 +95,7 @@ private:
 
 	const int32_t classversion = 0x1;
 
-	std::shared_ptr<Grammar> _grammar;
+	Types::shared_ptr<Grammar> _grammar;
 };
 
 

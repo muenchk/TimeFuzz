@@ -59,7 +59,7 @@ private:
 	/// <summary>
 	/// shared pointer to session
 	/// </summary>
-	std::shared_ptr<SessionData> _sessiondata{};
+	Types::shared_ptr<SessionData> _sessiondata{};
 
 	/// <summary>
 	/// disables lua support
@@ -88,15 +88,15 @@ private:
 	/// <summary>
 	/// light queue, tasks will be handled before medium and regular tasks if available
 	/// </summary>
-	std::deque<std::shared_ptr<Functions::BaseFunction>> _tasks_light;
+	std::deque<Types::shared_ptr<Functions::BaseFunction>> _tasks_light;
 	/// <summary>
 	/// medium queue, tasks will be handled before regular tasks if available
 	/// </summary>
-	std::deque<std::shared_ptr<Functions::BaseFunction>> _tasks_medium;
+	std::deque<Types::shared_ptr<Functions::BaseFunction>> _tasks_medium;
 	/// <summary>
 	/// regular queue, tasks will be handled first come first serve
 	/// </summary>
-	std::deque<std::shared_ptr<Functions::BaseFunction>> _tasks;
+	std::deque<Types::shared_ptr<Functions::BaseFunction>> _tasks;
 	/// <summary>
 	/// locks access to _tasks
 	/// </summary>
@@ -167,7 +167,7 @@ public:
 	/// </summary>
 	/// <param name="a_task"></param>
 	template <class T, typename = std::enable_if<std::is_base_of<Functions::BaseFunction, T>::value>>
-	void AddTask(std::shared_ptr<T> a_task, bool bypass = false)
+	void AddTask(Types::shared_ptr<T> a_task, bool bypass = false)
 	{
 		if (a_task) {
 			if (_controlEnableFine) {
@@ -304,13 +304,13 @@ public:
 	/// Starts the TaskController
 	/// </summary>
 	/// <param name="numthreads"></param>
-	void Start(std::shared_ptr<SessionData> session, int32_t numthreads = 0);
+	void Start(Types::shared_ptr<SessionData> session, int32_t numthreads = 0);
 	/// <summary>
 	/// Starts the TaskController
 	/// </summary>
 	/// <param name="session"></param>
 	/// <param name="numthreads"></param>
-	void Start(std::shared_ptr<SessionData> session, int32_t numLightThreads, int32_t numMediumThreads, int32_t numHeavyThreads, int32_t numAllThreads);
+	void Start(Types::shared_ptr<SessionData> session, int32_t numLightThreads, int32_t numMediumThreads, int32_t numHeavyThreads, int32_t numAllThreads);
 	/// <summary>
 	/// Stops the TaskController, optionally waiting for the completion of all tasks
 	/// </summary>

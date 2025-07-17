@@ -65,30 +65,30 @@ public:
 	/// Adds an input generated from a grammar to this generation
 	/// </summary>
 	/// <param name="input"></param>
-	void AddGeneratedInput(std::shared_ptr<Input> input);
+	void AddGeneratedInput(Types::shared_ptr<Input> input);
 	/// <summary>
 	/// Removes a generated input from this generation
 	/// </summary>
 	/// <param name="input"></param>
-	bool RemoveGeneratedInput(std::shared_ptr<Input> input);
+	bool RemoveGeneratedInput(Types::shared_ptr<Input> input);
 
 	/// <summary>
 	/// Adds an input created by delta debugging to this generation
 	/// </summary>
 	/// <param name="input"></param>
-	void AddDDInput(std::shared_ptr<Input> input);
+	void AddDDInput(Types::shared_ptr<Input> input);
 	/// <summary>
 	/// Removes an input created by delta debugging from this generation
 	/// </summary>
 	/// <param name="input"></param>
 	/// <returns></returns>
-	bool RemoveDDInput(std::shared_ptr<Input> input);
+	bool RemoveDDInput(Types::shared_ptr<Input> input);
 
 	/// <summary>
 	/// Adds a delta controller to this generation
 	/// </summary>
 	/// <param name="controller"></param>
-	void AddDDController(std::shared_ptr<DeltaDebugging::DeltaController> ddcontroller);
+	void AddDDController(Types::shared_ptr<DeltaDebugging::DeltaController> ddcontroller);
 
 	/// <summary>
 	/// Decreases the number of active inputs
@@ -149,10 +149,10 @@ public:
 	/// Applies [visitor] to all dd controllers in this generation
 	/// </summary>
 	/// <param name="visitor"></param>
-	void VisitDeltaDebugging(std::function<bool(std::shared_ptr<DeltaDebugging::DeltaController>)> visitor);
+	void VisitDeltaDebugging(std::function<bool(Types::shared_ptr<DeltaDebugging::DeltaController>)> visitor);
 
-	void VisitGeneratedInputs(std::function<bool(std::shared_ptr<Input>)> visitor);
-	void VisitDDInputs(std::function<bool(std::shared_ptr<Input>)> visitor);
+	void VisitGeneratedInputs(std::function<bool(Types::shared_ptr<Input>)> visitor);
+	void VisitDDInputs(std::function<bool(Types::shared_ptr<Input>)> visitor);
 
 	/// <summary>
 	/// returns whether this generation has sources
@@ -168,41 +168,41 @@ public:
 	/// Returns the sources of this generation
 	/// </summary>
 	/// <returns></returns>
-	std::vector<std::shared_ptr<Input>> GetSources();
+	std::vector<Types::shared_ptr<Input>> GetSources();
 	/// <summary>
 	/// Returns the sources of this generation
 	/// </summary>
 	/// <returns></returns>
-	void GetSources(std::vector<std::shared_ptr<Input>>& sources);
+	void GetSources(std::vector<Types::shared_ptr<Input>>& sources);
 	/// <summary>
 	/// Returns a random source for expansion
 	/// </summary>
 	/// <returns></returns>
-	std::shared_ptr<Input> GetRandomSource();
+	Types::shared_ptr<Input> GetRandomSource();
 	/// <summary>
 	/// Adds a new source to the generation
 	/// </summary>
 	/// <param name="input"></param>
-	void AddSource(std::shared_ptr<Input> input);
+	void AddSource(Types::shared_ptr<Input> input);
 
 	/// <summary>
 	/// Checks whether the generations sources are still considered valid
 	/// </summary>
 	/// <param name"invalid">predicate returning true if the source is valid</param>
 	/// <returns></returns>
-	bool CheckSourceValidity(std::function<bool(std::shared_ptr<Input>)> valid);
+	bool CheckSourceValidity(std::function<bool(Types::shared_ptr<Input>)> valid);
 
 	/// <summary>
 	/// Returns the ddcontrollers active in this generation
 	/// </summary>
 	/// <param name="controllers"></param>
-	void GetDDControllers(std::vector<std::shared_ptr<DeltaDebugging::DeltaController>>& controllers);
+	void GetDDControllers(std::vector<Types::shared_ptr<DeltaDebugging::DeltaController>>& controllers);
 	/// <summary>
 	/// Returns the ddcontrollers active in this generation if there is no lock active
 	/// </summary>
 	/// <param name="controllers"></param>
 	/// <returns>Number of dd controllers returned</returns>
-	size_t TryGetDDControllers(std::vector<std::shared_ptr<DeltaDebugging::DeltaController>>& controllers);
+	size_t TryGetDDControllers(std::vector<Types::shared_ptr<DeltaDebugging::DeltaController>>& controllers);
 	/// <summary>
 	/// returns the number of ddcontrollers in this instance
 	/// </summary>
@@ -272,23 +272,23 @@ private:
 	/// <summary>
 	/// map holding pointers to inputs generated in this generation
 	/// </summary>
-	std::unordered_map<FormID, std::shared_ptr<Input>> _generatedInputs;
+	std::unordered_map<FormID, Types::shared_ptr<Input>> _generatedInputs;
 	/// <summary>
 	/// map holding pointers to inputs created in this generation by delta debugging
 	/// </summary>
-	std::unordered_map<FormID, std::shared_ptr<Input>> _ddInputs;
+	std::unordered_map<FormID, Types::shared_ptr<Input>> _ddInputs;
 
 	/// <summary>
 	/// maps holding pointers to all delta debugging controller that were executed in this generation
 	/// </summary>
-	std::unordered_map<FormID, std::shared_ptr<DeltaDebugging::DeltaController>> _ddControllers;
+	std::unordered_map<FormID, Types::shared_ptr<DeltaDebugging::DeltaController>> _ddControllers;
 
 	/// <summary>
 	/// vector holding the source inputs for this generation. The sources are used as basis for input expansion.
 	/// </summary>
-	std::vector<std::shared_ptr<Input>> _sources;
+	std::vector<Types::shared_ptr<Input>> _sources;
 
-	//std::vector<std::shared_ptr<Input>>::iterator _sourcesIter;
+	//std::vector<Types::shared_ptr<Input>>::iterator _sourcesIter;
 	int32_t _sourcesIter = 0;
 
 	std::atomic_flag _sourcesFlag = ATOMIC_FLAG_INIT;
@@ -317,11 +317,11 @@ private:
 	/// <param name="min_length_unfinished"></param>
 	/// <param name="min_length_failing"></param>
 	/// <returns></returns>
-	bool CheckOracleResultAndLength(std::shared_ptr<Input>& input, bool allowFailing, size_t min_length_unfinished, size_t min_length_failing);
+	bool CheckOracleResultAndLength(Types::shared_ptr<Input>& input, bool allowFailing, size_t min_length_unfinished, size_t min_length_failing);
 
 public:  // templates
 	template <typename Less>
-	void GetAllInputs(std::set<std::shared_ptr<Input>, Less>& output, bool includeSources, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0, int64_t max = INT64_MAX)
+	void GetAllInputs(std::set<Types::shared_ptr<Input>, Less>& output, bool includeSources, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0, int64_t max = INT64_MAX)
 	{
 		int64_t count = 0;
 		for (auto [id, input] : _generatedInputs) {
@@ -348,7 +348,7 @@ public:  // templates
 			}
 	}
 	template <typename Less>
-	void GetAllInputs(std::multiset<std::shared_ptr<Input>, Less>& output, bool includeSources, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0, int64_t max = INT64_MAX)
+	void GetAllInputs(std::multiset<Types::shared_ptr<Input>, Less>& output, bool includeSources, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0, int64_t max = INT64_MAX)
 	{
 		int64_t count = 0;
 		for (auto [id, input] : _generatedInputs) {
@@ -376,7 +376,7 @@ public:  // templates
 	}
 
 	template <typename Less>
-	void GetAllInputs(std::set<std::shared_ptr<Input>, Less>& output, bool includeSources, double minPrimaryScore, double minSecondaryScore, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0, int64_t max = INT64_MAX)
+	void GetAllInputs(std::set<Types::shared_ptr<Input>, Less>& output, bool includeSources, double minPrimaryScore, double minSecondaryScore, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0, int64_t max = INT64_MAX)
 	{
 		int64_t count = 0;
 		for (auto [id, input] : _generatedInputs) {
@@ -407,7 +407,7 @@ public:  // templates
 	}
 
 	template <typename Less>
-	void GetAllInputs(std::multiset<std::shared_ptr<Input>, Less>& output, bool includeSources, double minPrimaryScore, double minSecondaryScore, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0, int64_t max = INT64_MAX)
+	void GetAllInputs(std::multiset<Types::shared_ptr<Input>, Less>& output, bool includeSources, double minPrimaryScore, double minSecondaryScore, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0, int64_t max = INT64_MAX)
 	{
 		int64_t count = 0;
 		for (auto [id, input] : _generatedInputs) {

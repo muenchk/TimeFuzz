@@ -193,7 +193,7 @@ void UIDeltaDebugging::GetActiveInputs(std::vector<UIInput>& inputs, size_t& siz
 	}
 }
 
-void UIDeltaDebugging::SetDeltaController(std::shared_ptr<DeltaController> controller)
+void UIDeltaDebugging::SetDeltaController(Types::shared_ptr<DeltaController> controller)
 {
 	_ddcontroller = controller;
 }
@@ -282,7 +282,7 @@ std::chrono::nanoseconds UIGeneration::GetRuntime()
 	return _generation->GetRunTime();
 }
 
-void UIGeneration::SetGeneration(std::shared_ptr<Generation> generation) 
+void UIGeneration::SetGeneration(Types::shared_ptr<Generation> generation) 
 {
 	_generation = generation;
 }
@@ -302,7 +302,7 @@ bool UIInputInformation::Initialized()
 	return _init;
 }
 
-void UIInputInformation::Set(std::shared_ptr<Input> input, std::shared_ptr<SessionData> sessiondata)
+void UIInputInformation::Set(Types::shared_ptr<Input> input, Types::shared_ptr<SessionData> sessiondata)
 {
 	_input = input;
 	_sessiondata = sessiondata;
@@ -387,7 +387,7 @@ void UIInputInformation::Refresh()
 }
 
 
-void UITaskController::Set(std::shared_ptr<TaskController> controller)
+void UITaskController::Set(Types::shared_ptr<TaskController> controller)
 {
 	_controller = controller;
 }

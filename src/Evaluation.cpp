@@ -14,7 +14,7 @@
 #include <numeric>
 #include <chrono>
 
-Evaluation::Evaluation(std::shared_ptr<Session> session, std::filesystem::path resultpath)
+Evaluation::Evaluation(Types::shared_ptr<Session> session, std::filesystem::path resultpath)
 {
 	_session = session;
 	_sessiondata = session->_sessiondata;
@@ -28,12 +28,12 @@ Evaluation* Evaluation::GetSingleton()
 	return std::addressof(object);
 }
 
-void InputVisitor(std::shared_ptr<Input>)
+void InputVisitor(Types::shared_ptr<Input>)
 {
 
 }
 
-std::string Evaluation::PrintInput(std::shared_ptr<Input> input, std::string& str, std::string& scriptargs, std::string& cmdargs, std::string& dump, bool skipargs)
+std::string Evaluation::PrintInput(Types::shared_ptr<Input> input, std::string& str, std::string& scriptargs, std::string& cmdargs, std::string& dump, bool skipargs)
 {
 	str = "";
 	// ID
@@ -129,7 +129,7 @@ std::string Evaluation::PrintInput(std::shared_ptr<Input> input, std::string& st
 			scriptargs = "";
 			dump = "";
 		}
-		std::shared_ptr<Input> tmp = input;
+		Types::shared_ptr<Input> tmp = input;
 		while (tmp) {
 			tmp->FreeMemory();
 			if (tmp->derive)
@@ -178,7 +178,7 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 	auto topk_l = _sessiondata->GetTopK_Length(INT_MAX);
 	auto topk_s = _sessiondata->GetTopK_Secondary(INT_MAX);
 	total += topk_p.size() + topk_l.size() + topk_s.size();
-	std::vector<std::shared_ptr<Input>> pos_inputs;
+	std::vector<Types::shared_ptr<Input>> pos_inputs;
 	_sessiondata->GetPositiveInputs(0, pos_inputs);
 	total += pos_inputs.size();
 	// ### General
@@ -193,7 +193,7 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 		line += std::to_string(dds.size());
 		// Number of generated Tests
 		header += ";Generated Tests";
-		int64_t generated = std::accumulate(generations.begin(), generations.end(), (int64_t)0, [](int64_t init, std::shared_ptr<Generation> gen) {
+		int64_t generated = std::accumulate(generations.begin(), generations.end(), (int64_t)0, [](int64_t init, Types::shared_ptr<Generation> gen) {
 			return init += gen->GetTrueGeneratedSize();
 		});
 		line += ";" + std::to_string(generated);
@@ -275,7 +275,7 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 			}
 			avtotalprimaryscoreinc += totalprimaryscoreinc;
 			avtotalsecondaryscoreinc += totalsecondaryscoreinc;
-			std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> ddcontrollers;
+			std::vector<Types::shared_ptr<DeltaDebugging::DeltaController>> ddcontrollers;
 			averageddruntime = std::chrono::nanoseconds(0);
 			generations[i]->GetDDControllers(ddcontrollers);
 			for (int c = 0; c < (int)ddcontrollers.size(); c++)
@@ -284,7 +284,7 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 				averageddruntime = averageddruntime / ddcontrollers.size();
 			avaverageddruntime = averageddruntime;
 			averagetestexectime = std::chrono::nanoseconds(0);
-			auto inputVisitor = [&averagetestexectime](std::shared_ptr<Input> form) {
+			auto inputVisitor = [&averagetestexectime](Types::shared_ptr<Input> form) {
 				averagetestexectime = averagetestexectime + form->GetExecutionTime();
 				return false;
 			};
@@ -306,7 +306,7 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 			switch (_sessiondata->_settings->generation.sourcesType) {
 			case Settings::GenerationSourcesType::FilterLength:
 				{
-					std::multiset<std::shared_ptr<Input>, InputLengthGreater> inps;
+					std::multiset<Types::shared_ptr<Input>, InputLengthGreater> inps;
 					generations[i]->GetAllInputs(inps, false, true, 0, 0, 1000);
 					int count = 0;
 					auto itr = inps.begin();
@@ -321,7 +321,7 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 				break;
 			case Settings::GenerationSourcesType::FilterPrimaryScoreRelative:
 				{
-					std::multiset<std::shared_ptr<Input>, InputGainGreaterPrimary> inps;
+					std::multiset<Types::shared_ptr<Input>, InputGainGreaterPrimary> inps;
 					generations[i]->GetAllInputs(inps, false, true, 0, 0, 1000);
 					auto itr = inps.begin();
 					int count = 0;
@@ -335,7 +335,7 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 				break;
 			case Settings::GenerationSourcesType::FilterPrimaryScore:
 				{
-					std::multiset<std::shared_ptr<Input>, InputGreaterPrimary> inps;
+					std::multiset<Types::shared_ptr<Input>, InputGreaterPrimary> inps;
 					generations[i]->GetAllInputs(inps, false, true, 0, 0, 1000);
 					auto itr = inps.begin();
 					int count = 0;
@@ -350,7 +350,7 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 				break;
 			case Settings::GenerationSourcesType::FilterSecondaryScoreRelative:
 				{
-					std::multiset<std::shared_ptr<Input>, InputGainGreaterSecondary> inps;
+					std::multiset<Types::shared_ptr<Input>, InputGainGreaterSecondary> inps;
 					generations[i]->GetAllInputs(inps, false, true, 0, 0, 1000);
 					auto itr = inps.begin();
 					int count = 0;
@@ -364,7 +364,7 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 				break;
 			case Settings::GenerationSourcesType::FilterSecondaryScore:
 				{
-					std::multiset<std::shared_ptr<Input>, InputGreaterSecondary> inps;
+					std::multiset<Types::shared_ptr<Input>, InputGreaterSecondary> inps;
 					generations[i]->GetAllInputs(inps, false, true, 0, 0, 1000);
 					auto itr = inps.begin();
 					int count = 0;
@@ -467,7 +467,7 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 				runtime_av += dds[i]->GetRunTime();
 				runtime_to += dds[i]->GetRunTime();
 				avtestruntime = std::chrono::nanoseconds(0);
-				auto inputVisitor = [&avtestruntime](std::shared_ptr<Input> form) {
+				auto inputVisitor = [&avtestruntime](Types::shared_ptr<Input> form) {
 					avtestruntime = avtestruntime + form->GetExecutionTime();
 					return false;
 				};
@@ -569,7 +569,7 @@ void Evaluation::Evaluate(int64_t& total, int64_t& current)
 }
 
 
-void Evaluation::Evaluate(std::shared_ptr<Generation> generation)
+void Evaluation::Evaluate(Types::shared_ptr<Generation> generation)
 {
 	bool reg = Lua::RegisterThread(_sessiondata);
 	std::string header;
@@ -609,7 +609,7 @@ void Evaluation::Evaluate(std::shared_ptr<Generation> generation)
 	}
 	avtotalprimaryscoreinc += totalprimaryscoreinc;
 	avtotalsecondaryscoreinc += totalsecondaryscoreinc;
-	std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> ddcontrollers;
+	std::vector<Types::shared_ptr<DeltaDebugging::DeltaController>> ddcontrollers;
 	averageddruntime = std::chrono::nanoseconds(0);
 	generation->GetDDControllers(ddcontrollers);
 	for (int c = 0; c < (int)ddcontrollers.size(); c++)
@@ -618,7 +618,7 @@ void Evaluation::Evaluate(std::shared_ptr<Generation> generation)
 		averageddruntime = averageddruntime / ddcontrollers.size();
 	avaverageddruntime = averageddruntime;
 	averagetestexectime = std::chrono::nanoseconds(0);
-	auto inputVisitor = [&averagetestexectime](std::shared_ptr<Input> form) {
+	auto inputVisitor = [&averagetestexectime](Types::shared_ptr<Input> form) {
 		averagetestexectime = averagetestexectime + form->GetExecutionTime();
 		return false;
 	};
@@ -640,7 +640,7 @@ void Evaluation::Evaluate(std::shared_ptr<Generation> generation)
 	switch (_sessiondata->_settings->generation.sourcesType) {
 	case Settings::GenerationSourcesType::FilterLength:
 		{
-			std::multiset<std::shared_ptr<Input>, InputLengthGreater> inps;
+			std::multiset<Types::shared_ptr<Input>, InputLengthGreater> inps;
 			generation->GetAllInputs(inps, false, true, 0, 0, 1000);
 			auto itr = inps.begin();
 			while (itr != inps.end()) {
@@ -651,7 +651,7 @@ void Evaluation::Evaluate(std::shared_ptr<Generation> generation)
 		break;
 	case Settings::GenerationSourcesType::FilterPrimaryScoreRelative:
 		{
-			std::multiset<std::shared_ptr<Input>, InputGainGreaterPrimary> inps;
+			std::multiset<Types::shared_ptr<Input>, InputGainGreaterPrimary> inps;
 			generation->GetAllInputs(inps, false, true, 0, 0, 1000);
 			auto itr = inps.begin();
 			while (itr != inps.end()) {
@@ -662,7 +662,7 @@ void Evaluation::Evaluate(std::shared_ptr<Generation> generation)
 		break;
 	case Settings::GenerationSourcesType::FilterPrimaryScore:
 		{
-			std::multiset<std::shared_ptr<Input>, InputGreaterPrimary> inps;
+			std::multiset<Types::shared_ptr<Input>, InputGreaterPrimary> inps;
 			generation->GetAllInputs(inps, false, true, 0, 0, 1000);
 			auto itr = inps.begin();
 			while (itr != inps.end()) {
@@ -673,7 +673,7 @@ void Evaluation::Evaluate(std::shared_ptr<Generation> generation)
 		break;
 	case Settings::GenerationSourcesType::FilterSecondaryScoreRelative:
 		{
-			std::multiset<std::shared_ptr<Input>, InputGainGreaterSecondary> inps;
+			std::multiset<Types::shared_ptr<Input>, InputGainGreaterSecondary> inps;
 			generation->GetAllInputs(inps, false, true, 0, 0, 1000);
 			auto itr = inps.begin();
 			while (itr != inps.end()) {
@@ -684,7 +684,7 @@ void Evaluation::Evaluate(std::shared_ptr<Generation> generation)
 		break;
 	case Settings::GenerationSourcesType::FilterSecondaryScore:
 		{
-			std::multiset<std::shared_ptr<Input>, InputGreaterSecondary> inps;
+			std::multiset<Types::shared_ptr<Input>, InputGreaterSecondary> inps;
 			generation->GetAllInputs(inps, false, true, 0, 0, 1000);
 			auto itr = inps.begin();
 			while (itr != inps.end()) {
@@ -704,7 +704,7 @@ void Evaluation::Evaluate(std::shared_ptr<Generation> generation)
 	if (reg)
 		Lua::UnregisterThread();
 }
-void Evaluation::Evaluate(std::shared_ptr<DeltaDebugging::DeltaController> ddcontroller)
+void Evaluation::Evaluate(Types::shared_ptr<DeltaDebugging::DeltaController> ddcontroller)
 {
 	bool reg = Lua::RegisterThread(_sessiondata);
 	std::string ddheader;
@@ -769,7 +769,7 @@ void Evaluation::Evaluate(std::shared_ptr<DeltaDebugging::DeltaController> ddcon
 	runtime_av += ddcontroller->GetRunTime();
 	runtime_to += ddcontroller->GetRunTime();
 	avtestruntime = std::chrono::nanoseconds(0);
-	auto inputVisitor = [&avtestruntime](std::shared_ptr<Input> form) {
+	auto inputVisitor = [&avtestruntime](Types::shared_ptr<Input> form) {
 		avtestruntime = avtestruntime + form->GetExecutionTime();
 		return false;
 	};
@@ -850,7 +850,7 @@ void Evaluation::EvaluatePositive()
 {
 	bool reg = Lua::RegisterThread(_sessiondata);
 
-	std::vector<std::shared_ptr<Input>> pos_inputs;
+	std::vector<Types::shared_ptr<Input>> pos_inputs;
 	_sessiondata->GetPositiveInputs(0, pos_inputs);
 	std::string scriptargs;
 	std::string cmdargs;
@@ -895,7 +895,7 @@ void Evaluation::EvaluateGeneral()
 		line += std::to_string(dds.size());
 		// Number of generated Tests
 		header += ";Generated Tests";
-		int64_t generated = std::accumulate(generations.begin(), generations.end(), (int64_t)0, [](int64_t init, std::shared_ptr<Generation> gen) {
+		int64_t generated = std::accumulate(generations.begin(), generations.end(), (int64_t)0, [](int64_t init, Types::shared_ptr<Generation> gen) {
 			return init += gen->GetTrueGeneratedSize();
 		});
 		line += ";" + std::to_string(generated);

@@ -25,7 +25,7 @@ Session::Session()
 {
 }
 
-std::shared_ptr<Session> Session::CreateSession()
+Types::shared_ptr<Session> Session::CreateSession()
 {
 	Data* dat = new Data();
 	return dat->CreateForm<Session>();
@@ -79,7 +79,7 @@ void Session::LoadSession_Async(Data* dat, std::string name, int32_t number, Loa
 		delete args;
 }
 
-std::shared_ptr<Session> Session::LoadSession(std::string name, LoadSessionArgs& loadargs, SessionStatus* status)
+Types::shared_ptr<Session> Session::LoadSession(std::string name, LoadSessionArgs& loadargs, SessionStatus* status)
 {
 	loginfo("Load Session");
 	Data* dat = new Data();
@@ -112,7 +112,7 @@ std::shared_ptr<Session> Session::LoadSession(std::string name, LoadSessionArgs&
 	return session;
 }
 
-std::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, LoadSessionArgs& loadargs, SessionStatus* status)
+Types::shared_ptr<Session> Session::LoadSession(std::string name, int32_t number, LoadSessionArgs& loadargs, SessionStatus* status)
 {
 	loginfo("Load Session");
 	Data* dat = new Data();
@@ -229,7 +229,7 @@ bool Session::Wait(std::chrono::nanoseconds timeout)
 
 }
 
-std::vector<std::shared_ptr<Input>> Session::GenerateNegatives(int32_t /*negatives*/, bool& /*error*/, int32_t /*maxiterations*/, int32_t /*timeout*/, bool /*returnpositives*/)
+std::vector<Types::shared_ptr<Input>> Session::GenerateNegatives(int32_t /*negatives*/, bool& /*error*/, int32_t /*maxiterations*/, int32_t /*timeout*/, bool /*returnpositives*/)
 {
 	return {};
 }
@@ -548,7 +548,7 @@ void Session::InitStatus(SessionStatus& status)
 	InitStatus(&status, _sessiondata->_settings);
 }
 
-void Session::InitStatus(SessionStatus* status, std::shared_ptr<Settings> sett)
+void Session::InitStatus(SessionStatus* status, Types::shared_ptr<Settings> sett)
 {
 	status->sessionname = sett->saves.savename;
 	if (sett->conditions.use_overalltests)
@@ -734,7 +734,7 @@ void Session::UI_GetTopK(std::vector<UI::UIInput>& vector, size_t k, bool sortse
 		return;
 	if (vector.size() < k)
 		vector.resize(k);
-	std::vector<std::shared_ptr<Input>> vec;
+	std::vector<Types::shared_ptr<Input>> vec;
 	if (sortsecondary)
 		vec = _sessiondata->GetTopK_Secondary((int32_t)k);
 	else

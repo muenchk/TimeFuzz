@@ -425,6 +425,24 @@
       }
     },
     {
+      "name": "kali-debug-noui",
+      "inherits": [
+        "base",
+        "vcpkg-linux",
+        "x64",
+        "clang",
+        "generator-ninja"
+      ],
+      "displayName": "Kali",
+      "binaryDir": "${sourceDir}/build-kali-debug-noui",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": {
+          "type": "STRING",
+          "value": "Debug"
+        }
+      }
+    },
+    {
       "name": "linux-gnu-release",
       "inherits": [
         "base",

@@ -130,10 +130,10 @@ public:
 
 	Session();
 
-	static std::shared_ptr<Session> CreateSession();
+	static Types::shared_ptr<Session> CreateSession();
 
-	static std::shared_ptr<Session> LoadSession(std::string name, LoadSessionArgs& loadargs, bool* error, SessionStatus* status = nullptr);
-	static std::shared_ptr<Session> LoadSession(std::string name, int32_t number, LoadSessionArgs& loadargs, bool* error, SessionStatus* status = nullptr);
+	static Types::shared_ptr<Session> LoadSession(std::string name, LoadSessionArgs& loadargs, bool* error, SessionStatus* status = nullptr);
+	static Types::shared_ptr<Session> LoadSession(std::string name, int32_t number, LoadSessionArgs& loadargs, bool* error, SessionStatus* status = nullptr);
 
 	~Session();
 
@@ -169,7 +169,7 @@ public:
 	/// <param name="maxiterations">maximum number of iterations to run [set to 0 to disable]</param>
 	/// <param name="timeout">maximum amount of time in seconds [set to 0 to disable]</param>
 	/// <param name="returnpositives">returns the generated positives as well as the negatives</param>
-	std::vector<std::shared_ptr<Input>> GenerateNegatives(int32_t negatives, bool& error, int32_t maxiterations = 0, int32_t timeout = 0, bool returnpositives = false);
+	std::vector<Types::shared_ptr<Input>> GenerateNegatives(int32_t negatives, bool& error, int32_t maxiterations = 0, int32_t timeout = 0, bool returnpositives = false);
 
 	void SetupResults(std::filesystem::path resultpath);
 
@@ -310,7 +310,7 @@ public:
 
 private:
 
-	static void InitStatus(SessionStatus* status, std::shared_ptr<Settings> sett);
+	static void InitStatus(SessionStatus* status, Types::shared_ptr<Settings> sett);
 
 	/// <summary>
 	/// Function that is called after the session has finished running, 
@@ -321,12 +321,12 @@ private:
 	/// <summary>
 	/// Self
 	/// </summary>
-	std::shared_ptr<Session> _self;
+	Types::shared_ptr<Session> _self;
 
 	/// <summary>
 	/// the runtime data of the session
 	/// </summary>
-	std::shared_ptr<SessionData> _sessiondata;
+	Types::shared_ptr<SessionData> _sessiondata;
 
 	/// <summary>
 	/// the controller for the session
@@ -499,7 +499,7 @@ namespace Functions
 	class SessionDDTestCallback : public BaseFunction
 	{
 	public:
-		std::shared_ptr<SessionData> _sessiondata;
+		Types::shared_ptr<SessionData> _sessiondata;
 
 		void Run() override;
 		static uint64_t GetTypeStatic() { return 'SEDD'; }
@@ -507,9 +507,9 @@ namespace Functions
 
 		FunctionType GetFunctionType() override { return FunctionType::Medium; }
 
-		virtual std::shared_ptr<BaseFunction> DeepCopy() override
+		virtual Types::shared_ptr<BaseFunction> DeepCopy() override
 		{
-			auto ptr = std::make_shared<SessionDDTestCallback>();
+			auto ptr = Types::make_shared<SessionDDTestCallback>();
 			ptr->_sessiondata = _sessiondata;
 			return dynamic_pointer_cast<BaseFunction>(ptr);
 		}
@@ -523,7 +523,7 @@ namespace Functions
 		}
 		unsigned char* GetData(size_t& size) override;
 
-		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<SessionDDTestCallback>()); }
+		static Types::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(Types::make_shared<SessionDDTestCallback>()); }
 		void Dispose() override
 		{
 			_sessiondata.reset();

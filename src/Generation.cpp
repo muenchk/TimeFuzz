@@ -86,7 +86,7 @@ void Generation::FailGeneration(int64_t fails)
 	SetChanged();
 }
 
-void Generation::AddGeneratedInput(std::shared_ptr<Input> input)
+void Generation::AddGeneratedInput(Types::shared_ptr<Input> input)
 {
 	if (input) {
 		SetChanged();
@@ -96,7 +96,7 @@ void Generation::AddGeneratedInput(std::shared_ptr<Input> input)
 	}
 }
 
-bool Generation::RemoveGeneratedInput(std::shared_ptr<Input> input)
+bool Generation::RemoveGeneratedInput(Types::shared_ptr<Input> input)
 {
 	if (input) {
 		SetChanged();
@@ -114,7 +114,7 @@ bool Generation::RemoveGeneratedInput(std::shared_ptr<Input> input)
 	return false;
 }
 
-void Generation::AddDDInput(std::shared_ptr<Input> input)
+void Generation::AddDDInput(Types::shared_ptr<Input> input)
 {
 	if (input)
 	{
@@ -126,7 +126,7 @@ void Generation::AddDDInput(std::shared_ptr<Input> input)
 	}
 }
 
-bool Generation::RemoveDDInput(std::shared_ptr<Input> input)
+bool Generation::RemoveDDInput(Types::shared_ptr<Input> input)
 {
 	if (input) {
 		SetChanged();
@@ -143,7 +143,7 @@ bool Generation::RemoveDDInput(std::shared_ptr<Input> input)
 	return false;
 }
 
-void Generation::AddDDController(std::shared_ptr<DeltaDebugging::DeltaController> ddcontroller)
+void Generation::AddDDController(Types::shared_ptr<DeltaDebugging::DeltaController> ddcontroller)
 {
 	if (ddcontroller)
 	{
@@ -211,7 +211,7 @@ bool Generation::IsDeltaDebuggingActive()
 	return result;
 }
 
-void Generation::VisitDeltaDebugging(std::function<bool(std::shared_ptr<DeltaDebugging::DeltaController>)> visitor)
+void Generation::VisitDeltaDebugging(std::function<bool(Types::shared_ptr<DeltaDebugging::DeltaController>)> visitor)
 {
 	for (auto [_, form] : _ddControllers)
 	{
@@ -220,7 +220,7 @@ void Generation::VisitDeltaDebugging(std::function<bool(std::shared_ptr<DeltaDeb
 	}
 }
 
-void Generation::VisitGeneratedInputs(std::function<bool(std::shared_ptr<Input>)> visitor)
+void Generation::VisitGeneratedInputs(std::function<bool(Types::shared_ptr<Input>)> visitor)
 {
 	for (auto [_, form] : _generatedInputs) {
 		if (visitor(form))
@@ -228,7 +228,7 @@ void Generation::VisitGeneratedInputs(std::function<bool(std::shared_ptr<Input>)
 	}
 }
 
-void Generation::VisitDDInputs(std::function<bool(std::shared_ptr<Input>)> visitor)
+void Generation::VisitDDInputs(std::function<bool(Types::shared_ptr<Input>)> visitor)
 {
 	for (auto [_, form] : _ddInputs) {
 		if (visitor(form))
@@ -246,12 +246,12 @@ int32_t Generation::GetNumberOfSources()
 	return (int32_t)_sources.size();
 }
 
-std::vector<std::shared_ptr<Input>> Generation::GetSources()
+std::vector<Types::shared_ptr<Input>> Generation::GetSources()
 {
 	return _sources;
 }
 
-void Generation::GetSources(std::vector<std::shared_ptr<Input>>& sources)
+void Generation::GetSources(std::vector<Types::shared_ptr<Input>>& sources)
 {
 	while (_sourcesFlag.test_and_set(std::memory_order_acquire))
 #if defined(__cpp_lib_atomic_wait) && __cpp_lib_atomic_wait >= 201907L
@@ -271,7 +271,7 @@ void Generation::GetSources(std::vector<std::shared_ptr<Input>>& sources)
 #endif
 }
 
-std::shared_ptr<Input> Generation::GetRandomSource()
+Types::shared_ptr<Input> Generation::GetRandomSource()
 {
 	if (HasSources())
 	{
@@ -285,7 +285,7 @@ std::shared_ptr<Input> Generation::GetRandomSource()
 				;
 
 		// do stuff
-		/*std::vector<std::shared_ptr<Input>>::iterator itr = _sources.end();
+		/*std::vector<Types::shared_ptr<Input>>::iterator itr = _sources.end();
 		size_t count = _sources.size();
 		while (count > 0) {
 			if (_sourcesIter != _sources.end()) {
@@ -334,7 +334,7 @@ std::shared_ptr<Input> Generation::GetRandomSource()
 		return {};
 }
 
-void Generation::AddSource(std::shared_ptr<Input> input)
+void Generation::AddSource(Types::shared_ptr<Input> input)
 {
 	if (input) {
 		SetChanged();
@@ -361,7 +361,7 @@ void Generation::AddSource(std::shared_ptr<Input> input)
 	}
 }
 
-bool Generation::CheckSourceValidity(std::function<bool(std::shared_ptr<Input>)> predicate)
+bool Generation::CheckSourceValidity(std::function<bool(Types::shared_ptr<Input>)> predicate)
 {
 	if (_sources.size() == 0)
 		return true;
@@ -387,7 +387,7 @@ bool Generation::CheckSourceValidity(std::function<bool(std::shared_ptr<Input>)>
 	return result;
 }
 
-void Generation::GetDDControllers(std::vector<std::shared_ptr<DeltaDebugging::DeltaController>>& controllers)
+void Generation::GetDDControllers(std::vector<Types::shared_ptr<DeltaDebugging::DeltaController>>& controllers)
 {
 	if (_ddControllers.size() > controllers.size())
 		controllers.resize(_ddControllers.size());
@@ -402,7 +402,7 @@ void Generation::GetDDControllers(std::vector<std::shared_ptr<DeltaDebugging::De
 	}
 }
 
-size_t Generation::TryGetDDControllers(std::vector<std::shared_ptr<DeltaDebugging::DeltaController>>& controllers)
+size_t Generation::TryGetDDControllers(std::vector<Types::shared_ptr<DeltaDebugging::DeltaController>>& controllers)
 {
 	if (_ddControllers.size() > controllers.size())
 		controllers.resize(_ddControllers.size());
@@ -447,7 +447,7 @@ void Generation::SetInactive()
 	}
 }
 
-bool Generation::CheckOracleResultAndLength(std::shared_ptr<Input>& input, bool allowFailing, size_t min_length_unfinished, size_t min_length_failing)
+bool Generation::CheckOracleResultAndLength(Types::shared_ptr<Input>& input, bool allowFailing, size_t min_length_unfinished, size_t min_length_failing)
 {
 	if (input && ((allowFailing && input->GetOracleResult() == OracleResult::Failing && input->EffectiveLength() >= (int64_t)min_length_failing) ||
 					 (input->GetOracleResult() == OracleResult::Unfinished && input->EffectiveLength() >= (int64_t)min_length_unfinished)))
@@ -695,7 +695,7 @@ void Generation::RegisterFactories()
 
 size_t Generation::MemorySize()
 {
-	return sizeof(Generation) + _sources.size() * sizeof(std::shared_ptr<Input>) + _ddControllers.size() * sizeof(std::pair<FormID, std::shared_ptr<DeltaDebugging::DeltaController>>) + _ddInputs.size() * sizeof(std::pair<FormID, std::shared_ptr<Input>>) + _generatedInputs.size() * sizeof(std::pair<FormID, std::shared_ptr<Input>>);
+	return sizeof(Generation) + _sources.size() * sizeof(Types::shared_ptr<Input>) + _ddControllers.size() * sizeof(std::pair<FormID, Types::shared_ptr<DeltaDebugging::DeltaController>>) + _ddInputs.size() * sizeof(std::pair<FormID, Types::shared_ptr<Input>>) + _generatedInputs.size() * sizeof(std::pair<FormID, Types::shared_ptr<Input>>);
 }
 
 #pragma endregion

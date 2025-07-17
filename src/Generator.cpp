@@ -110,12 +110,12 @@ void Generator::Init()
 
 }
 
-void Generator::SetGrammar(std::shared_ptr<Grammar> grammar)
+void Generator::SetGrammar(Types::shared_ptr<Grammar> grammar)
 {
 	CheckChanged(_grammar, grammar);
 }
 
-void DummyGenerate(std::shared_ptr<Input>& input)
+void DummyGenerate(Types::shared_ptr<Input>& input)
 {
 	std::uniform_int_distribution<signed> dist(1000, 10000);
 	int x = dist(randan);
@@ -127,7 +127,7 @@ void DummyGenerate(std::shared_ptr<Input>& input)
 	}
 }
 
-void Generator::GenInputFromDevTree(std::shared_ptr<Input> input)
+void Generator::GenInputFromDevTree(Types::shared_ptr<Input> input)
 {
 	if (input->derive->_root->Type() == DerivationTree::NodeType::Terminal) {
 		input->AddEntry(((DerivationTree::TerminalNode*)(input->derive->_root))->_content);
@@ -184,7 +184,7 @@ void Generator::GenInputFromDevTree(std::shared_ptr<Input> input)
 	}
 }
 
-bool Generator::BuildSequence(std::shared_ptr<Input> input)
+bool Generator::BuildSequence(Types::shared_ptr<Input> input)
 {
 	if (input->derive->_valid && input->GetSequenceLength() == 0) {
 		GenInputFromDevTree(input);
@@ -202,7 +202,7 @@ bool Generator::BuildSequence(std::shared_ptr<Input> input)
 	return false;
 }
 
-bool Generator::GenerateInputGrammar(std::shared_ptr<Input> input, std::shared_ptr<Grammar> gram, std::shared_ptr<SessionData> sessiondata)
+bool Generator::GenerateInputGrammar(Types::shared_ptr<Input> input, Types::shared_ptr<Grammar> gram, Types::shared_ptr<SessionData> sessiondata)
 {
 	if (input->derive->_valid == false) {
 		if (input->derive && input->derive->GetRegenerate() == true) {
@@ -224,7 +224,7 @@ bool Generator::GenerateInputGrammar(std::shared_ptr<Input> input, std::shared_p
 	return ret;
 }
 
-bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> parent, std::shared_ptr<Grammar> grammar, std::shared_ptr<SessionData> sessiondata)
+bool Generator::Generate(Types::shared_ptr<Input> input, Types::shared_ptr<Input> parent, Types::shared_ptr<Grammar> grammar, Types::shared_ptr<SessionData> sessiondata)
 {
 	StartProfiling;
 
@@ -232,8 +232,8 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 	FlagHolder<DerivationTree> deriveflag(input->derive, Form::FormFlags::DoNotFree);
 	std::vector<std::unique_ptr<FlagHolder<Input>>> parentflags;
 	std::vector<std::unique_ptr<FlagHolder<DerivationTree>>> parenttreeflags;
-	std::deque<std::shared_ptr<Form>> locklist;
-	std::vector<std::shared_ptr<Form>> flaglist;
+	std::deque<Types::shared_ptr<Form>> locklist;
+	std::vector<Types::shared_ptr<Form>> flaglist;
 	auto unlock = [&locklist]() {
 		for (auto form : locklist) {
 			form->UnlockRead();
@@ -254,7 +254,7 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 		}
 		flaglist.clear();
 	};
-	std::shared_ptr<Grammar> gram = _grammar;
+	Types::shared_ptr<Grammar> gram = _grammar;
 	if (grammar)
 		gram = grammar;
 	// if we don't have a valid grammar, return
@@ -291,8 +291,8 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 
 	// if we don't have this special case above, we
 	// need to go over the other options, which might require looping over parents
-	std::stack<std::pair<std::shared_ptr<Input>, std::shared_ptr<Input>>> forward;
-	std::stack<std::pair<std::shared_ptr<Input>, std::shared_ptr<Input>>> backward;
+	std::stack<std::pair<Types::shared_ptr<Input>, Types::shared_ptr<Input>>> forward;
+	std::stack<std::pair<Types::shared_ptr<Input>, Types::shared_ptr<Input>>> backward;
 
 	forward.push({ input, parent });
 	while (forward.size() > 0) {
@@ -310,7 +310,7 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 			// derivation trees, even though the _input forms themselves don't have
 			// the derived sequences
 			if (inp->HasFlag(Input::Flags::GeneratedGrammarParent)) {
-				std::shared_ptr<DerivationTree> partree;
+				Types::shared_ptr<DerivationTree> partree;
 				if (inp->derive->GetRegenerate() == true) {
 					// the only difference between re-extending and extending in the first place is that the parent information either
 					// comes from the caller or in the case of re-generating from the input itself
@@ -541,11 +541,11 @@ bool Generator::Generate(std::shared_ptr<Input> input, std::shared_ptr<Input> pa
 	return ret;
 }
 /*
-bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar> grammar, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> parent)
+bool Generator::Generate(Types::shared_ptr<Input>& input, Types::shared_ptr<Grammar> grammar, Types::shared_ptr<SessionData> sessiondata, Types::shared_ptr<Input> parent)
 {
 	StartProfiling;
 
-	auto checkInheritance = [](Data* data, std::shared_ptr<Input> input) {
+	auto checkInheritance = [](Data* data, Types::shared_ptr<Input> input) {
 		while (input) {
 			auto derive = input->derive;
 			logmessage("{}\t\t{}", Input::PrintForm(input), DerivationTree::PrintForm(derive));
@@ -556,7 +556,7 @@ bool Generator::Generate(std::shared_ptr<Input>& input, std::shared_ptr<Grammar>
 	FlagHolder inputflag(input, Form::FormFlags::DoNotFree);
 	std::unique_ptr<FlagHolder<Input>> parentflag;
 	std::unique_ptr<FlagHolder<DerivationTree>> parenttreeflag;
-	std::shared_ptr<Grammar> gram = _grammar;
+	Types::shared_ptr<Grammar> gram = _grammar;
 	if (grammar)
 		gram = grammar;
 	if (gram) {

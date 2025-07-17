@@ -93,9 +93,9 @@ namespace Functions
 			SessionFunctions::GenerateTests(_sessiondata);
 	}
 
-	std::shared_ptr<BaseFunction> DDTestCallback::DeepCopy()
+	Types::shared_ptr<BaseFunction> DDTestCallback::DeepCopy()
 	{
-		auto ptr = std::make_shared<DDTestCallback>();
+		auto ptr = Types::make_shared<DDTestCallback>();
 		ptr->_sessiondata = _sessiondata;
 		ptr->_DDcontroller = _DDcontroller;
 		ptr->_input = _input;
@@ -194,9 +194,9 @@ namespace Functions
 		}
 	}
 
-	std::shared_ptr<BaseFunction> DDEvaluateExplicitCallback::DeepCopy()
+	Types::shared_ptr<BaseFunction> DDEvaluateExplicitCallback::DeepCopy()
 	{
-		auto ptr = std::make_shared<DDEvaluateExplicitCallback>();
+		auto ptr = Types::make_shared<DDEvaluateExplicitCallback>();
 		ptr->_DDcontroller = _DDcontroller;
 		return dynamic_pointer_cast<BaseFunction>(ptr);
 	}
@@ -325,9 +325,9 @@ namespace Functions
 		return buffer;
 	}
 
-	std::shared_ptr<BaseFunction> DDGenerateComplementCallback::DeepCopy()
+	Types::shared_ptr<BaseFunction> DDGenerateComplementCallback::DeepCopy()
 	{
-		auto ptr = std::make_shared<DDGenerateComplementCallback>();
+		auto ptr = Types::make_shared<DDGenerateComplementCallback>();
 		ptr->_DDcontroller = _DDcontroller;
 		ptr->_begin = _begin;
 		ptr->_length = _length;
@@ -356,9 +356,11 @@ namespace Functions
 		}
 	}
 
-	std::shared_ptr<BaseFunction> DDGenerateCheckSplit::DeepCopy()
+	
+	
+	Types::shared_ptr<BaseFunction> DDGenerateCheckSplit::DeepCopy()
 	{
-		auto ptr = std::make_shared<DDGenerateCheckSplit>();
+		auto ptr = Types::make_shared<DDGenerateCheckSplit>();
 		ptr->_DDcontroller = _DDcontroller;
 		ptr->_input = _input;
 		ptr->_approxthreshold = _approxthreshold;
@@ -470,7 +472,7 @@ namespace DeltaDebugging
 		_params = nullptr;
 	}
 
-	bool DeltaController::Start(DDParameters* params, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback)
+	bool DeltaController::Start(DDParameters* params, Types::shared_ptr<SessionData> sessiondata, Types::shared_ptr<Input> input, Types::shared_ptr<Functions::BaseFunction> callback)
 	{
 		// taint changed
 		SetChanged();
@@ -598,7 +600,7 @@ namespace DeltaDebugging
 		return true;
 	}
 
-	void DeltaController::CallbackTest(std::shared_ptr<Input> input, uint64_t batchident, std::shared_ptr<DeltaDebugging::Tasks> tasks)
+	void DeltaController::CallbackTest(Types::shared_ptr<Input> input, uint64_t batchident, std::shared_ptr<DeltaDebugging::Tasks> tasks)
 	{
 		// taint changed
 		SetChanged();
@@ -637,7 +639,7 @@ namespace DeltaDebugging
 		// if the level is active try get a new task and start evaluating whether the level is completed
 		if (genCompData.active) {
 			// try starting new task
-			std::shared_ptr<Functions::BaseFunction> job;
+			Types::shared_ptr<Functions::BaseFunction> job;
 			{
 				std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
 				if (genCompData.testqueue.empty() == false) {
@@ -694,7 +696,7 @@ namespace DeltaDebugging
 					genCompData.active = false;
 					{
 						std::unique_lock<std::mutex> guardtestlock(genCompData.testqueuelock);
-						std::list<std::shared_ptr<Functions::BaseFunction>> tmp;
+						std::list<Types::shared_ptr<Functions::BaseFunction>> tmp;
 						genCompData.testqueue.swap(tmp);
 						genCompData.testqueue.clear();
 						// stop batch, delete all waiting tests and call evaluate
@@ -755,11 +757,11 @@ namespace DeltaDebugging
 		}
 	}
 
-	std::vector<std::shared_ptr<Input>> DeltaController::GenerateSplits(int32_t number, std::vector<DeltaInformation>& splitinfo)
+	std::vector<Types::shared_ptr<Input>> DeltaController::GenerateSplits(int32_t number, std::vector<DeltaInformation>& splitinfo)
 	{
 		StartProfiling;
 		double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
-		std::vector<std::shared_ptr<Input>> splits;
+		std::vector<Types::shared_ptr<Input>> splits;
 		// calculate the ideal size we would get from the current level
 		int32_t tmp = (int32_t)(std::trunc(_input->Length() / number));
 		if (tmp < 1)
@@ -823,7 +825,7 @@ namespace DeltaDebugging
 		{
 			std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
 			double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
-			std::vector<std::shared_ptr<Input>> splits;
+			std::vector<Types::shared_ptr<Input>> splits;
 			// calculate the ideal size we would get from the current level
 			int32_t tmp = (int32_t)(std::trunc(_input->Length() / number));
 			if (tmp < 1)
@@ -886,7 +888,7 @@ namespace DeltaDebugging
 		}
 		StandardGenerateNextLevel_Inter();
 	}
-	void DeltaController::GenerateSplits_Async_Callback(std::shared_ptr<Input> input, double approxthreshold, uint64_t batchident, std::shared_ptr<DeltaDebugging::Tasks> tasks)
+	void DeltaController::GenerateSplits_Async_Callback(Types::shared_ptr<Input> input, double approxthreshold, uint64_t batchident, std::shared_ptr<DeltaDebugging::Tasks> tasks)
 	{
 		// taint changed
 		SetChanged();
@@ -900,7 +902,7 @@ namespace DeltaDebugging
 				return;
 		}
 		// if the test is not valid or cannot be executed generate a new test for execution
-		std::shared_ptr<Functions::BaseFunction> job;
+		Types::shared_ptr<Functions::BaseFunction> job;
 		{
 			std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
 			if (genCompData.testqueue.empty() == false) {
@@ -931,7 +933,7 @@ namespace DeltaDebugging
 		}
 	}
 
-	bool DeltaController::CheckInput(std::shared_ptr<Input> parentinp, std::shared_ptr<Input> inp, double approxthreshold)
+	bool DeltaController::CheckInput(Types::shared_ptr<Input> parentinp, Types::shared_ptr<Input> inp, double approxthreshold)
 	{
 		StartProfiling;
 
@@ -1057,7 +1059,7 @@ namespace DeltaDebugging
 		return true;
 	}
 
-	std::shared_ptr<Input> DeltaController::GetComplement(int32_t begin, int32_t end, double approxthreshold, std::shared_ptr<Input> parent)
+	Types::shared_ptr<Input> DeltaController::GetComplement(int32_t begin, int32_t end, double approxthreshold, Types::shared_ptr<Input> parent)
 	{
 		StartProfiling;
 
@@ -1109,7 +1111,7 @@ namespace DeltaDebugging
 			return {};
 	}
 
-	void DeltaController::AddTests(std::vector<std::shared_ptr<Input>>& inputs)
+	void DeltaController::AddTests(std::vector<Types::shared_ptr<Input>>& inputs)
 	{
 		int32_t fails = 0;
 		for (int32_t i = 0; i < (int32_t)inputs.size(); i++) {
@@ -1126,7 +1128,7 @@ namespace DeltaDebugging
 		_remainingtests -= fails;
 	}
 
-	bool DeltaController::DoTest(std::shared_ptr<Input> input, uint64_t batchident, std::shared_ptr<Tasks> tasks)
+	bool DeltaController::DoTest(Types::shared_ptr<Input> input, uint64_t batchident, std::shared_ptr<Tasks> tasks)
 	{
 		//if (!input)
 		//	return false;
@@ -1151,11 +1153,11 @@ namespace DeltaDebugging
 		return true;
 	}
 
-	std::vector<std::shared_ptr<Input>> DeltaController::GenerateComplements(std::vector<DeltaInformation>& splitinfo)
+	std::vector<Types::shared_ptr<Input>> DeltaController::GenerateComplements(std::vector<DeltaInformation>& splitinfo)
 	{
 		StartProfiling;
 		double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
-		std::vector<std::shared_ptr<Input>> complements;
+		std::vector<Types::shared_ptr<Input>> complements;
 		for (int32_t i = 0; i < (int32_t)splitinfo.size(); i++) {
 			auto inp = GetComplement((int32_t)splitinfo[i].positionbegin, (int32_t)splitinfo[i].length, approxthreshold, _input);
 			if (inp)
@@ -1171,7 +1173,7 @@ namespace DeltaDebugging
 		{
 			std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
 			double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
-			std::vector<std::shared_ptr<Input>> complements;
+			std::vector<Types::shared_ptr<Input>> complements;
 			for (int32_t i = 0; i < (int32_t)splitinfo.size(); i++) {
 				auto callback = dynamic_pointer_cast<Functions::DDGenerateComplementCallback>(Functions::DDGenerateComplementCallback::Create());
 				callback->_DDcontroller = _self;
@@ -1188,7 +1190,7 @@ namespace DeltaDebugging
 		profile(TimeProfiling, "Time taken for complement generation initialization.");
 	}
 
-	void DeltaController::GenerateComplements_Async_Callback(int32_t begin, int32_t length, double approx, uint64_t batchident, std::shared_ptr<Input> parent, std::shared_ptr<DeltaDebugging::Tasks> tasks)
+	void DeltaController::GenerateComplements_Async_Callback(int32_t begin, int32_t length, double approx, uint64_t batchident, Types::shared_ptr<Input> parent, std::shared_ptr<DeltaDebugging::Tasks> tasks)
 	{
 		// taint changed
 		SetChanged();
@@ -1206,7 +1208,7 @@ namespace DeltaDebugging
 			}
 		}
 		// if the test is not valid or cannot be executed generate a new test for execution
-		std::shared_ptr<Functions::BaseFunction> job;
+		Types::shared_ptr<Functions::BaseFunction> job;
 		{
 			std::unique_lock<std::mutex> guard(genCompData.testqueuelock);
 			if (genCompData.testqueue.empty() == false) {
@@ -1387,7 +1389,7 @@ namespace DeltaDebugging
 		profile(__NextGenTime, "Time taken to generate next dd level.");
 	}
 
-	bool DeltaController::StandardEvaluateInput(std::shared_ptr<Input> input)
+	bool DeltaController::StandardEvaluateInput(Types::shared_ptr<Input> input)
 	{
 		// taint changed
 		SetChanged();
@@ -1428,7 +1430,7 @@ namespace DeltaDebugging
 
 				struct PrimaryLess
 				{
-					bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
+					bool operator()(const Types::shared_ptr<Input>& lhs, const Types::shared_ptr<Input>& rhs) const
 					{
 						return lhs->GetPrimaryScore() == rhs->GetPrimaryScore() ? lhs->GetSecondaryScore() > rhs->GetSecondaryScore() : lhs->GetPrimaryScore() > rhs->GetPrimaryScore();
 					}
@@ -1463,7 +1465,7 @@ namespace DeltaDebugging
 
 				struct SecondaryLess
 				{
-					bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
+					bool operator()(const Types::shared_ptr<Input>& lhs, const Types::shared_ptr<Input>& rhs) const
 					{
 						return lhs->GetSecondaryScore() == rhs->GetSecondaryScore() ? lhs->GetPrimaryScore() > rhs->GetSecondaryScore() : lhs->GetSecondaryScore() > rhs->GetSecondaryScore();
 					}
@@ -1498,7 +1500,7 @@ namespace DeltaDebugging
 
 				struct PrimaryLess
 				{
-					bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
+					bool operator()(const Types::shared_ptr<Input>& lhs, const Types::shared_ptr<Input>& rhs) const
 					{
 						return lhs->GetPrimaryScore() == rhs->GetPrimaryScore() ? lhs->GetSecondaryScore() > rhs->GetSecondaryScore() : lhs->GetPrimaryScore() > rhs->GetPrimaryScore();
 					}
@@ -1569,7 +1571,7 @@ namespace DeltaDebugging
 		case DDGoal::ReproduceResult:
 			{
 				auto reproc = [this]() {
-					std::vector<std::shared_ptr<Input>> res;
+					std::vector<Types::shared_ptr<Input>> res;
 					auto oracle = this->_origInput->GetOracleResult();
 					auto itr = _completedTests.begin();
 					while (itr != _completedTests.end()) {
@@ -1649,7 +1651,7 @@ namespace DeltaDebugging
 						{
 							// find the tests that reproduced the original result and pick the one with the highest primary score
 							double score = DBL_MIN;
-							std::shared_ptr<Input> inp;
+							Types::shared_ptr<Input> inp;
 							for (int32_t i = 0; i < (int32_t)rinputs.size(); i++) {
 								if (score < rinputs[i]->GetPrimaryScore()) {
 									inp = rinputs[i];
@@ -1693,7 +1695,7 @@ namespace DeltaDebugging
 						{
 							// find the tests that reproduced the original result and pick the one with the highest secondary score
 							double score = DBL_MIN;
-							std::shared_ptr<Input> inp;
+							Types::shared_ptr<Input> inp;
 							for (int32_t i = 0; i < (int32_t)rinputs.size(); i++) {
 								if (score < rinputs[i]->GetSecondaryScore()) {
 									inp = rinputs[i];
@@ -1743,7 +1745,7 @@ namespace DeltaDebugging
 
 				struct PrimaryLess
 				{
-					bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
+					bool operator()(const Types::shared_ptr<Input>& lhs, const Types::shared_ptr<Input>& rhs) const
 					{
 						return lhs->GetPrimaryScore() == rhs->GetPrimaryScore() ? lhs->GetSecondaryScore() > rhs->GetSecondaryScore() : lhs->GetPrimaryScore() > rhs->GetPrimaryScore();
 					}
@@ -1752,7 +1754,7 @@ namespace DeltaDebugging
 				// automatically sorted based on the primary score
 				// begin() -> end() == higher score -> lower score
 				auto sortprimary = [this]() {
-					std::multiset<std::shared_ptr<Input>, PrimaryLess> res;
+					std::multiset<Types::shared_ptr<Input>, PrimaryLess> res;
 					auto itr = _completedTests.begin();
 					while (itr != _completedTests.end()) {
 						res.insert(*itr);
@@ -1762,7 +1764,7 @@ namespace DeltaDebugging
 				};
 				auto rinputs = sortprimary();
 
-				std::vector<std::shared_ptr<Input>> passing;
+				std::vector<Types::shared_ptr<Input>> passing;
 				std::vector<double> ploss;
 				auto itr = rinputs.begin();
 				while (itr != rinputs.end()) {
@@ -1838,7 +1840,7 @@ namespace DeltaDebugging
 
 				struct SecondaryLess
 				{
-					bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
+					bool operator()(const Types::shared_ptr<Input>& lhs, const Types::shared_ptr<Input>& rhs) const
 					{
 						return lhs->GetSecondaryScore() == rhs->GetSecondaryScore() ? lhs->GetPrimaryScore() > rhs->GetSecondaryScore() : lhs->GetSecondaryScore() > rhs->GetSecondaryScore();
 					}
@@ -1847,7 +1849,7 @@ namespace DeltaDebugging
 				// automatically sorted based on the primary score
 				// begin() -> end() == higher score -> lower score
 				auto sortprimary = [this]() {
-					std::multiset<std::shared_ptr<Input>, SecondaryLess> res;
+					std::multiset<Types::shared_ptr<Input>, SecondaryLess> res;
 					auto itr = _completedTests.begin();
 					while (itr != _completedTests.end()) {
 						res.insert(*itr);
@@ -1857,7 +1859,7 @@ namespace DeltaDebugging
 				};
 				auto rinputs = sortprimary();
 
-				std::vector<std::shared_ptr<Input>> passing;
+				std::vector<Types::shared_ptr<Input>> passing;
 				std::vector<double> ploss;
 				auto itr = rinputs.begin();
 				while (itr != rinputs.end()) {
@@ -1934,7 +1936,7 @@ namespace DeltaDebugging
 
 				struct PrimaryLess
 				{
-					bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
+					bool operator()(const Types::shared_ptr<Input>& lhs, const Types::shared_ptr<Input>& rhs) const
 					{
 						return lhs->GetPrimaryScore() == rhs->GetPrimaryScore() ? lhs->GetSecondaryScore() > rhs->GetSecondaryScore() : lhs->GetPrimaryScore() > rhs->GetPrimaryScore();
 					}
@@ -1943,7 +1945,7 @@ namespace DeltaDebugging
 				// automatically sorted based on the primary score
 				// begin() -> end() == higher score -> lower score
 				auto sortprimary = [this]() {
-					std::multiset<std::shared_ptr<Input>, PrimaryLess> res;
+					std::multiset<Types::shared_ptr<Input>, PrimaryLess> res;
 					auto itr = _completedTests.begin();
 					while (itr != _completedTests.end()) {
 						res.insert(*itr);
@@ -1953,7 +1955,7 @@ namespace DeltaDebugging
 				};
 				auto rinputs = sortprimary();
 
-				std::vector<std::shared_ptr<Input>> passing;
+				std::vector<Types::shared_ptr<Input>> passing;
 				std::vector<std::pair<double, double>> ploss;
 				auto itr = rinputs.begin();
 				while (itr != rinputs.end()) {
@@ -2030,11 +2032,11 @@ namespace DeltaDebugging
 		}
 	}
 
-	std::vector<std::shared_ptr<Input>> DeltaController::ScoreProgressGenerateComplements(int32_t level)
+	std::vector<Types::shared_ptr<Input>> DeltaController::ScoreProgressGenerateComplements(int32_t level)
 	{
 		StartProfiling;
 		double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
-		std::vector<std::shared_ptr<Input>> complements;
+		std::vector<Types::shared_ptr<Input>> complements;
 		RangeIterator<size_t> rangeIterator(&_inputRanges, _sessiondata->_settings->dd.skipoptions, _skipRanges);
 		size_t size = rangeIterator.GetLength() / level;
 		
@@ -2058,7 +2060,7 @@ namespace DeltaDebugging
 		loginfo("1");
 		double approxthreshold = _origInput->GetPrimaryScore() - _origInput->GetPrimaryScore() * _sessiondata->_settings->dd.approximativeExecutionThreshold;
 		loginfo("2, approx: {}", approxthreshold);
-		std::vector<std::shared_ptr<Input>> complements;
+		std::vector<Types::shared_ptr<Input>> complements;
 		loginfo("3, inputranges: {}, skip: {}", _inputRanges.size(), _skipRanges);
 		RangeIterator<size_t> rangeIterator(&_inputRanges, _sessiondata->_settings->dd.skipoptions, _skipRanges);
 		loginfo("4, range Length:{}", rangeIterator.GetLength());
@@ -2222,7 +2224,7 @@ namespace DeltaDebugging
 		profile(__NextGenTime, "Time taken to generate next level.");
 	}
 
-	bool DeltaController::ScoreProgressEvaluateInput(std::shared_ptr<Input> input)
+	bool DeltaController::ScoreProgressEvaluateInput(Types::shared_ptr<Input> input)
 	{
 		switch (_params->GetGoal()) {
 		case DDGoal::MaximizeSecondaryScore:
@@ -2369,7 +2371,7 @@ namespace DeltaDebugging
 
 		struct PrimaryLess
 		{
-			bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
+			bool operator()(const Types::shared_ptr<Input>& lhs, const Types::shared_ptr<Input>& rhs) const
 			{
 				return lhs->GetPrimaryScore() == rhs->GetPrimaryScore() ? (lhs->Length() == rhs->Length() ? lhs->GetSecondaryScore() > rhs->GetSecondaryScore() : lhs->Length() < rhs->Length()) : lhs->GetPrimaryScore() > rhs->GetPrimaryScore();
 			}
@@ -2377,7 +2379,7 @@ namespace DeltaDebugging
 
 		struct SecondaryLess
 		{
-			bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
+			bool operator()(const Types::shared_ptr<Input>& lhs, const Types::shared_ptr<Input>& rhs) const
 			{
 				return lhs->GetSecondaryScore() == rhs->GetSecondaryScore() ? lhs->GetPrimaryScore() > rhs->GetSecondaryScore() : lhs->GetSecondaryScore() > rhs->GetSecondaryScore();
 			}
@@ -2385,7 +2387,7 @@ namespace DeltaDebugging
 
 		struct LengthLess
 		{
-			bool operator()(const std::shared_ptr<Input>& lhs, const std::shared_ptr<Input>& rhs) const
+			bool operator()(const Types::shared_ptr<Input>& lhs, const Types::shared_ptr<Input>& rhs) const
 			{
 				//return lhs->Length() < rhs->Length();
 				return lhs->Length() == rhs->Length() ? (lhs->GetPrimaryScore() == rhs->GetPrimaryScore() ? lhs->GetSecondaryScore() > rhs->GetSecondaryScore() : lhs->GetPrimaryScore() < rhs->GetPrimaryScore()) : lhs->Length() > rhs->Length();
@@ -2395,7 +2397,7 @@ namespace DeltaDebugging
 		// automatically sorted based on the primary score
 		// begin() -> end() == higher score -> lower score
 		auto sortprimary = [this]() {
-			std::multiset<std::shared_ptr<Input>, PrimaryLess> res;
+			std::multiset<Types::shared_ptr<Input>, PrimaryLess> res;
 			auto itr = _completedTests.begin();
 			while (itr != _completedTests.end()) {
 				res.insert(*itr);
@@ -2404,7 +2406,7 @@ namespace DeltaDebugging
 			return res;
 		};
 		auto sortsecondary = [this]() {
-			std::multiset<std::shared_ptr<Input>, SecondaryLess> res;
+			std::multiset<Types::shared_ptr<Input>, SecondaryLess> res;
 			auto itr = _completedTests.begin();
 			while (itr != _completedTests.end()) {
 				res.insert(*itr);
@@ -2413,7 +2415,7 @@ namespace DeltaDebugging
 			return res;
 		};
 		auto sortlength = [this]() {
-			std::multiset<std::shared_ptr<Input>, LengthLess> res;
+			std::multiset<Types::shared_ptr<Input>, LengthLess> res;
 			auto itr = _completedTests.begin();
 			while (itr != _completedTests.end()) {
 				res.insert(*itr);
@@ -2423,7 +2425,7 @@ namespace DeltaDebugging
 		};
 
 		loginfo("{} sort begin", genCompData.batchident);
-		std::vector<std::shared_ptr<Input>> passing;
+		std::vector<Types::shared_ptr<Input>> passing;
 		std::vector<std::pair<double, double>> ploss;
 		switch (_params->GetGoal()) {
 		case DDGoal::MaximizeSecondaryScore:
@@ -2710,7 +2712,7 @@ namespace DeltaDebugging
 		}
 	}
 
-	bool DeltaController::AddCallback(std::shared_ptr<Functions::BaseFunction> callback)
+	bool DeltaController::AddCallback(Types::shared_ptr<Functions::BaseFunction> callback)
 	{
 		// taint changed
 		SetChanged();
@@ -3450,7 +3452,7 @@ namespace DeltaDebugging
 
 	size_t DeltaController::MemorySize()
 	{
-		return sizeof(DeltaController) + _completedTests.size() * sizeof(std::shared_ptr<Input>) + _activeInputs.size() * sizeof(std::pair<std::shared_ptr<Input>, FormIDLess<Input>>) + sizeof(std::pair<size_t, size_t>) * _inputRanges.size() + sizeof(std::pair<std::shared_ptr<Input>, std::tuple<double, double, int32_t>>) * _results.size();
+		return sizeof(DeltaController) + _completedTests.size() * sizeof(Types::shared_ptr<Input>) + _activeInputs.size() * sizeof(std::pair<Types::shared_ptr<Input>, FormIDLess<Input>>) + sizeof(std::pair<size_t, size_t>) * _inputRanges.size() + sizeof(std::pair<Types::shared_ptr<Input>, std::tuple<double, double, int32_t>>) * _results.size();
 	}
 }
 

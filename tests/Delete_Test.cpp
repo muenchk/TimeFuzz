@@ -21,7 +21,7 @@ namespace Functions
 	class Callback : public BaseFunction
 	{
 	public:
-		std::shared_ptr<Input> input;
+		Types::shared_ptr<Input> input;
 
 		void Run() override
 		{
@@ -34,9 +34,9 @@ namespace Functions
 		uint64_t GetType() override { return 'CALL'; }
 		FunctionType GetFunctionType() override { return FunctionType::Heavy; };
 
-		virtual std::shared_ptr<BaseFunction> DeepCopy() override
+		virtual Types::shared_ptr<BaseFunction> DeepCopy() override
 		{
-			auto ptr = std::make_shared<Callback>();
+			auto ptr = Types::make_shared<Callback>();
 			ptr->input = input;
 			return dynamic_pointer_cast<BaseFunction>(ptr);
 		}
@@ -56,9 +56,9 @@ namespace Functions
 			return true;
 		}
 
-		static std::shared_ptr<BaseFunction> Create()
+		static Types::shared_ptr<BaseFunction> Create()
 		{
-			return dynamic_pointer_cast<BaseFunction>(std::make_shared<Callback>());
+			return dynamic_pointer_cast<BaseFunction>(Types::make_shared<Callback>());
 		}
 
 		void Dispose() override
@@ -94,9 +94,9 @@ namespace Functions
 		uint64_t GetType() override { return 'TATE'; }
 		FunctionType GetFunctionType() override { return FunctionType::Heavy; };
 
-		virtual std::shared_ptr<BaseFunction> DeepCopy() override
+		virtual Types::shared_ptr<BaseFunction> DeepCopy() override
 		{
-			auto ptr = std::make_shared<TaskControllerTestCallback>();
+			auto ptr = Types::make_shared<TaskControllerTestCallback>();
 			ptr->i = i;
 			return dynamic_pointer_cast<BaseFunction>(ptr);
 		}
@@ -113,9 +113,9 @@ namespace Functions
 			return true;
 		}
 
-		static std::shared_ptr<BaseFunction> Create()
+		static Types::shared_ptr<BaseFunction> Create()
 		{
-			return dynamic_pointer_cast<BaseFunction>(std::make_shared<TaskControllerTestCallback>());
+			return dynamic_pointer_cast<BaseFunction>(Types::make_shared<TaskControllerTestCallback>());
 		}
 
 		void Dispose() override
@@ -146,14 +146,14 @@ int main(/*int argc, char** argv*/)
 	Crash::Install(".");
 #endif
 
-	std::shared_ptr<Session> sess = Session::CreateSession();
-	std::shared_ptr<Settings> sett = sess->data->CreateForm<Settings>();
-	std::shared_ptr<SessionData> sessdata = sess->data->CreateForm<SessionData>();
+	Types::shared_ptr<Session> sess = Session::CreateSession();
+	Types::shared_ptr<Settings> sett = sess->data->CreateForm<Settings>();
+	Types::shared_ptr<SessionData> sessdata = sess->data->CreateForm<SessionData>();
 
 	//////// build a taskcontroller and add some functions
 	Functions::RegisterFactory(Functions::Callback::GetTypeStatic(), Functions::Callback::Create);
 	Functions::RegisterFactory(Functions::TaskControllerTestCallback::GetTypeStatic(), Functions::TaskControllerTestCallback::Create);
-	std::shared_ptr<TaskController> controller = sess->data->CreateForm<TaskController>();
+	Types::shared_ptr<TaskController> controller = sess->data->CreateForm<TaskController>();
 	controller->SetDisableLua();
 	//controller.Start(10);
 	int arr[100];
@@ -171,7 +171,7 @@ int main(/*int argc, char** argv*/)
 
 	// build an execution controller and add some testss
 	logdebug("Initialized Settings");
-	std::shared_ptr<Oracle> oracle = sess->data->CreateForm<Oracle>();
+	Types::shared_ptr<Oracle> oracle = sess->data->CreateForm<Oracle>();
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	oracle->Set(Oracle::PUTType::Script, "C:/Users/Kai/AppData/Local/Microsoft/WindowsApps/python3.8.exe");
 #else
@@ -184,16 +184,16 @@ int main(/*int argc, char** argv*/)
 		exit(1);
 	}
 	logdebug("Created Oracle");
-	std::shared_ptr<ExecutionHandler> execution = sess->data->CreateForm<ExecutionHandler>();
+	Types::shared_ptr<ExecutionHandler> execution = sess->data->CreateForm<ExecutionHandler>();
 	execution->Init(sess, sessdata, sett, controller, 1, oracle);
 	execution->SetMaxConcurrentTests(10);
 	logdebug("Created executionhandler");
 	//execution->StartHandler();
 	logdebug("Started executionhandler");
 	logdebug("Adding test");
-	//std::vector<std::shared_ptr<Input>> ls;
+	//std::vector<Types::shared_ptr<Input>> ls;
 	for (int i = 0; i < 5; i++) {
-		std::shared_ptr<Input> input = sess->data->CreateForm<Input>();
+		Types::shared_ptr<Input> input = sess->data->CreateForm<Input>();
 		input->AddEntry("[]");
 		input->SetGenerated();
 

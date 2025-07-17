@@ -13,6 +13,8 @@
 #include <boost/bimap/multiset_of.hpp>
 #include <boost/bimap/set_of.hpp>
 
+#include "Types.h"
+
 typedef uint64_t FormID;
 typedef uint32_t FormIDS;
 
@@ -32,7 +34,7 @@ namespace Hashing
 template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 struct FormIDLess
 {
-	bool operator()(const std::shared_ptr<T>& lhs, const std::shared_ptr<T>& rhs) const
+	bool operator()(const Types::shared_ptr<T>& lhs, const Types::shared_ptr<T>& rhs) const
 	{
 		if (!rhs)
 			return true;
@@ -472,7 +474,7 @@ public:
 	/// <param name="form"></param>
 	/// <returns></returns>
 	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
-	static std::string PrintForm(std::shared_ptr<T> form)
+	static std::string PrintForm(Types::shared_ptr<T> form)
 	{
 		auto GetHex = [](uint64_t val) {
 			std::stringstream ss;
@@ -489,7 +491,7 @@ template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 class FlagHolder
 {
 	EnumType _flag;
-	std::shared_ptr<T> _form;
+	Types::shared_ptr<T> _form;
 
 	FlagHolder(FlagHolder<T>&) = delete;
 	FlagHolder(FlagHolder<T>&&) = delete;
@@ -502,7 +504,7 @@ public:
 
 	}
 
-	FlagHolder(std::shared_ptr<T> form, EnumType flag)
+	FlagHolder(Types::shared_ptr<T> form, EnumType flag)
 	{
 		if (form) {
 			_form = form;
@@ -523,7 +525,7 @@ public:
 template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 class ReadLockHolder
 {
-	std::shared_ptr<T> _form;
+	Types::shared_ptr<T> _form;
 
 	ReadLockHolder(ReadLockHolder<T>&) = delete;
 	ReadLockHolder(ReadLockHolder<T>&&) = delete;
@@ -535,7 +537,7 @@ public:
 	{
 	}
 
-	ReadLockHolder(std::shared_ptr<T> form)
+	ReadLockHolder(Types::shared_ptr<T> form)
 	{
 		if (form) {
 			_form = form;
@@ -555,7 +557,7 @@ public:
 template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 class LockHolder
 {
-	std::shared_ptr<T> _form;
+	Types::shared_ptr<T> _form;
 
 	LockHolder(LockHolder<T>&) = delete;
 	LockHolder(LockHolder<T>&&) = delete;
@@ -567,7 +569,7 @@ public:
 	{
 	}
 
-	LockHolder(std::shared_ptr<T> form)
+	LockHolder(Types::shared_ptr<T> form)
 	{
 		if (form) {
 			_form = form;
@@ -588,7 +590,7 @@ public:
 template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
 class GenerationLockHolder
 {
-	std::shared_ptr<T> _form;
+	Types::shared_ptr<T> _form;
 
 	GenerationLockHolder(LockHolder<T>&) = delete;
 	GenerationLockHolder(LockHolder<T>&&) = delete;
@@ -600,7 +602,7 @@ public:
 	{
 	}
 
-	GenerationLockHolder(std::shared_ptr<T> form)
+	GenerationLockHolder(Types::shared_ptr<T> form)
 	{
 		if (form) {
 			_form = form;

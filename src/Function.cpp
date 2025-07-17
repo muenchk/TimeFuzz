@@ -8,15 +8,15 @@ namespace Functions
 	/// <summary>
 	/// runtime registry for Function-classes. factory functions for the classes are registered with their respective classid
 	/// </summary>
-	std::unordered_map<uint64_t, std::function<std::shared_ptr<BaseFunction>()>> classregistry;
+	std::unordered_map<uint64_t, std::function<Types::shared_ptr<BaseFunction>()>> classregistry;
 
-	void RegisterFactory(uint64_t classid, std::function<std::shared_ptr<BaseFunction>()> factory)
+	void RegisterFactory(uint64_t classid, std::function<Types::shared_ptr<BaseFunction>()> factory)
 	{
 		loginfo("Registered callback factory: {}", Utility::GetHex(classid))
 			classregistry.insert({ classid, factory });
 	}
 
-	std::shared_ptr<BaseFunction> FunctionFactory(uint64_t classid)
+	Types::shared_ptr<BaseFunction> FunctionFactory(uint64_t classid)
 	{
 		//loginfo("Looking for Class ID: {}", classid);
 		if (classregistry.contains(classid) == false)
@@ -27,7 +27,7 @@ namespace Functions
 		else
 			return nullptr;
 	}
-	std::shared_ptr<BaseFunction> BaseFunction::Create(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+	Types::shared_ptr<BaseFunction> BaseFunction::Create(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 	{
 		uint64_t type = Buffer::ReadUInt64(buffer, offset);
 		auto ptr = FunctionFactory(type);
@@ -35,7 +35,7 @@ namespace Functions
 		return ptr;
 	}
 
-	std::shared_ptr<BaseFunction> BaseFunction::Create(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+	Types::shared_ptr<BaseFunction> BaseFunction::Create(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver)
 	{
 		uint64_t type = Buffer::ReadUInt64(buffer, offset);
 		auto ptr = FunctionFactory(type);

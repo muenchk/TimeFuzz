@@ -133,30 +133,30 @@ public:
 	/// adds a new input to the tree
 	/// </summary>
 	/// <param name="input"></param>
-	void AddInput(std::shared_ptr<Input> input, OracleResult result);
+	void AddInput(Types::shared_ptr<Input> input, OracleResult result);
 
 	/// <summary>
 	/// checks if the input has a prefix that is in the tree
 	/// </summary>
 	/// <param name="input"></param>
 	/// <returns></returns>
-	bool HasPrefix(std::shared_ptr<Input> input);
+	bool HasPrefix(Types::shared_ptr<Input> input);
 
 	/// <summary>
 	/// checks if the input has a prefix that is in the tree, and return the formID of the corresponding test
 	/// </summary>
 	/// <param name="input"></param>
 	/// <returns></returns>
-	bool HasPrefix(std::shared_ptr<Input> input, FormID& prefixID);
+	bool HasPrefix(Types::shared_ptr<Input> input, FormID& prefixID);
 
 	/// <summary>
 	/// checks if the input has a prefix that is in the tree, it also checks whether there is an extension of the input and returns the shortest one.
 	/// </summary>
 	/// <param name="input"></param>
 	/// <returns></returns>
-	std::tuple<bool, FormID, bool, FormID> HasPrefixAndShortestExtension(std::shared_ptr<Input> input);
+	std::tuple<bool, FormID, bool, FormID> HasPrefixAndShortestExtension(Types::shared_ptr<Input> input);
 
-	void Init(std::shared_ptr<SessionData> sessiondata);
+	void Init(Types::shared_ptr<SessionData> sessiondata);
 
 	~ExclusionTree();
 
@@ -206,7 +206,7 @@ public:
 	double CheckForAlternatives(int32_t alternativesPerNode);
 
 private:
-	std::shared_ptr<ExclusionTreeNode> root;
+	Types::shared_ptr<ExclusionTreeNode> root;
 
 	std::shared_mutex _lock;
 
@@ -218,7 +218,7 @@ private:
 
 	//std::unordered_map<uint64_t, ExclusionTreeNode*> hashmap;
 
-	std::shared_ptr<SessionData> _sessiondata;
+	Types::shared_ptr<SessionData> _sessiondata;
 
 	void DeleteChildren(ExclusionTreeNode* node);
 

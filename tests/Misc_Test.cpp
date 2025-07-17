@@ -53,7 +53,9 @@ int main()
 
 	Data* data = new Data();
 
-	std::shared_ptr<Grammar> grammar = data->CreateForm<Grammar>();
+	
+	
+	<Grammar> grammar = data->CreateForm<Grammar>();
 	grammar->ParseScala("../../FormatExamples/grammar3.scala");
 	std::string scala = grammar->Scala(true);
 	logmessage("Full Grammar:\n{}", scala);

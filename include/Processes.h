@@ -6,6 +6,8 @@
 #include <memory>
 #include <vector>
 
+#include "Types.h"
+
 #ifndef H_PROCESSES
 #define H_PROCESSES
 
@@ -37,7 +39,7 @@ namespace Processes
 
 	std::pair<bool, int32_t> fork_exec(std::string app, std::vector<std::string> args, int32_t timelimitsec, std::string outfile);
 
-	bool StartPUTProcess(std::shared_ptr<Test> test, std::string app, std::string args);
+	bool StartPUTProcess(Types::shared_ptr<Test> test, std::string app, std::string args);
 
 	uint64_t GetProcessMemory(pid_t pid);
 
@@ -51,7 +53,7 @@ namespace Processes
 
 #	elif defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 
-	bool StartPUTProcess(std::shared_ptr<Test> test, std::string app, std::string args);
+	bool StartPUTProcess(Types::shared_ptr<Test> test, std::string app, std::string args);
 
 	uint64_t GetProcessMemory(HANDLE pid);
 

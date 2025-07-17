@@ -4,7 +4,7 @@
 #include "Logging.h"
 #include "Input.h"
 
-bool Lua::RegisterThread(std::shared_ptr<SessionData> session)
+bool Lua::RegisterThread(Types::shared_ptr<SessionData> session)
 {
 	logdebug("Register");
 	auto threadid = std::this_thread::get_id();
@@ -62,7 +62,7 @@ void Lua::UnregisterThread()
 	logdebug("Unregistered");
 }
 
-EnumType Lua::EvaluateOracle(std::function<EnumType(lua_State*, std::shared_ptr<Test>)> func, std::shared_ptr<Test> test, bool& stateerror)
+EnumType Lua::EvaluateOracle(std::function<EnumType(lua_State*, Types::shared_ptr<Test>)> func, Types::shared_ptr<Test> test, bool& stateerror)
 {
 	StartProfiling;
 	auto threadid = std::this_thread::get_id();
@@ -82,7 +82,7 @@ EnumType Lua::EvaluateOracle(std::function<EnumType(lua_State*, std::shared_ptr<
 	return func(luas, test);
 }
 
-std::string Lua::GetCmdArgs(std::function<std::string(lua_State*, Test*, bool)> func, std::shared_ptr<Test> test, bool& stateerror, bool replay)
+std::string Lua::GetCmdArgs(std::function<std::string(lua_State*, Test*, bool)> func, Types::shared_ptr<Test> test, bool& stateerror, bool replay)
 {
 	auto threadid = std::this_thread::get_id();
 	lua_State* luas = nullptr;
@@ -118,7 +118,7 @@ std::string Lua::GetCmdArgs(std::function<std::string(lua_State*, Test*, bool)> 
 	return func(luas, test, replay);
 }
 
-std::string Lua::GetScriptArgs(std::function<std::string(lua_State*, Test*)> func, std::shared_ptr<Test> test, bool& stateerror)
+std::string Lua::GetScriptArgs(std::function<std::string(lua_State*, Test*)> func, Types::shared_ptr<Test> test, bool& stateerror)
 {
 	auto threadid = std::this_thread::get_id();
 	lua_State* luas = nullptr;

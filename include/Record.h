@@ -53,7 +53,7 @@ struct Records
 	/// <param name="length"></param>
 	/// <returns></returns>
 	template <class T>
-	static void CreateRecord(std::shared_ptr<T> value, std::ostream* buffer, size_t& offset, size_t& length)
+	static void CreateRecord(Types::shared_ptr<T> value, std::ostream* buffer, size_t& offset, size_t& length)
 	{
 		CreateRecord<T>(value.get(), buffer, offset, length);
 	}
@@ -67,11 +67,11 @@ struct Records
 	/// <param name="length"></param>
 	/// <returns></returns>
 	template <class T>
-	static std::shared_ptr<T> ReadRecord(std::istream* buffer, size_t /*offset*/, size_t& internaloffset, size_t length, LoadResolver* resolver)
+	static Types::shared_ptr<T> ReadRecord(std::istream* buffer, size_t /*offset*/, size_t& internaloffset, size_t length, LoadResolver* resolver)
 	{
 		T::RegisterFactories();
 		internaloffset = 0;
-		std::shared_ptr<T> rec = std::make_shared<T>();
+		Types::shared_ptr<T> rec = Types::make_shared<T>();
 		rec->ReadData(buffer, internaloffset, length, resolver);
 		// if the offset (that was updated by ReadData) is greater than length, we have read beyond the limits of the buffer
 		if (internaloffset > length) {

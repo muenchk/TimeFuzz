@@ -90,7 +90,7 @@
 class State
 {
 public:
-	State(std::shared_ptr<GrammarNode> _nonterminal, std::shared_ptr<GrammarExpansion> productionPointer, State* backtraceState, int64_t inputStringProgress, int64_t productionProgress)
+	State(Types::shared_ptr<GrammarNode> _nonterminal, Types::shared_ptr<GrammarExpansion> productionPointer, State* backtraceState, int64_t inputStringProgress, int64_t productionProgress)
 	{
 		this->nonTerminal = _nonterminal;
 		this->productionPointer = productionPointer;
@@ -112,12 +112,12 @@ public:
 	{
 		return &(this->backtraceStateVector);
 	}
-	const std::shared_ptr<GrammarNode> getNonTerminal()
+	const Types::shared_ptr<GrammarNode> getNonTerminal()
 	{
 		return this->nonTerminal;
 	}
 
-	std::shared_ptr<GrammarExpansion> getProductionPointer()
+	Types::shared_ptr<GrammarExpansion> getProductionPointer()
 	{
 		return this->productionPointer;
 	}
@@ -137,7 +137,7 @@ public:
 		else
 			return false;
 	}
-	std::shared_ptr<GrammarNode> nextSymbolToProcess()
+	Types::shared_ptr<GrammarNode> nextSymbolToProcess()
 	{
 		return this->getProductionPointer()->_nodes.at(this->productionProgress);
 	}
@@ -155,8 +155,8 @@ private:
 	explicit State() :
 		productionPointer(NULL) {}
 
-	std::shared_ptr<GrammarNode> nonTerminal;
-	std::shared_ptr<GrammarExpansion> productionPointer;
+	Types::shared_ptr<GrammarNode> nonTerminal;
+	Types::shared_ptr<GrammarExpansion> productionPointer;
 
 	std::vector<State*> backtraceStateVector;
 
@@ -170,7 +170,7 @@ private:
 class Node
 {
 public:
-	Node(Node* father, std::shared_ptr<GrammarNode> grammarElement, std::shared_ptr<GrammarExpansion> productionPointer, float productionProbability)
+	Node(Node* father, Types::shared_ptr<GrammarNode> grammarElement, Types::shared_ptr<GrammarExpansion> productionPointer, float productionProbability)
 	{
 		this->father = father;
 
@@ -236,7 +236,7 @@ public:
 				continue;
 			}
 
-			std::shared_ptr<GrammarNode> got = self->productionPointer->_nodes.at(chnum);
+			Types::shared_ptr<GrammarNode> got = self->productionPointer->_nodes.at(chnum);
 			if (got->IsSequence() == false) {
 				/*
 					* the element contained in the production
@@ -295,13 +295,13 @@ public:
 					child = new Node(
 						self,
 						self->productionPointer->_nodes.at(chnum),
-						std::make_shared<GrammarExpansion>(),
+						Types::make_shared<GrammarExpansion>(),
 						1);
 				} else {
 					child = new Node(
 						self,
 						self->productionPointer->_nodes.at(chnum),
-						std::make_shared<GrammarExpansion>(),
+						Types::make_shared<GrammarExpansion>(),
 						-1);
 				}
 
@@ -390,7 +390,7 @@ public:
 		return prob;
 	}
 
-	std::shared_ptr<GrammarExpansion> getProductionPointer()
+	Types::shared_ptr<GrammarExpansion> getProductionPointer()
 	{
 		return this->productionPointer;
 	}
@@ -399,7 +399,7 @@ public:
 	{
 		return children;
 	}
-	std::shared_ptr<GrammarNode> getGrammarElement()
+	Types::shared_ptr<GrammarNode> getGrammarElement()
 	{
 		return grammarElement;
 	}
@@ -408,14 +408,14 @@ public:
 private:
 	explicit Node() {}
 
-	std::shared_ptr<GrammarNode> grammarElement;
+	Types::shared_ptr<GrammarNode> grammarElement;
 	Node* father;
 
 	std::vector<Node*> children;
 
 	float productionProbability;
 
-	std::shared_ptr<GrammarExpansion> productionPointer;
+	Types::shared_ptr<GrammarExpansion> productionPointer;
 };
 
 
@@ -423,17 +423,17 @@ class EarleyParser
 {
 public:
 	std::vector<std::vector<State*>> earleyParserChart;
-	std::vector<std::shared_ptr<GrammarNode>> inputVector;
+	std::vector<Types::shared_ptr<GrammarNode>> inputVector;
 	bool probabilityParser;
 
 	std::vector<Node*> returnVector;
 
-	std::vector<std::shared_ptr<GrammarExpansion>> lonely = { std::make_shared<GrammarExpansion>() };
+	std::vector<Types::shared_ptr<GrammarExpansion>> lonely = { Types::make_shared<GrammarExpansion>() };
 
 
 	EarleyParser()
 	{
-		lonely[0]->_nodes.push_back(std::make_shared<GrammarNode>());
+		lonely[0]->_nodes.push_back(Types::make_shared<GrammarNode>());
 		lonely[0]->_nodes[0]->_type = GrammarNode::NodeType::Terminal;
 	}
 	~EarleyParser()
@@ -459,11 +459,11 @@ public:
 	/// </summary>
 	/// <param name=""></param>
 	/// <returns></returns>
-	std::vector<std::shared_ptr<GrammarExpansion>> getProduction(std::shared_ptr<GrammarNode> node)
+	std::vector<Types::shared_ptr<GrammarExpansion>> getProduction(Types::shared_ptr<GrammarNode> node)
 	{ 
-		return node->IsSequence() ? std::vector<std::shared_ptr<GrammarExpansion>>{} : node->_expansions;
+		return node->IsSequence() ? std::vector<Types::shared_ptr<GrammarExpansion>>{} : node->_expansions;
 	}
-	int64_t createChart(std::shared_ptr<GrammarNode> root)
+	int64_t createChart(Types::shared_ptr<GrammarNode> root)
 	{
 		earleyParserChart.resize(inputVector.size() + 1);
 		auto expansions = getProduction(root);
@@ -506,7 +506,7 @@ public:
 		}
 	}
 
-	std::vector<Node*>* returnParsingTrees(std::shared_ptr<GrammarNode> mainNonTerminal)
+	std::vector<Node*>* returnParsingTrees(Types::shared_ptr<GrammarNode> mainNonTerminal)
 	{
 		for (std::vector<State*>::iterator it = this->earleyParserChart[this->inputVector.size()].begin();
 			 it != this->earleyParserChart[this->inputVector.size()].end(); it++) {
@@ -543,12 +543,12 @@ public:
 
 	void predictor(State* stateToExpand, int64_t positionInputString)
 	{
-		std::shared_ptr<GrammarExpansion> productionInStateToExpand = stateToExpand->getProductionPointer();
+		Types::shared_ptr<GrammarExpansion> productionInStateToExpand = stateToExpand->getProductionPointer();
 		if (stateToExpand->getProductionProgress() >= (int64_t)productionInStateToExpand->_nodes.size()) {
 			logcritical("[ERROR]: overflow in predictor!");
 			return;
 		}
-		std::shared_ptr<GrammarNode> nonTerminalToExpand = productionInStateToExpand->_nodes.at(stateToExpand->getProductionProgress());
+		Types::shared_ptr<GrammarNode> nonTerminalToExpand = productionInStateToExpand->_nodes.at(stateToExpand->getProductionProgress());
 
 		auto listProductions = getProduction(nonTerminalToExpand);
 
@@ -576,7 +576,7 @@ public:
 	}
 	void scanner(State* stateToScan, int64_t positionInputString)
 	{
-		std::shared_ptr<GrammarExpansion> productionInStateToScan = stateToScan->getProductionPointer();
+		Types::shared_ptr<GrammarExpansion> productionInStateToScan = stateToScan->getProductionPointer();
 		if (positionInputString >= (int64_t)inputVector.size())
 		{
 			//logcritical("[DEBUG]: scanner fail, input string end reached");

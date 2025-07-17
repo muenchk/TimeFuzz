@@ -48,7 +48,7 @@ extern int __fcntl_time64(int __fd, int __request, ...) __THROW;
 #	include <Windows.h>
 #endif
 
-Test::Test(std::shared_ptr<Functions::BaseFunction> a_callback, uint64_t id) :
+Test::Test(Types::shared_ptr<Functions::BaseFunction> a_callback, uint64_t id) :
 	_callback(a_callback)
 {
 	_identifier = id;
@@ -62,7 +62,7 @@ Test::~Test()
 		delete _loadData;
 }
 
-void Test::Init(std::shared_ptr<Functions::BaseFunction> a_callback, uint64_t id)
+void Test::Init(Types::shared_ptr<Functions::BaseFunction> a_callback, uint64_t id)
 {
 	_callback = a_callback;
 	_identifier = id;
@@ -1017,7 +1017,7 @@ size_t Test::MemorySize()
 	return sizeof(Test) + _output.size() + _cmdArgs.size() + _scriptArgs.size() + _reactiontime.size() * sizeof(uint64_t) * 2;
 }
 
-void Test::DeepCopy(std::shared_ptr<Test> other)
+void Test::DeepCopy(Types::shared_ptr<Test> other)
 {
 	other->_valid = _valid;
 	other->_exitreason = _exitreason;
@@ -1157,9 +1157,9 @@ namespace Functions
 		SessionFunctions::MasterControl(_sessiondata);
 	}
 
-	std::shared_ptr<BaseFunction> TestCallback::DeepCopy()
+	Types::shared_ptr<BaseFunction> TestCallback::DeepCopy()
 	{
-		auto ptr = std::make_shared<TestCallback>();
+		auto ptr = Types::make_shared<TestCallback>();
 		ptr->_sessiondata = _sessiondata;
 		ptr->_input = _input;
 		return dynamic_pointer_cast<BaseFunction>(ptr);
@@ -1263,9 +1263,9 @@ namespace Functions
 		_input->test->UnsetFlag(Form::FormFlags::DoNotFree);
 	}
 
-	std::shared_ptr<BaseFunction> ReplayTestCallback::DeepCopy()
+	Types::shared_ptr<BaseFunction> ReplayTestCallback::DeepCopy()
 	{
-		auto ptr = std::make_shared<ReplayTestCallback>();
+		auto ptr = Types::make_shared<ReplayTestCallback>();
 		ptr->_sessiondata = _sessiondata;
 		ptr->_input = _input;
 		return dynamic_pointer_cast<BaseFunction>(ptr);

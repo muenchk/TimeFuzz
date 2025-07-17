@@ -237,7 +237,8 @@ public:
 		};
 	};
 
-	std::shared_ptr<Test> test;
+	
+	Types::shared_ptr<Test> test;
 	Input();
 
 	~Input();
@@ -413,18 +414,18 @@ public:
 	/// </summary>
 	/// <param name="path"></param>
 	/// <returns></returns>
-	static std::vector<std::shared_ptr<Input>> ParseInputs(std::filesystem::path path);
+	static std::vector<Types::shared_ptr<Input>> ParseInputs(std::filesystem::path path);
 
 	/// <summary>
 	/// derivation/parse tree of the input
 	/// </summary>
-	std::shared_ptr<DerivationTree> derive;
+	Types::shared_ptr<DerivationTree> derive;
 
 	/// <summary>
 	/// copies all internal values except [Test] and [DerivationTree] to [other]
 	/// </summary>
 	/// <param name="other"></param>
-	void DeepCopy(std::shared_ptr<Input> other);
+	void DeepCopy(Types::shared_ptr<Input> other);
 
 	/// <summary>
 	/// Attempts to release as much memory as possible
@@ -554,7 +555,7 @@ public:
 
 	std::vector<std::pair<size_t, size_t>> FindIndividualSecondaryScoreRangesWithoutChanges(size_t max = UINT_MAX - 1);
 
-	static std::string PrintForm(std::shared_ptr<Input> form)
+	static std::string PrintForm(Types::shared_ptr<Input> form)
 	{
 		if (!form)
 			return "None";

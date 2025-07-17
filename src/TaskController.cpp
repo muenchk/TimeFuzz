@@ -19,7 +19,7 @@ TaskController* TaskController::GetSingleton()
 }
 
 /*
-void TaskController::AddTask(std::shared_ptr<Functions::BaseFunction> a_task)
+void TaskController::AddTask(Types::shared_ptr<Functions::BaseFunction> a_task)
 {
 	if (a_task) {
 			if (_optimizeFuncExec && a_task->GetFunctionType() == Functions::FunctionType::Light) {
@@ -39,7 +39,7 @@ void TaskController::AddTask(std::shared_ptr<Functions::BaseFunction> a_task)
 		}
 }*/
 
-void TaskController::Start(std::shared_ptr<SessionData> session, int32_t numthreads)
+void TaskController::Start(Types::shared_ptr<SessionData> session, int32_t numthreads)
 {
 	_sessiondata = session;
 	if (numthreads == 0)
@@ -78,7 +78,7 @@ void TaskController::Start(std::shared_ptr<SessionData> session, int32_t numthre
 	}
 }
 
-void TaskController::Start(std::shared_ptr<SessionData> session, int32_t numLightThreads, int32_t numMediumThreads, int32_t numHeavyThreads, int32_t numAllThreads)
+void TaskController::Start(Types::shared_ptr<SessionData> session, int32_t numLightThreads, int32_t numMediumThreads, int32_t numHeavyThreads, int32_t numAllThreads)
 {
 	_sessiondata = session;
 	if (numHeavyThreads == 0)
@@ -230,7 +230,7 @@ void TaskController::InternalLoop_LightExclusive(int32_t number)
 
 	_status[number] = ThreadStatus::Waiting;
 	while (true) {
-		std::shared_ptr<Functions::BaseFunction> del;
+		Types::shared_ptr<Functions::BaseFunction> del;
 		{
 			std::unique_lock<std::mutex> guard(_lockLight);
 			// while freeze is [true], this will never return, if freeze is [false] it only returns when [tasks is non-empty], when [terinated and not waiting], or when [terminating and tasks is empty]
@@ -269,7 +269,7 @@ void TaskController::InternalLoop_Medium(int32_t number)
 
 	_status[number] = ThreadStatus::Waiting;
 	while (true) {
-		std::shared_ptr<Functions::BaseFunction> del;
+		Types::shared_ptr<Functions::BaseFunction> del;
 		{
 			std::unique_lock<std::mutex> guard(_lockMedium);
 			// while freeze is [true], this will never return, if freeze is [false] it only returns when [tasks is non-empty], when [terinated and not waiting], or when [terminating and tasks is empty]
@@ -310,7 +310,7 @@ void TaskController::InternalLoop_Heavy(int32_t number)
 
 	_status[number] = ThreadStatus::Waiting;
 	while (true) {
-		std::shared_ptr<Functions::BaseFunction> del;
+		Types::shared_ptr<Functions::BaseFunction> del;
 		{
 			std::unique_lock<std::mutex> guard(_lock);
 			// while freeze is [true], this will never return, if freeze is [false] it only returns when [tasks is non-empty], when [terinated and not waiting], or when [terminating and tasks is empty]
@@ -351,7 +351,7 @@ void TaskController::InternalLoop_SingleThread(int32_t number)
 
 	_status[number] = ThreadStatus::Waiting;
 	while (true) {
-		std::shared_ptr<Functions::BaseFunction> del;
+		Types::shared_ptr<Functions::BaseFunction> del;
 		{
 			std::unique_lock<std::mutex> guard(_lock);
 			// while freeze is [true], this will never return, if freeze is [false] it only returns when [tasks is non-empty], when [terinated and not waiting], or when [terminating and tasks is empty]
@@ -541,7 +541,7 @@ bool TaskController::ReadData(std::istream* buffer, size_t& offset, size_t lengt
 			size_t num = Buffer::ReadSize(buffer, offset);
 			for (int32_t i = 0; i < (int32_t)num; i++)
 			{
-				std::shared_ptr<Functions::BaseFunction> func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
+				Types::shared_ptr<Functions::BaseFunction> func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
 				_tasks.push_back(func);
 			}
 			_completedjobs = Buffer::ReadUInt64(buffer, offset);
@@ -568,7 +568,7 @@ bool TaskController::ReadData(std::istream* buffer, size_t& offset, size_t lengt
 			_controlEnableHeavy = Buffer::ReadBool(buffer, offset);
 			size_t num = Buffer::ReadSize(buffer, offset);
 			for (int32_t i = 0; i < (int32_t)num; i++) {
-				std::shared_ptr<Functions::BaseFunction> func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
+				Types::shared_ptr<Functions::BaseFunction> func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
 				if (!CmdArgs::_clearTasks && resolver->finalsave)
 					_tasks.push_back(func);
 				else
@@ -576,7 +576,7 @@ bool TaskController::ReadData(std::istream* buffer, size_t& offset, size_t lengt
 			}
 			num = Buffer::ReadSize(buffer, offset);
 			for (int32_t i = 0; i < (int32_t)num; i++) {
-				std::shared_ptr<Functions::BaseFunction> func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
+				Types::shared_ptr<Functions::BaseFunction> func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
 				if (!CmdArgs::_clearTasks && resolver->finalsave)
 					_tasks_medium.push_back(func);
 				else
@@ -584,7 +584,7 @@ bool TaskController::ReadData(std::istream* buffer, size_t& offset, size_t lengt
 			}
 			num = Buffer::ReadSize(buffer, offset);
 			for (int32_t i = 0; i < (int32_t)num; i++) {
-				std::shared_ptr<Functions::BaseFunction> func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
+				Types::shared_ptr<Functions::BaseFunction> func = Functions::BaseFunction::Create(buffer, offset, length, resolver);
 				if (!CmdArgs::_clearTasks && resolver->finalsave)
 					_tasks_light.push_back(func);
 				else

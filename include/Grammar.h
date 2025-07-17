@@ -89,10 +89,10 @@ public:
 	/// global treeid associated with this object
 	/// </summary>
 	uint64_t _id = 0;
-	std::vector<std::shared_ptr<GrammarExpansion>> _expansions;
+	std::vector<Types::shared_ptr<GrammarExpansion>> _expansions;
 	EnumType _flags = 0;
 	NodeType _type = NodeType::NonTerminal;
-	std::set<std::shared_ptr<GrammarExpansion>> _parents;
+	std::set<Types::shared_ptr<GrammarExpansion>> _parents;
 
 	bool _reachable = false;
 	bool _producing = false;
@@ -162,7 +162,7 @@ public:
 	/// <summary>
 	/// The nodes that are produced by this expansion
 	/// </summary>
-	std::vector<std::shared_ptr<GrammarNode>> _nodes;
+	std::vector<Types::shared_ptr<GrammarNode>> _nodes;
 	/// <summary>
 	/// the relative weight, that this expansion is chosen during input generation
 	/// </summary>
@@ -200,7 +200,7 @@ public:
 	/// <summary>
 	/// parent of this expansion
 	/// </summary>
-	std::shared_ptr<GrammarNode> _parent;
+	Types::shared_ptr<GrammarNode> _parent;
 
 	virtual bool IsRegex() { return false; }
 
@@ -242,7 +242,7 @@ class GrammarExpansionRegex : public GrammarExpansion
 	/// <summary>
 	/// the node produced by this regex
 	/// </summary>
-	std::shared_ptr<GrammarNode> _node;
+	Types::shared_ptr<GrammarNode> _node;
 	/// <summary>
 	/// min number of repetitions produced
 	/// </summary>
@@ -311,7 +311,7 @@ public:
 	/// <param name="symbol"></param>
 	/// <param name="derivation"></param>
 	void SetRoot(std::string symbol, std::string derivation);
-	void SetRoot(std::shared_ptr<GrammarNode> node);
+	void SetRoot(Types::shared_ptr<GrammarNode> node);
 	/// <summary>
 	/// Adds a new non-terminal to the grammar
 	/// </summary>
@@ -330,7 +330,7 @@ public:
 	/// </summary>
 	/// <param name="identifier"></param>
 	/// <returns></returns>
-	std::shared_ptr<GrammarNode> FindNode(std::string identifier);
+	Types::shared_ptr<GrammarNode> FindNode(std::string identifier);
 
 	/// <summary>
 	/// Returns a valid representation of the grammar in scala
@@ -339,13 +339,13 @@ public:
 	std::string Scala();
 
 private:
-	std::set<std::shared_ptr<GrammarNode>> _nonterminals;
-	std::set<std::shared_ptr<GrammarNode>> _terminals;
-	std::unordered_map<uint64_t, std::shared_ptr<GrammarNode>> _hashmap;
-	std::unordered_map<uint64_t, std::shared_ptr<GrammarExpansion>> _hashmap_expansions;
+	std::set<Types::shared_ptr<GrammarNode>> _nonterminals;
+	std::set<Types::shared_ptr<GrammarNode>> _terminals;
+	std::unordered_map<uint64_t, Types::shared_ptr<GrammarNode>> _hashmap;
+	std::unordered_map<uint64_t, Types::shared_ptr<GrammarExpansion>> _hashmap_expansions;
 	std::vector<uint64_t> _ruleorder;
 
-	std::shared_ptr<GrammarNode> _root;
+	Types::shared_ptr<GrammarNode> _root;
 
 	std::set<uint64_t> _hashmap_parsenodes;
 
@@ -380,12 +380,12 @@ private:
 	/// Recursively gathers all node flags
 	/// </summary>
 	/// <param name="node"></param>
-	void GatherFlags(std::shared_ptr<GrammarNode> node, std::set<uint64_t> path, bool reset = false);
+	void GatherFlags(Types::shared_ptr<GrammarNode> node, std::set<uint64_t> path, bool reset = false);
 	/// <summary>
 	/// Recusively gathers all node flags
 	/// </summary>
 	/// <param name="expansion"></param>
-	void GatherFlags(std::shared_ptr<GrammarExpansion> expansion, std::set<uint64_t> path);
+	void GatherFlags(Types::shared_ptr<GrammarExpansion> expansion, std::set<uint64_t> path);
 
 	/// <summary>
 	/// Prunes the grammar tree and removes all non-reachable and non-producing subtrees
@@ -397,7 +397,7 @@ private:
 	/// copies the entire tree including all nodes and expansions by duplicating them
 	/// </summary>
 	/// <param name="other"></param>
-	void DeepCopy(std::shared_ptr<GrammarTree> other);
+	void DeepCopy(Types::shared_ptr<GrammarTree> other);
 
 	/// <summary>
 	/// Inserts additional nodes used for parsing when considering sequence nodes as terminal children
@@ -499,21 +499,21 @@ public:
 		CheckChanged(_backtrack_max, backtrack_max);
 	}
 
-	void Derive(std::shared_ptr<DerivationTree> dtree, int32_t targetlength, uint32_t seed, int32_t maxsteps = 100000);
+	void Derive(Types::shared_ptr<DerivationTree> dtree, int32_t targetlength, uint32_t seed, int32_t maxsteps = 100000);
 
-	void ExtractEarley(std::shared_ptr<DerivationTree> stree, std::shared_ptr<DerivationTree> dtree, int64_t begin, int64_t length, int64_t stop, bool complement);
+	void ExtractEarley(Types::shared_ptr<DerivationTree> stree, Types::shared_ptr<DerivationTree> dtree, int64_t begin, int64_t length, int64_t stop, bool complement);
 
-	void Extract(std::shared_ptr<DerivationTree> stree, std::shared_ptr<DerivationTree> dtree, std::vector<std::pair<int64_t, int64_t>>& segments, int64_t stop, bool complement);
+	void Extract(Types::shared_ptr<DerivationTree> stree, Types::shared_ptr<DerivationTree> dtree, std::vector<std::pair<int64_t, int64_t>>& segments, int64_t stop, bool complement);
 
-	void Extend(std::shared_ptr<Input> sinput, std::shared_ptr<DerivationTree> dtree, bool backtrack, int32_t targetlength, uint32_t seed, int32_t& backtrackingdone, int32_t maxsteps = 100000);
+	void Extend(Types::shared_ptr<Input> sinput, Types::shared_ptr<DerivationTree> dtree, bool backtrack, int32_t targetlength, uint32_t seed, int32_t& backtrackingdone, int32_t maxsteps = 100000);
 
 	#pragma endregion
 
 private:
-	void DeriveFromNode(std::shared_ptr<DerivationTree> dtree, std::deque<std::pair<DerivationTree::NonTerminalNode*, std::shared_ptr<GrammarNode>>>& qnonterminals, std::deque<std::pair<DerivationTree::NonTerminalNode*, std::shared_ptr<GrammarNode>>>& qseqnonterminals, std::mt19937& randan, int32_t& seq);
+	void DeriveFromNode(Types::shared_ptr<DerivationTree> dtree, std::deque<std::pair<DerivationTree::NonTerminalNode*, Types::shared_ptr<GrammarNode>>>& qnonterminals, std::deque<std::pair<DerivationTree::NonTerminalNode*, Types::shared_ptr<GrammarNode>>>& qseqnonterminals, std::mt19937& randan, int32_t& seq);
 
-	std::shared_ptr<GrammarTree> _tree;
-	std::shared_ptr<GrammarTree> _treeParse;
+	Types::shared_ptr<GrammarTree> _tree;
+	Types::shared_ptr<GrammarTree> _treeParse;
 
 	int32_t _extension_min = 0;
 	int32_t _extension_max = 0;
@@ -538,14 +538,14 @@ public:
 		virtual void Run() = 0;
 		virtual void Dispose() = 0;
 	};
-	std::shared_ptr<GrammarTree> _tree;
+	Types::shared_ptr<GrammarTree> _tree;
 	~LoadResolverGrammar();
 
 	void AddTask(TaskFn a_task);
 	void AddTask(TaskDelegate* a_task);
 
-	std::shared_ptr<GrammarNode> ResolveNodeID(uint64_t id);
-	std::shared_ptr<GrammarExpansion> ResolveExpansionID(uint64_t id);
+	Types::shared_ptr<GrammarNode> ResolveNodeID(uint64_t id);
+	Types::shared_ptr<GrammarExpansion> ResolveExpansionID(uint64_t id);
 
 	void Resolve();
 

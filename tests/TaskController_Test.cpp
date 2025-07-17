@@ -27,9 +27,9 @@ namespace Functions
 		uint64_t GetType() override { return 'TATE'; }
 		FunctionType GetFunctionType() override { return FunctionType::Heavy; };
 
-		virtual std::shared_ptr<BaseFunction> DeepCopy() override
+		virtual Types::shared_ptr<BaseFunction> DeepCopy() override
 		{
-			auto ptr = std::make_shared<TaskControllerTestCallback>();
+			auto ptr = Types::make_shared<TaskControllerTestCallback>();
 			ptr->arr = arr;
 			ptr->i = i;
 			return dynamic_pointer_cast<BaseFunction>(ptr);
@@ -45,9 +45,9 @@ namespace Functions
 			return true;
 		}
 
-		static std::shared_ptr<BaseFunction> Create()
+		static Types::shared_ptr<BaseFunction> Create()
 		{
-			return dynamic_pointer_cast<BaseFunction>(std::make_shared<TaskControllerTestCallback>());
+			return dynamic_pointer_cast<BaseFunction>(Types::make_shared<TaskControllerTestCallback>());
 		}
 
 		void Dispose()
@@ -73,8 +73,8 @@ int main(/*int argc, char** argv*/)
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	Crash::Install(".");
 #endif
-	std::shared_ptr<Session> session = Session::CreateSession();
-	std::shared_ptr<SessionData> sessiondata = session->data->CreateForm<SessionData>();
+	Types::shared_ptr<Session> session = Session::CreateSession();
+	Types::shared_ptr<SessionData> sessiondata = session->data->CreateForm<SessionData>();
 	Functions::RegisterFactory(Functions::TaskControllerTestCallback::GetTypeStatic(), Functions::TaskControllerTestCallback::Create);
 	TaskController controller;
 	controller.SetDisableLua();

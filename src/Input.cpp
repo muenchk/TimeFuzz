@@ -483,7 +483,7 @@ std::size_t Input::Hash()
 	return boost::hash_range(_sequence.begin(), _sequence.end());
 }
 
-std::vector<std::shared_ptr<Input>> Input::ParseInputs(std::filesystem::path path)
+std::vector<Types::shared_ptr<Input>> Input::ParseInputs(std::filesystem::path path)
 {
 	// check whether the path exists and whether its actually a file
 	if (!std::filesystem::exists(path) || std::filesystem::is_directory(path)) {
@@ -549,8 +549,8 @@ std::vector<std::shared_ptr<Input>> Input::ParseInputs(std::filesystem::path pat
 				} else {
 					// open == closed
 					// we have found our complete inuput, now onto parse it and extract the _input sequences
-					std::vector<std::shared_ptr<Input>> inputs;
-					std::shared_ptr<Input> input(nullptr);
+					std::vector<Types::shared_ptr<Input>> inputs;
+					Types::shared_ptr<Input> input(nullptr);
 
 					struct record
 					{
@@ -575,7 +575,7 @@ std::vector<std::shared_ptr<Input>> Input::ParseInputs(std::filesystem::path pat
 							case '[':
 								// we are entering an _input definition
 								rec.open++;
-								input = std::make_shared<Input>();
+								input = Types::make_shared<Input>();
 								break;
 							case ']':
 								// we are done with all inputs
@@ -640,7 +640,7 @@ std::vector<std::shared_ptr<Input>> Input::ParseInputs(std::filesystem::path pat
 	}
 }
 
-void Input::DeepCopy(std::shared_ptr<Input> other)
+void Input::DeepCopy(Types::shared_ptr<Input> other)
 {
 	other->derive = derive;
 	other->_orig_sequence = _orig_sequence;

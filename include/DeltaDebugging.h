@@ -148,12 +148,12 @@ namespace DeltaDebugging
 
 		std::atomic<bool> active = false;
 		std::atomic<std::shared_ptr<Tasks>> tasks;
-		std::vector<std::shared_ptr<Input>> splits;
-		std::vector<std::shared_ptr<Input>> complements;
+		std::vector<Types::shared_ptr<Input>> splits;
+		std::vector<Types::shared_ptr<Input>> complements;
 		std::vector<DeltaInformation> dinfo;
 
 		std::mutex testqueuelock;
-		std::list<std::shared_ptr<Functions::BaseFunction>> testqueue;
+		std::list<Types::shared_ptr<Functions::BaseFunction>> testqueue;
 
 		uint64_t batchident = 0;
 
@@ -200,9 +200,9 @@ namespace DeltaDebugging
 		/// <summary>
 		/// starts delta debugging for an input on a specific taskcontroller
 		/// </summary>
-		bool Start(DDParameters* params, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback);
+		bool Start(DDParameters* params, Types::shared_ptr<SessionData> sessiondata, Types::shared_ptr<Input> input, Types::shared_ptr<Functions::BaseFunction> callback);
 
-		void CallbackTest(std::shared_ptr<Input> input, uint64_t batchident, std::shared_ptr<Tasks> tasks);
+		void CallbackTest(Types::shared_ptr<Input> input, uint64_t batchident, std::shared_ptr<Tasks> tasks);
 		void CallbackExplicitEvaluate();
 
 		DDGoal GetGoal()
@@ -235,16 +235,16 @@ namespace DeltaDebugging
 		int32_t GetApproxTests() { return _approxTests; }
 		int32_t GetInvalidTests() { return _invalidTests; }
 		bool Finished() { return _finished; }
-		std::unordered_map<std::shared_ptr<Input>, std::tuple<double, double, int32_t>>* GetResults() { return &_results; }
-		std::shared_ptr<Input> GetInput() { return _input; }
-		std::shared_ptr<Input> GetOriginalInput() { return _origInput; }
-		ts_set<std::shared_ptr<Input>, FormIDLess<Input>>* GetActiveInputs() { return &_activeInputs; }
+		std::unordered_map<Types::shared_ptr<Input>, std::tuple<double, double, int32_t>>* GetResults() { return &_results; }
+		Types::shared_ptr<Input> GetInput() { return _input; }
+		Types::shared_ptr<Input> GetOriginalInput() { return _origInput; }
+		ts_set<Types::shared_ptr<Input>, FormIDLess<Input>>* GetActiveInputs() { return &_activeInputs; }
 
 		/// <summary>
 		/// Adds a callback to the controller [if the controller has already finished the callback is not called
 		/// </summary>
 		/// <param name="callback"></param>
-		bool AddCallback(std::shared_ptr<Functions::BaseFunction> callback);
+		bool AddCallback(Types::shared_ptr<Functions::BaseFunction> callback);
 		/// <summary>
 		/// returns whether the dd controller has at least one active callback of the given [type]
 		/// </summary>
@@ -330,7 +330,7 @@ namespace DeltaDebugging
 		/// <param name="end"></param>
 		/// <param name="approxthreshold"></param>
 		/// <returns></returns>
-		std::shared_ptr<Input> GetComplement(int32_t begin, int32_t end, double approxthreshold, std::shared_ptr<Input> parent);
+		Types::shared_ptr<Input> GetComplement(int32_t begin, int32_t end, double approxthreshold, Types::shared_ptr<Input> parent);
 		/// <summary>
 		/// checks an input for its feasability (derivation from grammar)
 		/// </summary>
@@ -338,31 +338,31 @@ namespace DeltaDebugging
 		/// <param name="inp"></param>
 		/// <param name="approxthreshold"></param>
 		/// <returns></returns>
-		bool CheckInput(std::shared_ptr<Input> parent, std::shared_ptr<Input> inp, double approxthreshold);
+		bool CheckInput(Types::shared_ptr<Input> parent, Types::shared_ptr<Input> inp, double approxthreshold);
 		/// <summary>
 		/// Add tests to the sessions executionhanler
 		/// </summary>
 		/// <param name="inputs"></param>
-		void AddTests(std::vector<std::shared_ptr<Input>>& inputs);
+		void AddTests(std::vector<Types::shared_ptr<Input>>& inputs);
 
 		/// <summary>
 		/// Starts a test
 		/// </summary>
 		/// <param name="input"></param>
-		bool DoTest(std::shared_ptr<Input> input, uint64_t batchident, std::shared_ptr<Tasks> tasks);
+		bool DoTest(Types::shared_ptr<Input> input, uint64_t batchident, std::shared_ptr<Tasks> tasks);
 
 		/// <summary>
 		/// Generates [number] subset from [::_input]
 		/// </summary>
 		/// <param name="number"></param>
 		/// <returns></returns>
-		std::vector<std::shared_ptr<Input>> GenerateSplits(int32_t number, std::vector<DeltaInformation>& splitinfo);
+		std::vector<Types::shared_ptr<Input>> GenerateSplits(int32_t number, std::vector<DeltaInformation>& splitinfo);
 		/// <summary>
 		/// Generates complements from a given set of splits
 		/// </summary>
 		/// <param name="splitinfo"></param>
 		/// <returns></returns>
-		std::vector<std::shared_ptr<Input>> GenerateComplements(std::vector<DeltaInformation>& splitinfo);
+		std::vector<Types::shared_ptr<Input>> GenerateComplements(std::vector<DeltaInformation>& splitinfo);
 
 		/// <summary>
 		/// generates splits and prepares them for checking
@@ -385,7 +385,7 @@ namespace DeltaDebugging
 		/// <param name="approxthreshold">the approx threshold</param>
 		/// <param name="batchident">the batchident of the batch the input belongs to</param>
 		/// <param name="tasks">shared_ptr to the tasks structure of the inputs batch</param>
-		void GenerateSplits_Async_Callback(std::shared_ptr<Input> input, double approxthreshold,uint64_t batchident, std::shared_ptr<Tasks> tasks);
+		void GenerateSplits_Async_Callback(Types::shared_ptr<Input> input, double approxthreshold,uint64_t batchident, std::shared_ptr<Tasks> tasks);
 		/// <summary>
 		/// Callback called to generate a complement 
 		/// </summary>
@@ -395,7 +395,7 @@ namespace DeltaDebugging
 		/// <param name="batchident">batchident of the batch the input belongs to</param>
 		/// <param name="parent">the input to generate the complement from</param>
 		/// <param name="tasks">shared_ptr to the tasks structure of the inputs batch</param>
-		void GenerateComplements_Async_Callback(int32_t begin, int32_t length, double approx, uint64_t batchident, std::shared_ptr<Input> parent, std::shared_ptr<Tasks> tasks);
+		void GenerateComplements_Async_Callback(int32_t begin, int32_t length, double approx, uint64_t batchident, Types::shared_ptr<Input> parent, std::shared_ptr<Tasks> tasks);
 
 	private:
 
@@ -428,14 +428,14 @@ namespace DeltaDebugging
 		/// </summary>
 		/// <param name="input"></param>
 		/// <returns></returns>
-		bool StandardEvaluateInput(std::shared_ptr<Input> input);
+		bool StandardEvaluateInput(Types::shared_ptr<Input> input);
 
 		/// <summary>
 		/// Generates subsets from [::_input] with maximum removed length being size
 		/// </summary>
 		/// <param name="splitinfo"></param>
 		/// <returns></returns>
-		std::vector<std::shared_ptr<Input>> ScoreProgressGenerateComplements(int32_t size);
+		std::vector<Types::shared_ptr<Input>> ScoreProgressGenerateComplements(int32_t size);
 		/// <summary>
 		/// decides subsets for [::_input] with maximum removed length being [size] and prepares computation
 		/// </summary>
@@ -468,7 +468,7 @@ namespace DeltaDebugging
 		/// </summary>
 		/// <param name="input"></param>
 		/// <returns></returns>
-		bool ScoreProgressEvaluateInput(std::shared_ptr<Input> input);
+		bool ScoreProgressEvaluateInput(Types::shared_ptr<Input> input);
 
 		/// <summary>
 		/// generic cleanup operations
@@ -521,16 +521,16 @@ namespace DeltaDebugging
 		/// <summary>
 		/// map of results, corresponding loss if available, and the level
 		/// </summary>
-		std::unordered_map<std::shared_ptr<Input>, std::tuple<double, double, int32_t>> _results;
+		std::unordered_map<Types::shared_ptr<Input>, std::tuple<double, double, int32_t>> _results;
 
 		/// <summary>
 		/// original Input 
 		/// </summary>
-		std::shared_ptr<Input> _origInput;
+		Types::shared_ptr<Input> _origInput;
 		/// <summary>
 		/// input being delta debugged in current iteration
 		/// </summary>
-		std::shared_ptr<Input> _input;
+		Types::shared_ptr<Input> _input;
 		/// <summary>
 		/// ranges in [_input] with no score progress
 		/// </summary>
@@ -543,15 +543,15 @@ namespace DeltaDebugging
 		/// <summary>
 		/// ptr to sessiondata of the session
 		/// </summary>
-		std::shared_ptr<SessionData> _sessiondata;
+		Types::shared_ptr<SessionData> _sessiondata;
 		/// <summary>
 		/// shared_ptr to this controller
 		/// </summary>
-		std::shared_ptr<DeltaController> _self;
+		Types::shared_ptr<DeltaController> _self;
 		/// <summary>
 		/// set of inputs active in this iteration
 		/// </summary>
-		ts_set<std::shared_ptr<Input>, FormIDLess<Input>> _activeInputs;
+		ts_set<Types::shared_ptr<Input>, FormIDLess<Input>> _activeInputs;
 		/// <summary>
 		/// atomic flag for spinlock access to _activeInputs
 		/// </summary>
@@ -559,7 +559,7 @@ namespace DeltaDebugging
 		/// <summary>
 		/// tests completed in the current iteration
 		/// </summary>
-		ts_set<std::shared_ptr<Input>> _completedTests;
+		ts_set<Types::shared_ptr<Input>> _completedTests;
 		/// <summary>
 		/// mutex to completed Tests
 		/// </summary>
@@ -568,7 +568,7 @@ namespace DeltaDebugging
 		/// <summary>
 		/// lists of callbacks to be executed when the dd process ends
 		/// </summary>
-		std::vector<std::shared_ptr<Functions::BaseFunction>> _callback;
+		std::vector<Types::shared_ptr<Functions::BaseFunction>> _callback;
 		/// <summary>
 		/// mutex steering access to _callback
 		/// </summary>
@@ -583,7 +583,7 @@ namespace DeltaDebugging
 		/// <summary>
 		/// tests waiting to be executed
 		/// </summary>
-		std::list<std::shared_ptr<Input>> _waitingTests;
+		std::list<Types::shared_ptr<Input>> _waitingTests;
 		/// <summary>
 		/// number of currently active tests
 		/// </summary>
@@ -643,7 +643,7 @@ namespace DeltaDebugging
 		/// </summary>
 		/// <param name="input"></param>
 		/// <returns></returns>
-		double lossPrimary(std::shared_ptr<Input> input)
+		double lossPrimary(Types::shared_ptr<Input> input)
 		{
 			return 1 - (input->GetPrimaryScore() / _bestScore.first);
 		}
@@ -652,7 +652,7 @@ namespace DeltaDebugging
 		/// </summary>
 		/// <param name="input"></param>
 		/// <returns></returns>
-		double lossPrimaryAbsolute(std::shared_ptr<Input> input)
+		double lossPrimaryAbsolute(Types::shared_ptr<Input> input)
 		{
 			return _bestScore.first - input->GetPrimaryScore();
 		}
@@ -661,7 +661,7 @@ namespace DeltaDebugging
 		/// </summary>
 		/// <param name="input"></param>
 		/// <returns></returns>
-		double lossSecondary(std::shared_ptr<Input> input)
+		double lossSecondary(Types::shared_ptr<Input> input)
 		{
 			return 1 - (input->GetSecondaryScore() / _bestScore.second);
 		}
@@ -670,7 +670,7 @@ namespace DeltaDebugging
 		/// </summary>
 		/// <param name="input"></param>
 		/// <returns></returns>
-		double lossSecondaryAbsolute(std::shared_ptr<Input> input)
+		double lossSecondaryAbsolute(Types::shared_ptr<Input> input)
 		{
 			return _bestScore.second - input->GetSecondaryScore();
 		}
@@ -811,9 +811,9 @@ namespace Functions
 	private:
 		void Init(LoadResolver* resolver, FormID sessid, FormID controlid, FormID inputid);
 	public:
-		std::shared_ptr<SessionData> _sessiondata;
-		std::shared_ptr<DeltaDebugging::DeltaController> _DDcontroller;
-		std::shared_ptr<Input> _input;
+		Types::shared_ptr<SessionData> _sessiondata;
+		Types::shared_ptr<DeltaDebugging::DeltaController> _DDcontroller;
+		Types::shared_ptr<Input> _input;
 		std::shared_ptr<DeltaDebugging::Tasks> _batchtasks;
 
 		uint64_t _batchident = 0;
@@ -822,7 +822,7 @@ namespace Functions
 		static uint64_t GetTypeStatic() { return 'DDSC'; }
 		uint64_t GetType() override { return 'DDSC'; }
 
-		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
+		virtual Types::shared_ptr<BaseFunction> DeepCopy() override;
 
 		FunctionType GetFunctionType() override { return FunctionType::Light; }
 
@@ -831,7 +831,7 @@ namespace Functions
 		bool WriteData(std::ostream* buffer, size_t& offset) override;
 		unsigned char* GetData(size_t& size) override;
 
-		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDTestCallback>()); }
+		static Types::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(Types::make_shared<DDTestCallback>()); }
 		void Dispose() override;
 		size_t GetLength() override;
 
@@ -844,7 +844,7 @@ namespace Functions
 	class DDEvaluateExplicitCallback : public BaseFunction
 	{
 	public:
-		std::shared_ptr<DeltaDebugging::DeltaController> _DDcontroller;
+		Types::shared_ptr<DeltaDebugging::DeltaController> _DDcontroller;
 
 		void Run() override;
 		static uint64_t GetTypeStatic() { return 'DDEC'; }
@@ -852,14 +852,14 @@ namespace Functions
 
 		FunctionType GetFunctionType() override { return FunctionType::Medium; }
 
-		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
+		virtual Types::shared_ptr<BaseFunction> DeepCopy() override;
 
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool WriteData(std::ostream* buffer, size_t& offset) override;
 		unsigned char* GetData(size_t& size) override;
 
-		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDEvaluateExplicitCallback>()); }
+		static Types::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(Types::make_shared<DDEvaluateExplicitCallback>()); }
 		void Dispose() override;
 		size_t GetLength() override;
 
@@ -872,8 +872,8 @@ namespace Functions
 	class DDGenerateComplementCallback : public BaseFunction
 	{
 	public:
-		std::shared_ptr<DeltaDebugging::DeltaController> _DDcontroller;
-		std::shared_ptr<Input> _input;
+		Types::shared_ptr<DeltaDebugging::DeltaController> _DDcontroller;
+		Types::shared_ptr<Input> _input;
 		int32_t _begin = 0;
 		int32_t _length = 0;
 		double _approxthreshold = 0.f;
@@ -886,14 +886,14 @@ namespace Functions
 
 		FunctionType GetFunctionType() override { return FunctionType::Medium; }
 
-		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
+		virtual Types::shared_ptr<BaseFunction> DeepCopy() override;
 
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool WriteData(std::ostream* buffer, size_t& offset) override;
 		unsigned char* GetData(size_t& size) override;
 
-		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDGenerateComplementCallback>()); }
+		static Types::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(Types::make_shared<DDGenerateComplementCallback>()); }
 		void Dispose() override;
 		size_t GetLength() override;
 
@@ -906,8 +906,8 @@ namespace Functions
 	class DDGenerateCheckSplit : public BaseFunction
 	{
 	public:
-		std::shared_ptr<DeltaDebugging::DeltaController> _DDcontroller;
-		std::shared_ptr<Input> _input;
+		Types::shared_ptr<DeltaDebugging::DeltaController> _DDcontroller;
+		Types::shared_ptr<Input> _input;
 		double _approxthreshold = 0.f;
 		uint64_t _batchident = 0;
 		std::shared_ptr<DeltaDebugging::Tasks> _batchtasks;
@@ -918,14 +918,14 @@ namespace Functions
 
 		FunctionType GetFunctionType() override { return FunctionType::Medium; }
 
-		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
+		virtual Types::shared_ptr<BaseFunction> DeepCopy() override;
 
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool WriteData(std::ostream* buffer, size_t& offset) override;
 		unsigned char* GetData(size_t& size) override;
 
-		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<DDGenerateCheckSplit>()); }
+		static Types::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(Types::make_shared<DDGenerateCheckSplit>()); }
 		void Dispose() override;
 		size_t GetLength() override;
 

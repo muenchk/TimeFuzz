@@ -60,7 +60,7 @@ class SessionData : public Form
 
 	struct InputNode
 	{
-		std::weak_ptr<Input> input;
+		Types::weak_ptr<Input> input;
 		double primary;
 		double secondary;
 		double weight;
@@ -69,7 +69,7 @@ class SessionData : public Form
 
 	struct InputNodeLess
 	{
-		bool operator()(const std::shared_ptr<InputNode>& lhs, const std::shared_ptr<InputNode>& rhs) const
+		bool operator()(const Types::shared_ptr<InputNode>& lhs, const Types::shared_ptr<InputNode>& rhs) const
 		{
 			if (!rhs)
 				return false;
@@ -85,7 +85,7 @@ class SessionData : public Form
 
 	struct InputNodeLessSecondary
 	{
-		bool operator()(const std::shared_ptr<InputNode>& lhs, const std::shared_ptr<InputNode>& rhs) const
+		bool operator()(const Types::shared_ptr<InputNode>& lhs, const Types::shared_ptr<InputNode>& rhs) const
 		{
 			if (!rhs)
 				return false;
@@ -101,7 +101,7 @@ class SessionData : public Form
 
 	struct InputNodeLength
 	{
-		bool operator()(const std::shared_ptr<InputNode>& lhs, const std::shared_ptr<InputNode>& rhs) const
+		bool operator()(const Types::shared_ptr<InputNode>& lhs, const Types::shared_ptr<InputNode>& rhs) const
 		{
 			if (!rhs)
 				return false;
@@ -135,8 +135,8 @@ class SessionData : public Form
 	/// <summary>
 	/// list of input formids that have positive test results
 	/// </summary>
-	std::vector<std::shared_ptr<Input>> _positiveInputs;
-	//std::ordered_multiset<std::shared_ptr<Input>> _positiveInputs;
+	std::vector<Types::shared_ptr<Input>> _positiveInputs;
+	//std::ordered_multiset<Types::shared_ptr<Input>> _positiveInputs;
 	/// <summary>
 	/// shared lock for the list of positive input formids
 	/// </summary>
@@ -144,7 +144,7 @@ class SessionData : public Form
 	/// <summary>
 	/// list of input formids that have negative test results
 	/// </summary>
-	std::ordered_multiset<std::shared_ptr<InputNode>, InputNodeLength, InputNodeLess, InputNodeLessSecondary> _negativeInputs;
+	std::ordered_multiset<Types::shared_ptr<InputNode>, InputNodeLength, InputNodeLess, InputNodeLessSecondary> _negativeInputs;
 	/// <summary>
 	/// shared lock for the list of negative input formids
 	/// </summary>
@@ -152,7 +152,7 @@ class SessionData : public Form
 	/// <summary>
 	/// list of input formids that are unfinished sequences
 	/// </summary>
-	std::ordered_multiset<std::shared_ptr<InputNode>, InputNodeLength, InputNodeLess, InputNodeLessSecondary> _unfinishedInputs;
+	std::ordered_multiset<Types::shared_ptr<InputNode>, InputNodeLength, InputNodeLess, InputNodeLessSecondary> _unfinishedInputs;
 	/// <summary>
 	/// shared lock for the list of unfinished inputs
 	/// </summary>
@@ -169,31 +169,31 @@ class SessionData : public Form
 	/// <summary>
 	/// list of last run inputs
 	/// </summary>
-	boost::circular_buffer<std::weak_ptr<Input>> _lastrun = boost::circular_buffer<std::weak_ptr<Input>>(10);
+	boost::circular_buffer<Types::weak_ptr<Input>> _lastrun = boost::circular_buffer<Types::weak_ptr<Input>>(10);
 
 	std::atomic_flag _lastrunFlag = ATOMIC_FLAG_INIT;
 
 	/// <summary>
 	/// multiset with a stable size holding the top 100 unfinished inputs sorted after primary score
 	/// </summary>
-	std::stable_multiset<std::shared_ptr<InputNode>, InputNodeLess> _topK_primary_Unfinished{ 100 };
-	std::stable_multiset<std::shared_ptr<InputNode>, InputNodeLessSecondary> _topK_secondary_Unfinished{ 100 };
-	std::stable_multiset<std::shared_ptr<InputNode>, InputNodeLess> _topK_primary{ 100 };
-	std::stable_multiset<std::shared_ptr<InputNode>, InputNodeLessSecondary> _topK_secondary{ 100 };
-	std::stable_multiset<std::shared_ptr<InputNode>, InputNodeLength> _topK_length{ 100 };
-	std::stable_multiset<std::shared_ptr<InputNode>, InputNodeLength> _topK_length_Unfinished{ 100 };
+	std::stable_multiset<Types::shared_ptr<InputNode>, InputNodeLess> _topK_primary_Unfinished{ 100 };
+	std::stable_multiset<Types::shared_ptr<InputNode>, InputNodeLessSecondary> _topK_secondary_Unfinished{ 100 };
+	std::stable_multiset<Types::shared_ptr<InputNode>, InputNodeLess> _topK_primary{ 100 };
+	std::stable_multiset<Types::shared_ptr<InputNode>, InputNodeLessSecondary> _topK_secondary{ 100 };
+	std::stable_multiset<Types::shared_ptr<InputNode>, InputNodeLength> _topK_length{ 100 };
+	std::stable_multiset<Types::shared_ptr<InputNode>, InputNodeLength> _topK_length_Unfinished{ 100 };
 
-	static void SetInsert(std::shared_ptr<InputNode>);
-	static void SetRemove(std::shared_ptr<InputNode>);
+	static void SetInsert(Types::shared_ptr<InputNode>);
+	static void SetRemove(Types::shared_ptr<InputNode>);
 
 	std::shared_mutex _multiset_lock;
 
-	void AddInput(std::shared_ptr<Input>& input, EnumType list, double optionalweight = 0.0f);
+	void AddInput(Types::shared_ptr<Input>& input, EnumType list, double optionalweight = 0.0f);
 
 	/// <summary>
 	/// map holding all prior generations for fast access
 	/// </summary>
-	std::unordered_map<FormID, std::shared_ptr<Generation>> _generations;
+	std::unordered_map<FormID, Types::shared_ptr<Generation>> _generations;
 	/// <summary>
 	/// lock for threadsafe access to _generations
 	/// </summary>
@@ -206,7 +206,7 @@ class SessionData : public Form
 	/// <summary>
 	/// currently active generation
 	/// </summary>
-	std::shared_ptr<Generation> _generation;
+	Types::shared_ptr<Generation> _generation;
 	/// <summary>
 	/// flag for spinlock for _generation
 	/// </summary>
@@ -215,18 +215,18 @@ class SessionData : public Form
 	/// thread safe access to _generation
 	/// </summary>
 	/// <returns></returns>
-	std::shared_ptr<Generation> GetGen();
+	Types::shared_ptr<Generation> GetGen();
 	/// <summary>
 	/// thread safe updaate of _generation
 	/// </summary>
 	/// <param name="gen"></param>
-	void SetGen(std::shared_ptr<Generation> gen);
+	void SetGen(Types::shared_ptr<Generation> gen);
 	/// <summary>
 	/// thread safe exchange of _generation
 	/// </summary>
 	/// <param name="newgen"></param>
 	/// <returns></returns>
-	std::shared_ptr<Generation> ExchangeGen(std::shared_ptr<Generation> newgen);
+	Types::shared_ptr<Generation> ExchangeGen(Types::shared_ptr<Generation> newgen);
 	/// <summary>
 	/// ID of the current generation
 	/// </summary>
@@ -238,7 +238,7 @@ class SessionData : public Form
 	/// <summary>
 	/// generation used when generational mode is disabled
 	/// </summary>
-	std::shared_ptr<Generation> _defaultGen;
+	Types::shared_ptr<Generation> _defaultGen;
 
 	/// <summary>
 	/// This lock allows to regulate input generation. Any function that generates new inputs from the current generation
@@ -354,37 +354,37 @@ public:
 	/// <summary>
 	/// The Task used to execute the PUT and retrieve the oracle result
 	/// </summary>
-	std::shared_ptr<Oracle> _oracle;
+	Types::shared_ptr<Oracle> _oracle;
 
 	/// <summary>
 	/// Task controller for the active session
 	/// </summary>
-	std::shared_ptr<TaskController> _controller;
+	Types::shared_ptr<TaskController> _controller;
 
 	/// <summary>
 	/// Executionhandler for the active session
 	/// </summary>
-	std::shared_ptr<ExecutionHandler> _exechandler;
+	Types::shared_ptr<ExecutionHandler> _exechandler;
 
 	/// <summary>
 	/// Generator for fuzzing
 	/// </summary>
-	std::shared_ptr<Generator> _generator;
+	Types::shared_ptr<Generator> _generator;
 
 	/// <summary>
 	/// The grammar for the generation
 	/// </summary>
-	std::shared_ptr<Grammar> _grammar;
+	Types::shared_ptr<Grammar> _grammar;
 
 	/// <summary>
 	/// the settings for this session
 	/// </summary>
-	std::shared_ptr<Settings> _settings;
+	Types::shared_ptr<Settings> _settings;
 
 	/// <summary>
 	/// ExclusionTree of the session
 	/// </summary>
-	std::shared_ptr<ExclusionTree> _excltree;
+	Types::shared_ptr<ExclusionTree> _excltree;
 
 	/// <summary>
 	/// Returns the FormID of the current generation
@@ -398,22 +398,22 @@ public:
 	/// Returns the current generation
 	/// </summary>
 	/// <returns></returns>
-	std::shared_ptr<Generation> GetCurrentGeneration();
+	Types::shared_ptr<Generation> GetCurrentGeneration();
 	/// <summary>
 	/// Returns the specified generation
 	/// </summary>
 	/// <returns></returns>
-	std::shared_ptr<Generation> GetGeneration(FormID generationID);
+	Types::shared_ptr<Generation> GetGeneration(FormID generationID);
 	/// <summary>
 	/// Returns the specified generation
 	/// </summary>
 	/// <returns></returns>
-	std::shared_ptr<Generation> GetGenerationByNumber(int32_t generationNumber);
+	Types::shared_ptr<Generation> GetGenerationByNumber(int32_t generationNumber);
 	/// <summary>
 	/// Returns the last generation
 	/// </summary>
 	/// <returns></returns>
-	std::shared_ptr<Generation> GetLastGeneration();
+	Types::shared_ptr<Generation> GetLastGeneration();
 	/// <summary>
 	/// Returns the FormIDs of all generations
 	/// </summary>
@@ -511,28 +511,28 @@ public:
 	/// <returns></returns>
 	uint64_t GetUsedMemory();
 
-	std::vector<std::shared_ptr<Input>> GetTopK(int32_t k, size_t min_length_unfinished = 0, size_t min_length_failing = 0);
-	std::vector<std::shared_ptr<Input>> GetTopK_Unfinished(int32_t k, size_t min_length = 0);
-	std::vector<std::shared_ptr<Input>> GetTopK_Secondary(int32_t k, size_t min_length_unfinished = 0, size_t min_length_failing = 0);
-	std::vector<std::shared_ptr<Input>> GetTopK_Secondary_Unfinished(int32_t k, size_t min_length = 0);
-	std::vector<std::shared_ptr<Input>> GetTopK_Length(int32_t k, size_t min_length_unfinished = 0, size_t min_length_failing = 0);
-	std::vector<std::shared_ptr<Input>> GetTopK_Length_Unfinished(int32_t k, size_t min_length = 0);
+	std::vector<Types::shared_ptr<Input>> GetTopK(int32_t k, size_t min_length_unfinished = 0, size_t min_length_failing = 0);
+	std::vector<Types::shared_ptr<Input>> GetTopK_Unfinished(int32_t k, size_t min_length = 0);
+	std::vector<Types::shared_ptr<Input>> GetTopK_Secondary(int32_t k, size_t min_length_unfinished = 0, size_t min_length_failing = 0);
+	std::vector<Types::shared_ptr<Input>> GetTopK_Secondary_Unfinished(int32_t k, size_t min_length = 0);
+	std::vector<Types::shared_ptr<Input>> GetTopK_Length(int32_t k, size_t min_length_unfinished = 0, size_t min_length_failing = 0);
+	std::vector<Types::shared_ptr<Input>> GetTopK_Length_Unfinished(int32_t k, size_t min_length = 0);
 
-	std::vector<std::shared_ptr<Input>> FindKSources(int32_t k, std::set<std::shared_ptr<Input>> exclusionlist, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0);
+	std::vector<Types::shared_ptr<Input>> FindKSources(int32_t k, std::set<Types::shared_ptr<Input>> exclusionlist, bool allowFailing, size_t min_length_unfinished = 0, size_t min_length_failing = 0);
 
-	void GetPositiveInputs(int32_t k, std::vector<std::shared_ptr<Input>>& posinputs);
+	void GetPositiveInputs(int32_t k, std::vector<Types::shared_ptr<Input>>& posinputs);
 
 	/// <summary>
 	/// Visits all positive inputs
 	/// </summary>
 	/// <param name="visitor">return value indicates whether the next input should be visited next</param>
-	void VisitPositiveInputs(std::function<bool(std::shared_ptr<Input>)> visitor, size_t begin = 0);
+	void VisitPositiveInputs(std::function<bool(Types::shared_ptr<Input>)> visitor, size_t begin = 0);
 
 	/// <summary>
 	/// Visits last run inputs
 	/// </summary>
 	/// <param name="visitor">return value indicates whether the next input should be visited next</param>
-	void VisitLastRun(std::function<bool(std::shared_ptr<Input>)> visitor);
+	void VisitLastRun(std::function<bool(Types::shared_ptr<Input>)> visitor);
 
 	/// <summary>
 	/// aqcuires a readers lock for input generation

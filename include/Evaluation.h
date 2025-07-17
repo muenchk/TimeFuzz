@@ -8,6 +8,8 @@
 #include <fstream>
 #include <set>
 
+#include "Types.h"
+
 class Session;
 class SessionData;
 class Data;
@@ -33,28 +35,28 @@ class Evaluation
 	};
 
 private:
-	std::shared_ptr<Session> _session;
-	std::shared_ptr<SessionData> _sessiondata;
+	Types::shared_ptr<Session> _session;
+	Types::shared_ptr<SessionData> _sessiondata;
 	Data* _data;
 	std::filesystem::path _resultpath;
 
 	void WriteFile(std::string filename, std::string subpath, std::string content);
-	std::string PrintInput(std::shared_ptr<Input> input, std::string& str, std::string& scriptargs, std::string& cmdargs, std::string& dump,bool skipargs = false);
+	std::string PrintInput(Types::shared_ptr<Input> input, std::string& str, std::string& scriptargs, std::string& cmdargs, std::string& dump,bool skipargs = false);
 
 public:
-	Evaluation(std::shared_ptr<Session> session,std::filesystem::path resultpath);
+	Evaluation(Types::shared_ptr<Session> session,std::filesystem::path resultpath);
 	Evaluation() {}
 
 	void Evaluate(int64_t& total, int64_t& current);
-	void Evaluate(std::shared_ptr<Generation> generation);
-	void Evaluate(std::shared_ptr<DeltaDebugging::DeltaController> ddcontroller);
+	void Evaluate(Types::shared_ptr<Generation> generation);
+	void Evaluate(Types::shared_ptr<DeltaDebugging::DeltaController> ddcontroller);
 	void EvaluateTopK();
 	void EvaluatePositive();
 	void EvaluateGeneral();
 
 	static Evaluation* GetSingleton();
 
-	void SetSession(std::shared_ptr<Session> session)
+	void SetSession(Types::shared_ptr<Session> session)
 	{
 		_session = session;
 		_sessiondata = session->_sessiondata;

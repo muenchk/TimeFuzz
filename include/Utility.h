@@ -74,6 +74,13 @@ public:
 			return "None";
 		return std::string("[") + typeid(T).name() + "<" + Utility::GetHex(form->GetFormID()) + ">";
 	}
+	template <class T, typename = std::enable_if<std::is_base_of<Form, T>::value>>
+	static std::string PrintForm(Types::shared_ptr<T> form)
+	{
+		if (!form || form->GetFormID() == 0)
+			return "None";
+		return std::string("[") + typeid(T).name() + "<" + Utility::GetHex(form->GetFormID()) + ">";
+	}
 
 	/// <summary>
 	/// Returns a string showing [val] as Hexadecimal number

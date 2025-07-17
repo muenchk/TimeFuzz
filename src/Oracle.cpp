@@ -226,7 +226,7 @@ void Oracle::ApplyLuaCommands(lua_State* L)
 	}
 }
 
-OracleResult Oracle::Evaluate(lua_State* L, std::shared_ptr<Test> test)
+OracleResult Oracle::Evaluate(lua_State* L, Types::shared_ptr<Test> test)
 {
 	StartProfiling;
 	profile(TimeProfiling, "{}: begin oracle", Utility::PrintForm(test));

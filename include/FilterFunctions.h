@@ -14,11 +14,11 @@ class FilterFunctions
 {
 public:
 	template <class T>
-	static void FilterSet(std::shared_ptr<SessionData> _sessiondata, std::shared_ptr<Generation> generation, std::set<std::shared_ptr<Input>, FormIDLess<Input>>& targets, double max, double frac, bool checkdeltaflag, bool primary, int targetval)
+	static void FilterSet(Types::shared_ptr<SessionData> _sessiondata, Types::shared_ptr<Generation> generation, std::set<Types::shared_ptr<Input>, FormIDLess<Input>>& targets, double max, double frac, bool checkdeltaflag, bool primary, int targetval)
 	{
-		std::set<std::shared_ptr<Input>, T> tmptargets;
+		std::set<Types::shared_ptr<Input>, T> tmptargets;
 
-		std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> controllers;
+		std::vector<Types::shared_ptr<DeltaDebugging::DeltaController>> controllers;
 		generation->GetDDControllers(controllers);
 		auto itrus = controllers.begin();
 		// remove controllers without results
@@ -31,7 +31,7 @@ public:
 		}
 		std::vector<int32_t> rootNums;
 		std::vector<int32_t> boundaries;
-		std::vector<std::vector<std::shared_ptr<Input>>> chosen;
+		std::vector<std::vector<Types::shared_ptr<Input>>> chosen;
 		chosen.resize(controllers.size());
 		rootNums.resize(controllers.size());
 		boundaries.resize(controllers.size());
@@ -75,8 +75,8 @@ public:
 			}
 		};
 
-		auto getRoot = [&controllers, &_sessiondata](std::shared_ptr<Input> input) {
-			auto traceBack = [&_sessiondata](std::shared_ptr<Input> input, FormID origID) {
+		auto getRoot = [&controllers, &_sessiondata](Types::shared_ptr<Input> input) {
+			auto traceBack = [&_sessiondata](Types::shared_ptr<Input> input, FormID origID) {
 				auto tmp = input;
 				while (tmp && tmp->GetParentID() != 0)
 					if (tmp->GetParentID() == origID)
@@ -100,7 +100,7 @@ public:
 			// for delta debugging just choose the best results from the controllers, do the rest if and
 			// only if theres no more results left to choose
 			int32_t index = 0;
-			std::vector<std::set<std::shared_ptr<Input>, T>> ressets;
+			std::vector<std::set<Types::shared_ptr<Input>, T>> ressets;
 			ressets.resize(controllers.size());
 			for (size_t i = 0; i < controllers.size(); i++) {
 				for (auto [form, _] : *(controllers[i]->GetResults()))
@@ -133,7 +133,7 @@ public:
 			}
 		}
 
-		std::set<std::shared_ptr<Input>, T> inputs;
+		std::set<Types::shared_ptr<Input>, T> inputs;
 		// if the max is 0 just run loop a single time since 0 is the minimal value for primaryScore
 		if (max == 0.0f)
 			frac = 1.0f;

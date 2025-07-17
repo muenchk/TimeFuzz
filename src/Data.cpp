@@ -87,7 +87,7 @@ void Data::SetSavePath(std::filesystem::path path)
 	_savepath = path;
 }
 
-void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
+void Data::Save(Types::shared_ptr<Functions::BaseFunction> callback)
 {
 	if (_savelock.try_lock()) {
 		_runtime += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - _sessionBegin);
@@ -118,8 +118,8 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 		if (fsave.is_open()) {
 			// lock access to taskcontroller and executionhandler
 			_status = "Freezing controllers...";
-			std::shared_ptr<TaskController> taskcontrol = CreateForm<TaskController>();
-			std::shared_ptr<ExecutionHandler> execcontrol = CreateForm<ExecutionHandler>();
+			Types::shared_ptr<TaskController> taskcontrol = CreateForm<TaskController>();
+			Types::shared_ptr<ExecutionHandler> execcontrol = CreateForm<ExecutionHandler>();
 			taskcontrol->RequestFreeze();
 			//execcontrol->Freeze(true);
 			execcontrol->Freeze(false);
@@ -205,7 +205,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 			{
 				/*std::shared_lock<std::shared_mutex> guard(_hashmaplock);
 				size_t recordnum = 0;
-				auto changedcounter = [&recordnum](std::shared_ptr<IForm> form) {
+				auto changedcounter = [&recordnum](Types::shared_ptr<IForm> form) {
 					if (form && form->HasChanged()) {
 						recordnum++;
 					}
@@ -593,7 +593,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 	_lresolve->_data = this;
 	_lresolve->finalsave = ignorepriorsaves;
 	// callback after load
-	std::shared_ptr<Functions::BaseFunction> callback;
+	Types::shared_ptr<Functions::BaseFunction> callback;
 	StartProfiling;
 	SaveStats stats;
 	std::ifstream fsave = std::ifstream(path, std::ios_base::in | std::ios_base::binary);
@@ -1165,7 +1165,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 			}
 
 			// delete all forms marked deleted
-			auto visitor = [](std::shared_ptr<IForm> form) {
+			auto visitor = [](Types::shared_ptr<IForm> form) {
 				if (!form)
 					logcritical("Form is empty");
 				if (form->HasFlag(Form::FormFlags::Deleted))
@@ -1359,9 +1359,9 @@ void LoadResolver::AddRegeneration(FormID formid)
 	_regeneration.insert(formid);
 }
 
-void LoadResolver::Regenrate_Intern(std::shared_ptr<SessionData> sessiondata, uint64_t* progress)
+void LoadResolver::Regenrate_Intern(Types::shared_ptr<SessionData> sessiondata, uint64_t* progress)
 {
-	std::shared_ptr<Input> form;
+	Types::shared_ptr<Input> form;
 	while (_regenqueue.size() > 0) {
 		{
 			std::unique_lock<std::mutex> guard(_regenlock);
@@ -1388,9 +1388,9 @@ void LoadResolver::Regenrate_Intern(std::shared_ptr<SessionData> sessiondata, ui
 	}
 }
 
-void LoadResolver::Regenerate_Free(std::shared_ptr<SessionData> /*sessiondata*/, uint64_t* progress)
+void LoadResolver::Regenerate_Free(Types::shared_ptr<SessionData> /*sessiondata*/, uint64_t* progress)
 {
-	std::shared_ptr<Input> form;
+	Types::shared_ptr<Input> form;
 	FormID formid;
 	while (_regeneration.size() > 0) {
 		{
@@ -1409,18 +1409,18 @@ void LoadResolver::Regenerate_Free(std::shared_ptr<SessionData> /*sessiondata*/,
 	}
 }
 
-void LoadResolver::Regenerate(uint64_t& progress, uint64_t& max, std::shared_ptr<SessionData> sessiondata, int32_t numthreads)
+void LoadResolver::Regenerate(uint64_t& progress, uint64_t& max, Types::shared_ptr<SessionData> sessiondata, int32_t numthreads)
 {
 	logmessage("Starting {} threads", numthreads);
 	std::vector<std::thread> threads;
-	std::vector<std::shared_ptr<Input>> back;
+	std::vector<Types::shared_ptr<Input>> back;
 	current = "Gather Inputs to regenerate";
 	for (auto formid : _regeneration)
 	{
 		back.clear();
-		std::shared_ptr<Input> form = _data->LookupFormID<Input>(formid);
+		Types::shared_ptr<Input> form = _data->LookupFormID<Input>(formid);
 		back.push_back(form);
-		/*std::shared_ptr<Input> tmp = _data->LookupFormID<Input>(form->GetParentID());
+		/*Types::shared_ptr<Input> tmp = _data->LookupFormID<Input>(form->GetParentID());
 		while (tmp) {
 			if (!_regeneration.contains(tmp->GetFormID())) {
 				back.push_back(tmp);
@@ -1484,9 +1484,9 @@ void LoadResolver::Task::Dispose()
 
 
 template<>
-std::shared_ptr<Session> Data::CreateForm()
+Types::shared_ptr<Session> Data::CreateForm()
 {
-	std::shared_ptr<Session> ptr;
+	Types::shared_ptr<Session> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 		auto itr = _hashmap.find(StaticFormIDs::Session);
@@ -1496,7 +1496,7 @@ std::shared_ptr<Session> Data::CreateForm()
 	if (ptr)
 		return ptr;
 	else {
-		ptr = std::make_shared<Session>();
+		ptr = Types::make_shared<Session>();
 		ptr->data = this;
 		FormID formid = StaticFormIDs::Session;
 		ptr->SetFormID(formid);
@@ -1510,9 +1510,9 @@ std::shared_ptr<Session> Data::CreateForm()
 }
 
 template <>
-std::shared_ptr<TaskController> Data::CreateForm()
+Types::shared_ptr<TaskController> Data::CreateForm()
 {
-	std::shared_ptr<TaskController> ptr;
+	Types::shared_ptr<TaskController> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 		auto itr = _hashmap.find(StaticFormIDs::TaskController);
@@ -1523,11 +1523,11 @@ std::shared_ptr<TaskController> Data::CreateForm()
 		return ptr;
 	else {
 		if (_globalTasks) {
-			static std::shared_ptr<TaskController> controller = std::make_shared<TaskController>();
+			static Types::shared_ptr<TaskController> controller = Types::make_shared<TaskController>();
 			ptr = controller;
 		}
 		else
-			ptr = std::make_shared<TaskController>();
+			ptr = Types::make_shared<TaskController>();
 		FormID formid = StaticFormIDs::TaskController;
 		ptr->SetFormID(formid);
 		{
@@ -1540,9 +1540,9 @@ std::shared_ptr<TaskController> Data::CreateForm()
 }
 
 template <>
-std::shared_ptr<Settings> Data::CreateForm()
+Types::shared_ptr<Settings> Data::CreateForm()
 {
-	std::shared_ptr<Settings> ptr;
+	Types::shared_ptr<Settings> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 		auto itr = _hashmap.find(StaticFormIDs::Settings);
@@ -1552,7 +1552,7 @@ std::shared_ptr<Settings> Data::CreateForm()
 	if (ptr)
 		return ptr;
 	else {
-		ptr = std::make_shared<Settings>();
+		ptr = Types::make_shared<Settings>();
 		FormID formid = StaticFormIDs::Settings;
 		ptr->SetFormID(formid);
 		{
@@ -1565,9 +1565,9 @@ std::shared_ptr<Settings> Data::CreateForm()
 }
 
 template <>
-std::shared_ptr<Oracle> Data::CreateForm()
+Types::shared_ptr<Oracle> Data::CreateForm()
 {
-	std::shared_ptr<Oracle> ptr;
+	Types::shared_ptr<Oracle> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 		auto itr = _hashmap.find(StaticFormIDs::Oracle);
@@ -1577,7 +1577,7 @@ std::shared_ptr<Oracle> Data::CreateForm()
 	if (ptr)
 		return ptr;
 	else {
-		ptr = std::make_shared<Oracle>();
+		ptr = Types::make_shared<Oracle>();
 		FormID formid = StaticFormIDs::Oracle;
 		ptr->SetFormID(formid);
 		{
@@ -1590,9 +1590,9 @@ std::shared_ptr<Oracle> Data::CreateForm()
 }
 
 template <>
-std::shared_ptr<Generator> Data::CreateForm()
+Types::shared_ptr<Generator> Data::CreateForm()
 {
-	std::shared_ptr<Generator> ptr;
+	Types::shared_ptr<Generator> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 		auto itr = _hashmap.find(StaticFormIDs::Generator);
@@ -1602,7 +1602,7 @@ std::shared_ptr<Generator> Data::CreateForm()
 	if (ptr)
 		return ptr;
 	else {
-		ptr = std::make_shared<Generator>();
+		ptr = Types::make_shared<Generator>();
 		FormID formid = StaticFormIDs::Generator;
 		ptr->SetFormID(formid);
 		{
@@ -1615,9 +1615,9 @@ std::shared_ptr<Generator> Data::CreateForm()
 }
 
 template <>
-std::shared_ptr<ExclusionTree> Data::CreateForm()
+Types::shared_ptr<ExclusionTree> Data::CreateForm()
 {
-	std::shared_ptr<ExclusionTree> ptr;
+	Types::shared_ptr<ExclusionTree> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 		auto itr = _hashmap.find(StaticFormIDs::ExclusionTree);
@@ -1627,7 +1627,7 @@ std::shared_ptr<ExclusionTree> Data::CreateForm()
 	if (ptr)
 		return ptr;
 	else {
-		ptr = std::make_shared<ExclusionTree>();
+		ptr = Types::make_shared<ExclusionTree>();
 		FormID formid = StaticFormIDs::ExclusionTree;
 		ptr->SetFormID(formid);
 		{
@@ -1640,9 +1640,9 @@ std::shared_ptr<ExclusionTree> Data::CreateForm()
 }
 
 template <>
-std::shared_ptr<ExecutionHandler> Data::CreateForm()
+Types::shared_ptr<ExecutionHandler> Data::CreateForm()
 {
-	std::shared_ptr<ExecutionHandler> ptr;
+	Types::shared_ptr<ExecutionHandler> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 		auto itr = _hashmap.find(StaticFormIDs::ExecutionHandler);
@@ -1653,11 +1653,11 @@ std::shared_ptr<ExecutionHandler> Data::CreateForm()
 		return ptr;
 	else {
 		if (_globalExec) {
-			static std::shared_ptr<ExecutionHandler> exechandler = std::make_shared<ExecutionHandler>();
+			static Types::shared_ptr<ExecutionHandler> exechandler = Types::make_shared<ExecutionHandler>();
 			ptr = exechandler;
 		}
 		else
-			ptr = std::make_shared<ExecutionHandler>();
+			ptr = Types::make_shared<ExecutionHandler>();
 		FormID formid = StaticFormIDs::ExecutionHandler;
 		ptr->SetFormID(formid);
 		{
@@ -1670,9 +1670,9 @@ std::shared_ptr<ExecutionHandler> Data::CreateForm()
 }
 
 template <>
-std::shared_ptr<SessionData> Data::CreateForm()
+Types::shared_ptr<SessionData> Data::CreateForm()
 {
-	std::shared_ptr<SessionData> ptr;
+	Types::shared_ptr<SessionData> ptr;
 	{
 		std::unique_lock<std::shared_mutex> guard(_hashmaplock);
 		auto itr = _hashmap.find(StaticFormIDs::SessionData);
@@ -1682,7 +1682,7 @@ std::shared_ptr<SessionData> Data::CreateForm()
 	if (ptr)
 		return ptr;
 	else {
-		ptr = std::make_shared<SessionData>();
+		ptr = Types::make_shared<SessionData>();
 		ptr->data = this;
 		FormID formid = StaticFormIDs::SessionData;
 		ptr->SetFormID(formid);
@@ -1695,14 +1695,14 @@ std::shared_ptr<SessionData> Data::CreateForm()
 	}
 }
 
-std::unordered_map<FormID, std::weak_ptr<IForm>> Data::GetWeakHashmapCopy()
+std::unordered_map<FormID, Types::weak_ptr<IForm>> Data::GetWeakHashmapCopy()
 {
-	std::unordered_map<FormID, std::weak_ptr<IForm>> hashweak;
+	std::unordered_map<FormID, Types::weak_ptr<IForm>> hashweak;
 	{
 		std::shared_lock<std::shared_mutex> guard(_hashmaplock);
 		for (auto& [id, form] : _hashmap)
 		{
-			hashweak.insert({ id, std::weak_ptr<IForm>(form) });
+			hashweak.insert({ id, Types::weak_ptr<IForm>(form) });
 		}
 	}
 	return hashweak;
@@ -1788,7 +1788,7 @@ bool Data::ReadStringHashmap(std::istream* buffer, size_t& offset, size_t length
 	return false;
 }
 
-void Data::Visit(std::function<VisitAction(std::shared_ptr<IForm>)> visitor)
+void Data::Visit(std::function<VisitAction(Types::shared_ptr<IForm>)> visitor)
 {
 	bool writelock = false;
 	_hashmaplock.lock_shared();

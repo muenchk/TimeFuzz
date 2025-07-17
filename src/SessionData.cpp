@@ -9,7 +9,7 @@
 #include <stdexcept>
 #include <memory>
 
-void SessionData::SetInsert(std::shared_ptr<InputNode> /*node*/)
+void SessionData::SetInsert(Types::shared_ptr<InputNode> /*node*/)
 {
 	/* if (auto ptr = node->input.lock(); ptr)
 	{
@@ -18,7 +18,7 @@ void SessionData::SetInsert(std::shared_ptr<InputNode> /*node*/)
 			ptr->derive->SetFlag(Form::FormFlags::DoNotFree);
 	}*/
 }
-void SessionData::SetRemove(std::shared_ptr<InputNode> /*node*/)
+void SessionData::SetRemove(Types::shared_ptr<InputNode> /*node*/)
 {
 	/* if (auto ptr = node->input.lock(); ptr) {
 		if (ptr->HasFlag(Form::FormFlags::DoNotFree))
@@ -98,14 +98,14 @@ void SessionData::Clear()
 	// so we have the opportunity to properly clear up threads etc.
 }
 
-void SessionData::AddInput(std::shared_ptr<Input>& input, EnumType list, double optionalweight)
+void SessionData::AddInput(Types::shared_ptr<Input>& input, EnumType list, double optionalweight)
 {
 	if (!input)
 		return;
 	switch (list) {
 	case OracleResult::Failing:
 		{
-			std::shared_ptr<InputNode> node = std::make_shared<InputNode>();
+			Types::shared_ptr<InputNode> node = Types::make_shared<InputNode>();
 			node->input = input;
 			node->weight = optionalweight;
 			node->primary = input->GetPrimaryScore();
@@ -134,7 +134,7 @@ void SessionData::AddInput(std::shared_ptr<Input>& input, EnumType list, double 
 		break;
 	case OracleResult::Unfinished:
 		{
-			std::shared_ptr<InputNode> node = std::make_shared<InputNode>();
+			Types::shared_ptr<InputNode> node = Types::make_shared<InputNode>();
 			node->input = input;
 			node->weight = optionalweight;
 			node->primary = input->GetPrimaryScore();
@@ -170,19 +170,19 @@ void SessionData::AddInput(std::shared_ptr<Input>& input, EnumType list, double 
 #endif
 }
 
-std::shared_ptr<Generation> SessionData::GetGen()
+Types::shared_ptr<Generation> SessionData::GetGen()
 {
 	Utility::SpinLock guard(_generationFlag);
 	return _generation;
 }
 
-void SessionData::SetGen(std::shared_ptr<Generation> gen)
+void SessionData::SetGen(Types::shared_ptr<Generation> gen)
 {
 	Utility::SpinLock guard(_generationFlag);
 	_generation = gen;
 }
 
-std::shared_ptr<Generation> SessionData::ExchangeGen(std::shared_ptr<Generation> newgen)
+Types::shared_ptr<Generation> SessionData::ExchangeGen(Types::shared_ptr<Generation> newgen)
 {
 	Utility::SpinLock guard(_generationFlag);
 	auto gen = _generation;
@@ -225,9 +225,9 @@ TestExitStats& SessionData::GetTestExitStats()
 	return exitstats;
 }
 
-std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Length(int32_t k, size_t min_length_unfinished, size_t min_length_failing)
+std::vector<Types::shared_ptr<Input>> SessionData::GetTopK_Length(int32_t k, size_t min_length_unfinished, size_t min_length_failing)
 {
-	std::vector<std::shared_ptr<Input>> ret;
+	std::vector<Types::shared_ptr<Input>> ret;
 	int32_t count = 0;
 	std::shared_lock<std::shared_mutex> guardm(_multiset_lock);
 	auto itr = _topK_length.begin();
@@ -244,9 +244,9 @@ std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Length(int32_t k, size_
 	return ret;
 }
 
-std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Length_Unfinished(int32_t k, size_t min_length)
+std::vector<Types::shared_ptr<Input>> SessionData::GetTopK_Length_Unfinished(int32_t k, size_t min_length)
 {
-	std::vector<std::shared_ptr<Input>> ret;
+	std::vector<Types::shared_ptr<Input>> ret;
 	int32_t count = 0;
 	std::shared_lock<std::shared_mutex> guardm(_multiset_lock);
 	auto itr = _topK_length_Unfinished.begin();
@@ -259,9 +259,9 @@ std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Length_Unfinished(int32
 	return ret;
 }
 
-std::vector<std::shared_ptr<Input>> SessionData::GetTopK(int32_t k, size_t min_length_unfinished, size_t min_length_failing)
+std::vector<Types::shared_ptr<Input>> SessionData::GetTopK(int32_t k, size_t min_length_unfinished, size_t min_length_failing)
 {
-	std::vector<std::shared_ptr<Input>> ret;
+	std::vector<Types::shared_ptr<Input>> ret;
 	int32_t count = 0;
 	std::shared_lock<std::shared_mutex> guardm(_multiset_lock);
 	auto itr = _topK_primary.begin();
@@ -278,9 +278,9 @@ std::vector<std::shared_ptr<Input>> SessionData::GetTopK(int32_t k, size_t min_l
 	return ret;
 }
 
-std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Unfinished(int32_t k, size_t min_length)
+std::vector<Types::shared_ptr<Input>> SessionData::GetTopK_Unfinished(int32_t k, size_t min_length)
 {
-	std::vector<std::shared_ptr<Input>> ret;
+	std::vector<Types::shared_ptr<Input>> ret;
 	int32_t count = 0;
 	std::shared_lock<std::shared_mutex> guardm(_multiset_lock);
 	auto itr = _topK_primary_Unfinished.begin();
@@ -293,10 +293,10 @@ std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Unfinished(int32_t k, s
 	return ret;
 }
 
-std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Secondary(int32_t k, size_t min_length_unfinished, size_t min_length_failing)
+std::vector<Types::shared_ptr<Input>> SessionData::GetTopK_Secondary(int32_t k, size_t min_length_unfinished, size_t min_length_failing)
 {
 	std::shared_lock<std::shared_mutex> guardm(_multiset_lock);
-	std::vector<std::shared_ptr<Input>> ret;
+	std::vector<Types::shared_ptr<Input>> ret;
 	int32_t count = 0;
 	auto itr = _topK_secondary.begin();
 	while (count < k && itr != _topK_secondary.end()) {
@@ -312,9 +312,9 @@ std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Secondary(int32_t k, si
 	return ret;
 }
 
-std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Secondary_Unfinished(int32_t k, size_t min_length)
+std::vector<Types::shared_ptr<Input>> SessionData::GetTopK_Secondary_Unfinished(int32_t k, size_t min_length)
 {
-	std::vector<std::shared_ptr<Input>> ret;
+	std::vector<Types::shared_ptr<Input>> ret;
 	int32_t count = 0;
 	std::shared_lock<std::shared_mutex> guardm(_multiset_lock);
 	auto itr = _topK_secondary_Unfinished.begin();
@@ -328,9 +328,9 @@ std::vector<std::shared_ptr<Input>> SessionData::GetTopK_Secondary_Unfinished(in
 }
 
 
-std::vector<std::shared_ptr<Input>> SessionData::FindKSources(int32_t k, std::set<std::shared_ptr<Input>> exclusionlist, bool allowFailing, size_t min_length_unfinished, size_t min_length_failing)
+std::vector<Types::shared_ptr<Input>> SessionData::FindKSources(int32_t k, std::set<Types::shared_ptr<Input>> exclusionlist, bool allowFailing, size_t min_length_unfinished, size_t min_length_failing)
 {
-	std::vector<std::shared_ptr<Input>> ret;
+	std::vector<Types::shared_ptr<Input>> ret;
 	auto itr = _unfinishedInputs.begin();
 	while ((int32_t)ret.size() < k && itr != _unfinishedInputs.end())
 	{
@@ -361,7 +361,7 @@ std::vector<std::shared_ptr<Input>> SessionData::FindKSources(int32_t k, std::se
 	return ret;
 }
 
-void SessionData::GetPositiveInputs(int32_t k, std::vector<std::shared_ptr<Input>>& posinputs)
+void SessionData::GetPositiveInputs(int32_t k, std::vector<Types::shared_ptr<Input>>& posinputs)
 {
 	std::shared_lock<std::shared_mutex> guard(_positiveInputsLock);
 	if (k != 0 && posinputs.size() < k)
@@ -378,7 +378,7 @@ void SessionData::GetPositiveInputs(int32_t k, std::vector<std::shared_ptr<Input
 	}
 }
 
-void SessionData::VisitPositiveInputs(std::function<bool(std::shared_ptr<Input>)> visitor, size_t begin)
+void SessionData::VisitPositiveInputs(std::function<bool(Types::shared_ptr<Input>)> visitor, size_t begin)
 {
 	std::shared_lock<std::shared_mutex> guard(_positiveInputsLock);
 	for (int64_t i = (int64_t)begin; i < (int64_t)_positiveInputs.size(); i++) {
@@ -394,7 +394,7 @@ void SessionData::VisitPositiveInputs(std::function<bool(std::shared_ptr<Input>)
 	}*/
 }
 
-void SessionData::VisitLastRun(std::function<bool(std::shared_ptr<Input>)> visitor)
+void SessionData::VisitLastRun(std::function<bool(Types::shared_ptr<Input>)> visitor)
 {
 	// see cppreference for this section (source)
 	while (_lastrunFlag.test_and_set(std::memory_order_acquire))
@@ -421,7 +421,7 @@ void SessionData::VisitLastRun(std::function<bool(std::shared_ptr<Input>)> visit
 }
 
 
-std::shared_ptr<Generation> SessionData::GetCurrentGeneration()
+Types::shared_ptr<Generation> SessionData::GetCurrentGeneration()
 {
 	if (_settings->generation.generationalMode)
 		return GetGen();
@@ -430,7 +430,7 @@ std::shared_ptr<Generation> SessionData::GetCurrentGeneration()
 	}
 }
 
-std::shared_ptr<Generation> SessionData::GetGeneration(FormID generationID)
+Types::shared_ptr<Generation> SessionData::GetGeneration(FormID generationID)
 {
 	if (_settings->generation.generationalMode) {
 		std::shared_lock<std::shared_mutex> guard(_generationsLock);
@@ -438,7 +438,7 @@ std::shared_ptr<Generation> SessionData::GetGeneration(FormID generationID)
 		if (itr != _generations.end()) {
 			return itr->second;
 		}else {
-			static std::shared_ptr<Generation> genptr = std::make_shared<Generation>();
+			static Types::shared_ptr<Generation> genptr = Types::make_shared<Generation>();
 			return genptr;
 		}
 	} else {
@@ -446,7 +446,7 @@ std::shared_ptr<Generation> SessionData::GetGeneration(FormID generationID)
 	}
 }
 
-std::shared_ptr<Generation> SessionData::GetGenerationByNumber(int32_t generationNumber)
+Types::shared_ptr<Generation> SessionData::GetGenerationByNumber(int32_t generationNumber)
 {
 	if (_settings->generation.generationalMode)
 	{
@@ -460,7 +460,7 @@ std::shared_ptr<Generation> SessionData::GetGenerationByNumber(int32_t generatio
 	return _defaultGen;
 }
 
-std::shared_ptr<Generation> SessionData::GetLastGeneration()
+Types::shared_ptr<Generation> SessionData::GetLastGeneration()
 {
 	return GetGeneration(_lastGenerationID);
 }
@@ -484,8 +484,8 @@ void SessionData::GetGenerationIDs(std::vector<std::pair<FormID, int32_t>>& gens
 void SessionData::SetNewGeneration(bool force)
 {
 	if (force || _settings->generation.generationalMode) {
-		std::shared_ptr<Generation> oldgen;
-		std::shared_ptr<Generation> newgen = data->CreateForm<Generation>();
+		Types::shared_ptr<Generation> oldgen;
+		Types::shared_ptr<Generation> newgen = data->CreateForm<Generation>();
 		// add to generations map
 		{
 			std::unique_lock<std::shared_mutex> guard(_generationsLock);
@@ -522,7 +522,7 @@ bool SessionData::CheckGenerationEnd(bool toomanyfails)
 			call->_sessiondata = data->CreateForm<SessionData>();  // self
 			_controller->AddTask(call);
 			return true;
-		} else if ((_settings->generation.maxNumberOfFailsPerSource != 0 || _settings->generation.maxNumberOfGenerationsPerSource != 0) && gen->CheckSourceValidity([this](std::shared_ptr<Input> input) {
+		} else if ((_settings->generation.maxNumberOfFailsPerSource != 0 || _settings->generation.maxNumberOfGenerationsPerSource != 0) && gen->CheckSourceValidity([this](Types::shared_ptr<Input> input) {
 					   if ((_settings->generation.maxNumberOfFailsPerSource == 0 || input->GetDerivedFails() < _settings->generation.maxNumberOfFailsPerSource) &&
 						   (_settings->generation.maxNumberOfGenerationsPerSource == 0 || input->GetDerivedInputs() < _settings->generation.maxNumberOfGenerationsPerSource))
 						   return true;
@@ -1071,7 +1071,7 @@ void SessionData::InitializeLate(LoadResolver* resolver)
 			for (int64_t i = 0; i < (int64_t)_loadData->negInp.size(); i++) {
 				auto shared = resolver->ResolveFormID<Input>(_loadData->negInp[i].first);
 				if (shared && shared->derive && shared->test) {
-					auto node = std::make_shared<InputNode>();
+					auto node = Types::make_shared<InputNode>();
 					node->input = shared;
 					node->weight = _loadData->negInp[i].second;
 					node->primary = shared->GetPrimaryScore();
@@ -1092,7 +1092,7 @@ void SessionData::InitializeLate(LoadResolver* resolver)
 			for (int64_t i = 0; i < (int64_t)_loadData->unfInp.size(); i++) {
 				auto shared = resolver->ResolveFormID<Input>(_loadData->unfInp[i].first);
 				if (shared && shared->derive && shared->test) {
-					auto node = std::make_shared<InputNode>();
+					auto node = Types::make_shared<InputNode>();
 					node->input = shared;
 					node->weight = _loadData->unfInp[i].second;
 					node->primary = shared->GetPrimaryScore();
@@ -1113,7 +1113,7 @@ void SessionData::InitializeLate(LoadResolver* resolver)
 			for (int64_t i = 0; i < (int64_t)_loadData->negInp.size(); i++) {
 				auto shared = resolver->ResolveFormID<Input>(_loadData->negInp[i].first);
 				if (shared && shared->derive && shared->test) {
-					auto node = std::make_shared<InputNode>();
+					auto node = Types::make_shared<InputNode>();
 					node->input = shared;
 					node->weight = _loadData->negInp[i].second;
 					node->primary = shared->GetPrimaryScore();
@@ -1134,7 +1134,7 @@ void SessionData::InitializeLate(LoadResolver* resolver)
 			for (int64_t i = 0; i < (int64_t)_loadData->unfInp.size(); i++) {
 				auto shared = resolver->ResolveFormID<Input>(_loadData->unfInp[i].first);
 				if (shared && shared->derive && shared->test) {
-					auto node = std::make_shared<InputNode>();
+					auto node = Types::make_shared<InputNode>();
 					node->input = shared;
 					node->weight = _loadData->unfInp[i].second;
 					node->primary = shared->GetPrimaryScore();
@@ -1173,7 +1173,7 @@ void SessionData::RegisterFactories()
 
 size_t SessionData::MemorySize()
 {
-	return sizeof(SessionData) + sizeof(boost::circular_buffer<unsigned char>) + sizeof(unsigned char) * GENERATION_WEIGHT_BUFFER_SIZE + sizeof(std::pair<FormID, std::shared_ptr<Generation>>) * _generations.size() + sizeof(std::pair<std::shared_ptr<InputNode>, InputNodeLess>) * 600 + sizeof(InputNode) * (_negativeInputs.size() + _unfinishedInputs.size()) + sizeof(FormID) * (_undefinedInputs.size() + _positiveInputs.size());
+	return sizeof(SessionData) + sizeof(boost::circular_buffer<unsigned char>) + sizeof(unsigned char) * GENERATION_WEIGHT_BUFFER_SIZE + sizeof(std::pair<FormID, Types::shared_ptr<Generation>>) * _generations.size() + sizeof(std::pair<Types::shared_ptr<InputNode>, InputNodeLess>) * 600 + sizeof(InputNode) * (_negativeInputs.size() + _unfinishedInputs.size()) + sizeof(FormID) * (_undefinedInputs.size() + _positiveInputs.size());
 }
 
 #pragma endregion

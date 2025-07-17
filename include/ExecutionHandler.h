@@ -60,7 +60,7 @@ namespace Functions
 	class ExecInitTestsCallback : public BaseFunction
 	{
 	public:
-		std::shared_ptr<SessionData> _sessiondata;
+		Types::shared_ptr<SessionData> _sessiondata;
 
 		void Run() override;
 		static uint64_t GetTypeStatic() { return 'EHTC'; }
@@ -68,15 +68,15 @@ namespace Functions
 
 		FunctionType GetFunctionType() override { return FunctionType::Light; }
 
-		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
+		virtual Types::shared_ptr<BaseFunction> DeepCopy() override;
 
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool WriteData(std::ostream* buffer, size_t& offset) override;
 		unsigned char* GetData(size_t& size) override;
 
-		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<ExecInitTestsCallback>()); }
-		static std::shared_ptr<BaseFunction> CreateFull(std::shared_ptr<SessionData> sessiondata);
+		static Types::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(Types::make_shared<ExecInitTestsCallback>()); }
+		static Types::shared_ptr<BaseFunction> CreateFull(Types::shared_ptr<SessionData> sessiondata);
 		void Dispose() override;
 		size_t GetLength() override;
 
@@ -89,7 +89,7 @@ namespace Functions
 	class WriteTestInputCallback : public BaseFunction
 	{
 	public:
-		std::shared_ptr<Test> _test;
+		Types::shared_ptr<Test> _test;
 		char* data;
 		size_t length;
 
@@ -99,14 +99,14 @@ namespace Functions
 
 		FunctionType GetFunctionType() override { return FunctionType::Light; }
 
-		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
+		virtual Types::shared_ptr<BaseFunction> DeepCopy() override;
 
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool WriteData(std::ostream* buffer, size_t& offset) override;
 		unsigned char* GetData(size_t& size) override;
 
-		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<WriteTestInputCallback>()); }
+		static Types::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(Types::make_shared<WriteTestInputCallback>()); }
 		void Dispose() override;
 		size_t GetLength() override;
 
@@ -139,23 +139,23 @@ private:
 	/// <summary>
 	/// the current session
 	/// </summary>
-	std::shared_ptr<Session> _session;
+	Types::shared_ptr<Session> _session;
 	/// <summary>
 	/// the current sessiondata
 	/// </summary>
-	std::shared_ptr<SessionData> _sessiondata;
+	Types::shared_ptr<SessionData> _sessiondata;
 	/// <summary>
 	/// settings of the current session
 	/// </summary>
-	std::shared_ptr<Settings> _settings;
+	Types::shared_ptr<Settings> _settings;
 	/// <summary>
 	/// taskcontroller used to execute callbacks
 	/// </summary>
-	std::shared_ptr<TaskController> _threadpool;
+	Types::shared_ptr<TaskController> _threadpool;
 	/// <summary>
 	/// test oracle
 	/// </summary>
-	std::shared_ptr<Oracle> _oracle;
+	Types::shared_ptr<Oracle> _oracle;
 	/// <summary>
 	/// maximum amount of concurrently active tests
 	/// </summary>
@@ -179,15 +179,15 @@ private:
 	/// <summary>
 	/// queue for tests waiting to be initialized for execution
 	/// </summary>
-	std::deque<std::shared_ptr<Test>> _waitingTests;
+	std::deque<Types::shared_ptr<Test>> _waitingTests;
 	/// <summary>
 	/// queue for tests waiting to be executed
 	/// </summary>
-	std::deque<std::shared_ptr<Test>> _waitingTestsExec;
+	std::deque<Types::shared_ptr<Test>> _waitingTestsExec;
 	/// <summary>
 	/// list holding currently active tests
 	/// </summary>
-	std::list<std::shared_ptr<Test>> _runningTests;
+	std::list<Types::shared_ptr<Test>> _runningTests;
 	/// <summary>
 	///  atomic flag for access to _runningTests
 	/// </summary>
@@ -195,17 +195,17 @@ private:
 	/// <summary>
 	/// internal vector holding temp references to actively handled tests
 	/// </summary>
-	std::vector<std::shared_ptr<Test>> _handleTests;
+	std::vector<Types::shared_ptr<Test>> _handleTests;
 	/// <summary>
 	/// test currently starting
 	/// </summary>
-	std::queue<std::shared_ptr<Test>> _startingTests;
+	std::queue<Types::shared_ptr<Test>> _startingTests;
 	std::mutex _startingLock;
 	std::condition_variable _startingLockCond;
 	/// <summary>
 	/// list holding stopped tests while handler is frozen
 	/// </summary>
-	std::list<std::shared_ptr<Test>> _stoppingTests;
+	std::list<Types::shared_ptr<Test>> _stoppingTests;
 	/// <summary>
 	/// synchronises access to all top-level functions, including start, stop, wait
 	/// </summary>
@@ -304,25 +304,25 @@ private:
 
 	std::thread _thread;
 
-	std::shared_ptr<stop_token> _threadStopToken;
+	Types::shared_ptr<stop_token> _threadStopToken;
 
 	std::thread _threadTS;
 
-	std::shared_ptr<stop_token> _threadTSStopToken;
+	Types::shared_ptr<stop_token> _threadTSStopToken;
 
 	std::thread _threadTest;
 
-	std::shared_ptr<stop_token> _threadTestStopToken;
+	Types::shared_ptr<stop_token> _threadTestStopToken;
 
-	void InternalLoop(std::shared_ptr<stop_token> stoken);
+	void InternalLoop(Types::shared_ptr<stop_token> stoken);
 
-	void TestStarter(std::shared_ptr<stop_token> stoken);
+	void TestStarter(Types::shared_ptr<stop_token> stoken);
 
-	void TestWaiter(std::shared_ptr<stop_token> stoken);
+	void TestWaiter(Types::shared_ptr<stop_token> stoken);
 
-	bool StartTest(std::shared_ptr<Test> test);
+	bool StartTest(Types::shared_ptr<Test> test);
 
-	void StopTest(std::shared_ptr<Test> test);
+	void StopTest(Types::shared_ptr<Test> test);
 
 	/// <summary>
 	/// class version
@@ -342,7 +342,7 @@ public:
 	ExecutionHandler();
 	~ExecutionHandler();
 
-	void Init(std::shared_ptr<Session> session, std::shared_ptr<SessionData> sessiondata, std::shared_ptr<Settings> settings, std::shared_ptr<TaskController> threadpool, int32_t maxConcurrentTests, std::shared_ptr<Oracle> oracle);
+	void Init(Types::shared_ptr<Session> session, Types::shared_ptr<SessionData> sessiondata, Types::shared_ptr<Settings> settings, Types::shared_ptr<TaskController> threadpool, int32_t maxConcurrentTests, Types::shared_ptr<Oracle> oracle);
 
 	static ExecutionHandler* GetSingleton();
 
@@ -409,7 +409,7 @@ public:
 	/// <param name="input">The input to run the test on</param>
 	/// <param name="callback">called after the test has been finished</param>
 	/// <param name="bypass">Bypass queue and start as soon as possible</param>
-	bool AddTest(std::shared_ptr<Input> input, std::shared_ptr<Functions::BaseFunction> callback, bool bypass = false, bool replay = false);
+	bool AddTest(Types::shared_ptr<Input> input, Types::shared_ptr<Functions::BaseFunction> callback, bool bypass = false, bool replay = false);
 
 	void InitTests();
 

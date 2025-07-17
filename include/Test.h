@@ -90,11 +90,11 @@ public:
 		};
 	};
 
-	Test(std::shared_ptr<Functions::BaseFunction> a_callback, uint64_t id);
+	Test(Types::shared_ptr<Functions::BaseFunction> a_callback, uint64_t id);
 	Test() {}
 	~Test();
 
-	void Init(std::shared_ptr<Functions::BaseFunction> a_callback, uint64_t id);
+	void Init(Types::shared_ptr<Functions::BaseFunction> a_callback, uint64_t id);
 
 	void PrepareForExecution() { Init(); }
 
@@ -118,7 +118,7 @@ public:
 	/// <summary>
 	/// the input for the PUT
 	/// </summary>
-	std::weak_ptr<Input> _input;
+	Types::weak_ptr<Input> _input;
 	/// <summary>
 	/// the iterator the to the next sequence element to be given to executable
 	/// </summary>
@@ -147,7 +147,7 @@ public:
 	/// <summary>
 	/// called after the test has been finished
 	/// </summary>
-	std::shared_ptr<Functions::BaseFunction> _callback;
+	Types::shared_ptr<Functions::BaseFunction> _callback;
 	/// <summary>
 	/// command line args for the test
 	/// </summary>
@@ -290,7 +290,7 @@ public:
 
 	bool PipeError() { return _pipeError; }
 
-	void DeepCopy(std::shared_ptr<Test> other);
+	void DeepCopy(Types::shared_ptr<Test> other);
 
 	const int32_t classversion = 0x2;
 
@@ -357,8 +357,8 @@ namespace Functions
 	class TestCallback : public BaseFunction
 	{
 	public:
-		std::shared_ptr<SessionData> _sessiondata;
-		std::shared_ptr<Input> _input;
+		Types::shared_ptr<SessionData> _sessiondata;
+		Types::shared_ptr<Input> _input;
 
 		~TestCallback();
 
@@ -368,14 +368,14 @@ namespace Functions
 
 		FunctionType GetFunctionType() override { return FunctionType::Light; }
 
-		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
+		virtual Types::shared_ptr<BaseFunction> DeepCopy() override;
 
 		bool ReadData(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool ReadData(unsigned char* buffer, size_t& offset, size_t length, LoadResolver* resolver) override;
 		bool WriteData(std::ostream* buffer, size_t& offset) override;
 		unsigned char* GetData(size_t& size) override;
 
-		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<TestCallback>()); }
+		static Types::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(Types::make_shared<TestCallback>()); }
 		void Dispose() override;
 		size_t GetLength() override;
 
@@ -392,11 +392,11 @@ namespace Functions
 
 		void Run() override;
 
-		virtual std::shared_ptr<BaseFunction> DeepCopy() override;
+		virtual Types::shared_ptr<BaseFunction> DeepCopy() override;
 
 		static uint64_t GetTypeStatic() { return 'RTES'; }
 		uint64_t GetType() override { return 'RTES'; }
-		static std::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(std::make_shared<ReplayTestCallback>()); }
+		static Types::shared_ptr<BaseFunction> Create() { return dynamic_pointer_cast<BaseFunction>(Types::make_shared<ReplayTestCallback>()); }
 
 		virtual const char* GetName() override
 		{

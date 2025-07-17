@@ -235,7 +235,7 @@ ExclusionTree::~ExclusionTree()
 		delete _loadData;
 }
 
-void ExclusionTree::Init(std::shared_ptr<SessionData> sessiondata)
+void ExclusionTree::Init(Types::shared_ptr<SessionData> sessiondata)
 {
 	_sessiondata = sessiondata;
 	if (!root) {
@@ -244,7 +244,7 @@ void ExclusionTree::Init(std::shared_ptr<SessionData> sessiondata)
 	}
 }
 
-void ExclusionTree::AddInput(std::shared_ptr<Input> input, OracleResult result)
+void ExclusionTree::AddInput(Types::shared_ptr<Input> input, OracleResult result)
 {
 	if (input.get() == nullptr)
 		return;
@@ -273,7 +273,7 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input, OracleResult result)
 		} else {
 			SetChanged();
 			// if there is no matching child, create one.
-			std::shared_ptr<ExclusionTreeNode> newnode = _sessiondata->data->CreateForm<ExclusionTreeNode>();
+			Types::shared_ptr<ExclusionTreeNode> newnode = _sessiondata->data->CreateForm<ExclusionTreeNode>();
 			newnode->SetChanged();
 			newnode->_result = OracleResult::Undefined;
 			newnode->_stringID = stringID;
@@ -309,13 +309,13 @@ void ExclusionTree::AddInput(std::shared_ptr<Input> input, OracleResult result)
 		depth = dep;
 }
 
-bool ExclusionTree::HasPrefix(std::shared_ptr<Input> input)
+bool ExclusionTree::HasPrefix(Types::shared_ptr<Input> input)
 {
 	static FormID prefixID;
 	return HasPrefix(input, prefixID);
 }
 
-bool ExclusionTree::HasPrefix(std::shared_ptr<Input> input, FormID& prefixID)
+bool ExclusionTree::HasPrefix(Types::shared_ptr<Input> input, FormID& prefixID)
 {
 	if (input.get() == nullptr)
 		return false;
@@ -358,7 +358,7 @@ bool ExclusionTree::HasPrefix(std::shared_ptr<Input> input, FormID& prefixID)
 	return false;
 }
 
-std::tuple<bool, FormID, bool, FormID> ExclusionTree::HasPrefixAndShortestExtension(std::shared_ptr<Input> input)
+std::tuple<bool, FormID, bool, FormID> ExclusionTree::HasPrefixAndShortestExtension(Types::shared_ptr<Input> input)
 {
 	if (input.get() == nullptr)
 		return { false, 0, false, 0 };

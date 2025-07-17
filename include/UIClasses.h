@@ -140,12 +140,12 @@ namespace UI
 		void GetOriginalInput(UIInput& input);
 		void GetInput(UIInput& input);
 		void GetActiveInputs(std::vector<UIInput>& inputs, size_t& size);
-		void SetDeltaController(std::shared_ptr<DeltaDebugging::DeltaController> controller);
+		void SetDeltaController(Types::shared_ptr<DeltaDebugging::DeltaController> controller);
 		std::chrono::nanoseconds GetRuntime();
 		bool Initialized();
 
 	private:
-		std::shared_ptr<DeltaDebugging::DeltaController> _ddcontroller;
+		Types::shared_ptr<DeltaDebugging::DeltaController> _ddcontroller;
 	};
 
 	class UIGeneration
@@ -163,14 +163,14 @@ namespace UI
 		void GetDDControllers(std::vector<UIDeltaDebugging>& dd, size_t& size);
 		std::chrono::nanoseconds GetRuntime();
 
-		void SetGeneration(std::shared_ptr<Generation> generation);
+		void SetGeneration(Types::shared_ptr<Generation> generation);
 
 		bool Initialized();
 		void Reset();
 	private:
-		std::shared_ptr<Generation> _generation;
-		std::vector<std::shared_ptr<Input>> sources;
-		std::vector<std::shared_ptr<DeltaDebugging::DeltaController>> _ddcontrollers;
+		Types::shared_ptr<Generation> _generation;
+		std::vector<Types::shared_ptr<Input>> sources;
+		std::vector<Types::shared_ptr<DeltaDebugging::DeltaController>> _ddcontrollers;
 		bool hasbegun = false;
 		size_t lastddcontrollers = 0;
 		bool gotsources = false;
@@ -207,19 +207,19 @@ namespace UI
 
 		bool Initialized();
 		void Refresh();
-		void Set(std::shared_ptr<Input> input, std::shared_ptr<SessionData> sessiondata);
+		void Set(Types::shared_ptr<Input> input, Types::shared_ptr<SessionData> sessiondata);
 		void Reset();
 
 	private:
-		std::shared_ptr<Input> _input;
-		std::shared_ptr<SessionData> _sessiondata;
+		Types::shared_ptr<Input> _input;
+		Types::shared_ptr<SessionData> _sessiondata;
 		bool _init = false;
 	};
 
 	class UITaskController
 	{
 	public:
-		void Set(std::shared_ptr<TaskController> controller);
+		void Set(Types::shared_ptr<TaskController> controller);
 		bool Initialized();
 
 		std::unordered_map<std::string, int64_t>::iterator beginExecutedTasks();
@@ -233,7 +233,7 @@ namespace UI
 		void UnlockFinishedTasks();
 #endif
 	private:
-		std::shared_ptr<TaskController> _controller;
+		Types::shared_ptr<TaskController> _controller;
 
 	};
 }
