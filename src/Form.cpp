@@ -96,7 +96,7 @@ bool StrippedForm::ReadData(std::istream* buffer, size_t& offset, size_t /*lengt
 		return false;
 	}
 }
-bool StrippedForm::ReadDataLegacy(std::istream* buffer, size_t& offset, size_t length, LoadResolver* resolver)
+bool StrippedForm::ReadDataLegacy(std::istream* buffer, size_t& offset, size_t /*length*/, LoadResolver* /*resolver*/)
 {
 	// sets saved to true -> form has been read from save
 	__saved = true;

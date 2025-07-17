@@ -740,7 +740,6 @@ void ExecutionHandler::InternalLoop(std::shared_ptr<stop_token> stoken)
 	// used for sleep time calculation
 	std::chrono::nanoseconds sleep = std::chrono::nanoseconds(-1);
 	// tmp test var
-	std::weak_ptr<Test> test;
 
 	// if handler has been stale account for timeout times
 	if (_stale) {
@@ -932,9 +931,6 @@ TestFinished:
 TestRunning:;
 		}
 
-		// reset vars
-		test.reset();
-
 		// calculate the difference between the cycle period and what we used doing the cycle
 		sleep = _waittime - std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - steady);
 		// if we wasted large amounts of time, we would have a "catch up" effect with just this calculation
@@ -1036,10 +1032,9 @@ void ExecutionHandler::ClearTests()
 	std::unique_lock<std::mutex> guardstart(_startingLock);
 	_waitingTests.clear();
 	while (!_waitingTestsExec.empty()) {
-		std::weak_ptr<Test> test = _waitingTestsExec.front();
+		std::shared_ptr<Test> test = _waitingTestsExec.front();
 		_waitingTestsExec.pop_front();
-		if (auto ptr = test.lock(); ptr && _session->data)
-			ptr->InValidatePreExec();
+		test->InValidatePreExec();
 	}
 	{
 		Utility::SpinLock guard(_runningTestsFlag);
