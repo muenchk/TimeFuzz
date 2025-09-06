@@ -691,7 +691,11 @@ public:
 // --------------------------------------------------------------
 namespace Types
 {
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 	class __declspec(novtable) control_block
+#elif defined(unix) || defined(__unix__) || defined(__unix)
+	class control_block
+#endif
 	{
 	public:
 		//std::atomic<long> _ref_count = 1;
