@@ -76,6 +76,9 @@ bool StrippedForm::WriteData(std::ostream* buffer, size_t& offset, size_t)
 	Buffer::Write(formversion, buffer, offset);
 	Buffer::Write(_formid, buffer, offset);
 	Buffer::Write(_flagsAlloc, buffer, offset);
+
+	__saved = true;
+
 	return true;
 }
 
@@ -282,6 +285,9 @@ bool Form::WriteData(std::ostream* buffer, size_t& offset, size_t)
 	{
 		Buffer::Write(flag, buffer, offset);
 	}
+
+	__saved = true;
+	
 	return true;
 }
 

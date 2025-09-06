@@ -837,6 +837,8 @@ bool Test::WriteData(std::ostream* buffer, size_t& offset, size_t length)
 		logcritical("Overflow in Test::WriteData");
 		//auto sz = GetDynamicSize();
 	}
+
+	__hash = Hashing::hash(this);
 	return true;
 }
 

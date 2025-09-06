@@ -267,7 +267,6 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 						continue;
 					}
 					writtenrecords++;
-					form->ClearChanged();
 					_actionrecord_len = 0;
 					_actionrecord_offset = 0;
 					//unsigned char* buffer = nullptr;
@@ -408,6 +407,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					//	stats._Fail++;
 					//	logcritical("record buffer could not be created");
 					//}
+					form->ClearChanged();
 					writtenbytes += _actionrecord_len;
 				}
 			}
