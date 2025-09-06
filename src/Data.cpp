@@ -115,6 +115,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 		logdebug("{}", (_savepath / name).string());
 		std::cout << "path: " << (_savepath / name).string() << "\n";
 		std::ofstream fsave = std::ofstream((_savepath / name), std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
+		size_t writtenbytes = 0;
 		if (fsave.is_open()) {
 			// lock access to taskcontroller and executionhandler
 			_status = "Freezing controllers...";
@@ -256,6 +257,8 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					if (fsave.bad())
 						logcritical("critical error in underlying savefile");
 				}
+
+				writtenbytes += _actionrecord_len;
 
 				for (auto& [formid, form] : _hashmap) {
 					// if we are writing incremental saves
@@ -405,6 +408,7 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 					//	stats._Fail++;
 					//	logcritical("record buffer could not be created");
 					//}
+					writtenbytes += _actionrecord_len;
 				}
 			}
 			sbuf->flush();
@@ -441,19 +445,21 @@ void Data::Save(std::shared_ptr<Functions::BaseFunction> callback)
 			sessdata->_controller->AddTask(callback);
 		}
 
-		loginfo("Saved Records:");
-		loginfo("Input: {}", stats._Input);
-		loginfo("Grammar: {}", stats._Grammar);
-		loginfo("DerivationTree: {}", stats._DevTree);
-		loginfo("ExclusionTree: {}", stats._ExclTree);
-		loginfo("Generator: {}", stats._Generator);
-		loginfo("Session: {}", stats._Session);
-		loginfo("Settings: {}", stats._Settings);
-		loginfo("Test: {}", stats._Test);
-		loginfo("TaskController: {}", stats._TaskController);
-		loginfo("ExecutionHandler: {}", stats._ExecutionHandler);
-		loginfo("Oracle: {}", stats._Oracle);
-		loginfo("Fails: {}", stats._Fail);
+		logmessage("Saved Records:");
+		logmessage("Input: {}", stats._Input);
+		logmessage("Grammar: {}", stats._Grammar);
+		logmessage("DerivationTree: {}", stats._DevTree);
+		logmessage("ExclusionTree: {}", stats._ExclTree);
+		logmessage("ExclusionTreeNodes: {}", stats._ExclTreeNode);
+		logmessage("Generator: {}", stats._Generator);
+		logmessage("Session: {}", stats._Session);
+		logmessage("Settings: {}", stats._Settings);
+		logmessage("Test: {}", stats._Test);
+		logmessage("TaskController: {}", stats._TaskController);
+		logmessage("ExecutionHandler: {}", stats._ExecutionHandler);
+		logmessage("Oracle: {}", stats._Oracle);
+		logmessage("Fails: {}", stats._Fail);
+		logmessage("Written Bytes: {}", writtenbytes);
 
 		_actionloadsave = false;
 		_status = "Running...";
@@ -629,6 +635,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 			}
 			pos += 16;
 		}
+		int64_t readbytes = 0;
 		if (guid1 == ident1 && guid2 == ident2) {
 			logdebug("GUID matches");
 			bool abort = false;
@@ -776,7 +783,9 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 				}
 			}
 
-			_actionloadsave_current = pos;
+			logmessage("Records to load: {}", _actionloadsave_max);
+
+			_actionloadsave_current = 0;
 			if (!abort) {
 				logdebug("decide compression");
 				// init compression etc.
@@ -813,7 +822,7 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 							//if (flen - pos >= 12) {
 								rlen = Buffer::ReadSize(&save, offset);
 								rtype = Buffer::ReadInt32(&save, offset);
-								if (save.bad())
+								if (save.bad() || save.eof())
 								{
 									// we haven't read as much as we want, probs end-of-file, so end iteration and continue
 									logwarn("Found unexpected end-of-file");
@@ -1134,9 +1143,12 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 								//if (cbuf)
 								//	delete[] cbuffer;
 
+							} else {
+								logmessage("rlen is < 0")
 							}
 							// update progress
 							_actionloadsave_current++;
+							readbytes += rlen;
 						}
 						_loaded = true;
 						loginfo("Loaded save");
@@ -1155,6 +1167,23 @@ void Data::LoadIntern(std::filesystem::path path, LoadSaveArgs& loadArgs, bool i
 			// this cannot be our savefile
 			logcritical("Save file does not have the proper format: fail guid");
 		}
+
+		logmessage("Loaded Records:");
+		logmessage("Input: {}", stats._Input);
+		logmessage("Grammar: {}", stats._Grammar);
+		logmessage("DerivationTree: {}", stats._DevTree);
+		logmessage("ExclusionTree: {}", stats._ExclTree);
+		logmessage("ExclusionTreeNodes: {}", stats._ExclTreeNode);
+		logmessage("Generator: {}", stats._Generator);
+		logmessage("Session: {}", stats._Session);
+		logmessage("Settings: {}", stats._Settings);
+		logmessage("Test: {}", stats._Test);
+		logmessage("TaskController: {}", stats._TaskController);
+		logmessage("ExecutionHandler: {}", stats._ExecutionHandler);
+		logmessage("Oracle: {}", stats._Oracle);
+		logmessage("Fails: {}", stats._Fail);
+		logmessage("Bytes Read: {}", readbytes);
+
 		delete[] buffer;
 		fsave.close();
 		std::cout << "hashtable size: " << _hashmap.size() << "\n";
