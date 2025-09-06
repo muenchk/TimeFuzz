@@ -894,7 +894,6 @@ bool Test::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRes
 				_cmdArgs = "";
 			// do not init here, or we create an insane amount of useless file pointers
 			//Init();
-			__hash = Hashing::hash(this);
 			return true;
 		}
 	case 0x2:
@@ -929,8 +928,6 @@ bool Test::ReadData(std::istream* buffer, size_t& offset, size_t length, LoadRes
 			catch (std::exception &e){
 				logcritical("Exception in read method: {}", e.what());
 			}
-
-			__hash = Hashing::hash(this);
 			return true;
 		}
 	default:
@@ -955,8 +952,8 @@ void Test::InitializeEarly(LoadResolver* resolver)
 
 void Test::InitializeLate(LoadResolver* /*resolver*/)
 {
-	if (_loadData)
-	{
+	if (_loadData) {
+		__hash = Hashing::hash(this);
 		delete _loadData;
 		_loadData = nullptr;
 	}
