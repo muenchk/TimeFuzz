@@ -92,6 +92,7 @@ bool ExclusionTreeNode::WriteData(std::ostream* buffer, size_t& offset, size_t l
 			if (_children[i]) {
 				CHECK(abuf.Write<FormID>(_children[i]->GetFormID()));
 			} else {
+				logcritical("Exclusion Tree Node is missing");
 				CHECK(abuf.Write<FormID>(0));
 			}
 		}

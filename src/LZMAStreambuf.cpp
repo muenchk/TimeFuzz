@@ -189,8 +189,10 @@ int LZMAStreambuf::underflow()
 			_in->read(&_compressedBuffer[0], _bufferSize);
 
 			// check for possible I/O error
-			if (_in->bad())
-				throw std::runtime_error("LZMAStreamBuf: Error while reading the provided input stream!");
+			if (_in->bad()) {
+				return EOF;
+				//throw std::runtime_error("LZMAStreamBuf: Error while reading the provided input stream!");
+			}
 
 			_lzmaStream.next_in =
 				reinterpret_cast<unsigned char*>(_compressedBuffer.get());

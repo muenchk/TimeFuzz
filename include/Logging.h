@@ -106,7 +106,7 @@ public:
 	}
 
 	/// <summary>
-	/// Formats microseconds into a proper time string
+	/// Formats nanoseconds into a proper time string
 	/// </summary>
 	/// <returns></returns>
 	static std::string FormatTimeNS(int64_t nanoseconds)
