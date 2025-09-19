@@ -5,6 +5,8 @@ Support for use-defined test oracle, dynamic command-line arguments and fuzzing 
 
 Fuzzes target programs by observing whether the target program consumes user-events from the program inputs and measures reaction times.
 
+This program has been developed as part of my Master's thesis at the Chair of Software Engineering at the Humboldt-Universität zu Berlin. The thesis can be found here [Thesis](PDF/Master_Thesis___Upload.pdf)
+
 ## Requirements
 
 * [CMake](https://cmake.org/)
